@@ -287,13 +287,19 @@ JSON/GLB"* — yani yüklenen IFC, ERP'nin backend'inde IfcOpenShell **değil**,
 
 ### 2.2 Dönüşüm (ERP'nin iç cad2data hattı)
 
-`docs/BIM-STORAGE-ARCHITECTURE.md`'nin belgelediği yazma yolu:
+`docs/BIM-STORAGE-ARCHITECTURE.md`'nin belgelediği yazma yolu (bire bir alıntı):
 
 ```
-Background → Convert RVT/IFC → canonical → COLLADA + parquet
+Background → Convert RVT → canonical → COLLADA + parquet
              BULK INSERT oe_bim_element (...)
              UPDATE oe_bim_model SET status="ready", element_count=N
 ```
+
+> **Not:** Alıntı, kaynaktaki örnek gibi `RVT` ihraç senaryosunu gösteriyor.
+> Aynı yolun IFC için de geçerli olduğu, `MODULES.md`'deki `cad` modül
+> tanımından (*"imports and converts DWG, DGN, RVT and IFC through the
+> canonical pipeline"*) ayrıca çıkarılıyor — alıntının kendisi
+> değiştirilmeden, bu not alıntının dışında ekleniyor.
 
 Bu adım tamamen ERP tarafında, arka planda çalışır (§ 0'da açıklanan gömülü
 cad2data). Operatör olarak sizin yapacağınız tek şey, `model_id` üzerinden
