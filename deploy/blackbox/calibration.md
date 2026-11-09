@@ -226,9 +226,11 @@ bağlantı başarısız) başarısız olduğunu adlandırır.
 
 > **Not — kendi barındırılan uç nokta (Ollama/vLLM) kullanılıyorsa.**
 > `ollama_base_url`/`vllm_base_url` alanları bir SSRF koruma doğrulamasından
-> geçer (`_reject_unsafe_base_url`, `backend/app/core/url_safety.py`) —
-> link-local veya bulut metadata adresleri reddedilir, loopback/özel ağ
-> adresleri (yerelde çalışan bir model için) kabul edilir.
+> geçer — `backend/app/modules/ai/schemas.py`'deki `_reject_unsafe_base_url`
+> adlı Pydantic `field_validator`, `backend/app/core/url_safety.py`'den
+> `validate_ai_provider_url`'i çağırır: link-local veya bulut metadata
+> adresleri reddedilir, loopback/özel ağ adresleri (yerelde çalışan bir
+> model için) kabul edilir.
 
 ---
 
