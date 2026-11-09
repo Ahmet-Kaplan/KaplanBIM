@@ -1,0 +1,188 @@
+# OpenConstructionERP — üretim dağıtımı (docker-compose.prod.yml + HTTPS proxy)
+#
+# Taban: upstream docker-compose.prod.yml, aşağıdaki adresten alınmıştır
+# (2026-11-10, main dalı, sha e02f871456d2a817822ff15a520c0a314cc9dc1a):
+#   https://github.com/datadrivenconstruction/OpenConstructionERP/blob/main/docker-compose.prod.yml
+# Bu proje AGPL-3.0 lisanslıdır; bu dosya tek firma iç kullanımı içindir,
+# dışarıya dağıtılmaz/satılmaz (bkz. docs/superpowers/specs/2026-11-10-
+# kaplanbim-construction-platform-design.md § Kısıtlar #1).
+#
+# Upstream'den farkları (KaplanBIM tarafında eklenenler):
+#   1. `frontend` artık host'a port yayınlamıyor (`ports:` yerine `expose:`) —
+#      tek giriş kapısı aşağıdaki `caddy` servisidir.
+#   2. Yeni `caddy` servisi: 80/443'ü dinler, Let's Encrypt ile otomatik HTTPS
+#      alır ve `frontend`'e ters vekillik (reverse proxy) yapar.
+#   3. `backend` servisine `SEED_DEMO` eklendi, varsayılanı "false" — demo
+#      hesap/proje tohumlaması üretimde kapalı (bkz. backend/app/core/demo_seed.py).
+#   4. `caddy_data` / `caddy_config` kalıcı birimleri eklendi (TLS sertifikası
+#      ve Caddy durumu için).
+#
+# Bu dosyayı çalıştırmadan önce: `deploy/erp/.env.example` dosyasını
+# `deploy/erp/.env` olarak kopyalayıp gerçek değerleri doldurun
+# (bkz. ../README.md).
+#
+# Doğrulama (bu ortamda, imaj indirmeden/kurulum yapmadan):
+#   docker compose -f deploy/erp/docker-compose.prod.yml config -q
+#
+# Gerçek kurulum (sunucuda) için ../README.md içindeki adımları izleyin.
+
+services:
+  postgres:
+    image: pgduckdb/pgduckdb:16-main
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-oe}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-openestimate}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-oe} -d ${POSTGRES_DB:-openestimate}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  backend:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.unified
+      # The API-only target: port 8000, no frontend, paired with the nginx
+      # service below. The same file's default target is the all-in-one image.
+      target: api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Parts, not a finished URL. Compose has no urlencode, so interpolating
+      # the password into a URL here breaks for any password containing "@":
+      # the user info splits at the first one and the host is read as whatever
+      # follows it. The entrypoint composes and percent-encodes these, and a
+      # DATABASE_URL set directly still overrides them.
+      OE_DB_HOST: postgres
+      OE_DB_PORT: "5432"
+      OE_DB_USER: ${POSTGRES_USER:-oe}
+      OE_DB_NAME: ${POSTGRES_DB:-openestimate}
+      OE_DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      REDIS_URL: ${REDIS_URL:-}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-60}
+      APP_ENV: production
+      APP_DEBUG: "false"
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost}
+      # KaplanBIM eklentisi: üretimde demo hesap/proje tohumlaması kapalı.
+      # Yalnızca değer "false"/"0"/"no" ise kapanır (bkz. app/core/demo_seed.py);
+      # gerçekten demo verisiyle test etmek isterseniz .env içinde
+      # SEED_DEMO=true geçin.
+      SEED_DEMO: ${SEED_DEMO:-false}
+      # Persistent data dir - pins the unified resolver (resolve_data_dir) at
+      # the /data volume below. Without it the resolver defaults to
+      # ~/.openestimate inside the container (ephemeral): BIM geometry is
+      # written there, the DB row stays "ready", and a container recreate
+      # makes the geometry endpoint 404.
+      OE_DATA_DIR: ${OE_DATA_DIR:-/data}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-}
+      S3_BUCKET: ${S3_BUCKET:-openestimate}
+      QDRANT_URL: ${QDRANT_URL:-}
+    volumes:
+      - app_data:/data
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    # KaplanBIM değişikliği: artık host'a doğrudan port açılmıyor. Tek genel
+    # giriş noktası `caddy` servisidir; `frontend` yalnızca Docker ağı
+    # içinden (caddy → frontend:80) erişilebilir.
+    expose:
+      - "80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://localhost:80/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # KaplanBIM eklentisi: HTTPS ters vekil (reverse proxy).
+  # Upstream'in kendisi TLS sonlandırmaz ("443 belongs to the proxy" —
+  # deploy/docker/README.md); bu servis o rolü üstlenir.
+  #
+  # Varsayılan: genel bir alan adı (DOMAIN) + Let's Encrypt ile otomatik HTTPS.
+  # Yalnızca firma içi ağda, genel DNS/İnternet erişimi olmadan çalıştırıyorsanız
+  # Caddyfile'daki ilgili satırı ../README.md'de anlatıldığı gibi
+  # `tls internal` olarak değiştirin (kendinden imzalı sertifika; tarayıcı
+  # uyarısı verir ama trafik yine şifrelenir).
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      frontend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN (ör. erp.firma.com.tr) — bkz. deploy/README.md}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+
+  qdrant:
+    image: qdrant/qdrant:v1.12.5
+    restart: unless-stopped
+    profiles:
+      - ai
+    volumes:
+      - qdrant_data:/qdrant/storage
+    expose:
+      - "6333"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:6333/readyz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+# KaplanBIM eklentisi: Caddy'nin TLS sertifikası ve durumu burada, deploy'dan
+# deploy'a kalıcı. configs: content: ile gömülü Caddyfile — Docker Compose
+# v2.24+ gerektirir (`docker compose version` ile doğrulayın; eskiyse
+# ../README.md'deki "Eski Docker Compose" notuna bakın).
+configs:
+  caddyfile:
+    content: |
+      {
+        email {$ACME_EMAIL}
+      }
+
+      {$DOMAIN} {
+        encode zstd gzip
+        reverse_proxy frontend:80
+      }
+
+volumes:
+  pg_data:
+  qdrant_data:
+  app_data:
+  caddy_data:
+  caddy_config:
