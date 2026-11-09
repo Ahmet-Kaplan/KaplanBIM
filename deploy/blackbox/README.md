@@ -28,12 +28,12 @@ ayrı, gerçek modüle dağıtır:
 
 | BlackBox parçası | Gerçek ERP modülü | Modül kodu | Kaynak |
 |---|---|---|---|
-| Rayiç/kalem veritabanı (firma + ulusal tabanlar) | **Cost Database** | `costs` | MODULES.md:78 |
-| Montaj tarifleri (işçilik+malzeme+makine → birleşik kalem) | **Assemblies & Calculations** | `assemblies` | MODULES.md:56 |
-| Kaynak (malzeme/işçilik/makine) fiyat kataloğu | **Product & Resource Catalog** | `catalog` | MODULES.md:77 |
-| Net→brüt birim faktörleri (fire/bindirme/kaplama) | **Waste Factors** | `waste_factors` | MODULES.md:63 |
-| Norm katsayısından kaynak talebi türetme | **Production-Norm Expansion** | `norm_expansion` | MODULES.md:65 |
-| Ülkeye özgü BOQ hiyerarşisi/sınıflandırma standardı | **Estimating Methodologies** | `methodology` | MODULES.md:55 |
+| Rayiç/kalem veritabanı (firma + ulusal tabanlar) | **Cost Database** | `costs` | MODULES.md → "Cost and resource data" |
+| Montaj tarifleri (işçilik+malzeme+makine → birleşik kalem) | **Assemblies & Calculations** | `assemblies` | MODULES.md → "Estimating and BOQ" |
+| Kaynak (malzeme/işçilik/makine) fiyat kataloğu | **Product & Resource Catalog** | `catalog` | MODULES.md → "Cost and resource data" |
+| Net→brüt birim faktörleri (fire/bindirme/kaplama) | **Waste Factors** | `waste_factors` | MODULES.md → "Estimating and BOQ" |
+| Norm katsayısından kaynak talebi türetme | **Production-Norm Expansion** | `norm_expansion` | MODULES.md → "Estimating and BOQ" |
+| Ülkeye özgü BOQ hiyerarşisi/sınıflandırma standardı | **Estimating Methodologies** | `methodology` | MODULES.md → "Estimating and BOQ" |
 
 Görev 0.2'de yüklenen `TR_NATIONAL` (Türkiye Birim Fiyat) tabanı, bu
 BlackBox'ın **hazır** parçasıdır. Bu görev, firmanın **kendi** ek
@@ -61,9 +61,15 @@ https://github.com/datadrivenconstruction/DDC_Skills_for_AI_Agents_in_Constructi
 **OpenConstructionERP deposu**,
 https://github.com/datadrivenconstruction/OpenConstructionERP , `main` dalı,
 commit `4993a21b19d9f7a308764d02ce84e36c4020d3cd` (2026-11-09'da çekildi):
-- `MODULES.md` — 194 modülün tam listesi (`costs`, `assemblies`, `catalog`,
+- `MODULES.md` — modül listesi (`costs`, `assemblies`, `catalog`,
   `waste_factors`, `norm_expansion`, `methodology`, `backup`, `jobs` satırları
-  burada alıntılanmıştır).
+  burada alıntılanmıştır). Dosyanın kendi metni "194 modül" der, ama bu
+  pinlenen commit'te `## 1. The module catalog` altındaki madde sayısı
+  fiilen sayıldığında **195**'tir — dosyanın kendisi de bu satıra
+  güvenmeyip yeniden saymayı önerir ("Recount it that way rather than
+  trusting this line."). Bu yüzden burada **~195** olarak anılır, satır
+  numaralarına değil modül/bölüm adına atıf yapılır (bkz. § 0 tablosu) —
+  bu, dosya üstte değişse bile doğru kalır.
 - `docs/user-guide/world-cost-bases.md` — "Bring your own rates" bölümü,
   firmanın kendi Excel/CSV verisini içe aktarabileceğini ve bunun diğer
   tabanlar gibi davrandığını doğrular; gerçek prosedür dokümanına
@@ -157,9 +163,9 @@ aşağıda işaretlenmiştir):
 
 `docs/user-guide/estimating-and-boq.md`: bir BOQ pozisyonuna "assembly'den
 bir rate inşa edebilirsiniz — bu, işçilik, malzeme ve makine bileşenlerinden
-oluşan yeniden kullanılabilir bir tarif" (`assemblies` modülü, MODULES.md:56
-— *"composite rates built from cost-database items with factors and
-regional adjustment"*).
+oluşan yeniden kullanılabilir bir tarif" (`assemblies` modülü, MODULES.md →
+"Estimating and BOQ" bölümü — *"composite rates built from cost-database
+items with factors and regional adjustment"*).
 
 Bir montajın alttaki veri şekli, `docs/cost-database-import.md`'nin
 "Resource components" bölümünde belgelenmiştir — bir kalemin `components[]`
