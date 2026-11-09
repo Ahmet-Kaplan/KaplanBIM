@@ -96,11 +96,26 @@ make quickstart
 (`demo@openconstructionerp.com` vb.) görünür. Bu adım yalnızca kurulumun
 genel olarak çalıştığını doğrulamak içindir — **üretimde kullanılmaz**
 (`docker-compose.quickstart.yml` dosyasının kendisi "EVALUATION / LOCAL-DEMO
-ONLY — NOT FOR PRODUCTION" uyarısı taşır). Bitirince:
+ONLY — NOT FOR PRODUCTION" uyarısı taşır).
+
+Bitirince, **yalnızca konteynerleri durdurmak yetmez** — `pg_data`/`app_data`
+birimlerini de silin. Aksi hâlde demo verisiyle dolu bu birimler üretim
+yığınına da taşınabilir: `make quickstart-down` konteynerleri durdurur ama
+birimleri bırakır; § 3.3'te üretim için kullanılan `-p openconstructionerp`,
+Compose'un `make quickstart` için varsayılan olarak dizin adından türettiği
+proje adıyla (`openconstructionerp`) **aynıdır**, dolayısıyla birim adları da
+(`openconstructionerp_pg_data` vb.) çakışır — `SEED_DEMO=false` yalnızca
+*zaten boş* bir veritabanında yeni demo satırı eklenmesini engeller, mevcut
+demo hesaplarını silmez. Bu yüzden `quickstart-down` yerine, verileri de
+silen `quickstart-reset` kullanın:
 
 ```bash
-make quickstart-down
+make quickstart-reset   # docker compose -f docker-compose.quickstart.yml down -v — pg_data + app_data birimlerini de siler
 ```
+
+Bu adımı atlamak isterseniz, demo denemesini (§ 2) üretim sunucusunda hiç
+çalıştırmayın — ayrı bir makinede/VM'de deneyip üretim sunucusuna yalnızca
+§ 3'ten başlayın.
 
 ---
 
@@ -207,7 +222,7 @@ Düzenli yedek için bir cron satırı (her gece 03:00, 14 günden eski yedekler
 siler):
 
 ```cron
-0 3 * * * cd /opt/openconstructionerp && docker compose -p openconstructionerp -f docker-compose.prod.yml --env-file .env exec -T postgres pg_dump -U oe -d openestimate | gzip > backups/openestimate-$(date +\%Y\%m\%d).sql.gz && find backups -name '*.sql.gz' -mtime +14 -delete
+0 3 * * * cd /opt/openconstructionerp && set -a && . ./.env && set +a && docker compose -p openconstructionerp -f docker-compose.prod.yml --env-file .env exec -T postgres pg_dump -U "${POSTGRES_USER:-oe}" -d "${POSTGRES_DB:-openestimate}" | gzip > backups/openestimate-$(date +\%Y\%m\%d).sql.gz && find backups -name '*.sql.gz' -mtime +14 -delete
 ```
 
 Ayrıca `app_data` biriminde (OE_DATA_DIR, BIM geometrisi/vektör verisi) ve
