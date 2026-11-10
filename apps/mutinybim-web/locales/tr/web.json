@@ -28,7 +28,7 @@
     "signUp": "Ücretsiz hesap oluştur",
     "logOut": "Oturumu kapat",
     "main": "Ana menü",
-    "home": "MutinyBIM ana sayfa"
+    "home": "MutinyBIM ana sayfası"
   },
   "footer": {
     "openSource": "MutinyBIM açık kaynaktır (Apache-2.0).",
@@ -165,6 +165,7 @@
     "languageTitle": "Dil",
     "languageLede": "Bu sayfaların ve düzenleyicinin dili. Hesabınıza kaydedilir, böylece giriş yaptığınız her tarayıcı bu dille açılır.",
     "languageCurrent": "Şu an: {{language}}.",
+    "languagePicker": "Bu sayfaların dili",
     "account": "Hesabınız",
     "emailLine": "E-posta: {{email}}",
     "saveName": "Adı kaydet",

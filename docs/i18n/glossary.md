@@ -178,6 +178,10 @@ Her sayfanın başlığı (üst çubuk), alt bilgisi ve dil/tema denetimleri. 20
 | Log in / Log out | **Giriş yap / Oturumu kapat** | bkz. §2.5 *Sign out* |
 | Sign up free | **Ücretsiz hesap oluştur** | `Create a free account` ile **aynı** Türkçe: tek eylem, tek söylem |
 | My models | **Modellerim** | `models.title` ile aynı |
+| Connect an assistant | **Asistan bağla** | `connect.pageTitle` ile aynı; *assistant* = **asistan** |
+| Settings | **Ayarlar** | `settings.title` ile aynı |
+| Main (gezinme yer imi) | **Ana menü** | `<nav aria-label>`; "ana gezinme" değil |
+| MutinyBIM home (marka bağlantısı) | **MutinyBIM ana sayfası** | iyelik ekiyle; "ana sayfa" yalın hâli bağlantı adı olarak eksik kalıyor |
 | Terms / Privacy (alt bilgi) | **Kullanım koşulları / Gizlilik bildirimi** | bkz. §2.5 ve `legal.*` |
 | Source code | **kaynak kodu** | |
 

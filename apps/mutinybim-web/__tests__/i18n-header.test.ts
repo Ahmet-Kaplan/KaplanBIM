@@ -95,20 +95,35 @@ test("settings page offers both languages and shows the current one", () => {
   expect(form).toContain('value="tr"');
   expect(form).toContain("English");
   expect(form).toContain("Türkçe");
-  // The account's language is the pressed button (attribute order is the component's).
+  // The page's language is the pressed button (attribute order is the component's).
   const pressed = (value: string): RegExp => new RegExp(`<button(?=[^>]*name="language")(?=[^>]*value="${value}")(?=[^>]*aria-pressed="true")[^>]*>`);
-  expect(form).toMatch(pressed("en"));
-  expect(form).not.toMatch(pressed("tr"));
+  expect(form).toMatch(pressed("tr"));
+  expect(form).not.toMatch(pressed("en"));
   // And it says which one that is, in words.
-  expect(turkish).toMatch(/data-testid="settings-language-current"[^>]*>Şu an: English\./);
+  expect(turkish).toMatch(/data-testid="settings-language-current"[^>]*>Şu an: Türkçe\./);
+  // Its control has a name of its own, so it is not one of two "Dil" pickers.
+  expect(form).toMatch(/aria-label="Bu sayfaların dili"/);
+});
 
-  // The account is the source of truth for the card, not the page's language:
-  // an account set to Turkish shows Türkçe pressed even on an English page.
-  const turkishAccount = settingsPage(config(), { ...PERSON, language: "tr" }, [], {}, "en");
-  const turkishForm = settingsLanguageForm(turkishAccount);
-  expect(turkishForm).toMatch(pressed("tr"));
-  expect(turkishForm).not.toMatch(pressed("en"));
-  expect(turkishAccount).toMatch(/data-testid="settings-language-current"[^>]*>Now showing Türkçe\./);
+test("the settings card and the header press the same language, even when the cookie and the account disagree", () => {
+  const pressed = (value: string): RegExp => new RegExp(`<button(?=[^>]*name="language")(?=[^>]*value="${value}")(?=[^>]*aria-pressed="true")[^>]*>`);
+  const headerForm = (html: string): string => html.match(/<form[^>]*data-testid="language-choice"[^>]*>[\s\S]*?<\/form>/)?.[0] ?? "";
+
+  // A cookie set to Turkish, and an account that still says English: the cookie
+  // wins, so the page is Turkish and both pickers must say so. This is the state
+  // a person reaches by choosing Türkçe while signed out and then signing in.
+  const turkishPage = settingsPage(config(), { ...PERSON, language: "en" }, [], {}, "tr");
+  expect(turkishPage).toContain('<html lang="tr"');
+  expect(headerForm(turkishPage)).toMatch(pressed("tr"));
+  expect(settingsLanguageForm(turkishPage)).toMatch(pressed("tr"));
+  expect(turkishPage).toMatch(/data-testid="settings-language-current"[^>]*>Şu an: Türkçe\./);
+
+  // The other direction: an account set to Turkish, an English page.
+  const englishPage = settingsPage(config(), { ...PERSON, language: "tr" }, [], {}, "en");
+  expect(englishPage).toContain('<html lang="en"');
+  expect(headerForm(englishPage)).toMatch(pressed("en"));
+  expect(settingsLanguageForm(englishPage)).toMatch(pressed("en"));
+  expect(englishPage).toMatch(/data-testid="settings-language-current"[^>]*>Now showing English\./);
 });
 
 // --------------------------------------------------------------- the date
@@ -225,6 +240,47 @@ test("the account's language wins over Accept-Language, and the cookie wins over
 
   const cookieWins = await (await fetch(`${base}/models`, { headers: { cookie: `${cookie}; mutiny.lang=en`, "accept-language": "tr-TR,tr;q=0.9" } })).text();
   expect(cookieWins).toContain("My models");
+});
+
+test("a foreign browser's account language does not contradict the page the cookie paints", async () => {
+  await start();
+  // A browser set to Turkish, then a brand-new account (which starts in English).
+  const signedUp = await post("/signup", { name: "Sam Example", email: "sam@example.com", password: "correct-horse" }, "mutiny.lang=tr");
+  expect(signedUp.status).toBe(303);
+  const cookie = `${sessionCookie(signedUp)}; mutiny.lang=tr`;
+  expect(app?.db.userByEmail("sam@example.com")?.language).toBe("en");
+
+  const html = await (await fetch(`${base}/settings`, { headers: { cookie } })).text();
+  const pressed = (value: string): RegExp => new RegExp(`<button(?=[^>]*name="language")(?=[^>]*value="${value}")(?=[^>]*aria-pressed="true")[^>]*>`);
+  const headerForm = html.match(/<form[^>]*data-testid="language-choice"[^>]*>[\s\S]*?<\/form>/)?.[0] ?? "";
+  const cardForm = html.match(/<form[^>]*data-testid="settings-language"[^>]*>[\s\S]*?<\/form>/)?.[0] ?? "";
+
+  expect(html).toContain('<html lang="tr"');
+  expect(headerForm).toMatch(pressed("tr"));
+  expect(cardForm).toMatch(pressed("tr"));
+  expect(html).toMatch(/data-testid="settings-language-current"[^>]*>Şu an: Türkçe\./);
+});
+
+test("the language route reads its own JSON field, and not the colour scheme's", async () => {
+  await start();
+  const cookie = await signUp("sam@example.com");
+  const postJson = (body: unknown): Promise<Response> =>
+    fetch(`${base}/settings/language`, { method: "POST", redirect: "manual", headers: { origin: base, cookie, "content-type": "application/json" }, body: JSON.stringify(body) });
+
+  // The editor's kind of call: a JSON body, no form, no page to redirect to.
+  const ok = await postJson({ language: "tr" });
+  expect(ok.status).toBe(204);
+  expect(ok.headers.get("set-cookie")).toMatch(/mutiny\.lang=tr/);
+  expect(app?.db.userByEmail("sam@example.com")?.language).toBe("tr");
+
+  // A payload for the *colour scheme* must not be read as a language.
+  const schemeBody = await postJson({ scheme: "tr" });
+  expect(schemeBody.status).toBe(400);
+  expect(app?.db.userByEmail("sam@example.com")?.language).toBe("tr");
+
+  const back = await postJson({ language: "en" });
+  expect(back.status).toBe(204);
+  expect(app?.db.userByEmail("sam@example.com")?.language).toBe("en");
 });
 
 test("a visitor who is signed out gets their choice in the cookie alone", async () => {

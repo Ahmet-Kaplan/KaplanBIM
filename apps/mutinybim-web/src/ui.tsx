@@ -120,12 +120,28 @@ export const LANGUAGES: readonly { readonly value: MutinyLanguage; readonly labe
  * app can honour — a POST, like the theme toggle beside it — and the server
  * saves it in the account and in the `mutiny.lang` cookie, so the next page is
  * painted in the new language from its first byte (spec §7/Ç-D).
+ *
+ * `label` names this control for a screen reader. The header and the settings
+ * page both draw one, and two pickers with the same accessible name on one page
+ * are indistinguishable, so the settings page passes its own.
  */
-export function LanguageChoice({ language, current, className, "data-testid": testId = "language-choice" }: { language: MutinyLanguage; current: MutinyLanguage; className?: string; "data-testid"?: string }) {
+export function LanguageChoice({
+  language,
+  current,
+  label,
+  className,
+  "data-testid": testId = "language-choice",
+}: {
+  language: MutinyLanguage;
+  current: MutinyLanguage;
+  label?: string;
+  className?: string;
+  "data-testid"?: string;
+}) {
   const t = tFor(language);
   const classes = `inline-flex rounded-(--mutiny-radius) border border-(--mutiny-border) bg-(--mutiny-field) p-0.5${className ? ` ${className}` : ""}`;
   return (
-    <form method="post" action="/settings/language" className={classes} aria-label={t("language.label", "Language", { ns: "web" })} data-testid={testId}>
+    <form method="post" action="/settings/language" className={classes} aria-label={label ?? t("language.label", "Language", { ns: "web" })} data-testid={testId}>
       {LANGUAGES.map((option) => (
         <Button
           key={option.value}
@@ -251,8 +267,11 @@ export function page(body: ReactNode, options: FrameOptions): string {
  * "10 Kas 2026 11:30 UTC" in Turkish. The format follows the language (the
  * glossary's §7 rule) and the zone stays UTC, because these are records of when
  * something happened on the server, not clock times in the reader's city.
+ *
+ * The language is required, with no English default: a default is exactly how
+ * the English date got into Turkish sentences the first time.
  */
-export function formatWhen(iso: string, language: MutinyLanguage = "en"): string {
+export function formatWhen(iso: string, language: MutinyLanguage): string {
   const date = new Date(iso);
   return `${formatDate(date, language, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "UTC" })} UTC`;
 }

@@ -159,9 +159,11 @@ function requestLanguage(req: IncomingMessage, user?: UserRow | null): MutinyLan
 /**
  * The `mutiny.lang` cookie: this browser's explicit choice, which wins over the
  * account and makes the next page come back in that language on its first byte
- * (spec §7/Ç-D). It is deliberately not `HttpOnly`: the editor's client bundle
- * reads it to stay in step with the page (see `LANGUAGE_STORAGE_KEY` in
- * packages/bim-ui). A year is long enough that nobody is asked twice.
+ * (spec §7/Ç-D). It is deliberately not `HttpOnly`, and not because anything
+ * reads it from a script: nothing does today. It is simply a language, not a
+ * secret, and the value is already visible in `<html lang>` on every page; a
+ * reader that could not see it would only make the next toggle harder to write.
+ * A year is long enough that nobody is asked twice.
  */
 function languageCookie(language: MutinyLanguage, secure: boolean): string {
   return [`${COOKIE_NAME}=${language}`, "Path=/", "Max-Age=31536000", "SameSite=Lax", ...(secure ? ["Secure"] : [])].join("; ");
@@ -183,12 +185,17 @@ async function readForm(req: IncomingMessage): Promise<URLSearchParams> {
   return new URLSearchParams(await readBody(req));
 }
 
-/** The `scheme` of a small JSON body (the editor's theme toggle), or null. */
-async function readJson(req: IncomingMessage): Promise<unknown> {
+/**
+ * One named field of a small JSON body (the editor's theme and language
+ * toggles), or null. The field is asked for by name on purpose: a reader that
+ * took whatever the body happened to carry would store a `scheme` as a
+ * language and answer `204` while doing it.
+ */
+async function readJson(req: IncomingMessage, field: string): Promise<unknown> {
   const text = await readBody(req);
   try {
     const parsed: unknown = JSON.parse(text);
-    return typeof parsed === "object" && parsed !== null && "scheme" in parsed ? parsed.scheme : null;
+    return typeof parsed === "object" && parsed !== null && field in parsed ? (parsed as Record<string, unknown>)[field] : null;
   } catch (err) {
     console.error("[mutinybim-web] a JSON body didn't parse", { err });
     return null;
@@ -597,7 +604,7 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
     }
     if (user && pathname === "/settings/scheme" && method === "POST") {
       const json = (req.headers["content-type"] ?? "").startsWith("application/json");
-      const raw = json ? await readJson(req) : (await readForm(req)).get("scheme");
+      const raw = json ? await readJson(req, "scheme") : (await readForm(req)).get("scheme");
       if (!isColorScheme(raw)) {
         if (json) return send(res, 400, "application/json", JSON.stringify({ error: "Pick light, dark or system." }));
         throw new Refusal(400, "Pick light, dark or auto.");
@@ -609,7 +616,7 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
 
     if (pathname === "/settings/language" && method === "POST") {
       const json = (req.headers["content-type"] ?? "").startsWith("application/json");
-      const raw = json ? await readJson(req) : (await readForm(req)).get("language");
+      const raw = json ? await readJson(req, "language") : (await readForm(req)).get("language");
       // Only a language this app speaks is saved: an unknown tag would be
       // ignored on the way back in anyway, so storing it would be a lie.
       if (!isMutinyLanguage(raw)) {

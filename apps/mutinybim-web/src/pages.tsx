@@ -703,9 +703,16 @@ export function settingsPage(config: WebConfig, user: UserRow, linked: readonly 
           <CardDescription>{t("settings.languageLede", "The language of these pages and of the editor. It is saved in your account, so every browser you sign in from opens in it.", { ns: "web" })}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-3">
-          <LanguageChoice language={language} current={user.language} data-testid="settings-language" />
+          {/*
+            `language`, not `user.language`: this card must press and name what the
+            page is actually written in — the same value the header presses — or a
+            person whose cookie and account disagree sees two contradictory
+            controls and a line that is false. Pressing one changes both the
+            account and the cookie, so the two cannot stay apart after this page.
+          */}
+          <LanguageChoice language={language} current={language} label={t("settings.languagePicker", "The language of these pages", { ns: "web" })} data-testid="settings-language" />
           <span className="text-sm text-(--mutiny-muted)" data-testid="settings-language-current">
-            {t("settings.languageCurrent", "Now showing {{language}}.", { language: LANGUAGES.find((option) => option.value === user.language)?.label ?? "English", ns: "web" })}
+            {t("settings.languageCurrent", "Now showing {{language}}.", { language: LANGUAGES.find((option) => option.value === language)?.label ?? "English", ns: "web" })}
           </span>
         </CardContent>
       </Card>
