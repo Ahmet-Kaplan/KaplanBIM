@@ -42,9 +42,9 @@ function trLocaleDirectories(): string[] {
 }
 
 /**
- * Every `locales/tr/*.json` file in the repo, parsed. A file that is not valid
- * JSON is returned with `parseError` rather than thrown, so one broken file
- * reports itself instead of hiding the rest of the corpus.
+ * Every `locales/tr/*.json` file in the repo, parsed. A file that is not valid JSON
+ * — or cannot be read at all — is returned with `parseError` rather than thrown, so
+ * one broken file reports itself instead of hiding the rest of the corpus.
  */
 export function readTrLocaleFiles(): LocaleFile[] {
   const files: LocaleFile[] = [];
@@ -53,9 +53,8 @@ export function readTrLocaleFiles(): LocaleFile[] {
     for (const name of names) {
       const full = path.join(directory, name);
       const id = path.relative(REPO_ROOT, full).split(path.sep).join("/");
-      const source = fs.readFileSync(full, "utf8");
       try {
-        files.push({ id, json: JSON.parse(source) as unknown });
+        files.push({ id, json: JSON.parse(fs.readFileSync(full, "utf8")) as unknown });
       } catch (error) {
         files.push({ id, json: undefined, parseError: error instanceof Error ? error.message : String(error) });
       }

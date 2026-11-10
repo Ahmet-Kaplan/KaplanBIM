@@ -16,36 +16,72 @@
  */
 import { flattenLocales, readTrLocaleFiles, type LocaleEntry } from "./locale-files";
 
-const ENTRIES = flattenLocales(readTrLocaleFiles()).entries;
+const FILES = readTrLocaleFiles();
+const ENTRIES = flattenLocales(FILES).entries;
+
+test("the guard found the Turkish strings it is meant to guard", () => {
+  // Without this, a broken walk would leave every rule below scanning an empty
+  // corpus and reporting green — the exact failure mode the rules exist to prevent.
+  expect(FILES.map((file) => file.id)).toContain("packages/bim-ui/locales/tr/common.json");
+  expect(ENTRIES.length).toBeGreaterThan(0);
+});
 
 /**
- * §8. A numeral, then a word ending in the plural suffix -lar/-ler.
+ * §8. A count — a numeral or a count placeholder — then a noun-shaped word ending
+ * in the plural suffix -lar/-ler.
  *
  * `\p{L}` rather than `\w`: "3 modüller" has to be caught too, and `\w` stops at
  * `ü`. The suffix must *end* the word, so words such as "kontrol" never reach the
  * check at all, and the short list below holds the nouns that genuinely end in
  * -lar/-ler without being plural.
+ *
+ * Known, accepted limit: the check reads word *shape*, not part of speech, so a
+ * verb form that happens to end in -lar/-ler ("3 yuvarlar") fires. Do not "fix"
+ * that with a Turkish morphological analyser; a false alarm is cheaper than the
+ * untranslated plural this guard exists for.
  */
 const NON_PLURAL_TAIL_WORDS: ReadonlySet<string> = new Set(["dolar", "kiler", "popüler"]);
 
-/** A numeral followed by a noun: the shape §8 regulates. */
-const NUMBER_THEN_WORD = /(\d+)\s+(\p{L}+)/gu;
+/** Words that end the noun phrase a count governs, so the scan stops there. */
+const PHRASE_BREAK_WORDS: ReadonlySet<string> = new Set(["ve", "ile", "veya", "tüm", "bütün", "hep"]);
 
-/** A count placeholder followed by a noun — "{n} elemanlar" is the same mistake. */
-const PLACEHOLDER_THEN_WORD = /(\{\s*[\p{L}\d_.]+\s*\})\s+(\p{L}+)/gu;
+/**
+ * Punctuation ends the clause: in "3 kat, 5 oda" the plural of one count must not
+ * be read into the other. Braces are not punctuation here — `{n}` is the count.
+ */
+const CLAUSE_BREAK = /[.,;:!?()"“”'‘’/\\|\n\r\t]+/u;
 
-/** The countable noun that follows the number, human readable, when §8 is broken. */
+/** A word that *is* a count: "3" or "{n}". */
+const COUNT_WORD = /^(?:\d+|\{[\p{L}\d_.]*\})$/u;
+
+/** The word without the quotes or punctuation glued to it. */
+function bareWord(word: string): string {
+  return word.replace(/^[^\p{L}]+/u, "").replace(/[^\p{L}]+$/u, "");
+}
+
+/**
+ * The countable words §8 forbids, e.g. `["3 elemanlar"]` for "3 seçili elemanlar".
+ *
+ * Every word after the count is checked, not just the one beside it: the drift §8
+ * names is the pair "{n} selected" / "{n} elements" collapsing into
+ * "{n} seçili elemanlar", where an adjective sits between the count and the plural.
+ */
 function pluralEndings(value: string): string[] {
   const findings: string[] = [];
-  const collect = (count: string | undefined, word: string | undefined): void => {
-    if (word === undefined) return;
-    const lower = word.toLocaleLowerCase("tr");
-    if (!/(?:lar|ler)$/u.test(lower)) return;
-    if (NON_PLURAL_TAIL_WORDS.has(lower)) return;
-    findings.push(`${count ?? "?"} ${word}`);
-  };
-  for (const match of value.matchAll(NUMBER_THEN_WORD)) collect(match[1], match[2]);
-  for (const match of value.matchAll(PLACEHOLDER_THEN_WORD)) collect(match[1], match[2]);
+  for (const clause of value.split(CLAUSE_BREAK)) {
+    const words = clause.split(/\s+/u).filter((word) => word !== "");
+    const countIndex = words.findIndex((word) => COUNT_WORD.test(word));
+    if (countIndex === -1) continue;
+    const count = words[countIndex] ?? "";
+    for (const word of words.slice(countIndex + 1)) {
+      const bare = bareWord(word);
+      const lower = bare.toLocaleLowerCase("tr");
+      if (PHRASE_BREAK_WORDS.has(lower)) break;
+      if (!/(?:lar|ler)$/u.test(lower)) continue;
+      if (NON_PLURAL_TAIL_WORDS.has(lower)) continue;
+      findings.push(`${count} ${bare}`);
+    }
+  }
   return findings;
 }
 
@@ -114,13 +150,24 @@ test("the guards catch the wording the glossary forbids, and only that", () => {
   expect(pluralEndings("{n} elemanlar")).toEqual(["{n} elemanlar"]);
   expect(pluralDefects([at("selection.count", "3 elemanlar")])).toHaveLength(1);
 
+  // §8: an adjective between the count and the plural. This is the drift the
+  // glossary's own rows allow — "{n} selected" + "{n} elements" becoming
+  // "{n} seçili elemanlar" — so looking at the word beside the count is not enough.
+  expect(pluralEndings("3 seçili elemanlar")).toEqual(["3 elemanlar"]);
+  expect(pluralEndings("{n} seçili elemanlar")).toEqual(["{n} elemanlar"]);
+  expect(pluralDefects([at("selection.summary", "{n} seçili elemanlar")])).toHaveLength(1);
+
   // §8: the correct Turkish the guard must leave alone.
   expect(pluralEndings("3 eleman")).toEqual([]);
+  expect(pluralEndings("3 seçili eleman")).toEqual([]);
   expect(pluralEndings("{n} eleman")).toEqual([]);
+  expect(pluralEndings("{n} seçili eleman")).toEqual([]);
   expect(pluralEndings("3 kontrol")).toEqual([]);
   expect(pluralEndings("3 dolar")).toEqual([]);
   expect(pluralEndings("Tüm katlar")).toEqual([]); // plural with no numeral is correct
   expect(pluralEndings("{m} içinden {n}")).toEqual([]);
+  expect(pluralEndings("3 kat, 5 oda")).toEqual([]); // the comma ends the clause
+  expect(pluralEndings("3 kat ve tüm pencereler")).toEqual([]); // a connective starts a new phrase
   expect(pluralDefects(corpus())).toEqual([]);
 
   // §2.3: space → mekan, never alan.
