@@ -51,8 +51,13 @@ const PHRASE_BREAK_WORDS: ReadonlySet<string> = new Set(["ve", "ile", "veya", "t
  */
 const CLAUSE_BREAK = /[.,;:!?()"“”'‘’/\\|\n\r\t]+/u;
 
-/** A word that *is* a count: "3" or "{n}". */
-const COUNT_WORD = /^(?:\d+|\{[\p{L}\d_.]*\})$/u;
+/** A word that *is* a count: "3", "{n}", "$3", "₺3". */
+const COUNT_WORD = /^[$₺€£]?(?:\d+|\{[\p{L}\d_.]*\})$/u;
+
+/** `{ n }` is the same placeholder as `{n}`, and the tokenizer splits on spaces. */
+function normalisePlaceholders(value: string): string {
+  return value.replace(/\{\s*([\p{L}\d_.]+)\s*\}/gu, "{$1}");
+}
 
 /** The word without the quotes or punctuation glued to it. */
 function bareWord(word: string): string {
@@ -62,21 +67,30 @@ function bareWord(word: string): string {
 /**
  * The countable words §8 forbids, e.g. `["3 elemanlar"]` for "3 seçili elemanlar".
  *
- * Every word after the count is checked, not just the one beside it: the drift §8
+ * Every word after a count is checked, not just the one beside it: the drift §8
  * names is the pair "{n} selected" / "{n} elements" collapsing into
  * "{n} seçili elemanlar", where an adjective sits between the count and the plural.
+ *
+ * A connective ends the phrase a count governs ("3 kat ve tüm pencereler"), but not
+ * the clause: a later count starts a new phrase ("{n} eleman ve {m} katlar"), and
+ * that second one still has to be checked.
  */
 function pluralEndings(value: string): string[] {
   const findings: string[] = [];
-  for (const clause of value.split(CLAUSE_BREAK)) {
-    const words = clause.split(/\s+/u).filter((word) => word !== "");
-    const countIndex = words.findIndex((word) => COUNT_WORD.test(word));
-    if (countIndex === -1) continue;
-    const count = words[countIndex] ?? "";
-    for (const word of words.slice(countIndex + 1)) {
+  for (const clause of normalisePlaceholders(value).split(CLAUSE_BREAK)) {
+    let count: string | undefined;
+    for (const word of clause.split(/\s+/u).filter((word) => word !== "")) {
+      if (COUNT_WORD.test(word)) {
+        count = word;
+        continue;
+      }
+      if (count === undefined) continue;
       const bare = bareWord(word);
       const lower = bare.toLocaleLowerCase("tr");
-      if (PHRASE_BREAK_WORDS.has(lower)) break;
+      if (PHRASE_BREAK_WORDS.has(lower)) {
+        count = undefined;
+        continue;
+      }
       if (!/(?:lar|ler)$/u.test(lower)) continue;
       if (NON_PLURAL_TAIL_WORDS.has(lower)) continue;
       findings.push(`${count} ${bare}`);
@@ -157,6 +171,17 @@ test("the guards catch the wording the glossary forbids, and only that", () => {
   expect(pluralEndings("{n} seçili elemanlar")).toEqual(["{n} elemanlar"]);
   expect(pluralDefects([at("selection.summary", "{n} seçili elemanlar")])).toHaveLength(1);
 
+  // §8: a second count after a connective is its own phrase, and is still checked.
+  // Before this case existed the scan stopped at "ve" and reported green.
+  expect(pluralEndings("{n} eleman ve {m} katlar")).toEqual(["{m} katlar"]);
+  expect(pluralEndings("{n} eleman ve 3 katlar")).toEqual(["3 katlar"]);
+  expect(pluralEndings("{n} eleman ve {m} kat")).toEqual([]);
+
+  // §8: count shapes that are not a bare numeral.
+  expect(pluralEndings("{ n } elemanlar")).toEqual(["{n} elemanlar"]);
+  expect(pluralEndings("$3 elemanlar")).toEqual(["$3 elemanlar"]);
+  expect(pluralEndings("₺3 katlar")).toEqual(["₺3 katlar"]);
+
   // §8: the correct Turkish the guard must leave alone.
   expect(pluralEndings("3 eleman")).toEqual([]);
   expect(pluralEndings("3 seçili eleman")).toEqual([]);
@@ -164,10 +189,12 @@ test("the guards catch the wording the glossary forbids, and only that", () => {
   expect(pluralEndings("{n} seçili eleman")).toEqual([]);
   expect(pluralEndings("3 kontrol")).toEqual([]);
   expect(pluralEndings("3 dolar")).toEqual([]);
+  expect(pluralEndings("Henüz yok")).toEqual([]); // §8 row, no count at all
   expect(pluralEndings("Tüm katlar")).toEqual([]); // plural with no numeral is correct
   expect(pluralEndings("{m} içinden {n}")).toEqual([]);
   expect(pluralEndings("3 kat, 5 oda")).toEqual([]); // the comma ends the clause
-  expect(pluralEndings("3 kat ve tüm pencereler")).toEqual([]); // a connective starts a new phrase
+  expect(pluralEndings("3 kat ve tüm pencereler")).toEqual([]); // a connective ends the phrase
+  expect(pluralEndings("$3 eleman")).toEqual([]);
   expect(pluralDefects(corpus())).toEqual([]);
 
   // §2.3: space → mekan, never alan.
