@@ -3,12 +3,14 @@
 //
 // Twin: `packages/bim-ui/__tests__/locale-files.ts` walks the same
 // `packages/*/locales/tr` and `apps/*/locales/tr` directories for the guard
-// tests. The walk is duplicated here on purpose — `npm run i18n:review` runs
-// under plain `node` with no TypeScript loader, so it cannot import that `.ts`
-// module, and a tool that reaches into another package's `__tests__` is a tool
-// that breaks when the tests are reorganised. Change one walk, change the other:
-// `packages/bim-ui/__tests__/i18n-parity.test.ts` fails if a locale file stops
-// being readable, and this bundle lists it under "Okunamayan dosyalar".
+// tests, and that file points back here. The walk is duplicated on purpose —
+// `npm run i18n:review` runs under plain `node` with no TypeScript loader, so it
+// cannot import that `.ts` module, and a tool that reaches into another package's
+// `__tests__` is a tool that breaks when the tests are reorganised. The
+// duplication is held together by a test, not by a comment:
+// `packages/bim-ui/__tests__/locale-walk-agreement.test.ts` asserts that both
+// walkers see the same file ids and flatten them to the same keys and values, so
+// a change to one walk that is not made to the other fails the suite.
 import fs from "node:fs";
 import path from "node:path";
 
@@ -60,17 +62,36 @@ export function readTrLocaleFiles(root = REPO_ROOT) {
 /**
  * Every source file under `packages/<pkg>/src` and `apps/<app>/src`, id sorted,
  * so the caller can scan for `t(...)` calls without knowing the layout.
+ *
+ * A file or a directory that cannot be read is returned in `unreadable` rather
+ * than thrown: one unreadable file must not cost the reviewer the whole report,
+ * and a silently missing file is the failure this tool exists to prevent.
  */
-export function readSourceFiles(root = REPO_ROOT) {
+export function readSourceFiles(root = REPO_ROOT, { readFile = (full) => fs.readFileSync(full, "utf8") } = {}) {
   const files = [];
+  const unreadable = [];
+  const idOf = (full) => path.relative(root, full).split(path.sep).join("/");
+  const problem = (error) => (error instanceof Error ? error.message : String(error));
+
   const walk = (directory) => {
-    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    let entries;
+    try {
+      entries = fs.readdirSync(directory, { withFileTypes: true });
+    } catch (error) {
+      unreadable.push({ id: idOf(directory), error: problem(error) });
+      return;
+    }
+    for (const entry of entries) {
       const full = path.join(directory, entry.name);
       if (entry.isDirectory()) {
         if (entry.name === "node_modules") continue;
         walk(full);
       } else if (SOURCE_EXTENSIONS.includes(path.extname(entry.name))) {
-        files.push({ id: path.relative(root, full).split(path.sep).join("/"), text: fs.readFileSync(full, "utf8") });
+        try {
+          files.push({ id: idOf(full), text: readFile(full) });
+        } catch (error) {
+          unreadable.push({ id: idOf(full), error: problem(error) });
+        }
       }
     }
   };
@@ -83,5 +104,5 @@ export function readSourceFiles(root = REPO_ROOT) {
       if (fs.existsSync(directory)) walk(directory);
     }
   }
-  return files.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  return { files: files.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)), unreadable };
 }

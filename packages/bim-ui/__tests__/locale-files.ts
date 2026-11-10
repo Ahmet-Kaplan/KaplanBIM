@@ -7,6 +7,11 @@
  *
  * Not a `.test.ts` file: jest only picks up `*.test.*`, and both guards import
  * this reader instead of each growing its own copy of the walk.
+ *
+ * Twin: `tools/i18n/locale-files.mjs` walks the same directories for
+ * `npm run i18n:review`, duplicated because a plain-`node` tool cannot load this
+ * TypeScript module. `locale-walk-agreement.test.ts` fails if the two walks ever
+ * disagree about which files exist or what keys they contain.
  */
 import fs from "node:fs";
 import path from "node:path";

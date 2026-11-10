@@ -3,21 +3,31 @@
  *
  * `npm run i18n:review` is the list a person reads at the end of every stage:
  * every Turkish string next to the English it replaces, with the untranslated
- * ones flagged. These tests pin the two things that make that list trustworthy —
- * nothing is silently dropped, and the same input always renders the same bytes —
- * and they pin the source scan that supplies the English column.
+ * ones flagged. These tests pin the things that make that list trustworthy —
+ * nothing is silently dropped, coverage is measured per namespace (a Turkish
+ * `common.actions.save` says nothing about `editor.actions.save`), and the same
+ * input always renders the same bytes — and they pin the source scan that
+ * supplies the English column.
  */
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { buildBundle, collectBundle, collectSourceStrings, extractSource } from "../review-bundle.mjs";
+import { readSourceFiles } from "../locale-files.mjs";
+import { buildBundle, collectBundle, collectSourceStrings, DEFAULT_NAMESPACE, extractSource, qualify } from "../review-bundle.mjs";
 
 const SCRIPT = resolve(__dirname, "../review-bundle.mjs");
 const TR_COMMON = "packages/bim-ui/locales/tr/common.json";
+const TR_EDITOR = "packages/bim-editor/locales/tr/editor.json";
 
 /** A locale file as the shared reader reports it: parsed, or with the reason it is not. */
 const localeFile = (id, json, parseError) => (parseError === undefined ? { id, json } : { id, json: undefined, parseError });
+
+/** Source-side truth: `[namespace, key]` and `[namespace, key, "English"]` pairs, as the scan reports them. */
+const source = (...pairs) => ({
+  sourceStrings: Object.fromEntries(pairs.filter(([, , english]) => english !== undefined).map(([namespace, key, english]) => [qualify(namespace, key), english])),
+  sourceKeys: pairs.map(([namespace, key]) => qualify(namespace, key)),
+});
 
 const bundle = (input) => buildBundle({ date: "2026-11-10", stage: 1, ...input });
 
@@ -25,7 +35,7 @@ describe("buildBundle", () => {
   it("lists every key with its English default and its Turkish value", () => {
     const markdown = bundle({
       files: [localeFile(TR_COMMON, { language: { label: "Dil", merge: "Birleştir" } })],
-      sourceStrings: { "language.label": "Language", "language.merge": "Merge" },
+      ...source(["common", "language.label", "Language"], ["common", "language.merge", "Merge"]),
     });
 
     expect(markdown).toContain("| `language.label` | Language | Dil |");
@@ -35,7 +45,7 @@ describe("buildBundle", () => {
   it("marks a key with no Turkish value instead of dropping it", () => {
     const markdown = bundle({
       files: [localeFile(TR_COMMON, { "language.label": "Dil" })],
-      sourceStrings: { "language.label": "Language", "ribbon.merge": "Merge" },
+      ...source(["common", "language.label", "Language"], ["common", "ribbon.merge", "Merge"]),
     });
 
     expect(markdown).toContain("| `ribbon.merge` | Merge | ⚠️ eksik |");
@@ -46,10 +56,55 @@ describe("buildBundle", () => {
   it("marks a Turkish key the source never mentions as not found in source", () => {
     const markdown = bundle({
       files: [localeFile(TR_COMMON, { "language.label": "Dil", "ghost.key": "Hayalet" })],
-      sourceStrings: { "language.label": "Language" },
+      ...source(["common", "language.label", "Language"]),
     });
 
     expect(markdown).toContain("| `ghost.key` | — | Hayalet ⚠️ kaynakta bulunamadı |");
+  });
+
+  it("reports a key missing from the namespace the source asks for, not from the repo at large", () => {
+    // `actions.save` exists twice: translated in `common`, not started in `editor`.
+    // A key-name-only match sees the first and calls the second done.
+    const model = collectBundle({
+      files: [localeFile(TR_COMMON, { "actions.save": "Kaydet" }), localeFile(TR_EDITOR, { "actions.cancel": "İptal" })],
+      ...source(["common", "actions.save", "Save"], ["editor", "actions.save", "Save"], ["editor", "actions.cancel", "Cancel"]),
+      date: "2026-11-10",
+      stage: 1,
+    });
+    const markdown = buildBundle({
+      files: [localeFile(TR_COMMON, { "actions.save": "Kaydet" }), localeFile(TR_EDITOR, { "actions.cancel": "İptal" })],
+      ...source(["common", "actions.save", "Save"], ["editor", "actions.save", "Save"], ["editor", "actions.cancel", "Cancel"]),
+      date: "2026-11-10",
+      stage: 1,
+    });
+
+    expect(model.counts.missing).toBe(1);
+    expect(model.missing).toEqual([{ namespace: "editor", key: "actions.save", english: "Save", marker: "⚠️ eksik" }]);
+    // And the reviewer reads it under the namespace it belongs to.
+    expect(markdown).toContain("### `editor`");
+    expect(markdown).toContain("| `actions.save` | Save | ⚠️ eksik |");
+  });
+
+  it("counts an empty Turkish value as a gap, not as translated", () => {
+    const model = collectBundle({
+      files: [localeFile(TR_COMMON, { "language.label": "" })],
+      ...source(["common", "language.label", "Language"]),
+      date: "2026-11-10",
+      stage: 1,
+    });
+    const markdown = buildBundle({
+      files: [localeFile(TR_COMMON, { "language.label": "" })],
+      ...source(["common", "language.label", "Language"]),
+      date: "2026-11-10",
+      stage: 1,
+    });
+
+    expect(model.counts.empty).toBe(1);
+    expect(model.counts.missing).toBe(0);
+    expect(markdown).toContain("| `language.label` | Language | ⚠️ boş değer |");
+    expect(markdown).toContain("| — Boş değer (`⚠️ boş değer`) | 1 |");
+    // The gap list carries it too: a reviewer reading only that section still sees it.
+    expect(markdown).toContain("### `common`");
   });
 
   it("renders the same bytes for the same date and stage", () => {
@@ -59,11 +114,11 @@ describe("buildBundle", () => {
       // in may not leak into the file the person reads.
       localeFile("packages/bim-editor/locales/tr/common.json", { "language.label": "Etiket", "ribbon.merge": "Birleştir" }),
     ];
-    const sourceStrings = { "language.label": "Language", "ribbon.merge": "Merge" };
+    const pairs = [["common", "language.label", "Language"], ["common", "ribbon.merge", "Merge"]];
 
-    const once = bundle({ files, sourceStrings });
-    const twice = bundle({ files, sourceStrings });
-    const shuffled = bundle({ files: [...files].reverse(), sourceStrings: { "ribbon.merge": "Merge", "language.label": "Language" } });
+    const once = bundle({ files, ...source(...pairs) });
+    const twice = bundle({ files, ...source(...pairs) });
+    const shuffled = bundle({ files: [...files].reverse(), ...source(...[...pairs].reverse()) });
 
     expect(once).toBe(twice);
     expect(shuffled).toBe(once);
@@ -74,7 +129,7 @@ describe("buildBundle", () => {
   it("produces a non-empty bundle holding a row for every key", () => {
     const markdown = bundle({
       files: [localeFile(TR_COMMON, { "language.label": "Dil", "language.merge": "Birleştir" })],
-      sourceStrings: { "language.label": "Language", "language.merge": "Merge" },
+      ...source(["common", "language.label", "Language"], ["common", "language.merge", "Merge"]),
     });
 
     expect(markdown.length).toBeGreaterThan(0);
@@ -83,10 +138,7 @@ describe("buildBundle", () => {
   });
 
   it("reports a locale file it cannot parse instead of skipping it", () => {
-    const markdown = bundle({
-      files: [localeFile(TR_COMMON, undefined, "Unexpected end of JSON input")],
-      sourceStrings: {},
-    });
+    const markdown = bundle({ files: [localeFile(TR_COMMON, undefined, "Unexpected end of JSON input")], ...source() });
 
     expect(markdown).toContain("Okunamayan dosyalar");
     expect(markdown).toContain(TR_COMMON);
@@ -95,10 +147,23 @@ describe("buildBundle", () => {
     expect(markdown).toContain("| Okunamayan dosya | 1 |");
   });
 
+  it("reports a source file it could not read instead of losing the report", () => {
+    const markdown = bundle({
+      files: [localeFile(TR_COMMON, { "language.label": "Dil" })],
+      ...source(["common", "language.label", "Language"]),
+      sourceErrors: [{ id: "packages/bim-ui/src/broken.tsx", error: "EACCES: permission denied" }],
+    });
+
+    expect(markdown).toContain("| Okunamayan dosya | 1 |");
+    expect(markdown).toContain("`packages/bim-ui/src/broken.tsx` (kaynak) — EACCES: permission denied");
+    // The rest of the report still exists.
+    expect(markdown).toContain("| `language.label` | Language | Dil |");
+  });
+
   it("lists a leaf that is not a string instead of counting it as translated", () => {
     const markdown = bundle({
       files: [localeFile(TR_COMMON, { "language.label": "Dil", "ribbon.merge": null, "ribbon.split": ["a"] })],
-      sourceStrings: { "language.label": "Language", "ribbon.merge": "Merge", "ribbon.split": "Split" },
+      ...source(["common", "language.label", "Language"], ["common", "ribbon.merge", "Merge"], ["common", "ribbon.split", "Split"]),
     });
 
     expect(markdown).toContain("Dize olmayan yapraklar");
@@ -108,7 +173,7 @@ describe("buildBundle", () => {
   });
 
   it("says so when there is nothing to review, rather than rendering nothing", () => {
-    const markdown = bundle({ files: [], sourceStrings: {} });
+    const markdown = bundle({ files: [], ...source() });
 
     expect(markdown).toContain("| tr dosyası | 0 |");
     expect(markdown).toContain("İncelenecek tr dosyası yok");
@@ -117,12 +182,18 @@ describe("buildBundle", () => {
   it("counts the scope it rendered", () => {
     const { counts } = collectBundle({
       files: [localeFile(TR_COMMON, { "language.label": "Dil", "ghost.key": "Hayalet" })],
-      sourceStrings: { "language.label": "Language", "ribbon.merge": "Merge" },
+      ...source(["common", "language.label", "Language"], ["common", "ribbon.merge", "Merge"]),
       date: "2026-11-10",
       stage: 1,
     });
 
-    expect(counts).toEqual({ files: 1, keys: 2, englishFound: 1, noEnglish: 1, missing: 1, orphaned: 1 });
+    expect(counts).toEqual({ files: 1, keys: 2, englishFound: 1, noEnglish: 1, empty: 0, missing: 1, orphaned: 1 });
+  });
+
+  it("discloses calls whose namespace could not be read", () => {
+    const markdown = bundle({ files: [localeFile(TR_COMMON, { "language.label": "Dil" })], ...source(["common", "language.label", "Language"]), uncertainNamespaces: 3 });
+
+    expect(markdown).toContain("| Ad alanı okunamayan çağrı (varsayılan `common`) | 3 |");
   });
 });
 
@@ -130,21 +201,55 @@ describe("extractSource", () => {
   it("reads the English default from a t() call whatever the quote style", () => {
     const found = extractSource(`const a = t("language.label", "Language");\nconst b = t('ribbon.merge', 'Merge');`);
 
-    expect(found.defaults).toEqual({ "language.label": "Language", "ribbon.merge": "Merge" });
-    expect(found.keys).toEqual(["language.label", "ribbon.merge"]);
+    expect(found.calls).toEqual([
+      { namespace: "common", key: "language.label", english: "Language" },
+      { namespace: "common", key: "ribbon.merge", english: "Merge" },
+    ]);
   });
 
   it("reads a defaultValue passed as options", () => {
     const found = extractSource(`t("ribbon.merge", { ns: "editor", defaultValue: "Merge" })`);
 
-    expect(found.defaults).toEqual({ "ribbon.merge": "Merge" });
+    expect(found.calls).toEqual([{ namespace: "editor", key: "ribbon.merge", english: "Merge" }]);
   });
 
   it("remembers a key used without an English default", () => {
     const found = extractSource(`t("ribbon.merge", { ns: "editor" })`);
 
-    expect(found.keys).toEqual(["ribbon.merge"]);
-    expect(found.defaults).toEqual({});
+    expect(found.calls).toEqual([{ namespace: "editor", key: "ribbon.merge", english: undefined }]);
+  });
+
+  it("binds a call to the hook the component declared", () => {
+    const found = extractSource(`function Ribbon() {\n  const t = useT("editor");\n  return <button>{t("ribbon.merge", "Merge")}</button>;\n}`);
+
+    expect(found.calls).toEqual([{ namespace: "editor", key: "ribbon.merge", english: "Merge" }]);
+  });
+
+  it("binds each component in a file to its own hook", () => {
+    const found = extractSource(
+      [
+        'function A() { const t = useT("editor"); return t("a.one", "One"); }',
+        'function B() { const t = useTranslation("schedules"); return t("b.two", "Two"); }',
+      ].join("\n"),
+    );
+
+    expect(found.calls.map((call) => [call.namespace, call.key])).toEqual([
+      ["editor", "a.one"],
+      ["schedules", "b.two"],
+    ]);
+  });
+
+  it("lets an explicit ns win over the component's hook", () => {
+    const found = extractSource(`function A() { const t = useT("editor"); return t("web.only", "Only", { ns: "web" }); }`);
+
+    expect(found.calls).toEqual([{ namespace: "web", key: "web.only", english: "Only" }]);
+  });
+
+  it("counts a hook whose namespace is not a literal, and falls back to the default", () => {
+    const found = extractSource(`function A({ ns }) { const t = useT(ns); return t("a.one", "One"); }`);
+
+    expect(found.uncertain).toBe(1);
+    expect(found.calls).toEqual([{ namespace: "common", key: "a.one", english: "One" }]);
   });
 
   it("ignores t() examples written in comments", () => {
@@ -156,7 +261,13 @@ describe("extractSource", () => {
       'const real = t("language.label", "Language");',
     ].join("\n");
 
-    expect(extractSource(source).keys).toEqual(["language.label"]);
+    expect(extractSource(source).calls.map((call) => call.key)).toEqual(["language.label"]);
+  });
+
+  it("does not mistake a parenthesised English string for the end of the call", () => {
+    const found = extractSource(`t("ribbon.merge", "Merge (draft)", { ns: "editor" })`);
+
+    expect(found.calls).toEqual([{ namespace: "editor", key: "ribbon.merge", english: "Merge (draft)" }]);
   });
 });
 
@@ -167,8 +278,43 @@ describe("collectSourceStrings", () => {
       { id: "a.tsx", text: `t("ribbon.merge", "Merge walls")` },
     ]);
 
-    expect(collected.defaults).toEqual({ "ribbon.merge": "Merge walls" });
-    expect(collected.keys).toEqual(["ribbon.merge"]);
+    expect(collected.defaults).toEqual({ [qualify("common", "ribbon.merge")]: "Merge walls" });
+    expect(collected.keys).toEqual([qualify("common", "ribbon.merge")]);
+  });
+
+  it("keeps the same key name apart in different namespaces", () => {
+    const collected = collectSourceStrings([
+      { id: "a.tsx", text: `const t = useT("common"); t("actions.save", "Save");` },
+      { id: "b.tsx", text: `const t = useT("editor"); t("actions.save", "Save");` },
+    ]);
+
+    expect(collected.keys).toEqual([qualify("common", "actions.save"), qualify("editor", "actions.save")]);
+    expect(collected.defaults[qualify("common", "actions.save")]).toBe("Save");
+    expect(collected.defaults[qualify("editor", "actions.save")]).toBe("Save");
+  });
+
+  it("reports the default namespace as the one i18next would use", () => {
+    expect(DEFAULT_NAMESPACE).toBe("common");
+  });
+});
+
+describe("readSourceFiles", () => {
+  it("reports a source file it cannot read instead of throwing", () => {
+    const root = mkdtempSync(join(tmpdir(), "i18n-source-"));
+    try {
+      mkdirSync(join(root, "packages", "p", "src"), { recursive: true });
+      writeFileSync(join(root, "packages", "p", "src", "a.ts"), "export const x = 1;");
+      const scan = readSourceFiles(root, {
+        readFile: () => {
+          throw new Error("EACCES: permission denied");
+        },
+      });
+
+      expect(scan.files).toEqual([]);
+      expect(scan.unreadable).toEqual([{ id: "packages/p/src/a.ts", error: "EACCES: permission denied" }]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
 
