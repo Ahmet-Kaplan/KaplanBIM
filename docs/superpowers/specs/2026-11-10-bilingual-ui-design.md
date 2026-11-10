@@ -117,7 +117,7 @@ apps/mutinybim-web/
 **Domain etiketleri (`ADDON_UI.label`, `disciplines.ts`, miktar türleri):** Bunlar **veri**, UI string'i değil. Karar (§7/Ç-B): paketlerde İngilizce tanımlayıcı **değişmez**; render anında `t('domain.<id>', label)` ile çözülür. Böylece paket mantığı hiç ellenmez, ~1333 etiket tek yerden çevrilir.
 
 **Dil algılama ve kalıcılık:**
-1. Kullanıcı tercihi varsa o (hosted app: hesap ayarı; editör: `localStorage['mutiny.language']`).
+1. Kullanıcı tercihi varsa o (hosted app: hesap ayarı; editör: `localStorage['mutiny.lang']`).
 2. Yoksa `navigator.language` (`tr-*` → `tr`).
 3. Yoksa `en`.
 `<html lang>` de güncellenir (erişilebilirlik + CSS `:lang()`).
