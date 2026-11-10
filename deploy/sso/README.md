@@ -20,26 +20,28 @@ doğrulaması için izlenecek yolu adım adım yazar. Girdi, kimlik sağlayıcı
 
 ## 1. Seçilen kimlik modeli
 
-**Karar:** OpenConstructionERP'nin mevcut JWT oturumu, iki sistemin
-paylaştığı **tek kimlik kaynağıdır** (`docs/decisions/2026-11-10-llm-and-sso.md`
-§3, "Seçenek 1"). ERP kullanıcıyı doğrular ve `/auth/login` ile bir JWT
-`access_token` üretir; KaplanBIM'in model sunucusu **aynı token'ı** doğrulayıp
-kabul eder.
+**Karar:** ERP, token'ları **RS256 (asimetrik)** ile imzalar ve bir **JWKS
+uç noktası** yayınlar; KaplanBIM'in model sunucusu mevcut `SignInSource {
+issuer, jwksUrl, audience }` sözleşmesiyle bu token'ı doğrular
+(`docs/decisions/2026-11-10-llm-and-sso.md` §3, "Yol B"). Bu, son-kontrol
+(final review) denetimiyle belirlenen varsayılandır ve daha önceki HS256
+paylaşılan-sır varsayılanını geçersiz kılar.
 
 Bu **tam bir OIDC protokolü değildir**: discovery endpoint'i, OAuth2
-authorization-code akışı ve çoklu-istemci token yönetimi yoktur. Bugünkü
-mekanizma, **paylaşılan-sır tabanlı (HS256) basitleştirilmiş tek kimliktir**
-(karar belgesi §3 "terminolojik dürüstlük" notu). Gerçek bir OIDC idP
-(Keycloak vb.) istenirse bu ayrı bir karar değişikliğidir.
+authorization-code akışı ve çoklu-istemci token yönetimi yoktur. Gerçek bir
+OIDC idP (Keycloak vb.) istenirse bu ayrı bir karar değişikliğidir.
 
-### Her iki tarafın aynı şeyi doğrulaması gerekir
+### Kimliğin "tek" olması için gerekenler
 
-Kimliğin "tek" olması için üç şey iki sistemde de **birebir aynı** olmalıdır:
+Kimliğin "tek" olması için şunlar sağlanmalıdır:
 
-1. **İmzalama sırrı** — `JWT_SECRET` (ERP: `deploy/erp/.env`).
-2. **Algoritma** — `HS256` (`JWT_ALGORITHM`, varsayılan `HS256`).
+1. **İmza** — ERP token'ı **RS256** ile imzalar; özel anahtar yalnızca
+   ERP'de kalır.
+2. **JWKS uç noktası** — ERP, genel anahtarı içeren bir JWKS uç noktası
+   yayınlar; KaplanBIM `SignInSource.jwksUrl` ile oradan okur.
 3. **issuer/audience** — token'ın `iss` ve `aud` claim'leri, KaplanBIM
-   tarafında yapılandırılan değerlerle birebir eşleşmeli (bkz. §2, §3).
+   tarafında yapılandırılan `SignInSource { issuer, audience }` değerleriyle
+   birebir eşleşmeli (bkz. §2, §3).
 
 Bunlardan biri uyuşmazsa token reddedilmelidir — asla sessizce kabul
 edilmemelidir (Review Focus 5, §3).
@@ -61,28 +63,32 @@ anahtarlar):
 | `services/bim-authority/src/config.ts` | Model sunucusunun env şeması. İlgili anahtarlar: `MUTINYBIM_AUTHORIZER_MODULE` (host eklentisi) ve `MUTINYBIM_SUPABASE_URL` (yalnızca test oturumları). |
 | `deploy/bim/docker-compose.yml` | Yerel yığında `MUTINYBIM_SUPABASE_URL: http://127.0.0.1:9999` ve `MUTINYBIM_LOCAL_STACK: "1"` ile yerel ES256 `signin` servisine işaret eder. |
 
-### Kritik bulgu — ERP'nin HS256 token'ı bugünkü kodla doğrulanamaz (boşluk)
+### Kritik bulgu — çalışan SSO henüz yok: ERP'nin RS256/JWKS yayınlaması gerek
 
-Karar belgesi "paylaşılan sır (`JWT_SECRET`) + HS256" modelini seçmiştir. Ancak
-bu depoda **model sunucusunun HS256 (paylaşılan-sır) token doğrulaması yoktur**:
+Karar belgesinin seçtiği model (Yol B) **RS256 + JWKS**'tir. KaplanBIM model
+sunucusu bu modeli **zaten destekler**:
 
-- `src/auth/verify.ts` token'ı **yalnızca JWKS ile** (`createRemoteJWKSet`)
-  doğrular. `SignInSource` sözleşmesi de (`issuer`, `jwksUrl`, `audience`)
-  bir **yayınlanmış anahtar kümesi URL'i** ister; **paylaşılan sır için bir
-  alan yoktur.**
+- `src/auth/verify.ts` token'ı **yalnızca JWKS ile** (`createRemoteJWKSet` +
+  `jwtVerify({ issuer, audience })`) doğrular. `SignInSource` sözleşmesi de
+  (`issuer`, `jwksUrl`, `audience`) tam olarak bunu ister.
 - `services/bim-authority/` altında `JWT_SECRET` / `JWT_ALGORITHM` adında
-  **hiçbir env anahtarı yoktur** (`src/config.ts` şemasında da yoktur).
-- ERP tarafının deploy yapılandırmasında da (`deploy/erp/.env.example`,
-  `deploy/erp/docker-compose.prod.yml`) `issuer`/`audience`/`iss`/`aud` adında
-  **hiçbir ayar yoktur**; yani ERP'nin HS256 JWT'si, `sub`+`exp` taşıyan sade
-  bir paylaşılan-sır token'ıdır — OIDC tarzı `iss`/`aud` claim'leri bu
-  yapılandırmada tanımlı değildir.
+  **hiçbir env anahtarı yoktur** (`src/config.ts` şemasında da yoktur) ve
+  gerek de yoktur — asimetrik modelde sır yalnızca ERP'de kalır.
+
+Ancak **ERP tarafı bugün RS256/JWKS üretmiyor**:
+
+- ERP'nin deploy yapılandırmasında (`deploy/erp/.env.example`,
+  `deploy/erp/docker-compose.prod.yml`) `JWT_SECRET`/`JWT_ALGORITHM` varsayılan
+  olarak **HS256** üretir ve `issuer`/`audience`/`iss`/`aud`/JWKS adında
+  **hiçbir ayar yoktur**. Yani bugünkü ERP token'ı, `sub`+`exp` taşıyan sade
+  bir HS256 paylaşılan-sır token'ıdır; KaplanBIM'in doğrulayabildiği RS256 +
+  JWKS + `iss`/`aud` claim'lerine sahip değildir.
 
 **Sonuç — dürüst durum:** Model sunucusu ile ERP arasında **çalışan bir SSO
-henüz yoktur**. Karar belgesinin kendisi de bunu "KaplanBIM tarafı … henüz
-yapılacak iş" olarak işaretlemiştir (karar belgesi §1, §3 "Sonuçlar": Task 2.4).
-Aşağıdaki §5, bu boşluğu kapatmanın iki somut yolunu verir; ikisi de **kod
-değişikliği** gerektirir ve Task 2.4'e bırakılmıştır. Bu belge, var olmayan
+henüz yoktur**. Boşluk artık "KaplanBIM'e HS256 doğrulaması yazmak" değil,
+**ERP'nin RS256 imzalama + JWKS uç noktası + `iss`/`aud` claim'lerini
+yayınlamasıdır** (bu depoda olmayan ERP backend kod değişikliği, Task 2.4).
+Aşağıdaki §5 bu boşluğu kapatmanın somut yolunu verir. Bu belge, var olmayan
 env anahtarı adları icat etmez.
 
 ---
@@ -125,9 +131,9 @@ ortamda gözlemlenmemiştir.
 2. **Yanlış veren (issuer):** Başka bir sistemin ürettiği token ile aynı
    adrese bağlan. Beklenen: günlükte `Sign-in from an unknown issuer (...)`,
    istemcide `denied` + `4003`.
-3. **Yanlış sır:** Aynı issuer/audience'a sahip ama **farklı `JWT_SECRET`**
-   ile imzalanmış bir token. Beklenen: `jwtVerify` imza uyumsuzluğu fırlatır,
-   aynı `denied` + `4003` sonucu döner.
+3. **Yanlış anahtar:** Aynı issuer/audience'a sahip ama **farklı bir özel
+   anahtarla imzalanmış** (JWKS'te bulunmayan) bir token. Beklenen: `jwtVerify`
+   imza uyumsuzluğu fırlatır, aynı `denied` + `4003` sonucu döner.
 4. **HTTP uç noktası:** Geçersiz `Authorization: Bearer <token>` ile
    `POST /import` (veya drill uç noktası) çağrısı. Beklenen: `403` + açıklayıcı
    `{"error": "..."}`.
@@ -160,14 +166,16 @@ set edildiğinde zaten reddedilir (`src/config.ts`).
 
 ---
 
-## 5. Adım adım kurulum — iki yol (ikisi de kod işi, Task 2.4)
+## 5. Adım adım kurulum (Task 2.4)
 
-Aşağıdaki iki yol birbirinin alternatifidir; hangisi seçilirse seçilsin
-**bu depoda henüz yapılmamış bir kod değişikliği** gerektirir. Adlar öneri
-değilse açıkça "öneri" olarak işaretlenmiştir; var olan bir anahtar gibi
-sunulmamıştır.
+Karar belgesi **Yol B'yi (RS256 + JWKS)** seçmiştir; Yol A (HS256 paylaşılan
+sır) son-kontrol (final review) denetimiyle geçersiz kılınmıştır. İki yol
+aşağıda belgelenmiştir: Yol B **KaplanBIM tarafında yeni doğrulama kodu
+gerektirmez** (yalnızca bir host eklentisi bağlanır), Yol A ise HS256
+doğrulaması yazmayı gerektirirdi. Adlar öneri değilse açıkça "öneri" olarak
+işaretlenmiştir; var olan bir anahtar gibi sunulmamıştır.
 
-### Yol A — Karar belgesinin seçtiği yol: HS256 paylaşılan sır
+### Yol A — geçersiz kılınan alternatif: HS256 paylaşılan sır
 
 1. **ERP tarafında** token'ın taşıdığı claim'ler netleştirilir. Bugün
    `deploy/erp/.env.example` içinde `iss`/`aud` ayarı yoktur; doğrulamanın
@@ -189,7 +197,7 @@ sunulmamıştır.
    okuyorsa, sır değiştiğinde ikisi de aynı anda yeniden başlatılmalıdır.
    Bu adım bu ortamda doğrulanmamıştır.
 
-### Yol B — ERP'yi asimetrik (RS256) + JWKS'e çevirmek
+### Yol B — Karar belgesinin seçtiği yol: RS256 + JWKS
 
 1. ERP backend'i token'ları RS256 ile imzalar ve bir JWKS uç noktası yayınlar
    (bu depoda olmayan ERP backend kod değişikliği — doğrulanmamıştır).

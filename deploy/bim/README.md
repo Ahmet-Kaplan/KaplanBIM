@@ -25,18 +25,25 @@ Servis adları, env değişkenleri, portlar ve ağ topolojisi değişmedi.
 
 ## IFC içe aktarma durumu (spec Açık Kalem 3)
 
-Dürüst durum: **IFC içe aktarma henüz üretime hazır değil.**
+Dürüst durum: **İçe aktarma çekirdekte kısmen var; uçtan uca dönüştürme henüz
+üretime hazır değil.**
 
 - **Mevcut olan:** IFC 4.3 **dışa aktarma** (`packages/bim-ifc` — kernel model →
-  STEP Part 21). 3D görünümde "linked IFC reference" gösterme altyapısının izleri
-  var, ancak dışa aktarma tam bir içe aktarma değildir.
-- **Yol haritasında (hafta 2–5, `ROADMAP.md`):** "Linked-reference math —
-  alignment, georeferencing, placement ve IFC conversion for linked models, as
-  an open package." Yani Revit IFC'lerinin hizalanıp yerleştirilerek yerel,
-  düzenlenebilir modele dönüştürülmesi henüz yapılmadı.
+  STEP Part 21) ve **içe aktarma çekirdeği** `importIfc`
+  (`packages/bim-ifc/src/import`): bir linked IFC referansının STEP metnini
+  okuyup nötr (neutral) ürünlere çevirir ve modelin sınıf kayıt defteri/import
+  kurallarıyla neyin dönüşeceğini planlar. Bu, "linked IFC reference"ı çekirdek
+  (kernel) düzeyinde okumak/planlamaktır — yalnızca dışa aktarma değildir.
+- **Henüz üretime hazır OLMAYAN:** Revit IFC'lerinin hizalanıp yerleştirilerek
+  yerel, düzenlenebilir modele dönüştürülmesi (Revit → editable-native
+  conversion) ve editörün yükleme (upload) akışı. Bunlar yol haritasındadır
+  (hafta 2–5, `ROADMAP.md`: "Linked-reference math — alignment, georeferencing,
+  placement ve IFC conversion for linked models, as an open package.").
 - **Sonuç:** Plan'daki "IFC içe aktarma yeterliliği" kontrolünün yanıtı
-  *"hazır değil; yol haritasında"* olarak kaydedilir. Editörün canlı IFC içe
-  aktarımı üretim kullanımına hazır değildir.
+  *"çekirdekte linked-reference içe aktarma var; Revit → düzenlenebilir yerel
+  modele dönüştürme ve editör upload akışı yol haritasında"* olarak
+  kaydedilir. Editörün canlı IFC içe aktarımı (upload → dönüştürme → düzenleme)
+  üretim kullanımına hazır değildir.
 
 **Fallback (miktar yolu):** Revit modelleri için miktar/keşif akışı
 Faz 0/1'deki Revit → IFC → OpenConstructionERP takeoff yoludur
