@@ -15,6 +15,7 @@ import { build } from "esbuild";
 import postcss from "postcss";
 import tailwind from "@tailwindcss/postcss";
 import { WebSocketServer, type WebSocket } from "ws";
+import type { MutinyLanguage } from "@permitzip/bim-ui";
 import { parseBranchModelId } from "@permitzip/bim-kernel";
 import { TOOL_FAMILIES } from "@permitzip/bim-mcp";
 import { installFirstPartyAddOns } from "@permitzip/bim-first-party";
@@ -25,6 +26,7 @@ import { ApprovalBook } from "./assistant-approvals";
 import { approveAuthorize, checkAuthorize, errorRedirect, type AssistantAuthOptions } from "./assistant-auth";
 import { createAssistantTools, type AttachModel, type ModelEndpoint } from "./assistant-tools";
 import type { OAuthProviderConfig, WebConfig } from "./config";
+import { resolveRequestLanguage } from "./i18n";
 import { DEFAULT_RUNNER_DIR, localScripts, ScriptSandbox, scriptsOff, sealedScripts, type HostedScripts } from "./script-sandbox";
 import { isColorScheme, openDb, type Db, type ModelAccess, type ModelRow, type ShareRole, type UserRow } from "./db";
 import { esc, setWaitingApprovals, type Flash } from "./ui";
@@ -109,6 +111,21 @@ function cookies(req: IncomingMessage): Map<string, string> {
     if (at > 0) out.set(part.slice(0, at).trim(), decodeURIComponent(part.slice(at + 1).trim()));
   }
   return out;
+}
+
+/**
+ * The language this request is answered in: the language cookie, then the
+ * account's own setting, then `Accept-Language`, then English (see `./i18n`).
+ * Read once per request, so a page and its `<html lang>` always agree.
+ */
+function requestLanguage(req: IncomingMessage): MutinyLanguage {
+  return resolveRequestLanguage({
+    cookies: Object.fromEntries(cookies(req)),
+    header: (name) => {
+      const value = req.headers[name.toLowerCase()];
+      return Array.isArray(value) ? value[0] : value;
+    },
+  });
 }
 
 async function readBody(req: IncomingMessage): Promise<string> {
@@ -277,16 +294,17 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
   const callbackUri = (provider: OAuthProviderConfig) => `${config.origin}/auth/${provider.id}/callback`;
 
   async function handleAuthCallback(req: IncomingMessage, res: ServerResponse, url: URL, provider: OAuthProviderConfig): Promise<void> {
+    const language = requestLanguage(req);
     const error = url.searchParams.get("error");
     if (error) {
       const words = error === "access_denied" ? `You didn't allow MutinyBIM on ${provider.label.replace(/^Log in with /i, "")}. Nothing changed.` : `${provider.label} sign-in stopped (${error}). Try again, or sign in with email.`;
-      return html(res, 400, loginPage(config, { returnTo: "/models", flash: { kind: "error", text: words } }));
+      return html(res, 400, loginPage(config, { returnTo: "/models", flash: { kind: "error", text: words } }, language));
     }
     const code = url.searchParams.get("code");
     const stateParam = url.searchParams.get("state");
     const state = stateParam ? db.takeOAuthState(stateParam) : null;
     if (!code || !state || state.provider !== provider.id) {
-      return html(res, 400, loginPage(config, { returnTo: "/models", flash: { kind: "error", text: "That sign-in link expired or was already used. Start again." } }));
+      return html(res, 400, loginPage(config, { returnTo: "/models", flash: { kind: "error", text: "That sign-in link expired or was already used. Start again." } }, language));
     }
     const person = await finishSignIn({ provider, redirectUri: callbackUri(provider), code, codeVerifier: state.code_verifier, db, ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}) });
     const linking = state.return_to.startsWith("link:");
@@ -295,7 +313,7 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
     if (linking) {
       const current = sessionUser(req);
       if (!current) return redirect(res, "/login?return_to=%2Fsettings");
-      if (known && known.id !== current.id) return html(res, 409, settingsPage(config, current, db.identitiesOf(current.id), { flash: { kind: "error", text: `That ${provider.label.replace(/^Log in with /i, "")} account is already linked to another MutinyBIM account.` } }));
+      if (known && known.id !== current.id) return html(res, 409, settingsPage(config, current, db.identitiesOf(current.id), { flash: { kind: "error", text: `That ${provider.label.replace(/^Log in with /i, "")} account is already linked to another MutinyBIM account.` } }, language));
       db.linkIdentity(provider.id, person.subject, current.id);
       console.log("[mutinybim-web] linked a sign-in", { provider: provider.id, userId: current.id });
       return redirect(res, `${returnTo}${returnTo.includes("?") ? "&" : "?"}linked=${provider.id}`);
@@ -304,12 +322,12 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
       console.log("[mutinybim-web] signed in", { provider: provider.id, userId: known.id });
       return redirect(res, returnTo, { "set-cookie": startSession(known.id, provider.id) });
     }
-    if (!person.email) return html(res, 400, loginPage(config, { returnTo, flash: { kind: "error", text: `${provider.label} didn't share an email address, which a MutinyBIM account needs. Sign up with email instead.` } }));
+    if (!person.email) return html(res, 400, loginPage(config, { returnTo, flash: { kind: "error", text: `${provider.label} didn't share an email address, which a MutinyBIM account needs. Sign up with email instead.` } }, language));
     const sameEmail = db.userByEmail(person.email);
     if (sameEmail) {
-      return html(res, 409, loginPage(config, { email: person.email, returnTo: "/settings", flash: { kind: "error", text: `A MutinyBIM account with ${person.email} already exists. Log in with its password, then link ${provider.label.replace(/^Log in with /i, "")} under Settings → Ways to log in.` } }));
+      return html(res, 409, loginPage(config, { email: person.email, returnTo: "/settings", flash: { kind: "error", text: `A MutinyBIM account with ${person.email} already exists. Log in with its password, then link ${provider.label.replace(/^Log in with /i, "")} under Settings → Ways to log in.` } }, language));
     }
-    if (!config.signupOpen) return html(res, 403, loginPage(config, { returnTo, flash: { kind: "error", text: "New accounts can't be made on this server right now." } }));
+    if (!config.signupOpen) return html(res, 403, loginPage(config, { returnTo, flash: { kind: "error", text: "New accounts can't be made on this server right now." } }, language));
     const user = db.createUser({ id: randomUUID(), email: person.email, displayName: person.name ?? person.email.split("@")[0] ?? "You", passwordHash: null });
     db.linkIdentity(provider.id, person.subject, user.id);
     console.log("[mutinybim-web] account made through a sign-in provider", { provider: provider.id, userId: user.id });
@@ -321,6 +339,7 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
     const { pathname } = url;
     const method = req.method ?? "GET";
     const user = sessionUser(req);
+    const language = requestLanguage(req);
 
     // The tool server and its sign-in addresses take requests from assistants (other origins, bearer tokens, no cookies).
     if (await assistantTools.handle(req, res, url)) return;
@@ -332,35 +351,35 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
     if (method === "GET" && pathname === "/static/confirm.js") return send(res, 200, "text/javascript; charset=utf-8", await readFile(path.join(APP_DIR, "public/confirm.js")), { "cache-control": "public, max-age=300" });
     if (method === "GET" && pathname === "/static/settings.js") return send(res, 200, "text/javascript; charset=utf-8", await bundleSettings(), { "cache-control": "public, max-age=300" });
 
-    if (method === "GET" && pathname === "/") return user ? redirect(res, "/models") : html(res, 200, landingPage(config));
+    if (method === "GET" && pathname === "/") return user ? redirect(res, "/models") : html(res, 200, landingPage(config, language));
 
     if (pathname === "/login") {
-      if (method === "GET") return user ? redirect(res, safeReturn(url.searchParams.get("return_to"))) : html(res, 200, loginPage(config, { returnTo: safeReturn(url.searchParams.get("return_to")) }));
+      if (method === "GET") return user ? redirect(res, safeReturn(url.searchParams.get("return_to"))) : html(res, 200, loginPage(config, { returnTo: safeReturn(url.searchParams.get("return_to")) }, language));
       if (method === "POST") {
         const form = await readForm(req);
         const email = (form.get("email") ?? "").trim().toLowerCase();
         const returnTo = safeReturn(form.get("return_to"));
-        if (!throttle.allow(`login:${req.socket.remoteAddress ?? "?"}`)) return html(res, 429, loginPage(config, { email, returnTo, flash: { kind: "error", text: "Too many tries from here. Wait ten minutes, then try again." } }));
+        if (!throttle.allow(`login:${req.socket.remoteAddress ?? "?"}`)) return html(res, 429, loginPage(config, { email, returnTo, flash: { kind: "error", text: "Too many tries from here. Wait ten minutes, then try again." } }, language));
         const found = email ? db.userByEmail(email) : null;
         const ok = found?.password_hash ? await verifyPassword(form.get("password") ?? "", found.password_hash) : false;
         if (!found || !ok) {
           const words = found && !found.password_hash ? "This account signs in through a linked account (no password). Use the button above." : "That email and password don't match an account. Check both and try again.";
-          return html(res, 401, loginPage(config, { email, returnTo, flash: { kind: "error", text: words } }));
+          return html(res, 401, loginPage(config, { email, returnTo, flash: { kind: "error", text: words } }, language));
         }
         return redirect(res, returnTo, { "set-cookie": startSession(found.id, "password") });
       }
     }
 
-    if (method === "GET" && pathname === "/forgot") return user ? redirect(res, "/settings#password") : html(res, 200, forgotPage(config));
+    if (method === "GET" && pathname === "/forgot") return user ? redirect(res, "/settings#password") : html(res, 200, forgotPage(config, language));
     const reset = pathname.match(/^\/reset\/([A-Za-z0-9_-]{20,80})$/);
     if (reset?.[1]) {
       const tokenHash = digest(reset[1]);
       const person = db.userByPasswordReset(tokenHash);
-      if (method === "GET") return html(res, person ? 200 : 410, resetPage({ token: reset[1], email: person?.email ?? null }));
+      if (method === "GET") return html(res, person ? 200 : 410, resetPage({ token: reset[1], email: person?.email ?? null }, language));
       if (method === "POST") {
-        if (!person) return html(res, 410, resetPage({ token: reset[1], email: null }));
+        if (!person) return html(res, 410, resetPage({ token: reset[1], email: null }, language));
         const password = (await readForm(req)).get("password") ?? "";
-        if (password.length < 8) return html(res, 400, resetPage({ token: reset[1], email: person.email, flash: { kind: "error", text: "Use a password of at least 8 characters." } }));
+        if (password.length < 8) return html(res, 400, resetPage({ token: reset[1], email: person.email, flash: { kind: "error", text: "Use a password of at least 8 characters." } }, language));
         db.setPassword(person.id, await hashPassword(password));
         db.usePasswordReset(tokenHash);
         db.deleteSessionsOf(person.id);
@@ -369,18 +388,18 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
       }
     }
 
-    if (method === "GET" && pathname === "/terms") return html(res, 200, termsPage());
-    if (method === "GET" && pathname === "/privacy") return html(res, 200, privacyPage());
+    if (method === "GET" && pathname === "/terms") return html(res, 200, termsPage(language));
+    if (method === "GET" && pathname === "/privacy") return html(res, 200, privacyPage(language));
 
     if (pathname === "/signup") {
-      if (method === "GET") return user ? redirect(res, "/models") : html(res, 200, signupPage(config, {}));
+      if (method === "GET") return user ? redirect(res, "/models") : html(res, 200, signupPage(config, {}, language));
       if (method === "POST") {
-        if (!config.signupOpen) return html(res, 403, signupPage(config, {}));
+        if (!config.signupOpen) return html(res, 403, signupPage(config, {}, language));
         const form = await readForm(req);
         const email = (form.get("email") ?? "").trim().toLowerCase();
         const name = (form.get("name") ?? "").trim().slice(0, 80);
         const password = form.get("password") ?? "";
-        const fail = (text: string, status = 400) => html(res, status, signupPage(config, { email, name, flash: { kind: "error", text } }));
+        const fail = (text: string, status = 400) => html(res, status, signupPage(config, { email, name, flash: { kind: "error", text } }, language));
         if (!throttle.allow(`signup:${req.socket.remoteAddress ?? "?"}`)) return fail("Too many sign-ups from here. Wait ten minutes, then try again.", 429);
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail("Enter a full email address, like name@example.com.");
         if (!name) return fail("Enter your name; it's what people editing with you see.");
@@ -415,7 +434,7 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
       } catch (err) {
         if (!(err instanceof SignInError)) throw err;
         console.error("[mutinybim-web] starting a provider sign-in failed", { provider: provider.id, err: err.message });
-        return html(res, 502, loginPage(config, { returnTo, flash: { kind: "error", text: err.words } }));
+        return html(res, 502, loginPage(config, { returnTo, flash: { kind: "error", text: err.words } }, language));
       }
     }
     const authCallback = pathname.match(/^\/auth\/([a-z0-9-]+)\/callback$/);
@@ -426,7 +445,7 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
       } catch (err) {
         if (!(err instanceof SignInError)) throw err;
         console.error("[mutinybim-web] finishing a provider sign-in failed", { provider: provider.id, err: err.message });
-        return html(res, 502, loginPage(config, { returnTo: "/models", flash: { kind: "error", text: err.words } }));
+        return html(res, 502, loginPage(config, { returnTo: "/models", flash: { kind: "error", text: err.words } }, language));
       }
     }
 
@@ -449,14 +468,14 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
             : url.searchParams.get("reset") === "1"
               ? { kind: "ok" as const, text: "Your new password is saved. You were signed out everywhere else." }
               : null;
-        return html(res, 200, modelsPage(config, user, db.modelsOf(user.id), db.sharedWith(user.id), flash));
+        return html(res, 200, modelsPage(config, user, db.modelsOf(user.id), db.sharedWith(user.id), flash, language));
       }
       if (method === "POST") {
         const form = await readForm(req);
         const name = (form.get("name") ?? "").trim().slice(0, 120);
         const start: StarterKind = form.get("start") === "sample" ? "sample" : "blank";
-        if (!name) return html(res, 400, modelsPage(config, user, db.modelsOf(user.id), db.sharedWith(user.id), { kind: "error", text: "Give the model a name." }));
-        if (db.countModelsOf(user.id) >= config.modelLimit) return html(res, 409, modelsPage(config, user, db.modelsOf(user.id), db.sharedWith(user.id), { kind: "error", text: `A free account keeps up to ${config.modelLimit} models. Delete one to make another.` }));
+        if (!name) return html(res, 400, modelsPage(config, user, db.modelsOf(user.id), db.sharedWith(user.id), { kind: "error", text: "Give the model a name." }, language));
+        if (db.countModelsOf(user.id) >= config.modelLimit) return html(res, 409, modelsPage(config, user, db.modelsOf(user.id), db.sharedWith(user.id), { kind: "error", text: `A free account keeps up to ${config.modelLimit} models. Delete one to make another.` }, language));
         const id = newModelId();
         await models.create(id, start);
         db.createModel({ id, ownerId: user.id, name });
@@ -469,7 +488,7 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
       const model = ownModel(user, modelAction[1]);
       if (modelAction[2] === "rename") {
         const name = ((await readForm(req)).get("name") ?? "").trim().slice(0, 120);
-        if (!name) return html(res, 400, modelsPage(config, user, db.modelsOf(user.id), db.sharedWith(user.id), { kind: "error", text: "A model needs a name." }));
+        if (!name) return html(res, 400, modelsPage(config, user, db.modelsOf(user.id), db.sharedWith(user.id), { kind: "error", text: "A model needs a name." }, language));
         db.renameModel(model.id, name);
         return redirect(res, "/models");
       }
@@ -483,12 +502,12 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
     const shareRoute = pathname.match(/^\/models\/([a-z0-9-]+)\/share$/);
     if (user && shareRoute?.[1]) {
       const model = ownModel(user, shareRoute[1]);
-      if (method === "GET") return html(res, 200, sharePage(config, user, model, db.sharesOf(model.id)));
+      if (method === "GET") return html(res, 200, sharePage(config, user, model, db.sharesOf(model.id), {}, language));
       if (method === "POST") {
         const form = await readForm(req);
         const email = (form.get("email") ?? "").trim().toLowerCase();
         const role: ShareRole = form.get("role") === "view" ? "view" : "edit";
-        const fail = (status: number, text: string) => html(res, status, sharePage(config, user, model, db.sharesOf(model.id), { email, flash: { kind: "error", text } }));
+        const fail = (status: number, text: string) => html(res, status, sharePage(config, user, model, db.sharesOf(model.id), { email, flash: { kind: "error", text } }, language));
         const person = email ? db.userByEmail(email) : null;
         if (!person) return fail(404, `No MutinyBIM account here uses ${email || "that email"}. Ask them to sign up first (this app sends no invitations), then share again.`);
         if (person.id === user.id) return fail(400, "That's you; you already own this model.");
@@ -497,7 +516,7 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
         if (before && before.role !== role) disconnect(model.id, person.id);
         console.log("[mutinybim-web] model shared", { modelId: model.id, ownerId: user.id, userId: person.id, role });
         const words = before ? `${person.display_name} can now ${role === "edit" ? "edit" : "only view"} it.` : `Shared with ${person.display_name}. They see it under “Shared with you” on My models.`;
-        return html(res, 200, sharePage(config, user, model, db.sharesOf(model.id), { flash: { kind: "ok", text: words } }));
+        return html(res, 200, sharePage(config, user, model, db.sharesOf(model.id), { flash: { kind: "ok", text: words } }, language));
       }
     }
     const unshareRoute = pathname.match(/^\/models\/([a-z0-9-]+)\/share\/([0-9a-f-]{36})\/delete$/);
@@ -507,26 +526,26 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
       db.unshare(model.id, unshareRoute[2]);
       disconnect(model.id, unshareRoute[2]);
       console.log("[mutinybim-web] model unshared", { modelId: model.id, ownerId: user.id, userId: unshareRoute[2] });
-      return html(res, 200, sharePage(config, user, model, db.sharesOf(model.id), { flash: { kind: "ok", text: removed ? `${removed.display_name} no longer has “${model.name}”.` : "They already didn't have it." } }));
+      return html(res, 200, sharePage(config, user, model, db.sharesOf(model.id), { flash: { kind: "ok", text: removed ? `${removed.display_name} no longer has “${model.name}”.` : "They already didn't have it." } }, language));
     }
 
     if (user && pathname === "/settings" && method === "GET") {
       const linked = url.searchParams.get("linked");
       const provider = linked ? config.providers.find((p) => p.id === linked) : undefined;
-      return html(res, 200, settingsPage(config, user, db.identitiesOf(user.id), { passwordFree: recentProviderSignIn(req), flash: provider ? { kind: "ok", text: `Linked. You can now log in with ${provider.label.replace(/^Log in with /i, "")}.` } : null }));
+      return html(res, 200, settingsPage(config, user, db.identitiesOf(user.id), { passwordFree: recentProviderSignIn(req), flash: provider ? { kind: "ok", text: `Linked. You can now log in with ${provider.label.replace(/^Log in with /i, "")}.` } : null }, language));
     }
     if (user && pathname === "/settings/profile" && method === "POST") {
       const name = ((await readForm(req)).get("name") ?? "").trim().slice(0, 80);
-      if (!name) return html(res, 400, settingsPage(config, user, db.identitiesOf(user.id), { flash: { kind: "error", text: "Your name can't be empty." } }));
+      if (!name) return html(res, 400, settingsPage(config, user, db.identitiesOf(user.id), { flash: { kind: "error", text: "Your name can't be empty." } }, language));
       db.renameUser(user.id, name);
       const fresh = db.userById(user.id) ?? user;
-      return html(res, 200, settingsPage(config, fresh, db.identitiesOf(user.id), { flash: { kind: "ok", text: "Saved." } }));
+      return html(res, 200, settingsPage(config, fresh, db.identitiesOf(user.id), { flash: { kind: "ok", text: "Saved." } }, language));
     }
     if (user && pathname === "/settings/password" && method === "POST") {
       const form = await readForm(req);
       const password = form.get("password") ?? "";
       const passwordFree = recentProviderSignIn(req);
-      const fail = (status: number, text: string) => html(res, status, settingsPage(config, user, db.identitiesOf(user.id), { passwordFree, flash: { kind: "error", text } }));
+      const fail = (status: number, text: string) => html(res, status, settingsPage(config, user, db.identitiesOf(user.id), { passwordFree, flash: { kind: "error", text } }, language));
       if (!throttle.allow(`password:${user.id}`)) return fail(429, "Too many tries. Wait ten minutes, then try again.");
       if (password.length < 8) return fail(400, "Use a new password of at least 8 characters.");
       if (user.password_hash && !passwordFree && !(await verifyPassword(form.get("current") ?? "", user.password_hash))) return fail(401, "Your current password isn't right. Forgot it? Log out, then use “Forgot your password?” on the log-in page.");
@@ -535,7 +554,7 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
       db.deleteSessionsOf(user.id, token ? digest(token) : null);
       console.log("[mutinybim-web] password set", { userId: user.id, recovery: passwordFree });
       const fresh = db.userById(user.id) ?? user;
-      return html(res, 200, settingsPage(config, fresh, db.identitiesOf(user.id), { flash: { kind: "ok", text: "Password saved. You were signed out on every other device." } }));
+      return html(res, 200, settingsPage(config, fresh, db.identitiesOf(user.id), { flash: { kind: "ok", text: "Password saved. You were signed out on every other device." } }, language));
     }
     if (user && pathname === "/settings/scheme" && method === "POST") {
       const json = (req.headers["content-type"] ?? "").startsWith("application/json");
@@ -549,27 +568,27 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
       return redirect(res, safeReturn(refererPath(req), "/models"));
     }
 
-    if (user && pathname === "/connect" && method === "GET") return html(res, 200, connectView(user, null));
+    if (user && pathname === "/connect" && method === "GET") return html(res, 200, connectView(user, null, null, language));
     const assistantDelete = pathname.match(/^\/connect\/assistants\/([0-9a-f-]{36})\/delete$/);
     if (user && method === "POST" && assistantDelete?.[1]) {
       db.deleteAssistantGrant(assistantDelete[1], user.id);
       assistantTools.endGrant(assistantDelete[1]);
       console.log("[mutinybim-web] an assistant was signed out", { userId: user.id });
-      return html(res, 200, connectView(user, null, { kind: "ok", text: "Signed out. That assistant can no longer reach your models; it asks you to sign in again next time." }));
+      return html(res, 200, connectView(user, null, { kind: "ok", text: "Signed out. That assistant can no longer reach your models; it asks you to sign in again next time." }, language));
     }
 
     if (pathname === "/oauth/authorize" && user && (method === "GET" || method === "POST")) {
       const form = method === "POST" ? await readForm(req) : null;
       const params = form ? new URLSearchParams(form.get("request") ?? "") : url.searchParams;
       const checked = await checkAuthorize(params, assistantAuth);
-      if (!checked.ok && "show" in checked) return html(res, 400, messagePage(config, user, "This assistant can't connect", checked.show, { href: "/connect", label: "Connect an assistant" }));
+      if (!checked.ok && "show" in checked) return html(res, 400, messagePage(config, user, "This assistant can't connect", checked.show, { href: "/connect", label: "Connect an assistant" }, language));
       if (!checked.ok) return redirect(res, checked.redirect);
       const back = new URL(checked.request.redirectUri);
       const web = back.protocol === "https:" || back.protocol === "http:";
       if (!form) {
         // The form posts here, then this app sends the browser on to the assistant: allow that address too.
         const csp = `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self' ${web ? back.origin : back.protocol}`;
-        return html(res, 200, assistantConsentPage(config, user, { clientName: checked.request.client.client_name, backTo: web ? back.host : back.protocol.replace(/:$/, ""), request: params.toString(), models: db.modelsOf(user.id).length, shared: db.sharedWith(user.id).length }), { "content-security-policy": csp });
+        return html(res, 200, assistantConsentPage(config, user, { clientName: checked.request.client.client_name, backTo: web ? back.host : back.protocol.replace(/:$/, ""), request: params.toString(), models: db.modelsOf(user.id).length, shared: db.sharedWith(user.id).length }, language), { "content-security-policy": csp });
       }
       if (form.get("decision") !== "allow") {
         console.log("[mutinybim-web] a person declined an assistant", { userId: user.id, clientId: checked.request.client.client_id });
@@ -578,40 +597,40 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
       return redirect(res, approveAuthorize(checked.request, user, assistantAuth));
     }
 
-    if (user && pathname === "/approvals" && method === "GET") return html(res, 200, approvalsPage(config, user, approvals.of(user.id)));
+    if (user && pathname === "/approvals" && method === "GET") return html(res, 200, approvalsPage(config, user, approvals.of(user.id), language));
     const approvalRoute = pathname.match(/^\/approvals\/([0-9a-f-]{36})$/);
     if (user && approvalRoute?.[1]) {
       const id = approvalRoute[1];
       if (method === "GET") {
         const item = approvals.get(user.id, id);
-        return item ? html(res, 200, approvalPage(config, user, item)) : html(res, 404, messagePage(config, user, "Not found", "That approval request isn't yours, or it was dropped after 30 minutes. Nothing changed.", { href: "/approvals", label: "Approvals" }));
+        return item ? html(res, 200, approvalPage(config, user, item, language)) : html(res, 404, messagePage(config, user, "Not found", "That approval request isn't yours, or it was dropped after 30 minutes. Nothing changed.", { href: "/approvals", label: "Approvals" }, language));
       }
       if (method === "POST") {
         const decision = (await readForm(req)).get("decision");
         const item = await approvals.answer(user.id, id, decision === "approve");
-        if (!item) return html(res, 404, messagePage(config, user, "Not found", "That approval request isn't yours, or it was dropped after 30 minutes. Nothing changed.", { href: "/approvals", label: "Approvals" }));
+        if (!item) return html(res, 404, messagePage(config, user, "Not found", "That approval request isn't yours, or it was dropped after 30 minutes. Nothing changed.", { href: "/approvals", label: "Approvals" }, language));
         console.log("[mutinybim-web] a person answered an assistant's change", { userId: user.id, approved: decision === "approve", state: item.state });
-        return html(res, 200, approvalPage(config, user, item));
+        return html(res, 200, approvalPage(config, user, item, language));
       }
     }
 
     if (user && pathname === "/connect/keys" && method === "POST") {
       const label = ((await readForm(req)).get("label") ?? "").trim().slice(0, 60) || "Assistant";
-      if (db.agentKeysOf(user.id).length >= 10) return html(res, 409, connectView(user, null, { kind: "error", text: "You have 10 agent keys, the most one account keeps. Turn one off first." }));
+      if (db.agentKeysOf(user.id).length >= 10) return html(res, 409, connectView(user, null, { kind: "error", text: "You have 10 agent keys, the most one account keeps. Turn one off first." }, language));
       const key = randomToken("mbk_");
       db.createAgentKey({ id: randomUUID(), userId: user.id, keyHash: digest(key), label, last4: key.slice(-4) });
       console.log("[mutinybim-web] agent key made", { userId: user.id });
-      return html(res, 200, connectView(user, key, { kind: "ok", text: `Made “${label}”.` }));
+      return html(res, 200, connectView(user, key, { kind: "ok", text: `Made “${label}”.` }, language));
     }
     const keyDelete = pathname.match(/^\/connect\/keys\/([0-9a-f-]{36})\/delete$/);
     if (user && method === "POST" && keyDelete?.[1]) {
       db.deleteAgentKey(keyDelete[1], user.id);
-      return html(res, 200, connectView(user, null, { kind: "ok", text: "Turned off. Assistants using that key can no longer reach your models." }));
+      return html(res, 200, connectView(user, null, { kind: "ok", text: "Turned off. Assistants using that key can no longer reach your models." }, language));
     }
 
     if (user && pathname === "/quote" && method === "GET") {
       // Off unless the deployment sets MUTINYBIM_WEB_QUOTE: then this page is an ordinary "not here".
-      if (!config.quote) return html(res, 404, messagePage(config, user, "Not here", "There's no page at this address.", { href: "/models", label: "Back to my models" }));
+      if (!config.quote) return html(res, 404, messagePage(config, user, "Not here", "There's no page at this address.", { href: "/models", label: "Back to my models" }, language));
       const list = db.modelsOf(user.id);
       const wanted = url.searchParams.get("model");
       const chosen = (wanted ? list.find((m) => m.id === wanted) : undefined) ?? list[0] ?? null;
@@ -623,7 +642,7 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
           console.error("[mutinybim-web] the quote page couldn't read the model summary; showing the page without it", { modelId: chosen.id, err });
         }
       }
-      return html(res, 200, quotePage(config, config.quote, user, list, chosen, summary));
+      return html(res, 200, quotePage(config, config.quote, user, list, chosen, summary, language));
     }
 
     const summaryRoute = pathname.match(/^\/api\/hosted\/models\/([a-z0-9-]+)\/summary$/);
@@ -641,10 +660,10 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
     const editorPage = pathname.match(/^\/m\/([a-z0-9-]+)\/?$/);
     if (user && method === "GET" && editorPage?.[1]) {
       const { model, access } = reachableModel(user, editorPage[1]);
-      if (!editor) return html(res, 503, messagePage(config, user, "The editor is off", "This server was started without the editor."));
+      if (!editor) return html(res, 503, messagePage(config, user, "The editor is off", "This server was started without the editor.", undefined, language));
       const owner = access === "owner" ? null : (db.userById(model.owner_id)?.display_name ?? "its owner");
-      const pageData = JSON.stringify({ modelId: model.id, modelName: model.name, userId: user.id, displayName: user.display_name, quoteLabel: config.quote?.label ?? null, access, owner, colorScheme: user.color_scheme }).replace(/</g, "\\u003c");
-      return html(res, 200, editorHtml(model.name, pageData, user.color_scheme));
+      const pageData = JSON.stringify({ modelId: model.id, modelName: model.name, userId: user.id, displayName: user.display_name, quoteLabel: config.quote?.label ?? null, access, owner, colorScheme: user.color_scheme, language }).replace(/</g, "\\u003c");
+      return html(res, 200, editorHtml(model.name, pageData, user.color_scheme, language));
     }
 
     if (editor && (pathname.startsWith("/dist/") || pathname.startsWith("/assets/") || (pathname.startsWith("/mutinybim/") && !/^\/mutinybim\/[^/]+\/?$/.test(pathname)) || pathname.startsWith("/pdfjs/") || pathname.startsWith("/api/") || /\.(wasm|mjs)$/.test(pathname))) {
@@ -661,12 +680,12 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
         }
       }
     }
-    html(res, 404, messagePage(config, user, "Not here", "There's no page at this address.", { href: user ? "/models" : "/", label: user ? "Back to my models" : "Home" }));
+    html(res, 404, messagePage(config, user, "Not here", "There's no page at this address.", { href: user ? "/models" : "/", label: user ? "Back to my models" : "Home" }, language));
   }
 
-  function editorHtml(modelName: string, pageData: string, scheme: string): string {
+  function editorHtml(modelName: string, pageData: string, scheme: string, language: MutinyLanguage): string {
     return `<!doctype html>
-<html lang="en" data-mutiny-scheme="${esc(scheme)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<html lang="${esc(language)}" data-mutiny-scheme="${esc(scheme)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(modelName)} · MutinyBIM</title>
 <link rel="icon" type="image/svg+xml" href="/assets/bim-ui/mutiny-icon.svg">
 <link rel="stylesheet" href="/dist/styles.css">
@@ -676,17 +695,18 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
   }
 
   const server = createServer((req, res) => {
+    const language = requestLanguage(req);
     handle(req, res).catch((err: unknown) => {
       if (err instanceof Refusal) {
         const user = sessionUser(req);
         if ((req.url ?? "").startsWith("/api/")) return json(res, err.status, { error: err.words });
-        return html(res, err.status, messagePage(config, user, err.status === 404 ? "Not found" : "That didn't work", err.words, { href: user ? "/models" : "/", label: user ? "Back to my models" : "Home" }));
+        return html(res, err.status, messagePage(config, user, err.status === 404 ? "Not found" : "That didn't work", err.words, { href: user ? "/models" : "/", label: user ? "Back to my models" : "Home" }, language));
       }
       console.error("[mutinybim-web] request failed", { url: req.url, err });
       if (res.headersSent) return res.end();
       const words = "The server hit an error it didn't expect. Try again; if it keeps happening, the server log has the details.";
       try {
-        html(res, 500, messagePage(config, null, "Something broke", words, { href: "/", label: "Home" }));
+        html(res, 500, messagePage(config, null, "Something broke", words, { href: "/", label: "Home" }, language));
       } catch (pageErr) {
         console.error("[mutinybim-web] the error page itself failed; answering in plain text", { pageErr });
         send(res, 500, "text/plain; charset=utf-8", words);
@@ -772,8 +792,8 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
   const hostedScripts = options.scripts ?? scriptsFor(config);
   const assistantTools = createAssistantTools({ auth: assistantAuth, db, dataDir: config.dataDir, approvals, attach, scripts: hostedScripts, ...(options.approvalWaitMs !== undefined ? { approvalWaitMs: options.approvalWaitMs } : {}) });
 
-  function connectView(user: UserRow, newKey: string | null, flash?: Flash): string {
-    return connectPage(config, user, { models: db.modelsOf(user.id), keys: db.agentKeysOf(user.id), assistants: db.assistantGrantsOf(user.id), newKey }, flash);
+  function connectView(user: UserRow, newKey: string | null, flash: Flash, language: MutinyLanguage): string {
+    return connectPage(config, user, { models: db.modelsOf(user.id), keys: db.agentKeysOf(user.id), assistants: db.assistantGrantsOf(user.id), newKey }, flash, language);
   }
 
   function serveSocket(socket: WebSocket, person: UserRow, modelFromUrl: string | null, viaAgentKey: boolean): void {

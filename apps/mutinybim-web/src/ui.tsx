@@ -7,7 +7,7 @@
  */
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { Alert, Badge, Button, MutinyWordmark, themeStyleSheet, type MutinyColorScheme } from "@permitzip/bim-ui";
+import { Alert, Badge, Button, MutinyWordmark, themeStyleSheet, type MutinyColorScheme, type MutinyLanguage } from "@permitzip/bim-ui";
 import type { QuoteConfig } from "./config";
 
 const THEME_CSS = themeStyleSheet();
@@ -42,6 +42,11 @@ export interface FrameOptions {
   readonly scripts?: readonly string[];
   /** Narrow column for sign-in forms. */
   readonly narrow?: boolean;
+  /**
+   * The language the page is written in, for `<html lang>`: a screen reader has
+   * to read Turkish with Turkish rules. English when a page says nothing.
+   */
+  readonly language?: MutinyLanguage;
 }
 
 function NavLink({ href, label, current }: { href: string; label: string; current: boolean }) {
@@ -141,7 +146,7 @@ export function FlashMessage({ flash }: { flash: Flash }) {
 export function page(body: ReactNode, options: FrameOptions): string {
   const scheme = options.user?.scheme ?? "system";
   const markup = renderToStaticMarkup(
-    <html lang="en" data-mutiny-scheme={scheme}>
+    <html lang={options.language ?? "en"} data-mutiny-scheme={scheme}>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
