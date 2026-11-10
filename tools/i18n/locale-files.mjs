@@ -8,7 +8,7 @@
 // cannot import that `.ts` module, and a tool that reaches into another package's
 // `__tests__` is a tool that breaks when the tests are reorganised. The
 // duplication is held together by a test, not by a comment:
-// `packages/bim-ui/__tests__/locale-walk-agreement.test.ts` asserts that both
+// `tools/i18n/__tests__/locale-walk-agreement.test.ts` asserts that both
 // walkers see the same file ids and flatten them to the same keys and values, so
 // a change to one walk that is not made to the other fails the suite.
 import fs from "node:fs";

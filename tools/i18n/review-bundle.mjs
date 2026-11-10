@@ -182,10 +182,16 @@ function declaredNamespace(args) {
  * the nearest preceding `useT('x')` / `useTranslation('x')` in the same file
  * (the hook is declared at the top of the component that calls `t`); otherwise
  * the nearest following one; otherwise `defaultNS`, which is `common` — that is
- * what i18next resolves, not a guess. A declaration whose argument is not a
- * string literal (`useTranslation(namespace)`) cannot be known statically, so
- * those calls fall back to `common` **and** count as uncertain: the report says
- * how many, rather than pretending.
+ * what i18next resolves, not a guess — and that is also the answer when no hook
+ * precedes the call: a bare `t('key', 'English')` above some later component's
+ * `useT('editor')` is *not* an editor string, so guessing `editor` there would
+ * invent an `⚠️ eksik` row for a key that is translated. A declaration whose
+ * argument is not a string literal (`useTranslation(namespace)`) cannot be known
+ * statically either, so those calls also fall back to `common` **and** count as
+ * uncertain: the report says how many, rather than pretending.
+ *
+ * An instance call (`i18n.t(...)`) never resolves through a component's hook: it
+ * uses the instance's `defaultNS`, so it is bound like a call with no hook.
  *
  * `calls` also holds the calls with no English default (a key read from a map, an
  * options-only call): those are genuinely in the source, so the bundle prints a
@@ -200,12 +206,11 @@ export function extractSource(text, { defaultNamespace = DEFAULT_NAMESPACE } = {
     declarations.push({ at: match.index, namespace: declaredNamespace(callArguments(source, openIndex)) });
   }
 
-  /** The declaration nearest a call: before it for preference, after it if there is none before. */
-  const namespaceAt = (at) => {
-    const before = declarations.filter((declaration) => declaration.at < at).at(-1);
-    if (before !== undefined) return before;
-    return declarations[0];
-  };
+  /** The hook that governs a call: the nearest one declared *before* it, never after. */
+  const namespaceAt = (at) => declarations.filter((declaration) => declaration.at < at).at(-1);
+
+  /** `i18n.t(...)`, `instance?.t(...)`: bound to the instance, not to a component's hook. */
+  const isInstanceCall = (at) => source.slice(0, at).trimEnd().endsWith(".");
 
   const calls = [];
   let uncertain = 0;
@@ -221,7 +226,7 @@ export function extractSource(text, { defaultNamespace = DEFAULT_NAMESPACE } = {
     let namespace;
     if (explicitNamespace !== null) {
       namespace = unescapeLiteral(explicitNamespace[2]);
-    } else if (declaration === undefined) {
+    } else if (isInstanceCall(match.index) || declaration === undefined) {
       namespace = defaultNamespace;
     } else if (declaration.namespace === null) {
       namespace = defaultNamespace;
@@ -413,7 +418,10 @@ const row = (key, english, turkish) => `| \`${key}\` | ${cell(english ?? NO_ENGL
 
 /** One Turkish cell: the text, plus whatever the reviewer must know about it. */
 function turkishCell({ values, orphaned, empty }) {
-  const text = values.join(" · ");
+  // A file that has the key but no text is shown as `(boş)` rather than as a gap
+  // between two dots: when one package is empty and another is translated, the
+  // reviewer still has to see which one is not done.
+  const text = (empty ? [] : values.map((value) => (value.trim() === "" ? "(boş)" : value))).join(" · ");
   const marks = [];
   if (empty) marks.push(EMPTY_MARKER);
   if (values.length > 1) marks.push("⚠️ çakışan değer");
@@ -442,6 +450,10 @@ export function renderBundle({ date, stage, counts, uncertainNamespaces = 0, sec
   lines.push(`| Ad alanı okunamayan çağrı (varsayılan \`${DEFAULT_NAMESPACE}\`) | ${uncertainNamespaces} |`);
   lines.push("");
   lines.push(`Anahtarlar ad alanına göre eşleştirilir: \`${DEFAULT_NAMESPACE}.actions.save\` dolu olsa da \`editor.actions.save\` eksikse aşağıda eksik görünür.`, "");
+  // Stated, not left to be inferred: a row merged across two files is only a
+  // `boş değer` when *no* file has text for it, otherwise the row is a value
+  // conflict and is marked as one.
+  lines.push("Bir anahtar birden çok tr dosyasında geçerse tek satırda birleştirilir: en az bir dosyada metin varsa çevrilmiş sayılır ve `⚠️ çakışan değer` ile işaretlenir (metinsiz dosya `(boş)` görünür); yalnızca hiçbirinde metin yoksa `⚠️ boş değer` sayılır.", "");
 
   if (sections.length === 0) {
     lines.push("İncelenecek tr dosyası yok: aşağıda listelenecek bir çeviri bulunamadı.", "");

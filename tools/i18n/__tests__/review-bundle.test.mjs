@@ -195,6 +195,28 @@ describe("buildBundle", () => {
 
     expect(markdown).toContain("| Ad alanı okunamayan çağrı (varsayılan `common`) | 3 |");
   });
+
+  it("says how a key present in two files is judged", () => {
+    // `""` in one package and a real string in another is a value conflict, not a
+    // missing translation; the report has to state that rule instead of leaving a
+    // reviewer to infer it from a cell that lost its `boş değer` mark.
+    const model = collectBundle({
+      files: [localeFile("packages/bim-ui/locales/tr/common.json", { "language.label": "" }), localeFile("packages/bim-editor/locales/tr/common.json", { "language.label": "Etiket" })],
+      ...source(["common", "language.label", "Language"]),
+      date: "2026-11-10",
+      stage: 1,
+    });
+    const markdown = buildBundle({
+      files: [localeFile("packages/bim-ui/locales/tr/common.json", { "language.label": "" }), localeFile("packages/bim-editor/locales/tr/common.json", { "language.label": "Etiket" })],
+      ...source(["common", "language.label", "Language"]),
+      date: "2026-11-10",
+      stage: 1,
+    });
+
+    expect(model.counts.empty).toBe(0);
+    expect(markdown).toContain("| `language.label` | Language | Etiket · (boş) ⚠️ çakışan değer |");
+    expect(markdown).toContain("en az bir dosyada metin varsa çevrilmiş sayılır");
+  });
 });
 
 describe("extractSource", () => {
@@ -237,6 +259,25 @@ describe("extractSource", () => {
       ["editor", "a.one"],
       ["schedules", "b.two"],
     ]);
+  });
+
+  it("does not bind a call to a hook declared after it", () => {
+    // The reproduced over-report: a bare `t` at module scope above a later
+    // component's `useT('editor')` is not an editor string. Binding it there made
+    // the bundle flag a translated `common` key as `⚠️ eksik` under `editor`.
+    const found = extractSource(["const label = t('common.title', 'Title');", "function Editor(){ const t = useT('editor'); return t('editor.title', 'Title'); }"].join("\n"));
+
+    expect(found.calls.map((call) => [call.namespace, call.key])).toEqual([
+      ["common", "common.title"],
+      ["editor", "editor.title"],
+    ]);
+    expect(found.uncertain).toBe(0);
+  });
+
+  it("does not resolve an instance call through a component's hook", () => {
+    const found = extractSource(`function Editor(){ const t = useT("editor"); i18n.t("settings.title", "Title"); return null; }`);
+
+    expect(found.calls).toEqual([{ namespace: "common", key: "settings.title", english: "Title" }]);
   });
 
   it("lets an explicit ns win over the component's hook", () => {
