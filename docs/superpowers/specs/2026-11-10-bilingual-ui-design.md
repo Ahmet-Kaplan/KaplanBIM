@@ -1,7 +1,7 @@
 # MutinyBIM İki Dilli Arayüz (EN/TR) — Tasarım Dokümanı
 
 - **Tarih:** 2026-11-10
-- **Durum:** Onay bekliyor
+- **Durum:** **ONAYLANDI** (2026-11-10) — Ç-A: (iii) metin eşleme, Ç-H: (a) aşama sonu insan incelemesi
 - **Bağlı belgeler:** `docs/i18n/glossary.md` (onaylandı — bağlayıcı terim kararları)
 
 ---
@@ -174,6 +174,14 @@ Builder kontrolü, dokümandaki ilk varsayımımın eksik olduğunu gösterdi. S
 
 **Önerim: (iii).** Sebep: kullanıcının gördüğü Türkçe ekranda İngilizce cümle kalmaz (ölçüt korunur), kernel'in "cümlelerle reddet" tasarımı ve katman kuralı bozulmaz, (ii)'nin maliyeti bu işin kapsamına sığmaz. Bedeli: kırılganlık — İngilizce cümle değişirse o cümle Türkçe yerine İngilizce görünür (zarif bozulma, ham anahtar değil).
 
+**KARAR: (iii) — onaylandı.** Gerçekleme ayrıntısı (elle regex yazmak yerine **şablon normalizasyonu**):
+
+1. Bir betik kernel/pack kaynaklarındaki mesaj literallerini tarar ve **şablon listesini** üretir.
+2. Çalışma anında gelen İngilizce cümle normalize edilir: sayılar/birimler sırayla `{0}`, `{1}` yer tutucularına çevrilir.
+3. Normalize şablon → TR şablon haritasında aranır; bulunursa TR yer tutucularla doldurulur, bulunmazsa **İngilizce olduğu gibi** gösterilir.
+
+Bu yaklaşım elle ~1200 regex yazmayı önler, kapsamı **ölçülebilir** kılar (kaç şablon çevrildi / kaçı eksik) ve test edilebilir. Kapsam hedefi: ekrana en çok ulaşan mesajlar (18 operatör kodu + kernel reddetmeleri + yaygın lint bulguları) çevrilir; kuyruk İngilizce kalır ve bu **açıkça belgelenir** (bkz. başarı ölçütü 7).
+
 > **(i) seçilirse:** başarı ölçütü 1 "etiketler ve ekran metinleri iki dilli; kernel/pack üretimi cümleler İngilizce" olarak yeniden yazılır ve bu bir **kabul edilmiş sınır** olarak belgelenir.
 
 ### Ç-B. Domain etiket stratejisi *(benim kararım)*
@@ -208,13 +216,7 @@ Builder haklı: `app.ts` (819 satır) flash ve hata metinlerini `pages.tsx` dı�
 
 ### Ç-H. Türkçe metnin sahibi ve insan incelemesi *(kullanıcı kararı)*
 
-~2000 string'in Türkçesi sözlüğe uygun yazılmalı. Kim yazıyor, kim onaylıyor?
-
-- **(a) Ajan yazar, sen aşama sonunda gözden geçirirsin.** Hızlı; her aşama sonunda bir "çeviri inceleme" çıktısı üretilir (ekran ekran TR/EN listesi).
-- **(b) Ajan yazar, sen yalnız örneklem denetimi yaparsın.** En hızlı.
-- **(c) Ajan yazar, her aşama insan onayı olmadan "tamam" sayılmaz.** En yavaş, en yüksek kalite.
-
-**Önerim: (a).** Aşama sonlarında gözden geçirilebilir bir TR/EN listesi çıkar; sen istediğin ekranı düzeltirsin. (b) riskli çünkü 20+ panelde tutarsızlık gözden kaçar.
+**KARAR: (a) — onaylandı.** Ajan yazar; her aşama sonunda **ekran ekran TR/EN inceleme listesi** üretilir ve kullanıcı gözden geçirir. Aşama, inceleme listesi teslim edilmeden "tamam" sayılmaz (liste teslimi yeterli; kullanıcı onayı aşamayı bloklamaz, düzeltmeler bir sonraki aşamaya taşınır).
 
 ---
 
@@ -226,6 +228,7 @@ Builder haklı: `app.ts` (819 satır) flash ve hata metinlerini `pages.tsx` dı�
 4. Sözlük uyumu testi: aynı İngilizce terim tek Türkçeye eşleniyor.
 5. `tr`/`en` anahtar eşliği testi: eksik anahtar yok.
 6. Hex renk ihlalleri sıfır (Aşama 5 sonunda).
+7. **Kernel/pack cümle kapsamı ölçülür ve raporlanır:** çevrilen şablon sayısı / toplam şablon sayısı; ekrana en çok ulaşan mesajlarda kapsam ≥ %80. Eksik kalanlar listelenir (gizlenmez).
 
 ---
 
