@@ -174,7 +174,7 @@
      doğrulama kodu gerekmez; özel anahtar yalnızca ERP'de kalır.
    - Ortak eksi: Bugünkü mekanizma tam bir OIDC protokolü değil (discovery/
      authorization-code yok).
-2. **Gerçek bir OIDC sağlayıcısı kurmak (ör. Keycloak, basit bir iç idP)**
+2. **Gerçek bir OIDC sağlayıcısı kurmak (ör. Authentik, Keycloak, basit bir iç idP)**
    - Artı: Standart protokol, token rotasyonu/iptali/çoklu-istemci desteği
      daha sağlam; ileride üçüncü bir sistem eklenirse (ör. SharePoint,
      mobil uygulama) aynı idP'ye bağlanması kolaydır.
@@ -190,32 +190,41 @@
 
 ### Varsayılan karar (controller hükmü)
 
-**Yol B'nin varsayılanı: ERP, token'ları RS256 ile imzalayıp bir JWKS uç
-noktası yayınlar; KaplanBIM, mevcut `SignInSource { issuer, jwksUrl,
-audience }` sözleşmesiyle bu token'ı doğrular.** Somut olarak:
+**Varsayılan: Authentik, özel (dedicated) bir OIDC kimlik sağlayıcısı (IdP)
+olarak kurulur; RS256 imzalı token üretir ve JWKS uç noktası yayınlar.
+KaplanBIM, mevcut `SignInSource { issuer, jwksUrl, audience }` sözleşmesiyle
+bu token'ı doğrular.** Somut olarak:
 
-- OpenConstructionERP, kullanıcıları doğrulamaya devam eder ama `access_token`
-  üretimini **RS256 (asimetrik)** imzaya çevirir, token'a `iss`/`aud`
-  claim'lerini ekler ve bir **JWKS uç noktası** yayınlar. Bu, ERP backend
-  tarafında yapılacak bir değişikliktir (bu depoda olmayan kod); açık kalem
-  olarak kaydedilmiştir (bkz. "Sonuçlar").
+- Authentik (self-hosted, açık kaynak OIDC/OAuth2 IdP) ayrı bir servis
+  olarak çalışır; standart Compose yığını `server` + `worker` + `postgresql`
+  + `redis` içerir (`deploy/auth/docker-compose.yml`). Varsayılan imza
+  **RS256**'dır ve JWKS uç noktası şu biçimdedir:
+  `https://<auth-domain>/application/o/<slug>/jwks/`; issuer
+  `https://<auth-domain>/application/o/<slug>/`, discovery
+  `.../.well-known/openid-configuration`.
 - KaplanBIM'in model sunucusu **hiçbir yeni doğrulama kodu gerektirmez**:
   `services/bim-authority/src/auth/verify.ts` zaten `createRemoteJWKSet` +
   `jwtVerify({ issuer, audience })` ile JWKS/asimetrik token doğrular ve
   `SignInSource = { issuer, jwksUrl, audience }` sözleşmesi bunu taşır. Tek
-  yapılacak, ERP'nin `issuer`/`jwksUrl`/`audience` değerlerini döndüren bir
-  host eklentisini (örnek: `src/host/single-user.ts`) bağlamaktır.
-- **Bu karar, daha önceki HS256 paylaşılan-sır varsayılanını geçersiz
+  yapılacak, Authentik'in `issuer`/`jwksUrl`/`audience` değerlerini döndüren
+  bir host eklentisini (örnek: `src/host/single-user.ts`) bağlamaktır
+  (`MUTINYBIM_SINGLE_USER_ISSUER` / `_JWKS_URL` / `_AUDIENCE`).
+- **Bu karar, daha önceki "Yol B" (ERP, token'ları RS256 ile imzalayıp JWKS
+  yayınlar) varsayılanını geçersiz kılar.** Yol B, "ERP bir JWKS uç noktası
+  yayınlar" demekti; şimdi bu rolü özel bir IdP (Authentik) üstlenir ve ERP
+  artık kimlik token'ı üretmez. Yol B'nin KaplanBIM tarafındaki sonucu
+  (JWKS/RS256 ile doğrulama, yeni doğrulama kodu yazmamak) aynen korunur.
+- **Bu karar, daha önceki HS256 paylaşılan-sır varsayılanını da geçersiz
   kılar.** İlk taslak "ERP'nin mevcut HS256 `JWT_SECRET` paylaşılan-sır
   JWT'si" yönündeydi; son-kontrol (final review) denetimi, KaplanBIM model
   sunucusunun HS256'yı hiç doğrulayamadığını (yalnızca JWKS/asimetrik
-  destekliyor) tespit etti ve varsayılanı Yol B'ye çevirdi. Paylaşılan-sır
-  yaklaşımı artık varsayılan değildir.
-- **Not — terminolojik dürüstlük:** Bu, tam bir OIDC protokolü (discovery/
-  authorization-code) değil; "ERP'nin ürettiği RS256 token'ı KaplanBIM'in
-  JWKS ile doğrulaması" anlamında en düşük maliyetli tek-kimlik
-  gerçekleşmesidir. Gerçek bir OIDC sağlayıcısı (Seçenek 2) kurmak istenirse,
-  ayrı bir karar değişikliğiyle yapılabilir.
+  destekliyor) tespit etti. Paylaşılan-sır yaklaşımı artık varsayılan
+  değildir.
+- **Not — terminolojik dürüstlük:** Bu, Seçenek 2'nin somut gerçekleşmesidir:
+  Authentik tam bir OIDC protokolüdür (discovery endpoint, OAuth2
+  authorization-code akışı, çoklu-istemci token yönetimi). "ERP'nin ürettiği
+  RS256 token" yaklaşımından (Yol B) daha fazla servis demektir; bu maliyet
+  aşağıda "Gerekçe" ve "Sonuçlar"da açıkça not edilmiştir.
 
 ### Gerekçe
 
@@ -226,28 +235,44 @@ audience }` sözleşmesiyle bu token'ı doğrular.** Somut olarak:
   yeni (ve bugün var olmayan) paylaşılan-sır doğrulaması yazmayı gerektirirdi.
 - Asimetrik imza, `JWT_SECRET` paylaşılan sırrının iki sistemde birden
   tutulması ve rotasyonunun koordine edilmesi yükünü ortadan kaldırır:
-  yalnızca ERP özel anahtarı bilir; KaplanBIM yalnızca **genel** anahtarı
-  JWKS'ten okur.
-- Firmanın kalıcı bir dev/ops ekibi yok; yeni bir idP servisi kurup işletmek
-  (Seçenek 2) bu profile uygun değil. Bu yol sıfır yeni servis ekler ve
-  tasarım dokümanının "tek kimlik" ilkesine (§5, madde 3) ulaşır.
+  yalnızca Authentik özel anahtarı bilir; KaplanBIM yalnızca **genel**
+  anahtarı JWKS'ten okur.
+- Yol B'nin (ERP'nin JWKS yayınlaması) gerçek maliyeti yalnızca ERP'ye RS256
+  eklemek değildi: token üretimi/iptali/rotasyonu ve çoklu-istemci yönetimi
+  de ERP'de ayrıca yazılmalıydı — bu aslında "zaten kısmen var olan bir JWT
+  oturumuna OIDC yamamak" demekti. Özel bir IdP (Authentik) bu protokolü
+  hazır, test edilmiş ve tek yerde verir; KaplanBIM tarafındaki iş aynı kalır
+  (yalnızca host eklentisi bağlanır).
+- **Dürüst takas (trade-off):** Bu, Seçenek 2'yi seçmek demektir — yeni bir
+  servis (kurulum, yedekleme, güncelleme, bakım) eklenir. Firmanın kalıcı bir
+  dev/ops ekibi yoktur (§1, kısıt); bu maliyet aşağıda "Sonuçlar"da açıkça
+  kaydedilmiştir ve firma onayına tabidir (§4). Buna karşılık tek-kimlik
+  ilkesine (§5, madde 3) en sağlam, standart ve geleceğe dönük yoldan
+  ulaşılır (ileride üçüncü bir sistem aynı IdP'ye bağlanabilir).
 - Firmanın zaten bir kurumsal hesap sistemi varsa (Seçenek 3), bu daha iyi
   bir uzun vadeli çözüm olabilir — ama bu bilgi bu görev kapsamında firma
   tarafından teyit edilmediği için varsayılan olarak seçilemez.
 
 ### Sonuçlar
 
-- **ERP tarafı (yapılacak iş, bu depoda değil):** OpenConstructionERP
-  backend'i token üretimini **RS256**'ya çevirmeli, token'a `iss`/`aud`
-  claim'lerini eklemeli ve bir **JWKS uç noktası** yayınlamalıdır. Bu açık
-  kalemdir; çalışan SSO'nun teslimi buna bağlıdır.
+- **Authentik tarafı (bu depoda, `deploy/auth/`):** Authentik'in standart
+  Compose yığını (`server` + `worker` + `postgresql` + `redis`) ve ilk kurulum
+  (bootstrap) adımları `deploy/auth/README.md`'de belgelenmiştir. Authentik
+  içinde bir OAuth2/OIDC Provider + Application oluşturulur; issuer, JWKS ve
+  audience (client_id) değerleri buradan okunur.
 - **KaplanBIM tarafı:** yeni doğrulama kodu gerekmez — mevcut `SignInSource
   { issuer, jwksUrl, audience }` sözleşmesi ve `verify.ts` zaten JWKS/RS256
-  doğruluyor. Task 2.4'ün KaplanBIM tarafı, ERP'nin `issuer`/`jwksUrl`/
-  `audience` değerlerini döndüren bir host eklentisini bağlamaktan ibarettir.
-- **Çalışan SSO henüz teslim edilmemiştir:** ERP RS256/JWKS yayınlamadığı
-  sürece iki sistem arasında uçtan uca kimlik çalışmaz; bu boşluk
-  `deploy/sso/README.md`'de dürüstçe kaydedilmiştir.
+  doğruluyor. Task 2.4'ün KaplanBIM tarafı, Authentik'in `issuer`/`jwksUrl`/
+  `audience` değerlerini döndüren bir host eklentisini (`MUTINYBIM_SINGLE_USER_*`
+  env anahtarları) bağlamaktan ibarettir — `deploy/sso/README.md`'de yazılıdır.
+- **ERP tarafı (açık kalem, bu depoda değil):** OpenConstructionERP kendi
+  HS256 `JWT_SECRET` oturumuyla çalışmaya devam eder. ERP'nin Authentik'i bir
+  OIDC IdP olarak kabul etmesi (tek-kimlik hedefine ERP tarafından ulaşılması)
+  ERP backend'inde yapılacak ayrı bir entegrasyondur — bu depo kapsamı
+  dışındadır. Bu açık kalem `deploy/sso/README.md`'de dürüstçe kaydedilmiştir.
+- **Çalışan SSO henüz teslim edilmemiştir:** Authentik kurulup KaplanBIM host
+  eklentisi bağlanmadığı sürece iki sistem arasında uçtan uca kimlik çalışmaz;
+  bu boşluk `deploy/sso/README.md`'de dürüstçe kaydedilmiştir.
 - Firma gerçekte bir kurumsal idP'ye (Seçenek 3) sahipse, bu varsayılan
   gözden geçirilmeli ve bu belge güncellenmelidir (bkz. §4).
 
@@ -269,8 +294,10 @@ geldiğinde bu belge güncellenmelidir:
 2. **SSO/idP:** Firmanın **zaten kullandığı bir kurumsal kimlik sistemi
    (ör. Microsoft/Google iş hesabı, Active Directory) var mı**? Varsa, bu
    sistemle federasyon (Seçenek 3) değerlendirilmelidir; yoksa, bu
-   belgedeki varsayılan (ERP'nin RS256/JWKS token'ı üzerinden tek kimlik)
-   geçerliliğini korur.
+   belgedeki varsayılan (Authentik'in özel OIDC IdP olarak RS256/JWKS
+   üretmesi üzerinden tek kimlik) geçerliliğini korur. Ayrıca firmanın yeni
+   bir IdP servisini işletmeyi kabul edip etmediği de teyit edilmelidir
+   (bkz. §3 "Dürüst takas").
 
 **Yanıt geldiğinde yapılacak:** Bu dosya (`docs/decisions/2026-11-10-llm-and-sso.md`)
 güncellenir — "Durum" alanı "Taslak"tan "Firma onaylı"ya çevrilir, ilgili

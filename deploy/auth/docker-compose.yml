@@ -1,0 +1,118 @@
+# Authentik — KaplanBIM / OpenConstructionERP için tek kimlik sağlayıcı (OIDC IdP)
+#
+# Bu yığın, karar kaydı docs/decisions/2026-11-10-llm-and-sso.md §3'te seçilen
+# kimlik sağlayıcısını çalıştırır: Authentik, RS256 imzalı token üretir ve bir
+# JWKS uç noktası yayınlar. KaplanBIM model sunucusu bu token'ı mevcut
+# SignInSource { issuer, jwksUrl, audience } sözleşmesiyle doğrular
+# (bkz. deploy/sso/README.md). Bu, karar kaydındaki eski "Yol B" (ERP'nin
+# kendisi JWKS yayınlar) varsayılanını GEÇERSİZ kılar; kimlik artık ERP'de
+# değil, özel bir IdP olan Authentik'te üretilir.
+#
+# Servisler (Authentik'in standart Compose kurulumu — tek imaj, dört servis):
+#   server      — web/API + gömülü reverse proxy (9000 HTTP / 9443 HTTPS)
+#   worker      — arka plan görevleri (postgresql + redis'e bağlanır)
+#   postgresql  — Authentik'in kendi veritabanı
+#   redis       — önbellek / kuyruk
+#
+# Çalıştırmadan önce: deploy/auth/.env.example dosyasını deploy/auth/.env
+# olarak kopyalayıp gerçek değerleri doldurun (bkz. deploy/auth/README.md).
+#
+# Doğrulama (bu ortamda, imaj indirmeden/kurulum yapmadan — yalnızca sözdizimi):
+#   AUTHENTIK_SECRET_KEY=x POSTGRES_PASSWORD=x AUTHENTIK_POSTGRESQL__PASSWORD=x \
+#     docker compose -f deploy/auth/docker-compose.yml config -q
+#
+# Gerçek kurulum (sunucuda) için deploy/auth/README.md adımlarını izleyin.
+# Bu yığın bu ortamda AYAĞA KALDIRILMADI (imajlar indirilmedi) — doğrulanmadı.
+
+name: authentik
+
+services:
+  postgresql:
+    image: docker.io/library/postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${AUTHENTIK_POSTGRESQL__USER:-authentik}
+      POSTGRES_DB: ${AUTHENTIK_POSTGRESQL__NAME:-authentik}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AUTHENTIK_POSTGRESQL__USER:-authentik} -d ${AUTHENTIK_POSTGRESQL__NAME:-authentik}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  redis:
+    image: docker.io/library/redis:alpine
+    command: --save 60 1 --loglevel warning
+    restart: unless-stopped
+    volumes:
+      - redis:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  server:
+    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2024.12.1}
+    restart: unless-stopped
+    command: server
+    environment:
+      # Authentik'in kendi imzalama/şifreleme sırrı. Zorunlu; boşsa compose
+      # başlamayı reddeder (fail-fast). Üretim: `openssl rand -hex 32`.
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?Set AUTHENTIK_SECRET_KEY}
+      # Sentry'e otomatik hata raporlamayı kapat (firma verisi içeren
+      # kurulumlarda kapalı kalması önerilir).
+      AUTHENTIK_ERROR_REPORTING__ENABLED: ${AUTHENTIK_ERROR_REPORTING__ENABLED:-false}
+      AUTHENTIK_REDIS__HOST: redis
+      AUTHENTIK_POSTGRESQL__HOST: postgresql
+      AUTHENTIK_POSTGRESQL__PORT: "5432"
+      AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_POSTGRESQL__USER:-authentik}
+      AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_POSTGRESQL__NAME:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_POSTGRESQL__PASSWORD:?Set AUTHENTIK_POSTGRESQL__PASSWORD}
+    volumes:
+      - ./media:/media
+      - ./custom-templates:/templates
+    ports:
+      - "${COMPOSE_PORT_HTTP:-9000}:9000"
+      - "${COMPOSE_PORT_HTTPS:-9443}:9443"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2024.12.1}
+    restart: unless-stopped
+    command: worker
+    environment:
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?Set AUTHENTIK_SECRET_KEY}
+      AUTHENTIK_ERROR_REPORTING__ENABLED: ${AUTHENTIK_ERROR_REPORTING__ENABLED:-false}
+      AUTHENTIK_REDIS__HOST: redis
+      AUTHENTIK_POSTGRESQL__HOST: postgresql
+      AUTHENTIK_POSTGRESQL__PORT: "5432"
+      AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_POSTGRESQL__USER:-authentik}
+      AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_POSTGRESQL__NAME:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_POSTGRESQL__PASSWORD:?Set AUTHENTIK_POSTGRESQL__PASSWORD}
+    # Authentik'in gömülü outpost'unun konteyner yönetimi için Docker soketi
+    # ve root. Outpost'ları ayrı çalıştırıyorsanız bu ikisi kaldırılabilir
+    # (bkz. deploy/auth/README.md).
+    user: root
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./media:/media
+      - ./certs:/certs
+      - ./custom-templates:/templates
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  database:
+  redis:
