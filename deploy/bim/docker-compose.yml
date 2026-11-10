@@ -1,0 +1,127 @@
+# KaplanBIM (MutinyBIM) — tek firma dağıtımı.
+#
+# Kaynak: repo kökündeki docker-compose.yml (2026-11-10,
+# feature/construction-platform-integration dalı). Bu dosya YENİ bir yığın
+# icat etmez; kök dosyadaki servisleri (db + signin + authority-setup +
+# authority + editor), servis adlarını, env değişkenlerini ve ağ topolojisini
+# birebir korur.
+#
+# Kök dosyadan farkları (tek fark — konum düzeltmesi):
+#   1. Bu dosya deploy/bim/ altında olduğu için build context'i ve bind mount
+#      yolları `../..` (repo kökü) olarak düzeltildi. Dockerfile yolları ve
+#      seed SQL dosyaları repo köküne göre aynı kaldı (içerik değişmedi).
+#   2. Başka değişiklik YOK: portlar (editor 3095, model server 8080, local
+#      sign-in 9999), env ve servis adları kökle birebir aynı.
+#
+# Çalıştırma (repo kökünden):
+#   docker compose -f deploy/bim/docker-compose.yml up --build
+#   # Proje adı aşağıdaki `name: mutinybim` ile zaten sabittir; ayrıca
+#   # `-p mutinybim` geçmek gerekmez (aynı sonuç).
+#   http://localhost:3095/m/demo?view=plan   (ikinci pencere &name=Avery)
+#
+# UYARI (sunucu kullanımı): local sign-in servisi kendisine ulaşabilen herkese
+# güvenir ve tüm portlar 127.0.0.1 dışına açılmaz. Firmaya açmadan önce HTTPS
+# ters vekil + gerçek kimlik (SSO, Task 2.2) gerekir — bkz. deploy/bim/README.md.
+#
+# IFC içe aktarma durumu ve çakışma davranışı: deploy/bim/README.md.
+#
+# Doğrulama (imaj indirmeden / ayağa kaldırmadan, yalnızca sözdizimi):
+#   docker compose -f deploy/bim/docker-compose.yml config -q
+
+name: mutinybim
+
+x-authority-env: &authority-env
+  MUTINYBIM_LOCAL_STACK: "1"
+  # The throwaway Postgres below; its password is not a secret.
+  MUTINYBIM_DB_URL: postgres://postgres:postgres@127.0.0.1:5432/postgres
+  # Who may sign in: the local sign-in service. Access to the model comes from
+  # project membership on this database (the seed's demo project).
+  # TODO(pluggable authorizer): once the model server takes an authorizer by
+  # configuration, name the open local one here instead of the test sign-in.
+  MUTINYBIM_SUPABASE_URL: http://127.0.0.1:9999
+  BIM_AUTHORITY_SERVED_MODELS: demo
+  PORT: "8080"
+
+services:
+  db:
+    image: postgres:17-bookworm
+    environment:
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - mutinybim-db:/var/lib/postgresql/data
+      # Run once, on an empty volume: the roles and auth.uid() a Supabase database
+      # has, then the project membership tables access is checked against.
+      - ../../services/bim-authority/db/local/00_plain_postgres_prelude.sql:/docker-entrypoint-initdb.d/00-prelude.sql:ro
+      - ../../services/bim-authority/db/disposable/20261017000000_feasibility_identity_shim.sql:/docker-entrypoint-initdb.d/01-identity.sql:ro
+    ports:
+      - "127.0.0.1:3095:3095" # editor
+      - "127.0.0.1:8080:8080" # model server
+      - "127.0.0.1:9999:9999" # local sign-in
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -h 127.0.0.1"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  signin:
+    # The model server's image: the sign-in lives with it (services/bim-authority/src/local-stack).
+    build:
+      context: ../..
+      dockerfile: services/bim-authority/Dockerfile
+    image: mutinybim-authority:local
+    network_mode: service:db
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["node", "--import", "tsx", "src/local-stack/signin.ts"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:9999/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  authority-setup:
+    build:
+      context: ../..
+      dockerfile: services/bim-authority/Dockerfile
+    image: mutinybim-authority:local
+    network_mode: service:db
+    depends_on:
+      db:
+        condition: service_healthy
+    environment: *authority-env
+    command: ["sh", "-c", "node --import tsx src/migrate.ts && node --import tsx src/local-stack/seed.ts"]
+    restart: "no"
+
+  authority:
+    image: mutinybim-authority:local
+    network_mode: service:db
+    depends_on:
+      authority-setup:
+        condition: service_completed_successfully
+      signin:
+        condition: service_healthy
+    environment: *authority-env
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+
+  editor:
+    build:
+      context: ../..
+      dockerfile: tools/local-stack/editor.Dockerfile
+    network_mode: service:db
+    depends_on:
+      authority:
+        condition: service_healthy
+    environment:
+      BIM_DEV_PORT: "3095"
+      # The address the browser opens (the published port), and where the dev
+      # server asks for each person's token.
+      BIM_DEV_AUTHORITY_URL: ws://localhost:8080/sync?model=demo
+      BIM_DEV_SIGNIN_URL: http://127.0.0.1:9999
+
+volumes:
+  mutinybim-db:
