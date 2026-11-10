@@ -50,17 +50,16 @@ değişkenler `:?` kalkanıyla korunur (boşsa compose başlamayı reddeder).
 cp deploy/auth/.env.example deploy/auth/.env
 
 # 2) Sırları üret ve yaz (gerçek değerler — ASLA commit etme)
-echo "AUTHENTIK_SECRET_KEY=$(openssl rand -hex 32)"          >> deploy/auth/.env
-echo "AUTHENTIK_POSTGRESQL__PASSWORD=$(openssl rand -base64 24)" >> deploy/auth/.env
-echo "POSTGRES_PASSWORD=$(openssl rand -base64 24)"          >> deploy/auth/.env
+PASS="$(openssl rand -base64 24)"
+echo "AUTHENTIK_SECRET_KEY=$(openssl rand -hex 32)" >> deploy/auth/.env
+echo "POSTGRES_PASSWORD=$PASS"                     >> deploy/auth/.env
 ```
 
-> **Önemli:** `AUTHENTIK_POSTGRESQL__PASSWORD` ile `POSTGRES_PASSWORD` **aynı
-> değer** olmalıdır (ilki Authentik'in postgres'e bağlanırken kullandığı
-> şifre, ikincisi postgres konteynerinin kendi şifresi). En temizi: tek değer
-> üretip iki satıra da aynısını yazmak. Şablon dosyasındaki örnek komutlar
-> kolaylık içindir; değerleri elle tek bir yerde üretip iki satıra
-> yapıştırmak daha güvenlidir.
+> **Tek şifre:** Postgres şifresi `POSTGRES_PASSWORD` **tek bir değişkende**
+> tutulur; hem `postgresql` konteyneri hem de Authentik (`server` + `worker`,
+> `AUTHENTIK_POSTGRESQL__PASSWORD` olarak) aynı değeri okur. Tek değer üretip
+> tek satıra yazmak, iki ayrı şifre üretip eşleşmemesi (Authentik'in postgres'e
+> ulaşamaması) hatasını imkânsız kılar.
 
 `AUTHENTIK_SECRET_KEY` üretim komutu görev brief'inde `openssl rand -hex 32`
 olarak belirtilmiştir (64 hex karakter — Authentik için fazlasıyla yeterli

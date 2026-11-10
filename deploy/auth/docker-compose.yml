@@ -18,8 +18,13 @@
 # olarak kopyalayıp gerçek değerleri doldurun (bkz. deploy/auth/README.md).
 #
 # Doğrulama (bu ortamda, imaj indirmeden/kurulum yapmadan — yalnızca sözdizimi):
-#   AUTHENTIK_SECRET_KEY=x POSTGRES_PASSWORD=x AUTHENTIK_POSTGRESQL__PASSWORD=x \
+#   AUTHENTIK_SECRET_KEY=x POSTGRES_PASSWORD=x \
 #     docker compose -f deploy/auth/docker-compose.yml config -q
+#
+# İmaj etiketi (tag): AUTHENTIK_TAG varsayılanı bilinçli bir pin'dir; bu dosyanın
+# yazıldığı tarihte (2026-11-10) goauthentik/authentik GitHub "latest" sürümüne
+# göre sabitlendi. Kurulum gününde güncel sürümü kontrol edip yükseltin:
+#   https://github.com/goauthentik/authentik/releases
 #
 # Gerçek kurulum (sunucuda) için deploy/auth/README.md adımlarını izleyin.
 # Bu yığın bu ortamda AYAĞA KALDIRILMADI (imajlar indirilmedi) — doğrulanmadı.
@@ -57,7 +62,7 @@ services:
       start_period: 20s
 
   server:
-    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2024.12.1}
+    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2026.8.5}
     restart: unless-stopped
     command: server
     environment:
@@ -72,7 +77,7 @@ services:
       AUTHENTIK_POSTGRESQL__PORT: "5432"
       AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_POSTGRESQL__USER:-authentik}
       AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_POSTGRESQL__NAME:-authentik}
-      AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_POSTGRESQL__PASSWORD:?Set AUTHENTIK_POSTGRESQL__PASSWORD}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
     volumes:
       - ./media:/media
       - ./custom-templates:/templates
@@ -86,7 +91,7 @@ services:
         condition: service_healthy
 
   worker:
-    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2024.12.1}
+    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2026.8.5}
     restart: unless-stopped
     command: worker
     environment:
@@ -97,7 +102,7 @@ services:
       AUTHENTIK_POSTGRESQL__PORT: "5432"
       AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_POSTGRESQL__USER:-authentik}
       AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_POSTGRESQL__NAME:-authentik}
-      AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_POSTGRESQL__PASSWORD:?Set AUTHENTIK_POSTGRESQL__PASSWORD}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
     # Authentik'in gömülü outpost'unun konteyner yönetimi için Docker soketi
     # ve root. Outpost'ları ayrı çalıştırıyorsanız bu ikisi kaldırılabilir
     # (bkz. deploy/auth/README.md).
