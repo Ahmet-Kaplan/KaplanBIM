@@ -31,15 +31,23 @@ const ARTIFACT_LITERALS: readonly (readonly [RegExp, string])[] = [
 ];
 
 /**
- * Placeholders are fine (`"{n} eleman"`); a brace that does not pair with its
- * partner is a value that was cut or pasted mid-way, and i18next would render it
- * literally.
+ * Placeholders must be i18next's own: `{{ }}`.
+ *
+ * `createI18n` sets only `interpolation.escapeValue`, so i18next keeps its default
+ * `{{ }}` delimiters. A value that copies the glossary's `{n}` notation renders
+ * `{n}` **literally in the UI** — see `docs/i18n/glossary.md` §8, which says so and
+ * names this test as the thing that catches it. Everything except a well-formed
+ * `{{…}}` pair is therefore a defect: `{n}`, `{ count }`, a stray brace.
  */
-function placeholderArtifact(value: string): string | undefined {
-  if (value.includes("{}")) return "an empty placeholder";
-  const opens = (value.match(/\{/g) ?? []).length;
-  const closes = (value.match(/\}/g) ?? []).length;
-  return opens === closes ? undefined : `unbalanced placeholder braces (${opens} \`{\`, ${closes} \`}\`)`;
+function singleBraceArtifact(value: string): string | undefined {
+  const withoutPlaceholders = value.replace(/\{\{[^{}]*\}\}/gu, "");
+  if (!/[{}]/.test(withoutPlaceholders)) return undefined;
+  return "a single-brace placeholder; i18next only interpolates `{{ }}` (docs/i18n/glossary.md §8), so it would render literally";
+}
+
+/** `{{}}` interpolates a nameless key: never intended, and it slips past the brace rule. */
+function emptyPlaceholderArtifact(value: string): string | undefined {
+  return /\{\{\s*\}\}/u.test(value) ? "an empty placeholder" : undefined;
 }
 
 /** Everything wrong with one translated string, as a message for the failure list. */
@@ -53,7 +61,7 @@ function valueDefects(entry: LocaleEntry): string[] {
       defects.push(`${entry.file} → ${entry.key}: ${JSON.stringify(entry.value)} contains ${description}`);
     }
   }
-  const placeholder = placeholderArtifact(entry.value);
+  const placeholder = singleBraceArtifact(entry.value) ?? emptyPlaceholderArtifact(entry.value);
   if (placeholder !== undefined) {
     defects.push(`${entry.file} → ${entry.key}: ${JSON.stringify(entry.value)} has ${placeholder}`);
   }
@@ -127,13 +135,23 @@ test("the guards catch the failures they exist for", () => {
   expect(flagged(at("a.nullArtifact", "null"))).toBe(true);
   expect(flagged(at("a.nanArtifact", "NaN"))).toBe(true);
   expect(flagged(at("b.empty", ""))).toBe(true);
-  expect(flagged(at("c.brace", "3 eleman {"))).toBe(true);
-  expect(flagged(at("d.brace", "{n eleman"))).toBe(true);
-  expect(flagged(at("e.emptyPlaceholder", "{}"))).toBe(true);
+  expect(flagged(at("e.emptyPlaceholder", "{{}}"))).toBe(true);
 
-  expect(flagged(at("f.good", "Dil"))).toBe(false);
-  expect(flagged(at("g.good", "{n} eleman"))).toBe(false);
-  expect(flagged(at("h.good", "{m} içinden {n}"))).toBe(false);
+  // The glossary's `{n}` is notation; i18next renders it literally. This is the
+  // systematic mistake a translator copying the glossary would make.
+  expect(flagged(at("j.singleBrace", "{n} seçili"))).toBe(true);
+  expect(flagged(at("j.mixed", "{{m}} içinden {n}"))).toBe(true);
+  expect(flagged(at("j.spaced", "{ count } eleman"))).toBe(true);
+  expect(flagged(at("j.bare", "{n}"))).toBe(true);
+  expect(flagged(at("j.mid", "a {x} b"))).toBe(true);
+  expect(flagged(at("j.strayClose", "{{n} eleman"))).toBe(true);
+  expect(flagged(at("j.strayOpen", "{{n}} eleman {"))).toBe(true);
+
+  expect(flagged(at("f.good", "Dil"))).toBe(false); // no braces at all
+  expect(flagged(at("g.good", "{{n}} eleman"))).toBe(false);
+  expect(flagged(at("g.spaced", "{{ count }} eleman"))).toBe(false);
+  expect(flagged(at("g.two", "{{spaces}} yerden {{freeSlots}} boş"))).toBe(false);
+  expect(flagged(at("h.good", "{{m}} içinden {{n}}"))).toBe(false);
   expect(flagged(at("i.good", "Salt okunur"))).toBe(false);
 
   expect(keyAsValueDefects(at("language.label", "label"))).toEqual([

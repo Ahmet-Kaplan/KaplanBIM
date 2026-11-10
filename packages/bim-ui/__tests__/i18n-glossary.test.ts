@@ -45,15 +45,13 @@ test("the guard found the Turkish strings it is meant to guard", () => {
  * verb form that happens to end in -lar/-ler ("3 yuvarlar") fires. Do not "fix"
  * that with a Turkish morphological analyser; a false alarm is cheaper than the
  * untranslated plural this guard exists for.
+ *
+ * The set below holds the nouns and loan adjectives that end in -lar/-ler without
+ * being plurals (`modüler`, `popüler`, `dolar`, `kiler`). Adding to it: only a word
+ * that ends in -lar/-ler **and is not a plural** belongs there. A real plural
+ * ("paneller") must stay out — that is the defect the guard exists to catch.
  */
 const NON_PLURAL_TAIL_WORDS: ReadonlySet<string> = new Set(["dolar", "kiler", "popüler", "modüler"]);
-
-/**
- * Adding to the list above: only a word that ends in -lar/-ler **and is not a
- * plural** belongs here — loan adjectives and adverbs (`modüler`, `popüler`). A noun
- * that is a real plural ("paneller") must stay out: that is the defect the guard
- * exists to catch.
- */
 
 /** Words that end the noun phrase a count governs, so the scan stops there. */
 const PHRASE_BREAK_WORDS: ReadonlySet<string> = new Set(["ve", "ile", "veya", "tüm", "bütün", "hep"]);
@@ -62,6 +60,11 @@ const PHRASE_BREAK_WORDS: ReadonlySet<string> = new Set(["ve", "ile", "veya", "t
  * Unit symbols: "3 m genişliğinde paneller" counts *metres*, not panels, so the
  * phrase after the unit is not a plural of the count. Glossary §7 keeps unit symbols
  * untranslated, so these are the same in both languages.
+ *
+ * The single letters (`a`, `c`, `g`, `h`, `l`, `n`, `s`, `t`, `v`, `w`) are unit
+ * symbols (ampere, coulomb, gram, hour, litre, newton, second, tonne, volt, watt).
+ * They are safe to keep: no Turkish plural ends in a bare single letter, so nothing
+ * real can be masked by them.
  */
 const UNIT_WORDS: ReadonlySet<string> = new Set([
   "m", "cm", "mm", "km", "m2", "m3", "mm2", "mm3",
