@@ -8,6 +8,12 @@ import {
   writeLanguagePreference,
 } from "../src/i18n/persistence";
 
+test("the storage key is the string the server's cookie is named with", () => {
+  // The value, not just the constant, is the contract: the hosted app reads the
+  // language from a cookie of this name, so renaming it silently must not pass.
+  expect(LANGUAGE_STORAGE_KEY).toBe("mutiny.lang");
+});
+
 test("account preference wins over stored and navigator", () => {
   expect(resolveInitialLanguage({ account: "tr", stored: "en", navigator: "en-US" })).toBe("tr");
 });

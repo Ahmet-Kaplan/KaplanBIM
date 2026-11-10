@@ -1,11 +1,10 @@
-"use client";
-
 import { isMutinyLanguage, type MutinyLanguage } from "./index";
 
 /**
  * Where a language choice is kept between visits. The editor's local demo writes
  * the same name to `localStorage`; the hosted app uses it as its cookie name, so
- * one name describes the choice on both sides.
+ * one name describes the choice on both sides. The value is a contract with the
+ * server (see the language cookie), so the guard test pins it.
  */
 export const LANGUAGE_STORAGE_KEY = "mutiny.lang";
 
