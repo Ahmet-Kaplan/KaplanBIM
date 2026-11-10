@@ -329,7 +329,7 @@ export function createAssistantTools(options: AssistantToolsOptions): AssistantT
     // front of it, but its sentences are read on one, so pruning here must not
     // stamp an expired request in English under a Turkish page.
     const personWords = tFor(person.language);
-    const item = (spec.key ? approvals.waitingRetry(person.id, spec.key) : null) ?? approvals.create({ userId: person.id, clientName, modelId: spec.modelId, modelName: spec.modelName, summary: spec.summary, details: spec.details, kind: spec.kind, key: spec.key }, personWords);
+    const item = (spec.key ? approvals.waitingRetry(person.id, spec.key, personWords) : null) ?? approvals.create({ userId: person.id, clientName, modelId: spec.modelId, modelName: spec.modelName, summary: spec.summary, details: spec.details, kind: spec.kind, key: spec.key }, personWords);
     const link = `${origin}/approvals/${item.id}`;
     if (elicitation?.url && extra.sendRequest) {
       extra
@@ -383,7 +383,7 @@ export function createAssistantTools(options: AssistantToolsOptions): AssistantT
             if (asked.answer === "approved") return send(command, opts);
             if (asked.answer === "declined") return no("not_approved", `${person.display_name} declined it`);
             const landing: Landing = { command, idempotencyKey: opts.idempotencyKey, ...(opts.baseRevision !== undefined ? { baseRevision: opts.baseRevision } : {}) };
-            approvals.setLanding(asked.item, landing);
+            approvals.setLanding(asked.item, landing, personWords);
             return no("awaiting_approval", `waiting for ${person.display_name} to approve it at ${origin}/approvals/${asked.item.id}. Tell them to open that link: it lands the moment they press Approve (within 30 minutes), so don't send it again`);
           };
           return session;

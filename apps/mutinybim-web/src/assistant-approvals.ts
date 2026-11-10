@@ -147,8 +147,8 @@ export class ApprovalBook {
   }
 
   /** What lands if the person approves after the call returned. */
-  setLanding(item: PendingApproval, landing: unknown): PendingApproval {
-    const now = this.get(item.userId, item.id);
+  setLanding(item: PendingApproval, landing: unknown, t: TFunction = english): PendingApproval {
+    const now = this.get(item.userId, item.id, t);
     if (!now || now.state !== "waiting") return now ?? item;
     return this.save({ ...now, landing });
   }
@@ -226,8 +226,13 @@ export class ApprovalBook {
     return false;
   }
 
-  /** A retry the person hasn't answered yet (so a second call doesn't add a second request). */
-  waitingRetry(userId: string, key: string): PendingApproval | null {
-    return this.of(userId).find((i) => i.kind === "retry" && i.key === key && i.state === "waiting") ?? null;
+  /**
+   * A retry the person hasn't answered yet (so a second call doesn't add a
+   * second request). It prunes as it looks, so it takes the translator: this is
+   * the call the tool server makes *before* it creates anything, and an English
+   * prune here would stamp English expiry words on a Turkish page.
+   */
+  waitingRetry(userId: string, key: string, t: TFunction = english): PendingApproval | null {
+    return this.of(userId, t).find((i) => i.kind === "retry" && i.key === key && i.state === "waiting") ?? null;
   }
 }

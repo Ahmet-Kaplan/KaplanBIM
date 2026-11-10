@@ -17,6 +17,7 @@ import type { PendingApproval } from "./assistant-approvals";
 import type { AgentKeyRow, AssistantGrantRow, ModelRow, SharedModelRow, ShareRow, UserRow } from "./db";
 import { tFor } from "./i18n";
 import type { ModelSummary } from "./models";
+import { PASSWORD_MIN } from "./secrets";
 import { formatWhen, LanguageChoice, LANGUAGES, page, waitingApprovalsOf, type Flash, type FrameOptions, type FrameUser } from "./ui";
 
 /**
@@ -162,7 +163,7 @@ export function loginPage(config: WebConfig, options: { email?: string; returnTo
         <form method="post" action="/login" className="flex flex-col gap-3">
           <input type="hidden" name="return_to" value={options.returnTo} />
           <TextField label={t("common.email", "Email", { ns: "web" })} name="email" type="email" autoComplete="email" required defaultValue={options.email ?? ""} />
-          <TextField label={t("common.password", "Password", { ns: "web" })} name="password" type="password" autoComplete="current-password" required minLength={8} />
+          <TextField label={t("common.password", "Password", { ns: "web" })} name="password" type="password" autoComplete="current-password" required minLength={PASSWORD_MIN} />
           <Button type="submit" size="lg">
             {t("auth.logIn", "Log in", { ns: "web" })}
           </Button>
@@ -208,7 +209,7 @@ export function signupPage(config: WebConfig, options: { email?: string; name?: 
         <form method="post" action="/signup" className="flex flex-col gap-3">
           <TextField label={t("signup.name", "Your name", { ns: "web" })} hint={t("signup.nameHint", "People editing with you see it.", { ns: "web" })} name="name" autoComplete="name" required maxLength={80} defaultValue={options.name ?? ""} />
           <TextField label={t("common.email", "Email", { ns: "web" })} name="email" type="email" autoComplete="email" required defaultValue={options.email ?? ""} />
-          <TextField label={t("common.password", "Password", { ns: "web" })} hint={t("common.passwordHint", "At least 8 characters.", { ns: "web" })} name="password" type="password" autoComplete="new-password" required minLength={8} />
+          <TextField label={t("common.password", "Password", { ns: "web" })} hint={t("common.passwordHint", "At least {{min}} characters.", { min: PASSWORD_MIN, ns: "web" })} name="password" type="password" autoComplete="new-password" required minLength={PASSWORD_MIN} />
           <label className="flex items-start gap-2 text-sm text-(--mutiny-muted)">
             <input type="checkbox" name="agree" value="1" required className="mt-1" />
             <span>
@@ -392,7 +393,7 @@ export function resetPage(options: { token: string; email: string | null; flash?
       </CardHeader>
       <CardContent>
         <form method="post" action={`/reset/${encodeURIComponent(options.token)}`} className="flex flex-col gap-3">
-          <TextField label={t("common.newPassword", "New password", { ns: "web" })} hint={t("common.passwordHint", "At least 8 characters.", { ns: "web" })} name="password" type="password" autoComplete="new-password" required minLength={8} />
+          <TextField label={t("common.newPassword", "New password", { ns: "web" })} hint={t("common.passwordHint", "At least {{min}} characters.", { min: PASSWORD_MIN, ns: "web" })} name="password" type="password" autoComplete="new-password" required minLength={PASSWORD_MIN} />
           <Button type="submit" size="lg">
             {t("reset.submit", "Save and log in", { ns: "web" })}
           </Button>
@@ -730,7 +731,7 @@ export function settingsPage(config: WebConfig, user: UserRow, linked: readonly 
           {user.password_hash && options.passwordFree ? (
             <FieldHint>{t("settings.passwordFree", "You just logged in with a linked account, so no current password is needed for the next few minutes.", { ns: "web" })}</FieldHint>
           ) : null}
-          <TextField label={t("common.newPassword", "New password", { ns: "web" })} hint={t("common.passwordHint", "At least 8 characters.", { ns: "web" })} name="password" type="password" autoComplete="new-password" required minLength={8} />
+          <TextField label={t("common.newPassword", "New password", { ns: "web" })} hint={t("common.passwordHint", "At least {{min}} characters.", { min: PASSWORD_MIN, ns: "web" })} name="password" type="password" autoComplete="new-password" required minLength={PASSWORD_MIN} />
           <div>
             <Button type="submit" variant="outline" size="lg">
               {user.password_hash ? t("settings.changePassword", "Change password", { ns: "web" }) : t("settings.setPassword", "Set password", { ns: "web" })}

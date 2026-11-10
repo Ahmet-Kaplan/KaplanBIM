@@ -34,7 +34,7 @@ import { esc, setWaitingApprovals, type Flash } from "./ui";
 import { ModelStore, summarize, type StarterKind } from "./models";
 import { finishSignIn, SignInError, startSignIn, type Fetch } from "./oauth";
 import { approvalPage, approvalsPage, assistantConsentPage, connectPage, forgotPage, landingPage, loginPage, messagePage, modelsPage, privacyPage, quotePage, resetPage, settingsPage, sharePage, signupPage, termsPage } from "./pages";
-import { digest, hashPassword, randomToken, verifyPassword } from "./secrets";
+import { digest, hashPassword, PASSWORD_MIN, randomToken, verifyPassword } from "./secrets";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const APP_DIR = path.resolve(HERE, "..");
@@ -43,8 +43,6 @@ const SESSION_DAYS = 30;
 const BODY_LIMIT = 64 * 1024;
 /** After a linked sign-in, a password can be set without the old one for this long (the recovery path). */
 const RECOVERY_WINDOW_MS = 10 * 60_000;
-/** The shortest password this app accepts; the messages name it through `{{min}}`, so the two cannot disagree. */
-const PASSWORD_MIN = 8;
 
 export interface AppOptions {
   /** Used by tests to answer the sign-in provider's addresses. */

@@ -35,6 +35,15 @@ export async function verifyPassword(password: string, stored: string): Promise<
 /** How long an operator-made password reset link works. */
 export const RESET_LINK_HOURS = 1;
 
+/**
+ * The shortest password this app accepts. One value for all three places that
+ * say it: the two refusals (`errors.passwordTooShort`, `…New`) name it through
+ * `{{min}}`, the hint under the field (`common.passwordHint`) too, and the
+ * field's own `minLength` is this number — so the advice and the check cannot
+ * drift apart.
+ */
+export const PASSWORD_MIN = 8;
+
 /** A URL-safe random token with the given prefix (e.g. `mbk_` for agent keys). */
 export function randomToken(prefix = ""): string {
   return `${prefix}${randomBytes(32).toString("base64url")}`;

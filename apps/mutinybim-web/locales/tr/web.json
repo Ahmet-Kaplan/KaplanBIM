@@ -13,7 +13,7 @@
     "open": "Aç",
     "or": "veya",
     "password": "Parola",
-    "passwordHint": "En az 8 karakter.",
+    "passwordHint": "En az {{min}} karakter.",
     "rename": "Yeniden adlandır",
     "save": "Kaydet",
     "share": "Paylaş",

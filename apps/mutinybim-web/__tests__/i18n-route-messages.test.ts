@@ -20,9 +20,12 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { createApp, type App } from "../src/app";
+import { ApprovalBook } from "../src/assistant-approvals";
 import type { OAuthProviderConfig, WebConfig } from "../src/config";
-import { digest, randomToken } from "../src/secrets";
+import { tFor } from "../src/i18n";
+import { digest, PASSWORD_MIN, randomToken } from "../src/secrets";
 import type { Fetch } from "../src/oauth";
+import trWeb from "../locales/tr/web.json";
 
 let dataDir = "";
 let app: App | null = null;
@@ -306,17 +309,90 @@ test("a provider that cannot be reached is described in Turkish (the sign-in mod
   });
 });
 
+/** Every key this app's Turkish file carries, dotted and escaped: `approval.outcomeDeclined`. */
+const WEB_KEYS: readonly string[] = (function flatten(value: unknown, prefix = ""): string[] {
+  if (typeof value !== "object" || value === null) return [];
+  return Object.entries(value as Record<string, unknown>).flatMap(([name, child]) => {
+    const key = prefix === "" ? name : `${prefix}.${name}`;
+    return typeof child === "string" ? [key] : flatten(child, key);
+  });
+})(trWeb);
+
+/**
+ * A leaked key on a page, matched against the keys that actually exist rather
+ * than against a hand-written list of sections: the list comes from
+ * `locales/tr/web.json`, so a section added later is covered the moment its
+ * Turkish is, and a sentence that happens to end in "models. They" cannot be a
+ * false alarm because `models.They` is not a key.
+ */
+const LEAKED_KEY = new RegExp(`\\b(?:${WEB_KEYS.map((key) => key.replace(/[.$?*|{}()[\]\\+^]/g, "\\$&")).join("|")})\\b`);
+
+test("the leak guard reads every section of the Turkish file, including the new ones", () => {
+  // Guards the guard: a derivation that broke would leave it matching nothing.
+  expect(WEB_KEYS.length).toBeGreaterThan(300);
+  for (const key of ["assistant.noClientId", "approval.outcomeDeclined", "errors.passwordTooShort", "connect.keyDefaultLabel", "common.language.label".replace("common.", "")]) {
+    expect(WEB_KEYS).toContain(key);
+  }
+  // Proven able to fail, on a page that shows a key instead of its words …
+  expect(LEAKED_KEY.test('<div data-testid="flash">assistant.noClientId</div>')).toBe(true);
+  expect(LEAKED_KEY.test("<p>approval.outcomeDeclined</p>")).toBe(true);
+  // … and not on the prose these pages really carry.
+  expect(LEAKED_KEY.test("<p>Models. They see it under “Shared with you”.</p>")).toBe(false);
+  expect(LEAKED_KEY.test("<p>Open them from any computer.</p>")).toBe(false);
+});
+
 test("no translation key is ever shown instead of its words", async () => {
   await start();
+  const cookie = await signUp("sam@example.com");
+  const id = seedApproval(userIdOf("sam@example.com"));
   const pages = [
     (await postForm("/signup", { name: "Sam", email: "sam@example.com", password: "short" })).html,
+    (await postForm("/signup", { name: "Sam", email: "sam@example.com", password: "correct-horse" })).html,
     (await get("/auth/nope/start")).html,
     (await get("/nowhere")).html,
+    (await get("/approvals", as(cookie, "tr"))).html,
+    (await postForm(`/approvals/${id}`, { decision: "decline" }, as(cookie, "tr"))).html,
+    (await get("/connect", as(cookie, "tr"))).html,
+    (await postForm("/connect/keys", { label: "" }, as(cookie, "tr"))).html,
+    (await get("/oauth/authorize?response_type=code", as(cookie, "tr"))).html,
   ];
-  for (const page of pages) {
-    // A leaked key reads `errors.passwordTooShort` — a section, a dot, a camelCase name.
-    expect(page).not.toMatch(/\b(?:errors|flash|oauth|callback|message)\.[a-z][A-Za-z]*/);
-  }
+  for (const page of pages) expect(page).not.toMatch(LEAKED_KEY);
+});
+
+test("the password hint takes its number from the same rule as the two refusals", async () => {
+  await start();
+  // One value (PASSWORD_MIN) drives the hint's words and the field's own limit,
+  // so a changed rule cannot leave the advice and the check disagreeing.
+  expect(trWeb.common.passwordHint).toContain("{{min}}");
+  expect(trWeb.errors.passwordTooShort).toContain("{{min}}");
+  expect(trWeb.errors.passwordTooShortNew).toContain("{{min}}");
+
+  const turkish = await postForm("/signup", { name: "Sam", email: "sam@example.com", password: "short" }, TR);
+  expect(turkish.html).toContain(`En az ${PASSWORD_MIN} karakter.`);
+  expect(turkish.html).toContain(`minLength="${PASSWORD_MIN}"`);
+  const english = await postForm("/signup", { name: "Sam", email: "sam@example.com", password: "short" }, EN);
+  expect(english.html).toContain(`At least ${PASSWORD_MIN} characters.`);
+});
+
+test("an assistant retry that prunes an expired request writes Turkish, not English", async () => {
+  await start();
+  const cookie = await signUp("sam@example.com");
+  const userId = userIdOf("sam@example.com");
+  if (!app) throw new Error("no app");
+  // The assistant's own call path: it prunes as it looks for an earlier retry,
+  // before it creates anything. That first prune is the one that was English.
+  seedApproval(userId, { id: "5f0f0f0f-0000-4000-8000-000000000005", ageMs: 31 * 60_000 });
+  const book = new ApprovalBook(app.db);
+  expect(book.waitingRetry(userId, "a-retry-nobody-answered", tFor("tr"))).toBeNull();
+  const expired = app.db.assistantApproval("5f0f0f0f-0000-4000-8000-000000000005");
+  expect(expired?.state).toBe("expired");
+  expect(expired?.outcome).toBe("Kimse 30 dakika içinde onaylamadı, bu yüzden düştü. Hiçbir şey değişmedi.");
+
+  // And the English floor still holds for a caller with no language of its own.
+  seedApproval(userId, { id: "5f0f0f0f-0000-4000-8000-000000000006", ageMs: 31 * 60_000 });
+  expect(book.waitingRetry(userId, "another-retry")).toBeNull();
+  expect(app.db.assistantApproval("5f0f0f0f-0000-4000-8000-000000000006")?.outcome).toBe("Nobody approved it within 30 minutes, so it was dropped. Nothing changed.");
+  expect(cookie).toContain("mutinybim_session");
 });
 
 // ---------------------------------------------------------------------------
