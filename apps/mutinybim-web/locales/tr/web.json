@@ -97,7 +97,7 @@
   "models": {
     "title": "Modellerim",
     "yours": "Sizinkiler",
-    "limit": "Ücretsiz hesapta {{limit}} modelden {{used}}.",
+    "limit": "Ücretsiz hesapta {{limit}} modelden {{used}} tanesi kullanıldı.",
     "emptyTitle": "Henüz model yok",
     "emptyBody": "İlk modelinizi aşağıda oluşturun. Boş başlayın (tek kat) ya da önce göz atmak için örnek mekanik modelle başlayın.",
     "changed": "{{when}} tarihinde değiştirildi",
@@ -109,7 +109,7 @@
     "atLimit": "Hesabınızda {{used}} model var; ücretsiz bir hesabın tutabileceği en fazla sayı bu. Yenisini yapmak için birini silin.",
     "newTitle": "Yeni model",
     "sampleName": "Örnek Depo",
-    "startFrom": "Şununla başla",
+    "startFrom": "Şununla başlayın",
     "startBlank": "Tek katlı boş bir model",
     "startSample": "Örnek mekanik model (kanalları ve difüzörleriyle bir klima santrali)",
     "submit": "Modeli oluştur"
@@ -158,7 +158,7 @@
     "providerAnthropic": "Anthropic (Claude)",
     "providerOpenAi": "OpenAI (ChatGPT modelleri)",
     "providerXai": "xAI (Grok)",
-    "providerCompatible": "OpenAI biçiminde adresi olan başka bir sağlayıcı",
+    "providerCompatible": "OpenAI biçiminde adresli başka bir sağlayıcı",
     "address": "Adres",
     "addressHint": "/v1 ile biter.",
     "model": "Model",
@@ -169,7 +169,7 @@
     "testKey": "Anahtarı sına",
     "forgetKey": "Anahtarı unut",
     "preferApp": "Kendi asistan uygulamanızı mı tercih edersiniz (Claude Desktop, ChatGPT, Cursor)?",
-    "connectIt": "Modellerinize bağlayın",
+    "connectIt": "Modellerinize bağlamanız",
     "instead": "yeterli."
   },
   "connect": {
@@ -189,7 +189,7 @@
     "forExample": "(örneğin",
     "closeParen": ").",
     "approvalsLead": "Asistanınız size kendisi soramadığında, değişiklikleri siz Onayla'ya basana kadar",
-    "approvalsTail": "sayfasında bekler. Betikleri burada, ağ erişimi olmayan kapalı bir kutuda çalışır; bir betik, yaptığını onaylayana kadar yalnızca önizleme üretir.",
+    "approvalsTail": "sayfasında bekler. Betikler burada, ağ erişimi olmayan kapalı bir kutuda çalışır; bir betik, yaptığını onaylayana kadar yalnızca önizleme üretir.",
     "assistantsTitle": "Oturum açmış asistanlar",
     "assistantsEmpty": "Henüz yok. Asistanınızda İzin ver'e bastıktan sonra burada listelenir ve oturumunu kapatabilirsiniz.",
     "signedIn": "{{when}} tarihinde giriş yapıldı",
@@ -199,7 +199,7 @@
     "signOut": "Oturumu kapat",
     "signOutQuestion": "“{{name}}” oturumu kapatılsın mı? Modellerinize erişimini hemen kaybeder.",
     "localTitle": "Ya da araç sunucusunu kendi bilgisayarınızda çalıştırın",
-    "localLede": "Yalnızca yerel araçları başlatan bir asistan için. Node 22.13 veya daha yenisini, açık kaynak depoyu ve bir ajan anahtarı gerekir.",
+    "localLede": "Yalnızca yerel araçları başlatan bir asistan için. Node 22.13 veya daha yenisi, açık kaynak depo ve bir ajan anahtarı gerekir.",
     "noKeys": "Henüz ajan anahtarı yok.",
     "keyEnding": "sonu …{{last4}}",
     "keyMade": "{{when}} tarihinde oluşturuldu",
@@ -216,7 +216,7 @@
   "consent": {
     "title": "“{{client}}” modellerinizi kullanabilsin mi?",
     "signedInAs": "Oturumunuz",
-    "emailAndAfter": "({{email}}) adıyla açık. Yanıtladıktan sonra",
+    "emailAndAfter": "({{email}}) adıyla açık. Yanıtladıktan sonra şu adrese dönersiniz:",
     "readModel": "{{models}} modelinizi okuyabilir",
     "readModels": "{{models}} modelinizi okuyabilir",
     "andShared": " ve sizinle paylaşılan {{shared}} modeli de",
@@ -228,7 +228,7 @@
     "deny": "İzin verme"
   },
   "approvals": {
-    "lede": "Asistanlarınızın yapmak istediği değişiklikler, size kendileri soramadıklarında. Siz onaylayana kadar hiçbir şey uygulanmaz; bir istek 30 dakika sonra düşer.",
+    "lede": "Asistanlarınızın yapmak istediği değişiklikler, size kendileri soramadıklarında. Siz onaylayana kadar hiçbir şey uygulanmaz; bir istek 30 dakika bekledikten sonra düşer.",
     "emptyTitle": "Bekleyen bir şey yok",
     "emptyLead": "Sizin",
     "connected": "bağladığınız",
@@ -255,7 +255,7 @@
     "whichProject": "Hangi proje?",
     "useThisOne": "Bunu kullan",
     "asksTitle": "Teklif formunun istedikleri",
-    "yourName": "Adınız ve e-postanız (buradaki:",
+    "yourName": "Adınız ve e-postanız (buradaki hesabınız:",
     "theProject": "Proje",
     "sizeAndNeeds": ", büyüklüğü ve neye ihtiyacı olduğu",
     "noneYet": "henüz yok",

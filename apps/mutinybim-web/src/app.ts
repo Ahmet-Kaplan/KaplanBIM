@@ -104,11 +104,27 @@ function redirect(res: ServerResponse, location: string, headers: Record<string,
   res.end();
 }
 
-function cookies(req: IncomingMessage): Map<string, string> {
+/**
+ * The request's cookies, by name, decoded.
+ *
+ * A cookie whose value is not valid percent-encoding (`mutiny.lang=%`, `x=100%`,
+ * a truncated `%E0%A4%A`) is skipped, not thrown on: `decodeURIComponent` raises
+ * `URIError`, and a damaged cookie is a damaged preference — not a reason to
+ * lose the page, and not a reason to hide the good cookies beside it. Exported
+ * for its test: this is the seam a malformed `Cookie` header reaches first.
+ */
+export function cookies(req: IncomingMessage): Map<string, string> {
   const out = new Map<string, string>();
   for (const part of (req.headers.cookie ?? "").split(";")) {
     const at = part.indexOf("=");
-    if (at > 0) out.set(part.slice(0, at).trim(), decodeURIComponent(part.slice(at + 1).trim()));
+    if (at <= 0) continue;
+    const name = part.slice(0, at).trim();
+    try {
+      out.set(name, decodeURIComponent(part.slice(at + 1).trim()));
+    } catch {
+      // Silently ignored, the way `readLanguagePreference` ignores a stored
+      // value it cannot read: the rest of the request carries on.
+    }
   }
   return out;
 }
@@ -117,15 +133,23 @@ function cookies(req: IncomingMessage): Map<string, string> {
  * The language this request is answered in: the language cookie, then the
  * account's own setting, then `Accept-Language`, then English (see `./i18n`).
  * Read once per request, so a page and its `<html lang>` always agree.
+ *
+ * Never throws. A language is a preference, and a request has to be answered
+ * even when the header that names it is mangled; English is the floor.
  */
 function requestLanguage(req: IncomingMessage): MutinyLanguage {
-  return resolveRequestLanguage({
-    cookies: Object.fromEntries(cookies(req)),
-    header: (name) => {
-      const value = req.headers[name.toLowerCase()];
-      return Array.isArray(value) ? value[0] : value;
-    },
-  });
+  try {
+    return resolveRequestLanguage({
+      cookies: Object.fromEntries(cookies(req)),
+      header: (name) => {
+        const value = req.headers[name.toLowerCase()];
+        return Array.isArray(value) ? value[0] : value;
+      },
+    });
+  } catch (err) {
+    console.error("[mutinybim-web] the request's language could not be read; answering in English", { err });
+    return "en";
+  }
 }
 
 async function readBody(req: IncomingMessage): Promise<string> {
@@ -695,8 +719,12 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
   }
 
   const server = createServer((req, res) => {
-    const language = requestLanguage(req);
+    // Nothing is read synchronously here: this listener is outside every promise
+    // chain, so a throw would end the process instead of failing one request.
+    // The language is resolved inside `handle` for the page and, for the error
+    // page, inside the handler below.
     handle(req, res).catch((err: unknown) => {
+      const language = requestLanguage(req);
       if (err instanceof Refusal) {
         const user = sessionUser(req);
         if ((req.url ?? "").startsWith("/api/")) return json(res, err.status, { error: err.words });

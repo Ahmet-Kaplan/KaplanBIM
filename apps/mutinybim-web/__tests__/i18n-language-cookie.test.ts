@@ -11,6 +11,8 @@
  * machine's guess. English is the floor: a header that names no language this
  * app speaks, and a damaged cookie, both answer in English rather than nothing.
  */
+import type { IncomingMessage } from "node:http";
+import { cookies } from "../src/app";
 import { COOKIE_NAME, resolveRequestLanguage, type RequestLanguageInput } from "../src/i18n";
 
 interface RequestParts {
@@ -68,4 +70,27 @@ test("the cookie name is the one stage 1 writes", () => {
   // `LANGUAGE_STORAGE_KEY` in packages/bim-ui is the same name for the browser's
   // local storage; one name describes the choice on both sides.
   expect(COOKIE_NAME).toBe("mutiny.lang");
+});
+
+describe("the cookie reader", () => {
+  /** A request whose only interesting part is its `Cookie` header. */
+  const read = (cookie: string): Map<string, string> => cookies({ headers: { cookie } } as unknown as IncomingMessage);
+
+  test("does not throw on a value that is not URL-encoded", () => {
+    // `decodeURIComponent` raises `URIError` on a stray `%`. This is the seam a
+    // malformed `Cookie` header reaches first, and a throw here used to end the
+    // whole process: one anonymous request could take the hosted app down.
+    for (const header of ["%", "mutiny.lang=%", "x=%E0%A4%A", "a=1; b=%zz", "x=100%", "="]) {
+      expect(() => read(header)).not.toThrow();
+    }
+  });
+
+  test("keeps the cookies it can decode and drops the ones it cannot", () => {
+    expect([...read("a=1; b=%zz; mutiny.lang=tr")]).toEqual([
+      ["a", "1"],
+      ["mutiny.lang", "tr"],
+    ]);
+    expect([...read("mutiny.lang=tr%2DTR")]).toEqual([["mutiny.lang", "tr-TR"]]);
+    expect([...read("")]).toEqual([]);
+  });
 });

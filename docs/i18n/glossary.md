@@ -139,6 +139,32 @@ Kodda aynı nesne için 4 İngilizce eşanlamlı dolaşıyor: `element`, `part`,
 | Callout | **detay balonu** | |
 | Detail level | **detay seviyesi** | ⚠️ bkz. §9/Ç6 |
 
+### 2.5 Hesap, anahtar ve yapay zekâ
+
+Barındırılan uygulamanın (`apps/mutinybim-web`) ekranlarında geçen, model geometrisi olmayan terimler. 2026-11-10'da Aşama 2 ile eklendi.
+
+| EN | TR | Not |
+|----|----|-----|
+| Building model | **yapı modeli** | "bina modeli" değil; BIM = yapı bilgi modellemesi |
+| Password | **parola** | "şifre" değil; *şifre* = cipher |
+| AI / AI model | **yapay zekâ** / **yapay zekâ modeli** | ⚠️ bkz. §9/Ç1 — *model* korunur |
+| Agent key | **ajan anahtarı** | MCP asistanının anahtarı |
+| Tool server | **araç sunucusu** | MCP sunucusu ↔ *araç sunucusu* |
+| Tool family | **araç ailesi** | MCP araç paketi |
+| Sealed box / sandbox | **kapalı kutu** | betiklerin ağsız çalıştığı yer |
+| Hash (one-way) | **özet** | "tek yönlü özet"; *hash* yerine |
+| Fingerprint | **parmak izi** | anahtarın saklanan özeti |
+| Allow (OAuth) | **İzin ver** | ⚠️ *Onayla* = Approve, §3 |
+| Sign out (an assistant or a key) | **Oturumu kapat** | anahtar için *Kapat* |
+
+### 2.6 Mekanik ekipman
+
+| EN | TR | Not |
+|----|----|-----|
+| Air handler (AHU) | **klima santrali** | |
+| Diffuser | **difüzör** | |
+| Duct | **kanal** | ⚠️ bkz. §9/Ç17 |
+
 ---
 
 ## 3. Komutlar ve eylemler
@@ -231,7 +257,7 @@ Kodda aynı nesne için 4 İngilizce eşanlamlı dolaşıyor: `element`, `part`,
 | Yield on cost | **maliyet getirisi** | |
 | Parcel | **parsel** | |
 | Client | **müşteri** | |
-| Owner | **işveren** | |
+| Owner | **işveren** | ⚠️ yalnız **sözleşme tarafı**; modelin sahibi olan kişi **sahip** — bkz. §9/Ç20 |
 | Contractor | **yüklenici** | |
 | Engineer of record | **sorumlu mühendis** | |
 | Permit | **ruhsat** | |
@@ -264,6 +290,8 @@ Kodda aynı nesne için 4 İngilizce eşanlamlı dolaşıyor: `element`, `part`,
 Türkçede **çoğul eki yoktur** sayıdan sonra: "3 eleman" (~~"3 elemanlar"~~). Bu yüzden İngilizcedeki `1 element / 2 elements` ayrımı Türkçede **tek biçime** iner.
 
 > ⚠️ **Yer tutucu sözdizimi.** Bu bölümdeki `{n}` yalnızca **gösterim** kolaylığıdır. Gerçek `tr` çeviri dosyalarında i18next'in varsayılan sınırlayıcısı **`{{n}}`** (çift süslü parantez) kullanılır: `"{{n}} eleman"`. Tek süslü parantez (`{n}`) yazılırsa i18next onu **değiştirmez** ve arayüzde harfi harfine `{n} eleman` görünür. `packages/bim-ui/__tests__/i18n-parity.test.ts` bu hatayı yakalar.
+
+> ⚠️ **Bu bölümün denetçisi biçime bakar, sözcük türüne bakmaz.** `packages/bim-ui/__tests__/i18n-glossary.test.ts` sayıdan sonra gelen **her** sözcüğün sonuna bakar, dolayısıyla `-lar/-ler` ile biten ama çoğul **olmayan** doğru bir cümleyi de reddeder: "bir istek 30 dakika **bekler**" (fiil) uyarı üretir. Böyle bir cümleyi denetçiyi memnun etmek için **anlamı silerek** kısaltmayın — *bekler* → *bekledikten sonra* gibi, anlamı koruyan bir biçime çevirin. Denetçinin bu bilinen sınırı bilinçli kabul edilmiştir: yanlış alarm, kaçırılmış bir çoğuldan daha ucuzdur.
 
 | EN | TR |
 |----|-----|
@@ -308,6 +336,7 @@ Bunlar sözlüğün en kritik kısmı. Her biri için **benim önerim** yazılı
 | Ç17 | **`Duct` / `Pipe`** — isim ve fiil | *kanal* / *boru*; fiil *kanal çiz* / *boru çiz* (asla "borula"). |
 | Ç18 | **ABD mühendislik kısaltmaları** | Varsayılan SI; ABD kısaltmaları yalnız `en-US` yerelinde. |
 | Ç19 | **`Submittal`** | *imalat onayı* (sektörde yerleşik). Alternatif *malzeme onayı*. |
+| Ç20 | **`Owner`** — (a) sözleşmede işi veren taraf, (b) bir modelin/hesabın sahibi olan kişi | (a) **işveren** (§6), (b) **sahip**. Ayrım bağlamla çözülür ve iki terim karıştırılmaz. **Karar (2026-11-10):** barındırılan uygulamanın “Who has it” listesindeki `share.owner` = (b) → **Sahip**; sözleşme/parsel/maliyet ekranlarındaki `Owner` = (a) → **işveren**. Bir modelin sahibi için "işveren" yazmak yanlıştır — o kişi işveren değil, modeli oluşturan kişidir. |
 
 ---
 
