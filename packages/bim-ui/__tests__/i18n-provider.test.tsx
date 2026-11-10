@@ -1,8 +1,20 @@
 /**
  * @jest-environment jsdom
  */
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useLayoutEffect } from "react";
+import { useTranslation } from "react-i18next";
+import type { i18n as I18nInstance } from "i18next";
 import { I18nProvider, useMutinyLanguage, useT, type MutinyLanguage } from "../src";
+
+/** Reaches the provider's i18next instance, so a test can make one switch fail. */
+function InstanceProbe({ onInstance }: { onInstance: (instance: I18nInstance) => void }) {
+  const { i18n } = useTranslation();
+  useLayoutEffect(() => {
+    onInstance(i18n);
+  }, [i18n, onInstance]);
+  return null;
+}
 
 function Greet() {
   const t = useT("common");
@@ -21,6 +33,20 @@ function Switch() {
       {language}
     </button>
   );
+}
+
+function ErrorLine() {
+  const { error } = useMutinyLanguage();
+  return <span data-testid="error">{error ?? ""}</span>;
+}
+
+/** Every language the tree was committed with, in commit order. */
+function LanguageLog({ log }: { log: MutinyLanguage[] }) {
+  const { language } = useMutinyLanguage();
+  useLayoutEffect(() => {
+    log.push(language);
+  });
+  return <span data-testid="log-lang">{language}</span>;
 }
 
 describe("I18nProvider", () => {
@@ -100,5 +126,95 @@ describe("I18nProvider", () => {
     const error = jest.spyOn(console, "error").mockImplementation(() => undefined);
     expect(() => render(<Switch />)).toThrow(/I18nProvider/);
     error.mockRestore();
+  });
+
+  it("adopts a host-changed language in the same commit, without a stale frame", () => {
+    const log: MutinyLanguage[] = [];
+    const { rerender } = render(
+      <I18nProvider language="en">
+        <LanguageLog log={log} />
+      </I18nProvider>,
+    );
+    expect(log).toEqual(["en"]);
+    log.length = 0;
+
+    rerender(
+      <I18nProvider language="tr">
+        <LanguageLog log={log} />
+      </I18nProvider>,
+    );
+
+    // A `useEffect` sync would commit (and paint) one frame in `en` first, so the
+    // very first commit after the prop change must already be Turkish.
+    expect(log[0]).toBe("tr");
+    expect(log).toEqual(["tr"]);
+    expect(document.documentElement.lang).toBe("tr");
+  });
+
+  it("goes back to the previous language when the switch fails, and can be tried again", async () => {
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    let instance: I18nInstance | undefined;
+
+    render(
+      <I18nProvider language="en">
+        <Switch />
+        <ErrorLine />
+        <InstanceProbe onInstance={(next) => (instance = next)} />
+      </I18nProvider>,
+    );
+    expect(screen.getByTestId("error")).toHaveTextContent("");
+    if (!instance) throw new Error("no i18next instance");
+    const failing = jest.spyOn(instance, "changeLanguage").mockRejectedValueOnce(new Error("offline"));
+
+    act(() => {
+      fireEvent.click(screen.getByTestId("switch"));
+    });
+
+    // The failed switch is undone: the reported language is the one the screen is really in.
+    await waitFor(() => expect(screen.getByTestId("switch")).toHaveTextContent("en"));
+    expect(screen.getByTestId("error")).toHaveTextContent("Couldn't switch language: offline");
+    expect(document.documentElement.lang).toBe("en");
+    expect(failing).toHaveBeenCalled();
+
+    // ...and the `next === current` guard does not block a retry once it is back.
+    const callsAfterFailure = failing.mock.calls.length;
+    act(() => {
+      fireEvent.click(screen.getByTestId("switch"));
+    });
+    expect(screen.getByTestId("switch")).toHaveTextContent("tr");
+    expect(screen.getByTestId("error")).toHaveTextContent("");
+    expect(failing.mock.calls.length).toBeGreaterThan(callsAfterFailure);
+    consoleError.mockRestore();
+  });
+
+  it("clears a stale error when the host takes over the language", async () => {
+    jest.spyOn(console, "error").mockImplementation(() => undefined);
+    let instance: I18nInstance | undefined;
+
+    const { rerender } = render(
+      <I18nProvider language="en">
+        <Switch />
+        <ErrorLine />
+        <InstanceProbe onInstance={(next) => (instance = next)} />
+      </I18nProvider>,
+    );
+    if (!instance) throw new Error("no i18next instance");
+    jest.spyOn(instance, "changeLanguage").mockRejectedValueOnce(new Error("offline"));
+
+    act(() => {
+      fireEvent.click(screen.getByTestId("switch"));
+    });
+    await waitFor(() => expect(screen.getByTestId("error")).toHaveTextContent("offline"));
+
+    rerender(
+      <I18nProvider language="tr">
+        <Switch />
+        <ErrorLine />
+      </I18nProvider>,
+    );
+
+    expect(screen.getByTestId("error")).toHaveTextContent("");
+    expect(screen.getByTestId("switch")).toHaveTextContent("tr");
+    expect(document.documentElement.lang).toBe("tr");
   });
 });

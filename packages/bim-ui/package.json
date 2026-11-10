@@ -22,11 +22,11 @@
   "peerDependencies": {
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "i18next": ">=23.0.0",
+    "i18next": ">=27.0.1",
     "lucide-react": ">=0.400.0",
     "radix-ui": "^1.4.0",
     "react": "^19.0.0",
-    "react-i18next": ">=15.0.0",
+    "react-i18next": ">=18.0.0",
     "tailwind-merge": "^3.0.0"
   }
 }

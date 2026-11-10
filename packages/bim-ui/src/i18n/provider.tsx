@@ -27,6 +27,13 @@ export interface I18nProviderProps {
   readonly resources?: Resource;
 }
 
+interface LanguageState {
+  /** What the tree shows. */
+  readonly stored: MutinyLanguage;
+  /** The `language` prop these values were taken from. */
+  readonly hostLanguage: MutinyLanguage;
+}
+
 function errorText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
@@ -40,23 +47,38 @@ function errorText(err: unknown): string {
  */
 export function I18nProvider({ children, language, onLanguageChange, resources }: I18nProviderProps) {
   const [instance] = useState(() => createI18n({ language, resources }));
-  const [current, setCurrent] = useState<MutinyLanguage>(language);
+  const [state, setState] = useState<LanguageState>(() => ({ stored: language, hostLanguage: language }));
   const [error, setError] = useState<string | undefined>(undefined);
 
-  // The host owns `language`: when the prop changes (a settings page, another
-  // window), the tree follows it.
-  useEffect(() => {
-    setCurrent(language);
-  }, [language]);
+  // The host owns `language`. A changed prop is adopted in this render, so the
+  // first paint after a settings page or another window changes it is already
+  // in the new language — not one effect tick (and one stale frame) later.
+  if (language !== state.hostLanguage) {
+    setState({ stored: language, hostLanguage: language });
+    if (error !== undefined) setError(undefined);
+  }
+  const current = state.stored;
+
+  // The language the instance is really in, so a failed switch knows where to go back to.
+  const applied = useRef<MutinyLanguage>(language);
 
   useEffect(() => {
-    if (instance.resolvedLanguage === current) return;
+    if (instance.resolvedLanguage === current) {
+      applied.current = current;
+      return;
+    }
+    const previous = applied.current;
     const failed = (err: unknown) => {
-      console.error("[I18nProvider] changing language failed; keeping the previous one", { language: current, err });
+      console.error("[I18nProvider] switching language failed; going back to the previous one", { language: current, previous, err });
       setError(`Couldn't switch language: ${errorText(err)}`);
+      // Put the screen back where it really is; the effect then settles on
+      // `previous` because the instance is already there.
+      setState((s) => (s.stored === previous ? s : { ...s, stored: previous }));
     };
     try {
-      void Promise.resolve(instance.changeLanguage(current)).catch(failed);
+      void Promise.resolve(instance.changeLanguage(current)).then(() => {
+        applied.current = current;
+      }, failed);
     } catch (err) {
       failed(err);
     }
@@ -81,8 +103,8 @@ export function I18nProvider({ children, language, onLanguageChange, resources }
   const setLanguage = useCallback(
     (next: MutinyLanguage) => {
       if (!isMutinyLanguage(next) || next === current) return;
-      setCurrent(next);
       setError(undefined);
+      setState((s) => ({ ...s, stored: next }));
       onLanguageChange?.(next);
     },
     [current, onLanguageChange],
