@@ -11,7 +11,12 @@
  * söylenir.
  */
 
-import type { Boq, CostItem } from "../../erp-bridge/src/queries.js";
+import {
+  queryBoq,
+  queryCostItem,
+  type Boq,
+  type CostItem,
+} from "../../erp-bridge/src/queries.js";
 
 /** Sorunun yönlendirileceği arka uç. */
 export type Classification = "bim" | "erp" | "unknown";
@@ -112,7 +117,7 @@ export function classifyQuestion(text: string): Classification {
  * çağırıp yapılandırılmış bir yanıt döner.
  */
 export class Assistant {
-  private readonly deps: AssistantDeps;
+  readonly deps: AssistantDeps;
   private readonly region: string;
   private readonly projectId: string;
 
@@ -182,4 +187,25 @@ export class Assistant {
       data: { costItems, boq },
     };
   }
+}
+
+/**
+ * Varsayılan asistanı kurar: ERP köprüsünü Task 2.3'ün gerçek
+ * `queryBoq` / `queryCostItem` fonksiyonlarına bağlar. Bu fonksiyonlar
+ * istemciyi `createErpClientFromEnv()` ile ortam değişkenlerinden
+ * (`ERP_BASE_URL`, `ERP_ACCESS_TOKEN`) lazily kurar — yani asistan, ortam
+ * yapılandırmasına göre ERP'yi kutudan çıktığı gibi sorgulayabilir.
+ *
+ * MCP bağlanmaz (bu ortamda canlı KaplanBIM MCP yoktur); `bim` soruları
+ * "canlı MCP bağlı değil" yanıtı döner.
+ */
+export function createDefaultAssistant(
+  options: AssistantOptions = {},
+): Assistant {
+  return new Assistant(
+    {
+      erp: { queryBoq, queryCostItem },
+    },
+    options,
+  );
 }

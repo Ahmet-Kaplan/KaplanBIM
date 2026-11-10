@@ -34,13 +34,23 @@ durumda yanlış arka uca sessizce gitmektense net sinyal verilir).
    çağrısını **temsil eder**, taklit etmez: MCP enjekte edilmemişse açıkça
    "bağlı değil" der.
 2. **ERP köprüsü** — maliyet/BOQ/bütçe soruları için. Kodda `ErpBridge`
-   arayüzüyle temsil edilir ve Task 2.3'ün `queryBoq(projectId)` /
-   `queryCostItem(region, query)` fonksiyonlarını (tip olarak
-   `../../erp-bridge/src/queries.js`'den `Boq`/`CostItem`'ı alır) kullanır.
+   arayüzüyle temsil edilir; `Boq`/`CostItem` tipleri
+   `../../erp-bridge/src/queries.js`'den alınır.
 
 Her iki bağımlılık da **enjekte edilebilir** (Task 2.3'teki yaklaşımla
 tutarlı): `new Assistant({ erp, mcp? }, options?)`. Birim testler canlı MCP
 veya canlı ERP olmadan çalışır.
+
+### Varsayılan kurulum (`createDefaultAssistant`)
+
+Kutudan çıktığı gibi ERP'yi sorgulayabilmesi için varsayılan bir fabrika
+vardır: `createDefaultAssistant(options?)`. Bu fabrika `ErpBridge`'i Task 2.3'ün
+**gerçek** `queryBoq` / `queryCostItem` fonksiyonlarına bağlar; o fonksiyonlar
+da istemciyi `createErpClientFromEnv()` ile ortam değişkenlerinden
+(`ERP_BASE_URL`, `ERP_ACCESS_TOKEN`) lazily kurar. MCP bağlanmaz (canlı MCP
+yok), bu yüzden `bim` soruları "canlı MCP bağlı değil" yanıtı döner. Birim
+testler bu fabrikayı, enjekte edilmiş bir `ErpClient` ile ağ çağrısı yapmadan
+doğrular.
 
 ## Bilinen açıklar (dürüst durum)
 
@@ -75,4 +85,6 @@ npx tsc --noEmit      # tip kontrolü
 
 Testler (`test/chat.test.ts`): `classifyQuestion` (iki örnek soru + bilinmeyen),
 ERP yolu (mock'lanmış köprü, canlı ERP yok), MCP yolu (mock'lanmış MCP; ayrıca
-MCP bağlı değilken dürüst yanıt), `unknown` yolu (arka uç çağrılmaz).
+MCP bağlı değilken dürüst yanıt), `unknown` yolu (arka uç çağrılmaz) ve
+`createDefaultAssistant` (deps'in gerçek `queryBoq`/`queryCostItem`'a
+bağlandığı + enjekte istemciyle ağ olmadan çağrılabildiği).

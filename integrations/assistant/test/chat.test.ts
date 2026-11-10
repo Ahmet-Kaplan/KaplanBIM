@@ -1,6 +1,19 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Assistant, classifyQuestion } from "../src/chat.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  Assistant,
+  classifyQuestion,
+  createDefaultAssistant,
+} from "../src/chat.js";
 import type { ErpBridge, ModelMcp } from "../src/chat.js";
+import {
+  queryBoq,
+  queryCostItem,
+  setErpClient,
+} from "../../erp-bridge/src/queries.js";
+import {
+  createErpClientFromEnv,
+  ErpClient,
+} from "../../erp-bridge/src/client.js";
 import type { Boq, CostItem } from "../../erp-bridge/src/queries.js";
 
 const REGION = "TR_NATIONAL";
@@ -144,5 +157,43 @@ describe("unknown yönlendirme yolu", () => {
     expect(reply.route).toBe("unknown");
     expect(erp.queryBoq).not.toHaveBeenCalled();
     expect(erp.queryCostItem).not.toHaveBeenCalled();
+  });
+});
+
+describe("createDefaultAssistant (varsayılan ERP adaptörü)", () => {
+  afterEach(() => {
+    setErpClient(createErpClientFromEnv());
+  });
+
+  it("deps'i gerçek Task 2.3 queryBoq/queryCostItem fonksiyonlarına bağlar", () => {
+    const assistant = createDefaultAssistant();
+
+    expect(assistant.deps.erp.queryBoq).toBe(queryBoq);
+    expect(assistant.deps.erp.queryCostItem).toBe(queryCostItem);
+    expect(assistant.deps.mcp).toBeUndefined();
+  });
+
+  it("enjekte edilen istemciyle, canlı ERP ve ağ olmadan çağrılabilir", async () => {
+    const mockFetch = vi.fn<
+      (input: string, init?: RequestInit) => Promise<Response>
+    >();
+    setErpClient(
+      new ErpClient({
+        baseUrl: "https://erp.example.com",
+        fetch: mockFetch,
+      }),
+    );
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ id: "boq-1", positions: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    const assistant = createDefaultAssistant();
+    const boq = await assistant.deps.erp.queryBoq("demo-project");
+
+    expect(boq.id).toBe("boq-1");
+    expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 });
