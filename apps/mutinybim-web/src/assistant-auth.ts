@@ -21,8 +21,19 @@
 import { createHash, randomUUID } from "node:crypto";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
+import type { TFunction } from "i18next";
 import type { AssistantClientRow, Db, UserRow } from "./db";
+import { tFor } from "./i18n";
 import { digest, randomToken } from "./secrets";
+
+/**
+ * The English words, for a caller that names no language of its own (an
+ * assistant's own request, a test). The pages pass the request's translator, so
+ * a refused sign-in is explained in the same language as the page's title — the
+ * arrangement `./oauth` uses. Only the words *shown to the person* are keyed:
+ * the `error_description` an assistant reads stays English (spec §7/Ç-G).
+ */
+const english: TFunction = tFor("en");
 
 /** The one scope: use your models through an assistant (what you can do is still your access to each model). */
 export const MCP_SCOPE = "models";
@@ -194,45 +205,45 @@ const defaultResolve: ResolveHost = async (hostname) => (await lookup(hostname, 
  * assistant's maker publishes. Fetched only from public addresses, without
  * following redirects, small and quick, and kept for a day.
  */
-async function metadataClient(clientId: string, options: AssistantAuthOptions): Promise<AssistantClientRow | string> {
+async function metadataClient(clientId: string, options: AssistantAuthOptions, t: TFunction): Promise<AssistantClientRow | string> {
   const cached = options.db.assistantClient(clientId);
   if (cached && Date.now() - Date.parse(cached.created_at) < METADATA_DOCUMENT_REFRESH_MS) return cached;
   let url: URL;
   try {
     url = new URL(clientId);
   } catch {
-    return "The assistant's client_id is not an address this server knows.";
+    return t("assistant.clientIdNotAddress", "The assistant's client_id is not an address this server knows.", { ns: "web" });
   }
-  if (url.protocol !== "https:" || url.pathname === "/" || url.hash || url.username || url.password) return "The assistant's client_id must be an https address with a path.";
+  if (url.protocol !== "https:" || url.pathname === "/" || url.hash || url.username || url.password) return t("assistant.clientIdNotHttps", "The assistant's client_id must be an https address with a path.", { ns: "web" });
   const host = url.hostname.replace(/^\[|\]$/g, "");
   try {
     const addresses = isIP(host) ? [host] : await (options.resolveHost ?? defaultResolve)(host);
-    if (addresses.length === 0 || addresses.some(isPrivateAddress)) return "The assistant's client_id points at a private address, so it was not fetched.";
+    if (addresses.length === 0 || addresses.some(isPrivateAddress)) return t("assistant.clientIdPrivate", "The assistant's client_id points at a private address, so it was not fetched.", { ns: "web" });
   } catch (err) {
     console.error("[mutinybim-web] an assistant's metadata address didn't resolve", { clientId, err });
-    return "The assistant's client_id address couldn't be found.";
+    return t("assistant.clientIdUnresolved", "The assistant's client_id address couldn't be found.", { ns: "web" });
   }
   let doc: unknown;
   try {
     const response = await (options.fetchImpl ?? fetch)(url.href, { redirect: "error", signal: AbortSignal.timeout(5_000), headers: { accept: "application/json" } });
-    if (!response.ok) return `The assistant's metadata answered ${response.status}.`;
+    if (!response.ok) return t("assistant.metadataAnswered", "The assistant's metadata answered {{status}}.", { status: response.status, ns: "web" });
     const text = await response.text();
-    if (text.length > METADATA_DOCUMENT_MAX_BYTES) return "The assistant's metadata is larger than 5 KB.";
+    if (text.length > METADATA_DOCUMENT_MAX_BYTES) return t("assistant.metadataTooLarge", "The assistant's metadata is larger than 5 KB.", { ns: "web" });
     doc = JSON.parse(text);
   } catch (err) {
     console.error("[mutinybim-web] fetching an assistant's metadata failed", { clientId, err });
-    return "The assistant's metadata couldn't be read.";
+    return t("assistant.metadataUnreadable", "The assistant's metadata couldn't be read.", { ns: "web" });
   }
-  if (typeof doc !== "object" || doc === null) return "The assistant's metadata is not a JSON object.";
+  if (typeof doc !== "object" || doc === null) return t("assistant.metadataNotObject", "The assistant's metadata is not a JSON object.", { ns: "web" });
   const meta = doc as Record<string, unknown>;
-  if (meta.client_id !== clientId) return "The assistant's metadata names a different client_id.";
+  if (meta.client_id !== clientId) return t("assistant.metadataOtherClient", "The assistant's metadata names a different client_id.", { ns: "web" });
   const uris = stringList(meta.redirect_uris);
-  if (!uris || uris.length === 0 || uris.some((u) => redirectUriProblem(u) !== null)) return "The assistant's metadata has no usable redirect_uris.";
-  if (meta.token_endpoint_auth_method !== undefined && meta.token_endpoint_auth_method !== "none") return "Only public clients (no client secret) can sign in here.";
+  if (!uris || uris.length === 0 || uris.some((u) => redirectUriProblem(u) !== null)) return t("assistant.metadataNoRedirects", "The assistant's metadata has no usable redirect_uris.", { ns: "web" });
+  if (meta.token_endpoint_auth_method !== undefined && meta.token_endpoint_auth_method !== "none") return t("assistant.metadataPublicOnly", "Only public clients (no client secret) can sign in here.", { ns: "web" });
   const clientName = cleanName(meta.client_name, url.hostname);
   options.db.saveAssistantClient({ clientId, clientName, redirectUris: uris, kind: "metadata" });
   const saved = options.db.assistantClient(clientId);
-  return saved ?? "The assistant's metadata couldn't be kept.";
+  return saved ?? t("assistant.metadataNotKept", "The assistant's metadata couldn't be kept.", { ns: "web" });
 }
 
 /** Who is asking, where they go back to, and what for. */
@@ -281,14 +292,14 @@ export function errorRedirect(origin: string, redirectUri: string, state: string
   return url.href;
 }
 
-export async function checkAuthorize(params: URLSearchParams, options: AssistantAuthOptions): Promise<AuthorizeCheck> {
+export async function checkAuthorize(params: URLSearchParams, options: AssistantAuthOptions, t: TFunction = english): Promise<AuthorizeCheck> {
   const clientId = params.get("client_id") ?? "";
-  if (!clientId) return { ok: false, show: "The assistant didn't say who it is (no client_id). Start connecting again from the assistant." };
-  const found = clientId.startsWith("https://") ? await metadataClient(clientId, options) : options.db.assistantClient(clientId);
+  if (!clientId) return { ok: false, show: t("assistant.noClientId", "The assistant didn't say who it is (no client_id). Start connecting again from the assistant.", { ns: "web" }) };
+  const found = clientId.startsWith("https://") ? await metadataClient(clientId, options, t) : options.db.assistantClient(clientId);
   if (typeof found === "string") return { ok: false, show: found };
-  if (!found) return { ok: false, show: "This server doesn't know that assistant. Remove MutinyBIM from the assistant and add it again, so it registers afresh." };
+  if (!found) return { ok: false, show: t("assistant.unknownClient", "This server doesn't know that assistant. Remove MutinyBIM from the assistant and add it again, so it registers afresh.", { ns: "web" }) };
   const redirectUri = params.get("redirect_uri") ?? (found.redirect_uris.length === 1 ? found.redirect_uris[0] ?? "" : "");
-  if (!found.redirect_uris.includes(redirectUri)) return { ok: false, show: "The assistant asked to send you back to an address it didn't register, so this was stopped." };
+  if (!found.redirect_uris.includes(redirectUri)) return { ok: false, show: t("assistant.unregisteredRedirect", "The assistant asked to send you back to an address it didn't register, so this was stopped.", { ns: "web" }) };
   const state = params.get("state");
   const back = (error: string, description: string): AuthorizeCheck => ({ ok: false, redirect: errorRedirect(options.origin, redirectUri, state, error, description) });
   if (params.get("response_type") !== "code") return back("unsupported_response_type", "Only response_type=code is offered.");

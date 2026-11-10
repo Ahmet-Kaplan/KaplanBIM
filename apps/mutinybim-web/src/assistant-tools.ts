@@ -41,6 +41,7 @@ import { agentActorId } from "@permitzip/bim-sync";
 import { APPROVAL_WAIT_MS, type ApprovalBook, type PendingApproval } from "./assistant-approvals";
 import { bearerChallenge, exchangeToken, protectedResourceMetadata, authorizationServerMetadata, registerClient, toolPathOf, verifyAccessToken, type AssistantAuthOptions } from "./assistant-auth";
 import type { AssistantSessionRow, Db, ModelAccess, ModelRow, UserRow } from "./db";
+import { tFor } from "./i18n";
 import type { HostedScripts } from "./script-sandbox";
 import { digest } from "./secrets";
 
@@ -324,7 +325,11 @@ export function createAssistantTools(options: AssistantToolsOptions): AssistantT
         console.error("[mutinybim-web] the assistant's approval box failed; asking on the approvals page", { userId: person.id, err });
       }
     }
-    const item = (spec.key ? approvals.waitingRetry(person.id, spec.key) : null) ?? approvals.create({ userId: person.id, clientName, modelId: spec.modelId, modelName: spec.modelName, summary: spec.summary, details: spec.details, kind: spec.kind, key: spec.key });
+    // The person's own language, not the assistant's: a tool call has no page in
+    // front of it, but its sentences are read on one, so pruning here must not
+    // stamp an expired request in English under a Turkish page.
+    const personWords = tFor(person.language);
+    const item = (spec.key ? approvals.waitingRetry(person.id, spec.key) : null) ?? approvals.create({ userId: person.id, clientName, modelId: spec.modelId, modelName: spec.modelName, summary: spec.summary, details: spec.details, kind: spec.kind, key: spec.key }, personWords);
     const link = `${origin}/approvals/${item.id}`;
     if (elicitation?.url && extra.sendRequest) {
       extra
@@ -386,6 +391,10 @@ export function createAssistantTools(options: AssistantToolsOptions): AssistantT
       };
     };
 
+    // The person's own language: a tool call has no page in front of it, but what
+    // it records is read on one.
+    const personWords = tFor(person.language);
+
     const approvalsGate: ApprovalGate = {
       mode: "elicitation",
       async decide(extra, proposal) {
@@ -396,7 +405,7 @@ export function createAssistantTools(options: AssistantToolsOptions): AssistantT
         if (found?.access === "view") return { approved: false, message: `Not applied: ${viewOnlyWords(found.model.name)}` };
         const where = found ? found.model.name : LIBRARY_NAME;
         const key = createHash("sha256").update(canonicalJson({ tool: proposal.tool, modelId, summary: proposal.summary, reasons: proposal.reasons ?? [] })).digest("hex");
-        if (approvals.takeApprovedRetry(person.id, key)) return { approved: true, by: "person" };
+        if (approvals.takeApprovedRetry(person.id, key, personWords)) return { approved: true, by: "person" };
         const asked = await askPerson(server(), extra, person, grant.clientName, { modelId, modelName: where, summary: proposal.summary, details: proposal.reasons ?? [], kind: "retry", key });
         if (asked.answer === "approved") return { approved: true, by: "person" };
         if (asked.answer === "declined") return { approved: false, message: `Not applied: ${person.display_name} declined it. Nothing changed.` };

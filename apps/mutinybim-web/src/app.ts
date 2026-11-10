@@ -43,6 +43,8 @@ const SESSION_DAYS = 30;
 const BODY_LIMIT = 64 * 1024;
 /** After a linked sign-in, a password can be set without the old one for this long (the recovery path). */
 const RECOVERY_WINDOW_MS = 10 * 60_000;
+/** The shortest password this app accepts; the messages name it through `{{min}}`, so the two cannot disagree. */
+const PASSWORD_MIN = 8;
 
 export interface AppOptions {
   /** Used by tests to answer the sign-in provider's addresses. */
@@ -441,7 +443,7 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
       if (method === "POST") {
         if (!person) return html(res, 410, resetPage({ token: reset[1], email: null }, language));
         const password = (await readForm(req, t)).get("password") ?? "";
-        if (password.length < 8) return html(res, 400, resetPage({ token: reset[1], email: person.email, flash: { kind: "error", text: t("errors.passwordTooShort", "Use a password of at least 8 characters.", { ns: "web" }) } }, language));
+        if (password.length < PASSWORD_MIN) return html(res, 400, resetPage({ token: reset[1], email: person.email, flash: { kind: "error", text: t("errors.passwordTooShort", "Use a password of at least {{min}} characters.", { min: PASSWORD_MIN, ns: "web" }) } }, language));
         db.setPassword(person.id, await hashPassword(password));
         db.usePasswordReset(tokenHash);
         db.deleteSessionsOf(person.id);
@@ -465,7 +467,7 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
         if (!throttle.allow(`signup:${req.socket.remoteAddress ?? "?"}`)) return fail(t("errors.tooManySignups", "Too many sign-ups from here. Wait ten minutes, then try again.", { ns: "web" }), 429);
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail(t("errors.emailIncomplete", "Enter a full email address, like name@example.com.", { ns: "web" }));
         if (!name) return fail(t("errors.nameMissing", "Enter your name; it's what people editing with you see.", { ns: "web" }));
-        if (password.length < 8) return fail(t("errors.passwordTooShort", "Use a password of at least 8 characters.", { ns: "web" }));
+        if (password.length < PASSWORD_MIN) return fail(t("errors.passwordTooShort", "Use a password of at least {{min}} characters.", { min: PASSWORD_MIN, ns: "web" }));
         // The sign-up page requires the agreement box (HTML `required`, so a
         // browser can't submit without it). A post that sends no `agree` field
         // at all, such as the app's own tests, is accepted; an explicit "no"
@@ -614,7 +616,7 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
       const passwordFree = recentProviderSignIn(req);
       const fail = (status: number, text: string) => html(res, status, settingsPage(config, user, db.identitiesOf(user.id), { passwordFree, flash: { kind: "error", text } }, language));
       if (!throttle.allow(`password:${user.id}`)) return fail(429, t("errors.tooManyPasswordTries", "Too many tries. Wait ten minutes, then try again.", { ns: "web" }));
-      if (password.length < 8) return fail(400, t("errors.passwordTooShortNew", "Use a new password of at least 8 characters.", { ns: "web" }));
+      if (password.length < PASSWORD_MIN) return fail(400, t("errors.passwordTooShortNew", "Use a new password of at least {{min}} characters.", { min: PASSWORD_MIN, ns: "web" }));
       if (user.password_hash && !passwordFree && !(await verifyPassword(form.get("current") ?? "", user.password_hash))) return fail(401, t("errors.currentPasswordWrong", "Your current password isn't right. Forgot it? Log out, then use “Forgot your password?” on the log-in page.", { ns: "web" }));
       db.setPassword(user.id, await hashPassword(password));
       const token = sessionToken(req);
@@ -666,7 +668,7 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
     if (pathname === "/oauth/authorize" && user && (method === "GET" || method === "POST")) {
       const form = method === "POST" ? await readForm(req, t) : null;
       const params = form ? new URLSearchParams(form.get("request") ?? "") : url.searchParams;
-      const checked = await checkAuthorize(params, assistantAuth);
+      const checked = await checkAuthorize(params, assistantAuth, t);
       if (!checked.ok && "show" in checked) return html(res, 400, messagePage(config, user, t("message.assistantCantConnect", "This assistant can't connect", { ns: "web" }), checked.show, { href: "/connect", label: t("nav.connect", "Connect an assistant", { ns: "web" }) }, language));
       if (!checked.ok) return redirect(res, checked.redirect);
       const back = new URL(checked.request.redirectUri);
@@ -683,18 +685,18 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
       return redirect(res, approveAuthorize(checked.request, user, assistantAuth));
     }
 
-    if (user && pathname === "/approvals" && method === "GET") return html(res, 200, approvalsPage(config, user, approvals.of(user.id), language));
+    if (user && pathname === "/approvals" && method === "GET") return html(res, 200, approvalsPage(config, user, approvals.of(user.id, t), language));
     const approvalRoute = pathname.match(/^\/approvals\/([0-9a-f-]{36})$/);
     if (user && approvalRoute?.[1]) {
       const id = approvalRoute[1];
       const gone = () => html(res, 404, messagePage(config, user, t("message.notFoundTitle", "Not found", { ns: "web" }), t("errors.approvalNotFound", "That approval request isn't yours, or it was dropped after 30 minutes. Nothing changed.", { ns: "web" }), { href: "/approvals", label: t("nav.approvals", "Approvals", { ns: "web" }) }, language));
       if (method === "GET") {
-        const item = approvals.get(user.id, id);
+        const item = approvals.get(user.id, id, t);
         return item ? html(res, 200, approvalPage(config, user, item, language)) : gone();
       }
       if (method === "POST") {
         const decision = (await readForm(req, t)).get("decision");
-        const item = await approvals.answer(user.id, id, decision === "approve");
+        const item = await approvals.answer(user.id, id, decision === "approve", t);
         if (!item) return gone();
         console.log("[mutinybim-web] a person answered an assistant's change", { userId: user.id, approved: decision === "approve", state: item.state });
         return html(res, 200, approvalPage(config, user, item, language));
@@ -702,7 +704,8 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
     }
 
     if (user && pathname === "/connect/keys" && method === "POST") {
-      const label = ((await readForm(req, t)).get("label") ?? "").trim().slice(0, 60) || "Assistant";
+      // The default is shown back as the key's name ("Asistan" oluşturuldu), so it is words, not a constant.
+      const label = ((await readForm(req, t)).get("label") ?? "").trim().slice(0, 60) || t("connect.keyDefaultLabel", "Assistant", { ns: "web" });
       if (db.agentKeysOf(user.id).length >= 10) return html(res, 409, connectView(user, null, { kind: "error", text: t("errors.agentKeyLimit", "You have 10 agent keys, the most one account keeps. Turn one off first.", { ns: "web" }) }, language));
       const key = randomToken("mbk_");
       db.createAgentKey({ id: randomUUID(), userId: user.id, keyHash: digest(key), label, last4: key.slice(-4) });

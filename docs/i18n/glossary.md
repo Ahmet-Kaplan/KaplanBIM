@@ -16,6 +16,7 @@
 4. **İngilizce terim parantez içinde korunur** yalnızca sektörde yerleşik değilse: `Submittal (imalat onayı)`. Yerleşikse parantez yok.
 5. **Fiil/buton etiketleri emir kipi**, tek kelime tercih edilir: `Save` → *Kaydet*, `Merge` → *Birleştir*.
 6. **Kısaltma yok** (buton darsa bile): `Coordination` → *Koordinasyon*, `Coord.` değil.
+7. **Hitap: buton tekili, cümle çoğulu.** §3'teki düğme/komut etiketleri tekil emir kipidir (*Yeniden dene*, *Kaydet*); cümle içindeki yönlendirmeler kibar çoğul emir kipidir (*"…tekrar deneyin"*, *"…birini seçin"*). İkisi çelişmez: bir düğme kısa bir komuttur, bir cümle bir kişiye hitap eder. Bkz. §2.5 ve §8'deki flaş/hata metinleri. *(Karar: 2026-11-10, Aşama 2.)*
 
 ---
 
@@ -161,6 +162,9 @@ Barındırılan uygulamanın (`apps/mutinybim-web`) ekranlarında geçen, model 
 | Token (sign-in) | **belirteç** | "giriş belirteci"; *token* değil |
 | Rate limit / too many tries | **deneme sınırı** / **çok fazla deneme** | sunucunun bir adresten kabul ettiği deneme sayısı |
 | Approval request | **onay isteği** | §6 *Approval* = **onay** |
+| Approval outcome | **onay sonucu** | "Geri çevirdiniz", "Onaylandı" — ne olduğunu söyleyen tek satır |
+| Metadata (document) | **üst veri** | asistanın `client_id` adresindeki üst veri belgesi |
+| Public client (no secret) | **ortak istemci** | "istemci sırrı olmayan ortak istemci" |
 
 ### 2.6 Mekanik ekipman
 

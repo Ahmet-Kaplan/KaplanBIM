@@ -243,7 +243,8 @@
     "servesAt": "Asistanınıza şu adreste hizmet verir:",
     "servesAfter": ", buradaki modellerinize bağlıdır; asistanınızın kendisi başlatsın istiyorsanız",
     "servesEnd": "seçeneğini yazmayın. Ayrıntılı kılavuz:",
-    "fullGuide": "Yapay zekâ asistanı bağlama"
+    "fullGuide": "Yapay zekâ asistanı bağlama",
+    "keyDefaultLabel": "Asistan"
   },
   "consent": {
     "title": "“{{client}}” modellerinizi kullanabilsin mi?",
@@ -279,7 +280,14 @@
     "wantsChange": "{{client}} bu değişikliği",
     "askedWhen": " modelinde yapmak istiyor; soruldu: {{when}}.",
     "detailsAria": "Tam olarak ne değişiyor",
-    "allApprovals": "Tüm onaylar"
+    "allApprovals": "Tüm onaylar",
+    "outcomeApplying": "Onaylandı. Şimdi uygulanıyor.",
+    "outcomeApplyingNow": "Onaylandı. Asistanınız şimdi uyguluyor.",
+    "outcomeDeclined": "Geri çevirdiniz. Hiçbir şey değişmedi.",
+    "outcomeExpired": "Kimse 30 dakika içinde onaylamadı, bu yüzden düştü. Hiçbir şey değişmedi.",
+    "outcomeFailed": "Onaylandı ama uygulanamadı: {{error}}. Hiçbir şey değişmedi; asistandan yeniden isteyin.",
+    "outcomeSentAgain": "Onaylandı ve asistanınız yeniden gönderdi.",
+    "outcomeTellAgain": "Onaylandı. Asistanınıza yeniden göndermesini söyleyin; o zaman uygulanır."
   },
   "quote": {
     "lede": "{{provider}} projenizin mühendislik işini fiyatlandırabilir.",
@@ -322,9 +330,9 @@
     "notYours": "Bu model hesabınızda değil ve sizinle paylaşılmamış. Silinmiş olabilir ya da sahibi paylaşımı durdurmuş olabilir.",
     "onlyOwnerEdit": "Bunu yalnızca sahibi yapabilir. “{{model}}” modelini düzenleyebilirsiniz.",
     "onlyOwnerView": "Bunu yalnızca sahibi yapabilir. “{{model}}” modelini görüntüleyebilirsiniz.",
-    "passwordTooShort": "En az 8 karakterlik bir parola kullanın.",
-    "passwordTooShortNew": "En az 8 karakterlik yeni bir parola kullanın.",
-    "providerNotSetUp": "Bu giriş yöntemi bu sunucuda ayarlanmamış.",
+    "passwordTooShort": "En az {{min}} karakterlik bir parola kullanın.",
+    "passwordTooShortNew": "En az {{min}} karakterlik yeni bir parola kullanın.",
+    "providerNotSetUp": "Bu giriş yolu bu sunucuda ayarlanmamış.",
     "renameNameMissing": "Modelin bir adı olmalı.",
     "schemeInvalid": "Açık, koyu veya otomatik seçin.",
     "schemeInvalidJson": "Açık, koyu veya otomatik seçin.",
@@ -344,13 +352,13 @@
     "linked": "Bağlandı. Artık {{provider}} ile giriş yapabilirsiniz.",
     "modelDeleted": "“{{name}}” silindi.",
     "notSharedBefore": "Zaten erişimi yoktu.",
-    "passwordReset": "Yeni parolanız kaydedildi. Diğer her yerden çıkış yapıldı.",
-    "passwordSaved": "Parola kaydedildi. Diğer tüm cihazlarda çıkış yapıldı.",
+    "passwordReset": "Yeni parolanız kaydedildi. Diğer tüm cihazlarda oturumunuz kapatıldı.",
+    "passwordSaved": "Parola kaydedildi. Diğer tüm cihazlarda oturumunuz kapatıldı.",
     "saved": "Kaydedildi.",
     "shareRoleEdit": "{{name}} artık düzenleyebilir.",
     "shareRoleView": "{{name}} artık yalnızca görüntüleyebilir.",
     "shared": "{{name}} ile paylaşıldı. Onu Modellerim sayfasında “Sizinle paylaşılanlar” altında görür.",
-    "unshared": "{{name}} artık “{{model}}” modeline sahip değil.",
+    "unshared": "{{name}} artık “{{model}}” modeline erişemiyor.",
     "welcome": "Hoş geldiniz, {{name}}. İlk modelinizi aşağıda oluşturun."
   },
   "message": {
@@ -381,5 +389,22 @@
     "unreachable": "{{provider}} hizmetine şu anda ulaşılamıyor. Bir dakika sonra tekrar deneyin ya da e-postayla giriş yapın.",
     "unreadableAnswer": "Giriş hizmeti bu uygulamanın okuyamadığı bir yanıt verdi. Bir dakika sonra tekrar deneyin.",
     "wouldntSay": "{{provider}} kimin giriş yaptığını söylemedi. Tekrar deneyin."
+  },
+  "assistant": {
+    "clientIdNotAddress": "Asistanın client_id değeri bu sunucunun tanıdığı bir adres değil.",
+    "clientIdNotHttps": "Asistanın client_id değeri yolu olan bir https adresi olmalı.",
+    "clientIdPrivate": "Asistanın client_id değeri özel bir adresi gösteriyor, bu yüzden getirilmedi.",
+    "clientIdUnresolved": "Asistanın client_id adresi bulunamadı.",
+    "metadataAnswered": "Asistanın üst verisi {{status}} yanıtını verdi.",
+    "metadataNoRedirects": "Asistanın üst verisinde kullanılabilir redirect_uris yok.",
+    "metadataNotKept": "Asistanın üst verisi saklanamadı.",
+    "metadataNotObject": "Asistanın üst verisi bir JSON nesnesi değil.",
+    "metadataOtherClient": "Asistanın üst verisi başka bir client_id adı veriyor.",
+    "metadataPublicOnly": "Burada yalnızca istemci sırrı olmayan ortak istemciler giriş yapabilir.",
+    "metadataTooLarge": "Asistanın üst verisi 5 KB sınırından büyük.",
+    "metadataUnreadable": "Asistanın üst verisi okunamadı.",
+    "noClientId": "Asistan kim olduğunu söylemedi (client_id yok). Bağlantıyı asistandan yeniden başlatın.",
+    "unknownClient": "Bu sunucu o asistanı tanımıyor. MutinyBIM'i asistandan kaldırıp yeniden ekleyin, böylece baştan kaydolur.",
+    "unregisteredRedirect": "Asistan sizi kaydetmediği bir adrese geri göndermek istedi, bu yüzden durduruldu."
   }
 }

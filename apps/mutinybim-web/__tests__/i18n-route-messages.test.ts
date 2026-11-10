@@ -318,3 +318,90 @@ test("no translation key is ever shown instead of its words", async () => {
     expect(page).not.toMatch(/\b(?:errors|flash|oauth|callback|message)\.[a-z][A-Za-z]*/);
   }
 });
+
+// ---------------------------------------------------------------------------
+// The review's two "Important" findings: the English default agent-key label,
+// and the two modules that were still writing English body text under a Turkish
+// title — an assistant sign-in the app refuses, and what happened to an
+// approval.
+// ---------------------------------------------------------------------------
+
+/** A waiting approval, as the tool server would have written it, so a page can answer it. */
+function seedApproval(userId: string, overrides: { readonly id?: string; readonly ageMs?: number } = {}): string {
+  if (!app) throw new Error("no app");
+  const id = overrides.id ?? "5f0f0f0f-0000-4000-8000-000000000001";
+  app.db.saveAssistantApproval({
+    id,
+    user_id: userId,
+    client_name: "Test Assistant",
+    model_id: "m-0123456789abcdef01",
+    model_name: "Sample Warehouse",
+    summary: "Add level Level 2",
+    details: ["create_level"],
+    kind: "edit",
+    key: null,
+    state: "waiting",
+    outcome: null,
+    landing: null,
+    created_at: Date.now() - (overrides.ageMs ?? 0),
+  });
+  return id;
+}
+
+/** The signed-in person's id, for seeding a row that belongs to them. */
+function userIdOf(email: string): string {
+  const user = app?.db.userByEmail(email);
+  if (!user) throw new Error("no account");
+  return user.id;
+}
+
+test("an answered approval says what happened in Turkish, on its page and in the list", async () => {
+  await start();
+  const cookie = await signUp("sam@example.com");
+  const id = seedApproval(userIdOf("sam@example.com"));
+
+  const turkish = await postForm(`/approvals/${id}`, { decision: "decline" }, as(cookie, "tr"));
+  expect(turkish.status).toBe(200);
+  expect(turkish.html).toContain("Geri çevirdiniz. Hiçbir şey değişmedi.");
+  expect(turkish.html).not.toContain("You declined it. Nothing changed.");
+  // The same words, kept in the account, on the list a moment later.
+  expect((await get("/approvals", as(cookie, "tr"))).html).toContain("Geri çevirdiniz. Hiçbir şey değişmedi.");
+
+  // And the English is still the English it was.
+  const second = seedApproval(userIdOf("sam@example.com"), { id: "5f0f0f0f-0000-4000-8000-000000000002" });
+  const english = await postForm(`/approvals/${second}`, { decision: "decline" }, as(cookie, "en"));
+  expect(english.html).toContain("You declined it. Nothing changed.");
+  expect(english.html).not.toContain("Geri çevirdiniz.");
+});
+
+test("an approval nobody answered says so in Turkish, with the same thirty minutes", async () => {
+  await start();
+  const cookie = await signUp("sam@example.com");
+  seedApproval(userIdOf("sam@example.com"), { id: "5f0f0f0f-0000-4000-8000-000000000003", ageMs: 31 * 60_000 });
+  const turkish = await get("/approvals", as(cookie, "tr"));
+  expect(turkish.html).toContain("Kimse 30 dakika içinde onaylamadı, bu yüzden düştü. Hiçbir şey değişmedi.");
+  expect(turkish.html).not.toContain("Nobody approved it within 30 minutes");
+  seedApproval(userIdOf("sam@example.com"), { id: "5f0f0f0f-0000-4000-8000-000000000004", ageMs: 31 * 60_000 });
+  expect((await get("/approvals", as(cookie, "en"))).html).toContain("Nobody approved it within 30 minutes, so it was dropped. Nothing changed.");
+});
+
+test("an assistant sign-in the app refuses is explained in Turkish under the Turkish title", async () => {
+  await start();
+  const cookie = await signUp("sam@example.com");
+  // No client_id at all: the assistant never said who it is.
+  await bothWays(cookie, (cookieHeader) => get("/oauth/authorize?response_type=code", cookieHeader), {
+    english: "The assistant didn't say who it is (no client_id). Start connecting again from the assistant.",
+    turkish: "Asistan kim olduğunu söylemedi (client_id yok). Bağlantıyı asistandan yeniden başlatın.",
+  });
+});
+
+test("a default agent-key label is Turkish, and so is the flash that names it", async () => {
+  await start();
+  const cookie = await signUp("sam@example.com");
+  const turkish = await postForm("/connect/keys", { label: "" }, as(cookie, "tr"));
+  expect(turkish.status).toBe(200);
+  expect(turkish.html).toContain("“Asistan” oluşturuldu.");
+  expect(turkish.html).not.toContain("“Assistant”");
+  const english = await postForm("/connect/keys", { label: "" }, as(cookie, "en"));
+  expect(english.html).toContain("Made “Assistant”.");
+});
