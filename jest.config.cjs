@@ -1,7 +1,8 @@
 /** Jest for every package and the model server. TypeScript is compiled by esbuild (tools/jest). */
 module.exports = {
   testEnvironment: "jsdom",
-  testMatch: ["**/__tests__/**/*.test.[jt]s?(x)", "**/?(*.)+(spec|test).[jt]s?(x)"],
+  // `?(c|m)` so a plain-ESM tool under `tools/` can have its own `*.test.mjs`.
+  testMatch: ["**/__tests__/**/*.test.?(c|m)[jt]s?(x)", "**/?(*.)+(spec|test).?(c|m)[jt]s?(x)"],
   testPathIgnorePatterns: ["/node_modules/"],
   transform: { "^.+\\.(c|m)?[jt]sx?$": "<rootDir>/tools/jest/esbuild-transform.cjs" },
   // three/examples and jose ship ES modules only.

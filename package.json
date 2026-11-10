@@ -34,6 +34,7 @@
     "perf:bim:ci": "node --import tsx scripts/perf/mutinybim/run.ts --self-test && node --import tsx scripts/perf/mutinybim/run.ts --ci",
     "perf:suites": "node tools/perf/run-perf-suites.cjs",
     "proof-packs": "bash scripts/bim/check-proof-pack-commits.sh",
+    "i18n:review": "node tools/i18n/review-bundle.mjs",
     "release:version": "node tools/release/set-version.mjs"
   },
   "devDependencies": {
