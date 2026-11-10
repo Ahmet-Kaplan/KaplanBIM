@@ -17,7 +17,7 @@ import type { PendingApproval } from "./assistant-approvals";
 import type { AgentKeyRow, AssistantGrantRow, ModelRow, SharedModelRow, ShareRow, UserRow } from "./db";
 import { tFor } from "./i18n";
 import type { ModelSummary } from "./models";
-import { formatWhen, page, waitingApprovalsOf, type Flash, type FrameOptions, type FrameUser } from "./ui";
+import { formatWhen, LanguageChoice, LANGUAGES, page, waitingApprovalsOf, type Flash, type FrameOptions, type FrameUser } from "./ui";
 
 /**
  * Every translated string on these pages comes from the `web` namespace
@@ -33,6 +33,19 @@ function frameUser(user: UserRow): FrameUser {
 
 function providerName(p: OAuthProviderConfig): string {
   return p.label.replace(/^Log in with /i, "");
+}
+
+/**
+ * A provider button's words. The label is configuration the person running the
+ * server wrote (`MUTINYBIM_WEB_PROVIDERS`), so it is English: when it has the
+ * built-in "Log in with …" shape the words around the provider's own name are
+ * translated and the name is not. Any other label is shown exactly as written,
+ * because guessing what part of an unknown label is the name would be wrong.
+ */
+function providerLabel(p: OAuthProviderConfig, t: TFunction): string {
+  const match = /^Log in with (.+)$/i.exec(p.label);
+  if (!match?.[1]) return p.label;
+  return t("login.logInWith", "Log in with {{provider}}", { provider: match[1], ns: "web" });
 }
 
 /** `page()`, with the request's language carried into `<html lang>` and the title. */
@@ -56,7 +69,7 @@ function ProviderButtons({ providers, returnTo, t }: { providers: readonly OAuth
       <div className="flex flex-col gap-2">
         {providers.map((p) => (
           <Button key={p.id} asChild size="lg" variant="outline" className="w-full">
-            <a href={`/auth/${p.id}/start?return_to=${encodeURIComponent(returnTo)}`}>{p.label}</a>
+            <a href={`/auth/${p.id}/start?return_to=${encodeURIComponent(returnTo)}`}>{providerLabel(p, t)}</a>
           </Button>
         ))}
       </div>
@@ -330,7 +343,7 @@ export function forgotPage(config: WebConfig, language: MutinyLanguage): string 
             </p>
             {config.providers.map((p) => (
               <Button key={p.id} asChild variant="outline" className="w-full">
-                <a href={`/auth/${p.id}/start?return_to=%2Fsettings%23password`}>{p.label}</a>
+                <a href={`/auth/${p.id}/start?return_to=%2Fsettings%23password`}>{providerLabel(p, t)}</a>
               </Button>
             ))}
           </div>
@@ -405,14 +418,14 @@ function ModelEmpty({ title, children }: { title: string; children: ReactNode })
   );
 }
 
-function OwnModel({ m, t }: { m: ModelRow; t: TFunction }) {
+function OwnModel({ m, t, language }: { m: ModelRow; t: TFunction; language: MutinyLanguage }) {
   return (
     <li className="flex flex-wrap items-center gap-3 rounded-(--mutiny-radius) border border-(--mutiny-border) bg-(--mutiny-field) px-3 py-2.5">
       <div className="flex min-w-0 flex-1 flex-col">
         <a href={`/m/${m.id}?view=plan`} className="truncate font-semibold">
           {m.name}
         </a>
-        <span className="text-xs text-(--mutiny-muted)">{t("models.changed", "Changed {{when}}", { when: formatWhen(m.updated_at), ns: "web" })}</span>
+        <span className="text-xs text-(--mutiny-muted)">{t("models.changed", "Changed {{when}}", { when: formatWhen(m.updated_at, language), ns: "web" })}</span>
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
         <Button asChild size="sm">
@@ -468,7 +481,7 @@ export function modelsPage(config: WebConfig, user: UserRow, models: readonly Mo
           ) : (
             <ul className="flex flex-col gap-2" data-testid="own-models">
               {models.map((m) => (
-                <OwnModel key={m.id} m={m} t={t} />
+                <OwnModel key={m.id} m={m} t={t} language={language} />
               ))}
             </ul>
           )}
@@ -489,7 +502,7 @@ export function modelsPage(config: WebConfig, user: UserRow, models: readonly Mo
                       {m.name}
                     </a>
                     <span className="text-xs text-(--mutiny-muted)">
-                      {t("models.sharedChanged", "{{owner}}'s · changed {{when}}", { owner: m.owner_name, when: formatWhen(m.updated_at), ns: "web" })}
+                      {t("models.sharedChanged", "{{owner}}'s · changed {{when}}", { owner: m.owner_name, when: formatWhen(m.updated_at, language), ns: "web" })}
                     </span>
                   </div>
                   <Badge variant={m.role === "edit" ? "default" : "secondary"}>{m.role === "edit" ? t("common.canEdit", "Can edit", { ns: "web" }) : t("common.viewOnly", "View only", { ns: "web" })}</Badge>
@@ -684,6 +697,18 @@ export function settingsPage(config: WebConfig, user: UserRow, linked: readonly 
           </>
         ) : null}
       </Card>
+      <Card id="language">
+        <CardHeader>
+          <CardTitle>{t("settings.languageTitle", "Language", { ns: "web" })}</CardTitle>
+          <CardDescription>{t("settings.languageLede", "The language of these pages and of the editor. It is saved in your account, so every browser you sign in from opens in it.", { ns: "web" })}</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap items-center gap-3">
+          <LanguageChoice language={language} current={user.language} data-testid="settings-language" />
+          <span className="text-sm text-(--mutiny-muted)" data-testid="settings-language-current">
+            {t("settings.languageCurrent", "Now showing {{language}}.", { language: LANGUAGES.find((option) => option.value === user.language)?.label ?? "English", ns: "web" })}
+          </span>
+        </CardContent>
+      </Card>
       <Card id="password">
         <CardHeader>
           <CardTitle>{t("common.password", "Password", { ns: "web" })}</CardTitle>
@@ -873,8 +898,8 @@ export function connectPage(config: WebConfig, user: UserRow, view: ConnectView,
                 <span className="min-w-0 flex-1">
                   <strong>{a.client_name}</strong>{" "}
                   <span className="text-(--mutiny-muted)">
-                    {t("connect.signedIn", "signed in {{when}}", { when: formatWhen(a.created_at), ns: "web" })} ·{" "}
-                    {a.last_used_at ? t("connect.lastUsed", "last used {{when}}", { when: formatWhen(a.last_used_at), ns: "web" }) : t("connect.notUsedYet", "not used yet", { ns: "web" })}
+                    {t("connect.signedIn", "signed in {{when}}", { when: formatWhen(a.created_at, language), ns: "web" })} ·{" "}
+                    {a.last_used_at ? t("connect.lastUsed", "last used {{when}}", { when: formatWhen(a.last_used_at, language), ns: "web" }) : t("connect.notUsedYet", "not used yet", { ns: "web" })}
                   </span>
                 </span>
                 <ConfirmForm
@@ -907,8 +932,8 @@ export function connectPage(config: WebConfig, user: UserRow, view: ConnectView,
                   <strong>{k.label}</strong>{" "}
                   <span className="text-(--mutiny-muted)">
                     {t("connect.keyEnding", "ending …{{last4}}", { last4: k.last4, ns: "web" })} ·{" "}
-                    {t("connect.keyMade", "made {{when}}", { when: formatWhen(k.created_at), ns: "web" })} ·{" "}
-                    {k.last_used_at ? t("connect.lastUsed", "last used {{when}}", { when: formatWhen(k.last_used_at), ns: "web" }) : t("connect.neverUsed", "never used", { ns: "web" })}
+                    {t("connect.keyMade", "made {{when}}", { when: formatWhen(k.created_at, language), ns: "web" })} ·{" "}
+                    {k.last_used_at ? t("connect.lastUsed", "last used {{when}}", { when: formatWhen(k.last_used_at, language), ns: "web" }) : t("connect.neverUsed", "never used", { ns: "web" })}
                   </span>
                 </span>
                 <ConfirmForm
@@ -1072,7 +1097,7 @@ export function approvalsPage(config: WebConfig, user: UserRow, items: readonly 
                     <a href={`/approvals/${item.id}`}>{item.summary}</a> <ApprovalBadge state={item.state} t={t} />
                   </CardTitle>
                   <CardDescription>
-                    {item.clientName} · “{item.modelName}” · {formatWhen(new Date(item.createdAt).toISOString())}
+                    {item.clientName} · “{item.modelName}” · {formatWhen(new Date(item.createdAt).toISOString(), language)}
                   </CardDescription>
                 </CardHeader>
                 {item.outcome ? <CardDescription>{item.outcome}</CardDescription> : null}
@@ -1099,7 +1124,7 @@ export function approvalPage(config: WebConfig, user: UserRow, item: PendingAppr
         <CardDescription>
           {t("approval.wantsChange", "{{client}} wants to make this change in", { client: item.clientName, ns: "web" })}{" "}
           {item.modelId ? <a href={`/m/${encodeURIComponent(item.modelId.split("~")[0] ?? item.modelId)}`}>“{item.modelName}”</a> : item.modelName}
-          {t("approval.askedWhen", ", asked {{when}}.", { when: formatWhen(new Date(item.createdAt).toISOString()), ns: "web" })}
+          {t("approval.askedWhen", ", asked {{when}}.", { when: formatWhen(new Date(item.createdAt).toISOString(), language), ns: "web" })}
         </CardDescription>
       </CardHeader>
       {item.details.length > 0 ? (

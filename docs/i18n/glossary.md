@@ -165,6 +165,22 @@ Barındırılan uygulamanın (`apps/mutinybim-web`) ekranlarında geçen, model 
 | Diffuser | **difüzör** | |
 | Duct | **kanal** | ⚠️ bkz. §9/Ç17 |
 
+### 2.7 Uygulama çatısı: tema, dil ve gezinme
+
+Her sayfanın başlığı (üst çubuk), alt bilgisi ve dil/tema denetimleri. 2026-11-10'da Aşama 2 ile eklendi.
+
+| EN | TR | Not |
+|----|----|-----|
+| Theme | **tema** | |
+| Light / Dark / Auto | **Açık / Koyu / Otomatik** | "Otomatik" = bilgisayarın ayarına uy |
+| Language | **dil** | |
+| English / Türkçe | **English / Türkçe** | ⚠️ dil adları **çevrilmez**; her dil kendi adıyla yazılır |
+| Log in / Log out | **Giriş yap / Oturumu kapat** | bkz. §2.5 *Sign out* |
+| Sign up free | **Ücretsiz hesap oluştur** | `Create a free account` ile **aynı** Türkçe: tek eylem, tek söylem |
+| My models | **Modellerim** | `models.title` ile aynı |
+| Terms / Privacy (alt bilgi) | **Kullanım koşulları / Gizlilik bildirimi** | bkz. §2.5 ve `legal.*` |
+| Source code | **kaynak kodu** | |
+
 ---
 
 ## 3. Komutlar ve eylemler

@@ -20,7 +20,34 @@
     "viewOnly": "Yalnızca görüntüle"
   },
   "nav": {
-    "approvals": "Onaylar"
+    "approvals": "Onaylar",
+    "models": "Modellerim",
+    "connect": "Asistan bağla",
+    "settings": "Ayarlar",
+    "logIn": "Giriş yap",
+    "signUp": "Ücretsiz hesap oluştur",
+    "logOut": "Oturumu kapat",
+    "main": "Ana menü",
+    "home": "MutinyBIM ana sayfa"
+  },
+  "footer": {
+    "openSource": "MutinyBIM açık kaynaktır (Apache-2.0).",
+    "source": "Kaynak kodu",
+    "terms": "Kullanım koşulları",
+    "privacy": "Gizlilik bildirimi",
+    "bringYourOwnAi": "Yapay zekânızı kendiniz getirin: bu uygulama hiçbir yapay zekâ için ödeme yapmaz ve anahtarlarınızın hiçbirini görmez."
+  },
+  "theme": {
+    "label": "Tema",
+    "light": "Açık",
+    "dark": "Koyu",
+    "auto": "Otomatik",
+    "lightTitle": "Açık tema",
+    "darkTitle": "Koyu tema",
+    "systemTitle": "Bilgisayarınızın açık veya koyu ayarına uy"
+  },
+  "language": {
+    "label": "Dil"
   },
   "landing": {
     "badge": "Ücretsiz · açık kaynak · her disiplin",
@@ -38,6 +65,7 @@
   },
   "login": {
     "lede": "Modellerinizi ve sizinle paylaşılanları açın.",
+    "logInWith": "{{provider}} ile giriş yap",
     "orWithEmail": "veya e-posta ile",
     "forgot": "Parolanızı mı unuttunuz?"
   },
@@ -134,6 +162,9 @@
   },
   "settings": {
     "title": "Ayarlar",
+    "languageTitle": "Dil",
+    "languageLede": "Bu sayfaların ve düzenleyicinin dili. Hesabınıza kaydedilir, böylece giriş yaptığınız her tarayıcı bu dille açılır.",
+    "languageCurrent": "Şu an: {{language}}.",
     "account": "Hesabınız",
     "emailLine": "E-posta: {{email}}",
     "saveName": "Adı kaydet",

@@ -13,6 +13,7 @@
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { isMutinyLanguage, type MutinyLanguage } from "@permitzip/bim-ui";
 
 export interface UserRow {
   readonly id: string;
@@ -22,6 +23,8 @@ export interface UserRow {
   readonly created_at: string;
   /** Light, dark or the computer's setting; the pages and the editor both follow it. */
   readonly color_scheme: ColorScheme;
+  /** English or Turkish, the language this person asked for; it travels with the account. */
+  readonly language: MutinyLanguage;
 }
 
 export type ColorScheme = "light" | "dark" | "system";
@@ -308,7 +311,18 @@ function strOrNull(row: Record<string, unknown>, key: string): string | null {
 function toUser(row: unknown): UserRow | null {
   if (!isRecord(row)) return null;
   const scheme = row.color_scheme;
-  return { id: str(row, "id"), email: str(row, "email"), display_name: str(row, "display_name"), password_hash: strOrNull(row, "password_hash"), created_at: str(row, "created_at"), color_scheme: isColorScheme(scheme) ? scheme : "system" };
+  const language = row.language;
+  // A column that is empty, half-written or hand-edited reads as English: a
+  // damaged preference must not cost the person their page (see `./i18n`).
+  return {
+    id: str(row, "id"),
+    email: str(row, "email"),
+    display_name: str(row, "display_name"),
+    password_hash: strOrNull(row, "password_hash"),
+    created_at: str(row, "created_at"),
+    color_scheme: isColorScheme(scheme) ? scheme : "system",
+    language: isMutinyLanguage(language) ? language : "en",
+  };
 }
 
 function toModel(row: unknown): ModelRow | null {
@@ -405,6 +419,7 @@ function shareRole(value: unknown): ShareRole {
 const UPGRADES: readonly string[] = [
   "ALTER TABLE sessions ADD COLUMN via TEXT NOT NULL DEFAULT 'password'",
   "ALTER TABLE users ADD COLUMN color_scheme TEXT NOT NULL DEFAULT 'system' CHECK (color_scheme IN ('light', 'dark', 'system'))",
+  "ALTER TABLE users ADD COLUMN language TEXT NOT NULL DEFAULT 'en' CHECK (language IN ('en', 'tr'))",
 ];
 
 export function openDb(file: string) {
@@ -433,6 +448,7 @@ export function openDb(file: string) {
     userById: (id: string): UserRow | null => toUser(db.prepare("SELECT * FROM users WHERE id = ?").get(id)),
     renameUser: (id: string, displayName: string): void => void db.prepare("UPDATE users SET display_name = ? WHERE id = ?").run(displayName, id),
     setColorScheme: (id: string, scheme: ColorScheme): void => void db.prepare("UPDATE users SET color_scheme = ? WHERE id = ?").run(scheme, id),
+    setLanguage: (id: string, language: MutinyLanguage): void => void db.prepare("UPDATE users SET language = ? WHERE id = ?").run(language, id),
 
     userByIdentity(provider: string, subject: string): UserRow | null {
       return toUser(db.prepare("SELECT u.* FROM identities i JOIN users u ON u.id = i.user_id WHERE i.provider = ? AND i.subject = ?").get(provider, subject));

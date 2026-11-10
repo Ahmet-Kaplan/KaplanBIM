@@ -15,7 +15,7 @@ import { build } from "esbuild";
 import postcss from "postcss";
 import tailwind from "@tailwindcss/postcss";
 import { WebSocketServer, type WebSocket } from "ws";
-import type { MutinyLanguage } from "@permitzip/bim-ui";
+import { isMutinyLanguage, type MutinyLanguage } from "@permitzip/bim-ui";
 import { parseBranchModelId } from "@permitzip/bim-kernel";
 import { TOOL_FAMILIES } from "@permitzip/bim-mcp";
 import { installFirstPartyAddOns } from "@permitzip/bim-first-party";
@@ -26,7 +26,7 @@ import { ApprovalBook } from "./assistant-approvals";
 import { approveAuthorize, checkAuthorize, errorRedirect, type AssistantAuthOptions } from "./assistant-auth";
 import { createAssistantTools, type AttachModel, type ModelEndpoint } from "./assistant-tools";
 import type { OAuthProviderConfig, WebConfig } from "./config";
-import { resolveRequestLanguage } from "./i18n";
+import { COOKIE_NAME, resolveRequestLanguage } from "./i18n";
 import { DEFAULT_RUNNER_DIR, localScripts, ScriptSandbox, scriptsOff, sealedScripts, type HostedScripts } from "./script-sandbox";
 import { isColorScheme, openDb, type Db, type ModelAccess, type ModelRow, type ShareRole, type UserRow } from "./db";
 import { esc, setWaitingApprovals, type Flash } from "./ui";
@@ -134,13 +134,17 @@ export function cookies(req: IncomingMessage): Map<string, string> {
  * account's own setting, then `Accept-Language`, then English (see `./i18n`).
  * Read once per request, so a page and its `<html lang>` always agree.
  *
+ * The signed-in person travels in with the request when there is one: their
+ * account preference is the language that follows them from browser to browser.
+ *
  * Never throws. A language is a preference, and a request has to be answered
  * even when the header that names it is mangled; English is the floor.
  */
-function requestLanguage(req: IncomingMessage): MutinyLanguage {
+function requestLanguage(req: IncomingMessage, user?: UserRow | null): MutinyLanguage {
   try {
     return resolveRequestLanguage({
       cookies: Object.fromEntries(cookies(req)),
+      ...(user ? { user } : {}),
       header: (name) => {
         const value = req.headers[name.toLowerCase()];
         return Array.isArray(value) ? value[0] : value;
@@ -150,6 +154,17 @@ function requestLanguage(req: IncomingMessage): MutinyLanguage {
     console.error("[mutinybim-web] the request's language could not be read; answering in English", { err });
     return "en";
   }
+}
+
+/**
+ * The `mutiny.lang` cookie: this browser's explicit choice, which wins over the
+ * account and makes the next page come back in that language on its first byte
+ * (spec §7/Ç-D). It is deliberately not `HttpOnly`: the editor's client bundle
+ * reads it to stay in step with the page (see `LANGUAGE_STORAGE_KEY` in
+ * packages/bim-ui). A year is long enough that nobody is asked twice.
+ */
+function languageCookie(language: MutinyLanguage, secure: boolean): string {
+  return [`${COOKIE_NAME}=${language}`, "Path=/", "Max-Age=31536000", "SameSite=Lax", ...(secure ? ["Secure"] : [])].join("; ");
 }
 
 async function readBody(req: IncomingMessage): Promise<string> {
@@ -318,7 +333,7 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
   const callbackUri = (provider: OAuthProviderConfig) => `${config.origin}/auth/${provider.id}/callback`;
 
   async function handleAuthCallback(req: IncomingMessage, res: ServerResponse, url: URL, provider: OAuthProviderConfig): Promise<void> {
-    const language = requestLanguage(req);
+    const language = requestLanguage(req, sessionUser(req));
     const error = url.searchParams.get("error");
     if (error) {
       const words = error === "access_denied" ? `You didn't allow MutinyBIM on ${provider.label.replace(/^Log in with /i, "")}. Nothing changed.` : `${provider.label} sign-in stopped (${error}). Try again, or sign in with email.`;
@@ -363,7 +378,7 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
     const { pathname } = url;
     const method = req.method ?? "GET";
     const user = sessionUser(req);
-    const language = requestLanguage(req);
+    const language = requestLanguage(req, user);
 
     // The tool server and its sign-in addresses take requests from assistants (other origins, bearer tokens, no cookies).
     if (await assistantTools.handle(req, res, url)) return;
@@ -592,6 +607,25 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
       return redirect(res, safeReturn(refererPath(req), "/models"));
     }
 
+    if (pathname === "/settings/language" && method === "POST") {
+      const json = (req.headers["content-type"] ?? "").startsWith("application/json");
+      const raw = json ? await readJson(req) : (await readForm(req)).get("language");
+      // Only a language this app speaks is saved: an unknown tag would be
+      // ignored on the way back in anyway, so storing it would be a lie.
+      if (!isMutinyLanguage(raw)) {
+        if (json) return send(res, 400, "application/json", JSON.stringify({ error: "Pick English or Türkçe." }));
+        throw new Refusal(400, "Pick English or Türkçe.");
+      }
+      // A person's account keeps the choice for every browser they sign in
+      // from; a visitor has none, so the cookie is the whole of it. Either way
+      // the cookie is written, so the very next page is painted in it.
+      if (user) db.setLanguage(user.id, raw);
+      const cookie = languageCookie(raw, config.secure);
+      if (json) return send(res, 204, "text/plain", "", { "set-cookie": cookie });
+      // Back to the page the choice was made on, now drawn in the new language.
+      return redirect(res, safeReturn(refererPath(req), user ? "/settings" : "/"), { "set-cookie": cookie });
+    }
+
     if (user && pathname === "/connect" && method === "GET") return html(res, 200, connectView(user, null, null, language));
     const assistantDelete = pathname.match(/^\/connect\/assistants\/([0-9a-f-]{36})\/delete$/);
     if (user && method === "POST" && assistantDelete?.[1]) {
@@ -724,7 +758,7 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
     // The language is resolved inside `handle` for the page and, for the error
     // page, inside the handler below.
     handle(req, res).catch((err: unknown) => {
-      const language = requestLanguage(req);
+      const language = requestLanguage(req, sessionUser(req));
       if (err instanceof Refusal) {
         const user = sessionUser(req);
         if ((req.url ?? "").startsWith("/api/")) return json(res, err.status, { error: err.words });

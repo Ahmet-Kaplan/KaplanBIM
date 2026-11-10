@@ -21,7 +21,7 @@ function config(overrides: Partial<WebConfig> = {}): WebConfig {
   return { port: 0, host: "127.0.0.1", origin: "http://127.0.0.1:0", dataDir: path.join(os.tmpdir(), "mutinybim-pages-test"), modelLimit: 3, signupOpen: true, providers: [], quote: null, secure: false, ...overrides };
 }
 
-const PERSON: UserRow = { id: "u-1", email: "sam@example.com", display_name: "Sam Example", password_hash: null, created_at: "2026-11-09T10:00:00.000Z", color_scheme: "system" };
+const PERSON: UserRow = { id: "u-1", email: "sam@example.com", display_name: "Sam Example", password_hash: null, created_at: "2026-11-09T10:00:00.000Z", color_scheme: "system", language: "en" };
 const MODEL: ModelRow = { id: "m-1", owner_id: "u-1", name: "Sample Warehouse", created_at: "2026-11-09T10:00:00.000Z", updated_at: "2026-11-10T11:30:00.000Z" };
 
 const ENGLISH_HEADLINE = "A building model you can open in a browser, free.";
