@@ -263,6 +263,8 @@ Kodda aynı nesne için 4 İngilizce eşanlamlı dolaşıyor: `element`, `part`,
 
 Türkçede **çoğul eki yoktur** sayıdan sonra: "3 eleman" (~~"3 elemanlar"~~). Bu yüzden İngilizcedeki `1 element / 2 elements` ayrımı Türkçede **tek biçime** iner.
 
+> ⚠️ **Yer tutucu sözdizimi.** Bu bölümdeki `{n}` yalnızca **gösterim** kolaylığıdır. Gerçek `tr` çeviri dosyalarında i18next'in varsayılan sınırlayıcısı **`{{n}}`** (çift süslü parantez) kullanılır: `"{{n}} eleman"`. Tek süslü parantez (`{n}`) yazılırsa i18next onu **değiştirmez** ve arayüzde harfi harfine `{n} eleman` görünür. `packages/bim-ui/__tests__/i18n-parity.test.ts` bu hatayı yakalar.
+
 | EN | TR |
 |----|-----|
 | `{n} element` / `{n} elements` | `{n} eleman` |
