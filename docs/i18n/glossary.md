@@ -156,6 +156,11 @@ Barındırılan uygulamanın (`apps/mutinybim-web`) ekranlarında geçen, model 
 | Fingerprint | **parmak izi** | anahtarın saklanan özeti |
 | Allow (OAuth) | **İzin ver** | ⚠️ *Onayla* = Approve, §3 |
 | Sign out (an assistant or a key) | **Oturumu kapat** | anahtar için *Kapat* |
+| Sign-in link | **giriş bağlantısı** | e-postayla gelen giriş/parola sıfırlama bağlantısı |
+| Client id (OAuth) | **istemci kimliği** | sunucunun bu uygulamaya verdiği kimlik; *client* = **istemci** |
+| Token (sign-in) | **belirteç** | "giriş belirteci"; *token* değil |
+| Rate limit / too many tries | **deneme sınırı** / **çok fazla deneme** | sunucunun bir adresten kabul ettiği deneme sayısı |
+| Approval request | **onay isteği** | §6 *Approval* = **onay** |
 
 ### 2.6 Mekanik ekipman
 
