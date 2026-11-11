@@ -14,6 +14,7 @@ import { Skeleton } from '../../ui/skeleton'
 import type { UnderlayCandidate } from '../../contracts/bim/underlays/formats'
 import { newElementId } from '../placement'
 import { useEditorHost } from '@permitzip/bim-editor/host'
+import { useEditorTranslate } from '../i18n/translate'
 import { underlayPageInfoFrom, useUnderlayCandidatesFrom } from './use-underlays'
 
 interface Props {
@@ -34,6 +35,7 @@ interface Props {
  * files are listed with why they can't be placed yet (export to PDF).
  */
 export function AddUnderlayDialog({ open, onOpenChange, projectId, levelId, levelName, submit, onPlaced }: Props) {
+  const t = useEditorTranslate()
   const underlays = useEditorHost().data.underlays
   const { files } = useUnderlayCandidatesFrom(underlays, projectId, open)
   const [picked, setPicked] = useState<UnderlayCandidate | null>(null)
@@ -58,7 +60,7 @@ export function AddUnderlayDialog({ open, onOpenChange, projectId, levelId, leve
     }
     let live = true
     setPageCount(null)
-    underlayPageInfoFrom(underlays, projectId, picked.fileId, 1)
+    underlayPageInfoFrom(underlays, projectId, picked.fileId, 1, t)
       .then((info) => live && setPageCount(info.pageCount))
       .catch((err: unknown) => {
         console.error('[AddUnderlayDialog] reading the PDF failed', { fileId: picked.fileId, err })
@@ -67,17 +69,24 @@ export function AddUnderlayDialog({ open, onOpenChange, projectId, levelId, leve
     return () => {
       live = false
     }
-  }, [underlays, projectId, picked])
+  }, [underlays, projectId, picked, t])
 
   const pageNo = Number.parseInt(page, 10)
-  const pageProblem = picked?.format === 'pdf' && pageCount !== null && (!Number.isInteger(pageNo) || pageNo < 1 || pageNo > pageCount) ? `Pick a page from 1 to ${pageCount}.` : null
-  const placeReason = !levelId ? 'Open a floor plan first: the drawing goes on that plan’s level.' : !picked ? 'Pick a drawing first.' : pageProblem ?? (picked.format === 'pdf' && pageCount === null && !error ? 'Reading the PDF…' : null)
+  const pageProblem =
+    picked?.format === 'pdf' && pageCount !== null && (!Number.isInteger(pageNo) || pageNo < 1 || pageNo > pageCount)
+      ? t('spaces.pickPageFrom', 'Pick a page from 1 to {{count}}.', { ns: 'editor', count: pageCount })
+      : null
+  const placeReason = !levelId
+    ? t('spaces.openPlanFirstUnderlay', 'Open a floor plan first: the drawing goes on that plan’s level.', { ns: 'editor' })
+    : !picked
+      ? t('spaces.pickADrawingFirst', 'Pick a drawing first.', { ns: 'editor' })
+      : pageProblem ?? (picked.format === 'pdf' && pageCount === null && !error ? t('spaces.readingThePdf', 'Reading the PDF…', { ns: 'editor' }) : null)
 
   const place = async () => {
     if (!picked || !levelId || placeReason) return
     setBusy(true)
     try {
-      const info = await underlayPageInfoFrom(underlays, projectId, picked.fileId, picked.format === 'pdf' ? pageNo : 1)
+      const info = await underlayPageInfoFrom(underlays, projectId, picked.fileId, picked.format === 'pdf' ? pageNo : 1, t)
       const underlayId = newElementId('underlay') as ElementId
       const refused = submit(
         {
@@ -88,7 +97,7 @@ export function AddUnderlayDialog({ open, onOpenChange, projectId, levelId, leve
           source: { format: info.format, provider: 'polygnotos.workspace', ref: picked.fileId, ...(info.format === 'pdf' ? { page: info.page } : {}), name: picked.name },
           opacityPct: 50,
         },
-        'Add underlay',
+        t('spaces.addUnderlayCommand', 'Add underlay', { ns: 'editor' }),
       )
       if (refused) {
         setError(refused)
@@ -108,20 +117,24 @@ export function AddUnderlayDialog({ open, onOpenChange, projectId, levelId, leve
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg" data-testid="add-underlay-dialog">
         <DialogHeader>
-          <DialogTitle>Add a drawing to trace over</DialogTitle>
+          <DialogTitle>{t('spaces.addDrawingToTrace', 'Add a drawing to trace over', { ns: 'editor' })}</DialogTitle>
           <DialogDescription>
-            Pick an architect’s PDF or a picture from this project’s workspace. It goes under {levelName ?? 'the current plan'}; set its scale next, then trace spaces over it.
+            {t(
+              'spaces.addDrawingWhat',
+              'Pick an architect’s PDF or a picture from this project’s workspace. It goes under {{level}}; set its scale next, then trace spaces over it.',
+              { ns: 'editor', level: levelName ?? t('spaces.theCurrentPlan', 'the current plan', { ns: 'editor' }) },
+            )}
           </DialogDescription>
         </DialogHeader>
         {files.state === 'loading' ? (
           <div className="flex flex-col gap-2" aria-busy="true">
-            <span className="sr-only">Loading the project’s drawings</span>
+            <span className="sr-only">{t('spaces.loadingProjectDrawings', 'Loading the project’s drawings', { ns: 'editor' })}</span>
             <Skeleton className="h-10" />
             <Skeleton className="h-10" />
           </div>
         ) : files.state === 'error' ? (
           <Alert variant="destructive">
-            <AlertTitle>The drawings didn’t load</AlertTitle>
+            <AlertTitle>{t('spaces.drawingsDidntLoad', 'The drawings didn’t load', { ns: 'editor' })}</AlertTitle>
             <AlertDescription>{files.message}</AlertDescription>
           </Alert>
         ) : files.value.length === 0 ? (
@@ -130,12 +143,12 @@ export function AddUnderlayDialog({ open, onOpenChange, projectId, levelId, leve
               <EmptyMedia variant="icon">
                 <FileText />
               </EmptyMedia>
-              <EmptyTitle>No drawings in this project yet</EmptyTitle>
-              <EmptyDescription>Upload the architect’s PDF to the project’s Workspace (project menu › Workspace), then come back here.</EmptyDescription>
+              <EmptyTitle>{t('spaces.noDrawingsYet', 'No drawings in this project yet', { ns: 'editor' })}</EmptyTitle>
+              <EmptyDescription>{t('spaces.uploadThePdf', 'Upload the architect’s PDF to the project’s Workspace (project menu › Workspace), then come back here.', { ns: 'editor' })}</EmptyDescription>
             </EmptyHeader>
           </Empty>
         ) : (
-          <ItemGroup className="max-h-72 overflow-auto" role="listbox" aria-label="Drawings">
+          <ItemGroup className="max-h-72 overflow-auto" role="listbox" aria-label={t('spaces.drawings', 'Drawings', { ns: 'editor' })}>
             {files.value.map((f) => (
               <Item
                 key={f.fileId}
@@ -157,32 +170,38 @@ export function AddUnderlayDialog({ open, onOpenChange, projectId, levelId, leve
                 <ItemMedia variant="icon">{f.unsupportedReason ? <FileX /> : f.format === 'image' ? <FileImage /> : <FileText />}</ItemMedia>
                 <ItemContent>
                   <ItemTitle>{f.name}</ItemTitle>
-                  <ItemDescription>{f.unsupportedReason ?? (f.format === 'pdf' ? 'PDF' : 'Picture')}</ItemDescription>
+                  <ItemDescription>{f.unsupportedReason ?? (f.format === 'pdf' ? t('spaces.pdfWord', 'PDF', { ns: 'editor' }) : t('spaces.pictureWord', 'Picture', { ns: 'editor' }))}</ItemDescription>
                 </ItemContent>
-                {picked?.fileId === f.fileId ? <ItemActions className="text-xs text-muted-foreground">Picked</ItemActions> : null}
+                {picked?.fileId === f.fileId ? <ItemActions className="text-xs text-muted-foreground">{t('spaces.picked', 'Picked', { ns: 'editor' })}</ItemActions> : null}
               </Item>
             ))}
           </ItemGroup>
         )}
         {picked?.format === 'pdf' ? (
           <Field>
-            <FieldLabel htmlFor="underlay-page">Page</FieldLabel>
+            <FieldLabel htmlFor="underlay-page">{t('spaces.page', 'Page', { ns: 'editor' })}</FieldLabel>
             <Input id="underlay-page" inputMode="numeric" value={page} onChange={(e) => setPage(e.target.value)} className="w-24" data-testid="add-underlay-page" />
-            <FieldDescription>{pageCount === null ? 'Reading the PDF…' : `This PDF has ${pageCount} page${pageCount === 1 ? '' : 's'}.`}</FieldDescription>
+            <FieldDescription>
+              {pageCount === null
+                ? t('spaces.readingThePdf', 'Reading the PDF…', { ns: 'editor' })
+                : pageCount === 1
+                  ? t('spaces.pdfHasOnePage', 'This PDF has {{count}} page.', { ns: 'editor', count: pageCount })
+                  : t('spaces.pdfHasPages', 'This PDF has {{count}} pages.', { ns: 'editor', count: pageCount })}
+            </FieldDescription>
           </Field>
         ) : null}
         {error ? (
           <Alert variant="destructive" data-testid="add-underlay-error">
-            <AlertTitle>That drawing can’t be placed</AlertTitle>
+            <AlertTitle>{t('spaces.drawingCantBePlaced', 'That drawing can’t be placed', { ns: 'editor' })}</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : null}
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t('spaces.cancel', 'Cancel', { ns: 'editor' })}
           </Button>
           <Button onClick={() => void place()} disabled={placeReason !== null || busy} title={placeReason ?? undefined} data-testid="add-underlay-place">
-            {busy ? 'Placing…' : 'Place under the plan'}
+            {busy ? t('spaces.placing', 'Placing…', { ns: 'editor' }) : t('spaces.placeUnderThePlan', 'Place under the plan', { ns: 'editor' })}
           </Button>
         </DialogFooter>
         {placeReason && picked ? <p className="text-xs text-muted-foreground">{placeReason}</p> : null}

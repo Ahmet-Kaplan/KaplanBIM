@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { spaceAt, type ElementId, type ModelState, type Vec2, type ViewOnPaper } from '@permitzip/bim-kernel'
+import { englishOnly, useEditorTranslate, type Translate } from '../i18n/translate'
 import { orthogonal, tracePointAt } from './trace-geometry'
 
 const PRIMARY = 'var(--mutiny-selection)'
@@ -13,11 +14,17 @@ export interface SeparatorLine {
 }
 
 /** The room a separation line splits: the bounded space at its middle. Null with the words to show when there isn't one. */
-export function roomUnderLine(model: ModelState, levelId: ElementId, start: Vec2, end: Vec2): { readonly spaceId: ElementId } | { readonly why: string } {
+export function roomUnderLine(model: ModelState, levelId: ElementId, start: Vec2, end: Vec2, t: Translate = englishOnly): { readonly spaceId: ElementId } | { readonly why: string } {
   const mid = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 }
   const s = spaceAt(model.elements, levelId, mid)
-  if (!s) return { why: 'That line isn’t across a room. Draw it from wall to wall across a room made from walls.' }
-  if (s.bounds.kind !== 'bounded') return { why: `${[s.name, s.number].filter((t) => t.trim() !== '').join(' ') || 'That space'} wasn’t made from its walls, so it can’t be split. Make it with Room from walls first.` }
+  if (!s) return { why: t('spaces.separatorNotAcrossRoom', 'That line isn’t across a room. Draw it from wall to wall across a room made from walls.', { ns: 'editor' }) }
+  if (s.bounds.kind !== 'bounded')
+    return {
+      why: t('spaces.separatorNotFromWalls', '{{space}} wasn’t made from its walls, so it can’t be split. Make it with Room from walls first.', {
+        ns: 'editor',
+        space: [s.name, s.number].filter((part) => part.trim() !== '').join(' ') || t('spaces.thatSpace', 'That space', { ns: 'editor' }),
+      }),
+    }
   return { spaceId: s.id }
 }
 
@@ -41,17 +48,19 @@ interface Props {
  * stops with nothing changed.
  */
 export function SeparatorTool({ model, levelId, view, z, toPaper, paperOf, hint, onLine, onCancel }: Props) {
+  const t = useEditorTranslate()
   const [start, setStart] = useState<Vec2 | null>(null)
   const [at, setAt] = useState<Vec2 | null>(null)
   const [shift, setShift] = useState(false)
+  const howTo = t('spaces.separatorHowTo', 'Separation line: click on one wall, then on the wall across the room. Shift keeps it square. Esc stops.', { ns: 'editor' })
 
   useEffect(() => {
-    hint('Separation line: click on one wall, then on the wall across the room. Shift keeps it square. Esc stops.')
+    hint(howTo)
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Shift') setShift(e.type === 'keydown')
       if (e.type !== 'keydown' || e.key !== 'Escape') return
       e.stopPropagation()
-      hint('Stopped; nothing changed.')
+      hint(t('spaces.stoppedNothingChanged', 'Stopped; nothing changed.', { ns: 'editor' }))
       onCancel()
     }
     window.addEventListener('keydown', onKey, true)
@@ -60,7 +69,7 @@ export function SeparatorTool({ model, levelId, view, z, toPaper, paperOf, hint,
       window.removeEventListener('keydown', onKey, true)
       window.removeEventListener('keyup', onKey, true)
     }
-  }, [hint, onCancel])
+  }, [hint, onCancel, t, howTo])
 
   const aim = (e: React.PointerEvent<SVGElement>): Vec2 | null => {
     const p = paperOf(e)
@@ -79,7 +88,7 @@ export function SeparatorTool({ model, levelId, view, z, toPaper, paperOf, hint,
       setStart(p)
       return
     }
-    const room = roomUnderLine(model, levelId, start, p)
+    const room = roomUnderLine(model, levelId, start, p, t)
     if ('why' in room) {
       hint(room.why)
       setStart(null)
@@ -107,7 +116,7 @@ export function SeparatorTool({ model, levelId, view, z, toPaper, paperOf, hint,
         onPointerLeave={() => setAt(null)}
         data-testid="separator-hit"
       >
-        <title>Separation line: click on one wall, then on the wall across the room. Esc stops.</title>
+        <title>{howTo}</title>
       </rect>
     </g>
   )

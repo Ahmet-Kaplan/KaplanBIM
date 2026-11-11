@@ -585,15 +585,20 @@ ayarlar, parça listesi, IFC içe/dışa aktarma) çevrilirken bunlar gerekti. Y
 | Data-use agreement | **veri kullanım anlaşması** | |
 | Country of origin: unit symbols | `kVA`, `CFM`, `fpm`, `in. w.c.`, `A`, `V`, `Pa`, `ft`, `Btu/h` **çevrilmez** | §7 — bu turda yalnız `bal.`/`vent.` sütun başlıklarında görünür |
 
-> **Bu turda kapanmayan ağaçlar.** `plumbing/` (402 site), `spaces/` (427),
-> `questions/` (213), `equipment-list/` (110), `library/` (68) ve `coordination/`
-> (58) **henüz tamamlanmadı**; bu yüzden Ç12'nin sıhhi tesisat yarısı (*yük
-> birimi*, WSFU/DFU sütunları), Ç8'in tesisat tarafı ve Ç20 (*Sahip* / *İşveren*)
-> hâlâ İngilizcedir ve negatif-alan koruması o ağaçları **taramasın** diye
+> **Bu turda kapanmayan ağaçlar.** `plumbing/` (402 site), `questions/` (213),
+> `equipment-list/` (110), `library/` (68) ve `coordination/` (58)
+> **henüz tamamlanmadı**; bu yüzden Ç12'nin sıhhi tesisat yarısı (*yük birimi*,
+> WSFU/DFU sütunları), Ç8'in tesisat tarafı ve Ç20 (*Sahip* / *İşveren*) hâlâ
+> İngilizcedir ve negatif-alan koruması o ağaçları **taramasın** diye
 > `NOT_YET_GUARDED` listesinde adlandırılmıştır
 > (`packages/bim-editor/__tests__/i18n-negative-space.test.ts`).
 > Sahibi: Aşama 4'ün kalan turları; gerekçe ve sayılar görev raporundadır
 > (`.superpowers/sdd/2026-11-10-bilingual-ui/trees-electrical-spaces-plumbing-report.md`).
+>
+> **`spaces/` kapandı (2026-11-10, dördüncü tur).** Ağacın tamamı anahtarlı:
+> 427 site sıfıra indi ve ağaç `NOT_YET_GUARDED`'dan çıktı; sözcükleri §5.6'dadır.
+> Türkçesi `i18n-spaces.test.tsx` içinde ölçülür: §2.3 (*mekan*, asla *alan*),
+> §7 (birim sembolleri yerinde kalır) ve §8 (sayıdan sonra çoğul eki yok).
 >
 > **`electrical/` kapandı (2026-11-10, üçüncü tur).** Ağacın tamamı anahtarlı:
 > 265 site sıfıra indi, yarım kalan turun bıraktığı **97** ulaşılamaz anahtar
@@ -649,6 +654,40 @@ ayarlar, parça listesi, IFC içe/dışa aktarma) çevrilirken bunlar gerekti. Y
 > | Room template | **oda şablonu** | §2.3 *room* = oda |
 > | Connection type / Designator | **bağlantı tipi** / **tanımlayıcı** | |
 > | Riser diagram / One-line diagram | **kolon şeması** / **tek hat diyagramı** | §2.4 |
+
+---
+
+### 5.6 Aşama 4, Task 4.4: mekanlar paneli sözcükleri (2026-11-10)
+
+`packages/bim-editor/src/editor/spaces` çevrilirken bunlar gerekti. Yukarıda
+**zaten** karara bağlı olanlar tekrar yazılmadı (`Mekan`, `Oda`, `Kat`, `Bölge`,
+`Yangın bölgesi`, `Altlık`, `Alan`, `Kullanım`, `Kullanıcı`, `Yük`).
+
+| EN | TR | Not |
+|----|----|-----|
+| Fire area (the zone made from rated walls) | **yangın bölgesi** | §2.3/Ç15; adı `spaces.fireAreaName` = *Yangın bölgesi {{number}}* |
+| Rated wall / Rating / At least | **dereceli duvar / derece / en az** | `1 hour or more` = *1 hour ve üzeri* — derece verisi çevrilmez |
+| Separation line / Sub-room | **ayrım çizgisi / alt oda** | Bir odayı bölen çizgi; alt odalar o odanın altındadır |
+| Room from walls / Find rooms from walls | **duvarlardan oda / duvarlardan oda bul** | Komut etiketi tekil (§0.5), menü satırı cümle |
+| Propose rooms from this drawing | **bu çizimden oda öner** | Hiçbir şey kabul edilene kadar yazılmaz |
+| Dismiss / Dismissed | **yok say / yok sayıldı** | Öneriyi reddetmek değil, listeden düşürmek |
+| Keep mine / Update from the link | **benimkini koru / bağlantıdan güncelle** | Ç10: izlenen nesne *kopya*, komut *Kopyala* |
+| Code zone / Code clearance | **kod bölgesi / kod boşluğu** | Ç15; NEC 110.26(E) boşluğu *ayrılmış boşluk* olarak §5.5'te |
+| Drawn outline / Follows (a derived zone) | **çizilmiş sınır / … izler** | `zoneBoundsLine` |
+| Scale set / Not calibrated: tracing is off / Rescale | **ölçek ayarlandı / kalibre edilmedi: üzerinden çizme kapalı / ölçeği değiştir** | Ölçek yoksa üzerinden çizme kapalıdır |
+| Tracing over {{drawing}} | **{{drawing}} üzerinden çiziliyor** | Altlık = *altlık* (§2.3) |
+| Load basis: Total / Per sq ft | **toplam / ft² başına** | §5 miktar türleri; `sq ft` birim sembolü çevrilmez (§7) |
+| Counting policy: max / actual only / allocation only | **ikisinden büyüğü / yalnız cihazlar / yalnız tahmin** | Cümleleri `spaces.policyMax`, `policyActualOnly`, `policyAllocationOnly` |
+| Occupants typed / from the use | **kullanıcı (yazıldı) / (kullanımdan)** | Kullanıcı yükü veriden gelir, cümle değildir |
+| Zone purpose: thermal / ventilation / electrical load area / lighting control / fire area / drainage area | **termal (HVAC) / havalandırma / elektrik yük alanı / aydınlatma kontrolü / yangın bölgesi / drenaj alanı** | *HVAC* kısaltması korunur (§0.3); *alan* burada **area**'dır, *mekan* değil |
+| Heating and cooling / Electrical / Plumbing equipment (zone server headings) | **ısıtma ve soğutma / elektrik / sıhhi tesisat ekipmanı** | `zoneFitHeading`, ekran okuyucuya da bu gider |
+
+> **`Spaces` grup adı bir kelime değildir.** `spaces.windowArea` = *Pencere alanı*
+> doğrudur: §2.3 *Space* = *mekan* kuralı anahtarın **kelimesine** bakar, ait
+> olduğu grubun adına değil. `packages/bim-ui/__tests__/i18n-glossary.test.ts`
+> bu yüzden anahtarın ilk nokta öncesi parçasını (grup) atar — `WORKSPACE_KEY`
+> istisnasının bir seviye yukarısı. Kelime gerçekten *space* ise
+> (`spaces.spaceName`, `ventilation.space`, `panel.spaces`) kural aynen işler.
 
 ---
 

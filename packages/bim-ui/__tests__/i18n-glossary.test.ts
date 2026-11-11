@@ -155,12 +155,24 @@ const SPREADSHEET_KEY = /spreadsheet/i;
 
 /** Left-anchored only, so "alan" matches "alanı" but not the "alan" inside "balansman". */
 const AREA_WORD = /(?<!\p{L})alan/iu;
+
+/**
+ * The dotted path's **first** segment is a group, not a word of the key.
+ *
+ * `spaces.windowArea` is "Pencere alanı" — the group is named after the panel,
+ * and §5 keeps *Area* as *alan*, so reading the group as if it were part of the
+ * key turns every string in the Spaces panel into a §2.3 violation. This is the
+ * same false positive `WORKSPACE_KEY` below already excludes, one level up: the
+ * rule is about a key that *is* about a space (`ventilation.space`,
+ * `panel.spaces`, `spaces.spaceName`), and a group heading is not.
+ */
+const keyWords = (key: string): string => key.slice(key.indexOf(".") + 1);
 const TABLE_WORD = /(?<!\p{L})tablo/iu;
 
 /** The §2.3 violations in a corpus: a space key whose value says "alan". */
 function spaceDefects(entries: readonly LocaleEntry[]): string[] {
   return entries
-    .filter((entry) => SPACE_KEY.test(entry.key) && !WORKSPACE_KEY.test(entry.key))
+    .filter((entry) => SPACE_KEY.test(keyWords(entry.key)) && !WORKSPACE_KEY.test(keyWords(entry.key)))
     .filter((entry) => AREA_WORD.test(entry.value))
     .map((entry) => `${entry.file} → ${entry.key}: ${JSON.stringify(entry.value)} says "alan"; §2.3 space is "mekan"`);
 }
@@ -168,7 +180,7 @@ function spaceDefects(entries: readonly LocaleEntry[]): string[] {
 /** The §2.4 violations in a corpus: a sheet key whose value says "tablo". */
 function sheetDefects(entries: readonly LocaleEntry[]): string[] {
   return entries
-    .filter((entry) => SHEET_KEY.test(entry.key) && !SPREADSHEET_KEY.test(entry.key))
+    .filter((entry) => SHEET_KEY.test(keyWords(entry.key)) && !SPREADSHEET_KEY.test(entry.key))
     .filter((entry) => TABLE_WORD.test(entry.value))
     .map((entry) => `${entry.file} → ${entry.key}: ${JSON.stringify(entry.value)} says "tablo"; §2.4 sheet is "pafta"`);
 }

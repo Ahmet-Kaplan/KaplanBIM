@@ -7,6 +7,7 @@ import { Badge } from '../../ui/badge'
 import { Button } from '../../ui/button'
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '../../ui/item'
 import { newElementId } from '../placement'
+import { useEditorTranslate } from '../i18n/translate'
 
 /**
  * Code zones the equipment on this plan derives (the NEC 110.26(E) dedicated
@@ -15,11 +16,12 @@ import { newElementId } from '../placement'
  * follows the panel when it moves.
  */
 export function CodeZonesList({ model, levelId, editReason, send }: { readonly model: ModelState; readonly levelId: ElementId | null; readonly editReason: string | null; readonly send: (command: Command, label: string) => boolean }) {
+  const t = useEditorTranslate()
   const candidates = useMemo(() => derivedZoneCandidates(model, { levelId }), [model, levelId])
   if (candidates.length === 0) return null
   return (
-    <section className="flex flex-col gap-2 border-t pt-2" aria-label="Code zones from equipment" data-testid="spaces-code-zones">
-      <h3 className="text-xs font-medium text-muted-foreground">Code zones from equipment</h3>
+    <section className="flex flex-col gap-2 border-t pt-2" aria-label={t('spaces.codeZonesFromEquipment', 'Code zones from equipment', { ns: 'editor' })} data-testid="spaces-code-zones">
+      <h3 className="text-xs font-medium text-muted-foreground">{t('spaces.codeZonesFromEquipment', 'Code zones from equipment', { ns: 'editor' })}</h3>
       <ItemGroup>
         {candidates.map((c) => {
           const first = c.regions[0]
@@ -29,10 +31,10 @@ export function CodeZonesList({ model, levelId, editReason, send }: { readonly m
               <ItemContent>
                 <ItemTitle>
                   {first?.name ?? c.label} {c.hostLabel}
-                  {c.zoneId ? <Badge variant="secondary">Zone</Badge> : null}
+                  {c.zoneId ? <Badge variant="secondary">{t('spaces.zoneBadge', 'Zone', { ns: 'editor' })}</Badge> : null}
                 </ItemTitle>
                 <ItemDescription>
-                  {highFt !== null ? `Up to ${highFt} ft above it, ends at a suspended ceiling or the structure` : c.label}
+                  {highFt !== null ? t('spaces.codeZoneUpTo', 'Up to {{feet}} ft above it, ends at a suspended ceiling or the structure', { ns: 'editor', feet: highFt }) : c.label}
                   {first?.cite ? ` · ${first.cite}` : ''}
                 </ItemDescription>
               </ItemContent>
@@ -42,12 +44,12 @@ export function CodeZonesList({ model, levelId, editReason, send }: { readonly m
                     size="sm"
                     variant="outline"
                     disabled={editReason !== null}
-                    title={editReason ?? 'Keep it as a zone in the list; it follows the equipment when it moves'}
-                    onClick={() => send({ type: 'accept_derived_zone', zoneId: newElementId('zone'), hostId: c.hostId, rule: c.rule }, 'Keep code zone')}
+                    title={editReason ?? t('spaces.keepCodeZoneWhy', 'Keep it as a zone in the list; it follows the equipment when it moves', { ns: 'editor' })}
+                    onClick={() => send({ type: 'accept_derived_zone', zoneId: newElementId('zone'), hostId: c.hostId, rule: c.rule }, t('spaces.keepCodeZone', 'Keep code zone', { ns: 'editor' }))}
                     data-testid="spaces-code-zone-keep"
                   >
                     <ShieldCheck data-icon="inline-start" />
-                    Keep as a zone
+                    {t('spaces.keepAsZone', 'Keep as a zone', { ns: 'editor' })}
                   </Button>
                 )}
               </ItemActions>

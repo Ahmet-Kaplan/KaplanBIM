@@ -17,6 +17,7 @@ import { ToggleGroup, ToggleGroupItem } from '../../ui/toggle-group'
 import { newElementId } from '../placement'
 import { EstimateCountingField } from '../loads-policy/EstimateCountingField'
 import { SpaceLoadsSections } from '../contributions/space-loads-sections'
+import { useEditorTranslate } from '../i18n/translate'
 import {
   addLoadCommand,
   editLoadCommand,
@@ -28,6 +29,8 @@ import {
   removeLoadCommand,
   scopeFigures,
   scopeLoads,
+  scopeNoun,
+  scopeWord,
   type LoadBasisChoice,
   type LoadDraft,
   type LoadQuantityId,
@@ -57,17 +60,18 @@ const trimNumber = (v: number) => String(Math.round(v * 1000) / 1000)
  * goes through the one edit path with Undo; Esc closes with nothing changed.
  */
 export function SpaceLoadsDialog({ scope, model, canEdit, blockedReason, submit, onClose, projectId }: Props) {
+  const t = useEditorTranslate()
   const [draft, setDraft] = useState<LoadDraft>(BLANK)
   const [editing, setEditing] = useState<ScopeLoadRow | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [removing, setRemoving] = useState<ScopeLoadRow | null>(null)
 
-  const rows = useMemo(() => (scope ? scopeLoads(model, scope) : []), [model, scope])
+  const rows = useMemo(() => (scope ? scopeLoads(model, scope, t) : []), [model, scope, t])
   const figures = useMemo(() => (scope ? scopeFigures(model, scope) : null), [model, scope])
   const q = loadQuantity(draft.quantityId)
-  const library = scope && draft.basis === 'density' ? libraryDensity(model, scope, q, draft.name) : null
+  const library = scope && draft.basis === 'density' ? libraryDensity(model, scope, q, draft.name, t) : null
   const editReason = canEdit ? null : blockedReason
-  const densityReason = q.density ? null : `${q.label} loads are typed as a total, not per square foot.`
+  const densityReason = q.density ? null : t('spaces.loadsAreTotals', '{{kind}} loads are typed as a total, not per square foot.', { ns: 'editor', kind: q.label(t) })
 
   const reset = () => {
     setDraft(BLANK)
@@ -82,19 +86,19 @@ export function SpaceLoadsDialog({ scope, model, canEdit, blockedReason, submit,
 
   const setBasis = (basis: LoadBasisChoice) => {
     if (basis === 'density' && scope) {
-      const lib = libraryDensity(model, scope, q, draft.name)
-      setDraft((d) => ({ ...d, basis, amount: typeof lib === 'string' ? '' : trimNumber(lib.typed) }))
-    } else setDraft((d) => ({ ...d, basis, amount: '' }))
+      const lib = libraryDensity(model, scope, q, draft.name, t)
+      setDraft((current) => ({ ...current, basis, amount: typeof lib === 'string' ? '' : trimNumber(lib.typed) }))
+    } else setDraft((current) => ({ ...current, basis, amount: '' }))
   }
   const setQuantity = (quantityId: LoadQuantityId) => {
     const next = loadQuantity(quantityId)
-    setDraft((d) => ({ ...d, quantityId, basis: next.density ? d.basis : 'lump', amount: '' }))
+    setDraft((current) => ({ ...current, quantityId, basis: next.density ? current.basis : 'lump', amount: '' }))
   }
 
   const save = () => {
     if (!scope) return
     if (editing) {
-      const command = editLoadCommand(editing, draft)
+      const command = editLoadCommand(editing, draft, t)
       if (command === null) {
         reset()
         return
@@ -103,17 +107,17 @@ export function SpaceLoadsDialog({ scope, model, canEdit, blockedReason, submit,
         setNotice(command)
         return
       }
-      const refused = submit(command, `Change ${editing.name}`)
+      const refused = submit(command, t('spaces.changeNamed', 'Change {{name}}', { ns: 'editor', name: editing.name }))
       if (refused) setNotice(refused)
       else reset()
       return
     }
-    const command = addLoadCommand(scope, draft, newElementId('load'))
+    const command = addLoadCommand(scope, draft, newElementId('load'), t)
     if (typeof command === 'string') {
       setNotice(command)
       return
     }
-    const refused = submit(command, `Add ${draft.name.trim()} to ${scope.label}`)
+    const refused = submit(command, t('spaces.addNamedToScope', 'Add {{name}} to {{scope}}', { ns: 'editor', name: draft.name.trim(), scope: scope.label }))
     if (refused) setNotice(refused)
     else reset()
   }
@@ -124,23 +128,26 @@ export function SpaceLoadsDialog({ scope, model, canEdit, blockedReason, submit,
     setDraft({ name: row.name, quantityId: row.quantity.id, basis: row.basis, amount: trimNumber(row.typed) })
   }
 
-  const unit = draft.basis === 'density' ? q.density?.label ?? q.lump.label : q.lump.label
+  const unit = draft.basis === 'density' ? (q.density?.label(t) ?? q.lump.label(t)) : q.lump.label(t)
+  const scopeWords = scopeWord(scope?.kind ?? 'space', t)
 
   return (
     <>
-      <Dialog open={scope !== null} onOpenChange={(o) => !o && close()}>
+      <Dialog open={scope !== null} onOpenChange={(open) => !open && close()}>
         <DialogContent className="sm:max-w-xl" data-testid="space-loads-dialog">
           <DialogHeader>
-            <DialogTitle>Loads on {scope?.label}</DialogTitle>
-            <DialogDescription>{policyWords(model)}</DialogDescription>
+            <DialogTitle>{t('spaces.loadsOnNamed', 'Loads on {{scope}}', { ns: 'editor', scope: scope?.label ?? '' })}</DialogTitle>
+            <DialogDescription>{policyWords(model, t)}</DialogDescription>
           </DialogHeader>
-          {scope?.kind === 'space' && (
-            <EstimateCountingField model={model} spaceId={scope.id} canEdit={canEdit} blockedReason={blockedReason} submit={submit} />
-          )}
+          {scope?.kind === 'space' && <EstimateCountingField model={model} spaceId={scope.id} canEdit={canEdit} blockedReason={blockedReason} submit={submit} />}
 
           <p className="text-sm" data-testid="space-loads-figures">
-            {figures ? figuresLine(figures) : 'No estimate yet. Add the loads you know now; devices placed inside later count against them.'}
-            {figures && scope?.kind === 'zone' ? <span className="block text-xs text-muted-foreground">Includes the loads on the zone’s spaces; the list below is the zone’s own.</span> : null}
+            {figures
+              ? figuresLine(figures, t)
+              : t('spaces.noEstimateYet', 'No estimate yet. Add the loads you know now; devices placed inside later count against them.', { ns: 'editor' })}
+            {figures && scope?.kind === 'zone' ? (
+              <span className="block text-xs text-muted-foreground">{t('spaces.zoneIncludesSpaceLoads', 'Includes the loads on the zone’s spaces; the list below is the zone’s own.', { ns: 'editor' })}</span>
+            ) : null}
           </p>
           {scope?.kind === 'space' ? <SpaceLoadsSections model={model} spaceId={scope.id} projectId={projectId ?? null} /> : null}
 
@@ -150,19 +157,19 @@ export function SpaceLoadsDialog({ scope, model, canEdit, blockedReason, submit,
                 <EmptyMedia variant="icon">
                   <Zap />
                 </EmptyMedia>
-                <EmptyTitle>No loads on {scope?.label} yet</EmptyTitle>
-                <EmptyDescription>Type a total such as lighting 5 kW, or a density per square foot from the space’s use.</EmptyDescription>
+                <EmptyTitle>{t('spaces.noLoadsOnNamed', 'No loads on {{scope}} yet', { ns: 'editor', scope: scope?.label ?? '' })}</EmptyTitle>
+                <EmptyDescription>{t('spaces.typeATotalOrDensity', 'Type a total such as lighting 5 kW, or a density per square foot from the space’s use.', { ns: 'editor' })}</EmptyDescription>
               </EmptyHeader>
             </Empty>
           ) : (
             <Table data-testid="space-loads-table">
-              <TableCaption className="sr-only">Loads spread over {scope?.label}</TableCaption>
+              <TableCaption className="sr-only">{t('spaces.loadsSpreadOverNamed', 'Loads spread over {{scope}}', { ns: 'editor', scope: scope?.label ?? '' })}</TableCaption>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Load</TableHead>
-                  <TableHead>Amount</TableHead>
+                  <TableHead>{t('spaces.loadColumn', 'Load', { ns: 'editor' })}</TableHead>
+                  <TableHead>{t('spaces.amountColumn', 'Amount', { ns: 'editor' })}</TableHead>
                   <TableHead>
-                    <span className="sr-only">Actions</span>
+                    <span className="sr-only">{t('spaces.actions', 'Actions', { ns: 'editor' })}</span>
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -172,10 +179,24 @@ export function SpaceLoadsDialog({ scope, model, canEdit, blockedReason, submit,
                     <TableCell>{r.name}</TableCell>
                     <TableCell className="text-xs tabular-nums">{r.text}</TableCell>
                     <TableCell className="whitespace-nowrap text-right">
-                      <Button variant="ghost" size="icon-sm" aria-label={`Change ${r.name}`} title={editReason ?? undefined} disabled={editReason !== null} onClick={() => startEdit(r)}>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={t('spaces.changeNamed', 'Change {{name}}', { ns: 'editor', name: r.name })}
+                        title={editReason ?? undefined}
+                        disabled={editReason !== null}
+                        onClick={() => startEdit(r)}
+                      >
                         <Pencil />
                       </Button>
-                      <Button variant="ghost" size="icon-sm" aria-label={`Remove ${r.name}`} title={editReason ?? undefined} disabled={editReason !== null} onClick={() => setRemoving(r)}>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={t('spaces.removeNamed', 'Remove {{name}}', { ns: 'editor', name: r.name })}
+                        title={editReason ?? undefined}
+                        disabled={editReason !== null}
+                        onClick={() => setRemoving(r)}
+                      >
                         <Trash2 />
                       </Button>
                     </TableCell>
@@ -186,23 +207,30 @@ export function SpaceLoadsDialog({ scope, model, canEdit, blockedReason, submit,
           )}
 
           <FieldGroup className="gap-3 border-t pt-3">
-            <h3 className="text-sm font-medium">{editing ? `Change ${editing.name}` : 'Add a load'}</h3>
+            <h3 className="text-sm font-medium">
+              {editing ? t('spaces.changeNamed', 'Change {{name}}', { ns: 'editor', name: editing.name }) : t('spaces.addALoad', 'Add a load', { ns: 'editor' })}
+            </h3>
             <div className="grid grid-cols-2 gap-3">
               <Field>
-                <FieldLabel htmlFor="space-load-name">Name</FieldLabel>
-                <Input id="space-load-name" value={draft.name} maxLength={40} disabled={editReason !== null} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} data-testid="space-load-name" />
+                <FieldLabel htmlFor="space-load-name">{t('spaces.name', 'Name', { ns: 'editor' })}</FieldLabel>
+                <Input id="space-load-name" value={draft.name} maxLength={40} disabled={editReason !== null} onChange={(e) => setDraft((current) => ({ ...current, name: e.target.value }))} data-testid="space-load-name" />
               </Field>
               <Field>
-                <FieldLabel htmlFor="space-load-quantity">Kind</FieldLabel>
+                <FieldLabel htmlFor="space-load-quantity">{t('spaces.kind', 'Kind', { ns: 'editor' })}</FieldLabel>
                 <Select value={draft.quantityId} disabled={editReason !== null || editing !== null} onValueChange={(v) => setQuantity(LOAD_QUANTITIES.find((x) => x.id === v)?.id ?? 'power')}>
-                  <SelectTrigger id="space-load-quantity" aria-label="Kind of load" title={editing ? 'To change the kind, remove this load and add another.' : editReason ?? undefined} data-testid="space-load-quantity">
+                  <SelectTrigger
+                    id="space-load-quantity"
+                    aria-label={t('spaces.kindOfLoad', 'Kind of load', { ns: 'editor' })}
+                    title={editing ? t('spaces.toChangeKindRemoveFirst', 'To change the kind, remove this load and add another.', { ns: 'editor' }) : (editReason ?? undefined)}
+                    data-testid="space-load-quantity"
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
                       {LOAD_QUANTITIES.map((x) => (
                         <SelectItem key={x.id} value={x.id}>
-                          {x.label}
+                          {x.label(t)}
                         </SelectItem>
                       ))}
                     </SelectGroup>
@@ -211,24 +239,37 @@ export function SpaceLoadsDialog({ scope, model, canEdit, blockedReason, submit,
               </Field>
             </div>
             <Field>
-              <FieldLabel>Typed as</FieldLabel>
-              <ToggleGroup type="single" size="sm" variant="outline" value={draft.basis} disabled={editReason !== null} onValueChange={(v) => (v === 'lump' || v === 'density') && setBasis(v)} aria-label="Typed as a total or per square foot" data-testid="space-load-basis">
-                <ToggleGroupItem value="lump">Total</ToggleGroupItem>
-                <ToggleGroupItem value="density" disabled={densityReason !== null} title={densityReason ?? `Per square foot of the ${scope?.kind ?? 'space'}’s drawn area`}>
-                  Per sq ft
+              <FieldLabel>{t('spaces.typedAs', 'Typed as', { ns: 'editor' })}</FieldLabel>
+              <ToggleGroup
+                type="single"
+                size="sm"
+                variant="outline"
+                value={draft.basis}
+                disabled={editReason !== null}
+                onValueChange={(v) => (v === 'lump' || v === 'density') && setBasis(v)}
+                aria-label={t('spaces.typedAsTotalOrDensity', 'Typed as a total or per square foot', { ns: 'editor' })}
+                data-testid="space-load-basis"
+              >
+                <ToggleGroupItem value="lump">{t('spaces.total', 'Total', { ns: 'editor' })}</ToggleGroupItem>
+                <ToggleGroupItem
+                  value="density"
+                  disabled={densityReason !== null}
+                  title={densityReason ?? t('spaces.perSquareFootOfScope', 'Per square foot of {{scope}}’s drawn area', { ns: 'editor', scope: scopeWords })}
+                >
+                  {t('spaces.perSqFt', 'Per sq ft', { ns: 'editor' })}
                 </ToggleGroupItem>
               </ToggleGroup>
               {densityReason ? <FieldDescription>{densityReason}</FieldDescription> : null}
             </Field>
             <Field>
-              <FieldLabel htmlFor="space-load-amount">Amount</FieldLabel>
+              <FieldLabel htmlFor="space-load-amount">{t('spaces.amountColumn', 'Amount', { ns: 'editor' })}</FieldLabel>
               <InputGroup>
                 <InputGroupInput
                   id="space-load-amount"
                   inputMode="decimal"
                   value={draft.amount}
                   disabled={editReason !== null}
-                  onChange={(e) => setDraft((d) => ({ ...d, amount: e.target.value }))}
+                  onChange={(e) => setDraft((current) => ({ ...current, amount: e.target.value }))}
                   onKeyDown={(e) => e.key === 'Enter' && save()}
                   data-testid="space-load-amount"
                 />
@@ -237,9 +278,13 @@ export function SpaceLoadsDialog({ scope, model, canEdit, blockedReason, submit,
                 </InputGroupAddon>
               </InputGroup>
               {draft.basis === 'density' && library ? (
-                <FieldDescription data-testid="space-load-library">{typeof library === 'string' ? library : `From the space-use library: ${trimNumber(library.typed)} ${unit} (${library.source}).`}</FieldDescription>
+                <FieldDescription data-testid="space-load-library">
+                  {typeof library === 'string'
+                    ? library
+                    : t('spaces.fromTheLibrary', 'From the space-use library: {{amount}} {{unit}} ({{source}}).', { ns: 'editor', amount: trimNumber(library.typed), unit, source: library.source })}
+                </FieldDescription>
               ) : draft.quantityId === 'power' && draft.basis === 'lump' ? (
-                <FieldDescription>Counted as volt-amperes at unity power factor: 1 kW = 1,000 VA.</FieldDescription>
+                <FieldDescription>{t('spaces.countedAsVoltAmperes', 'Counted as volt-amperes at unity power factor: 1 kW = 1,000 VA.', { ns: 'editor' })}</FieldDescription>
               ) : null}
             </Field>
             {notice ? (
@@ -253,40 +298,40 @@ export function SpaceLoadsDialog({ scope, model, canEdit, blockedReason, submit,
           <DialogFooter>
             {editing ? (
               <Button variant="outline" onClick={reset}>
-                Cancel change
+                {t('spaces.cancelChange', 'Cancel change', { ns: 'editor' })}
               </Button>
             ) : (
               <Button variant="outline" onClick={close}>
-                Close
+                {t('spaces.close', 'Close', { ns: 'editor' })}
               </Button>
             )}
             <Button onClick={save} disabled={editReason !== null} title={editReason ?? undefined} data-testid="space-load-save">
               {editing ? null : <Plus data-icon="inline-start" />}
-              {editing ? 'Save change' : 'Add load'}
+              {editing ? t('spaces.saveChange', 'Save change', { ns: 'editor' }) : t('spaces.addLoad', 'Add load', { ns: 'editor' })}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={removing !== null} onOpenChange={(o) => !o && setRemoving(null)}>
+      <AlertDialog open={removing !== null} onOpenChange={(open) => !open && setRemoving(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove {removing?.name} from {scope?.label}?</AlertDialogTitle>
-            <AlertDialogDescription>The estimate comes off the {scope?.kind ?? 'space'} and out of every total. Devices already placed stay. Undo puts it back.</AlertDialogDescription>
+            <AlertDialogTitle>{t('spaces.removeNamedFromScope', 'Remove {{name}} from {{scope}}?', { ns: 'editor', name: removing?.name ?? '', scope: scope?.label ?? '' })}</AlertDialogTitle>
+            <AlertDialogDescription>{t('spaces.removeLoadWhat', 'The estimate comes off the {{scope}} and out of every total. Devices already placed stay. Undo puts it back.', { ns: 'editor', scope: scopeNoun(scope?.kind ?? 'space', t) })}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep it</AlertDialogCancel>
+            <AlertDialogCancel>{t('spaces.keepIt', 'Keep it', { ns: 'editor' })}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (removing && scope) {
-                  const refused = submit(removeLoadCommand(removing), `Remove ${removing.name} from ${scope.label}`)
+                  const refused = submit(removeLoadCommand(removing), t('spaces.removeNamedFromNamed', 'Remove {{name}} from {{scope}}', { ns: 'editor', name: removing.name, scope: scope.label }))
                   setNotice(refused)
                   if (!refused && editing?.id === removing.id) reset()
                 }
                 setRemoving(null)
               }}
             >
-              Remove
+              {t('spaces.remove', 'Remove', { ns: 'editor' })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

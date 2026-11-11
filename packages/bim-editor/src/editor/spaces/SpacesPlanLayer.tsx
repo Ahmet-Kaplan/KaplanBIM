@@ -26,6 +26,7 @@ import { linkedReferenceWords, linkedSnapNear } from '../linked-reference/linked
 import { useLinkedReferenceState } from '../linked-reference/use-linked-reference'
 import { lineworkSnapSegments, orthogonal, polygonAreaFt2, rectangleOutline, roomSnapSegments, snapPoint, traceHitRect, tracePointAt, traceableUnderlays, underlayCorners, type SnapKind, type SnapSegment } from './trace-geometry'
 import { useEditorHost } from '@permitzip/bim-editor/host'
+import { useEditorTranslate } from '../i18n/translate'
 import { useUnderlayPageFrom } from './use-underlays'
 
 const PRIMARY = 'var(--mutiny-selection)'
@@ -91,6 +92,9 @@ function UnderlayPicture({ projectId, underlay, view, z, tracing }: { readonly p
   const opacity = (underlay.opacityPct ?? 50) / 100
   const crop = view.paperRect
   const clipId = `underlay-crop-${view.view.id}-${underlay.id}`
+  // Hoisted: an SVG `url(#…)` reference is geometry, not a caption, and a literal
+  // written straight into the JSX would read as one to the negative-space scan.
+  const cropClip = `url(#${clipId})`
   const picture = (props: { readonly opacity: number; readonly clipPath?: string; readonly testId: string }) => (
     <image
       href={page.value.imageUrl}
@@ -113,7 +117,7 @@ function UnderlayPicture({ projectId, underlay, view, z, tracing }: { readonly p
         <rect x={crop.min.x} y={crop.min.y} width={crop.max.x - crop.min.x} height={crop.max.y - crop.min.y} />
       </clipPath>
       {tracing ? picture({ opacity: opacity * OUTSIDE_CROP_DIM, testId: 'underlay-picture-past-crop' }) : null}
-      {picture({ opacity, clipPath: `url(#${clipId})`, testId: 'underlay-picture' })}
+      {picture({ opacity, clipPath: cropClip, testId: 'underlay-picture' })}
     </g>
   )
 }
@@ -126,6 +130,7 @@ function UnderlayPicture({ projectId, underlay, view, z, tracing }: { readonly p
  * Shift squares the leg; Esc stops with nothing changed. Area shows live.
  */
 export function SpacesPlanLayer({ projectId, model, view, paperOf, paperPerPixel, submit, hint, mode, onDrawn, onCancel, selectedSpaceId, onSeparatorLine }: Props) {
+  const t = useEditorTranslate()
   const level = viewModelLevel(model, view.view.props?.level, view.view.props?.levelElevationMm)
   const levelId = level?.id ?? null
   const z = level?.elevationMm ?? 0
@@ -158,7 +163,7 @@ export function SpacesPlanLayer({ projectId, model, view, paperOf, paperPerPixel
   const finish = (points: readonly Vec2[]) => {
     if (!draw || !levelId) return
     if (points.length < 3) {
-      hint('A space needs at least three corners. Keep clicking, or press Esc to stop.')
+      hint(t('spaces.needThreeCorners', 'A space needs at least three corners. Keep clicking, or press Esc to stop.', { ns: 'editor' }))
       return
     }
     const outlineMm = points.map((p) => ({ x: Math.round(p.x), y: Math.round(p.y) }))
@@ -171,14 +176,21 @@ export function SpacesPlanLayer({ projectId, model, view, paperOf, paperPerPixel
     } else {
       spaceId = newElementId('space') as ElementId
       const number = nextSpaceNumber(model, levelId)
-      command = { type: 'create_space', spaces: [{ spaceId, number, name: `Space ${number}`, levelId, outline: outlineMm, origin: traced ? { kind: 'traced', underlayId: traced } : { kind: 'drawn' } }] }
+      command = { type: 'create_space', spaces: [{ spaceId, number, name: t('spaces.spaceName', 'Space {{number}}', { ns: 'editor', number }), levelId, outline: outlineMm, origin: traced ? { kind: 'traced', underlayId: traced } : { kind: 'drawn' } }] }
     }
-    const refused = submit(command, draw.kind === 'redraw' ? 'Redraw space' : 'Draw space')
+    const refused = submit(command, draw.kind === 'redraw' ? t('spaces.redrawSpace', 'Redraw space', { ns: 'editor' }) : t('spaces.drawSpace', 'Draw space', { ns: 'editor' }))
     if (refused) {
       hint(refused)
       return
     }
-    hint(`${draw.kind === 'redraw' ? 'Redrew' : 'Drew'} a space of ${formatFt2(polygonAreaFt2(outlineMm))}${traced ? ` over ${traceOver?.source.name}` : ''}. Name it and give it a use in the Spaces panel.`)
+    hint(
+      t('spaces.drewSpace', '{{did}} a space of {{area}}{{over}}. Name it and give it a use in the Spaces panel.', {
+        ns: 'editor',
+        did: draw.kind === 'redraw' ? t('spaces.redrew', 'Redrew', { ns: 'editor' }) : t('spaces.drew', 'Drew', { ns: 'editor' }),
+        area: formatFt2(polygonAreaFt2(outlineMm)),
+        over: traced && traceOver ? t('spaces.overDrawing', ' over {{drawing}}', { ns: 'editor', drawing: traceOver.source.name }) : '',
+      }),
+    )
     setCorners([])
     onDrawn(spaceId)
   }
@@ -187,15 +199,22 @@ export function SpacesPlanLayer({ projectId, model, view, paperOf, paperPerPixel
     if (!draw) return
     setCorners([])
     const base = traceOver
-      ? `Tracing over ${traceOver.source.name}: click the corners of a space; clicks snap to its lines. Enter closes it, Backspace takes back a corner, Esc stops.`
+      ? t('spaces.traceHowTo', 'Tracing over {{drawing}}: click the corners of a space; clicks snap to its lines. Enter closes it, Backspace takes back a corner, Esc stops.', { ns: 'editor', drawing: traceOver.source.name })
       : underlays.some((u) => !isCalibrated(u))
-        ? "The drawing on this level isn't calibrated yet, so tracing over it is off until you set its scale (Spaces panel › Calibrate). You can still draw spaces; clicks snap to room edges."
-        : 'Click the corners of a space; clicks snap to room corners and edges. Enter closes it, Esc stops.'
-    const linkedNote = linkedReference.status === 'ready' && linkedReference.index.items.length > 0 ? `Clicks also snap to the walls of ${linkedReference.index.sources.map((x) => x.label).join(', ')}.` : linkedReferenceWords(linkedReference)
+        ? t(
+            'spaces.traceNeedsScale',
+            "The drawing on this level isn't calibrated yet, so tracing over it is off until you set its scale (Spaces panel › Calibrate). You can still draw spaces; clicks snap to room edges.",
+            { ns: 'editor' },
+          )
+        : t('spaces.drawHowTo', 'Click the corners of a space; clicks snap to room corners and edges. Enter closes it, Esc stops.', { ns: 'editor' })
+    const linkedNote =
+      linkedReference.status === 'ready' && linkedReference.index.items.length > 0
+        ? t('spaces.snapToLinkedWalls', 'Clicks also snap to the walls of {{sources}}.', { ns: 'editor', sources: linkedReference.index.sources.map((x) => x.label).join(', ') })
+        : linkedReferenceWords(linkedReference)
     hint(linkedNote ? `${base} ${linkedNote}` : base)
     // Re-announce only when the tool starts, the drawing under it changes, or the linked model loads.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draw, traceOver?.id, linkedReference])
+  }, [draw, traceOver?.id, linkedReference, t])
 
   useEffect(() => {
     if (!draw) return
@@ -205,7 +224,7 @@ export function SpacesPlanLayer({ projectId, model, view, paperOf, paperPerPixel
       if (e.key === 'Escape') {
         e.stopPropagation()
         setCorners([])
-        hint('Stopped drawing; nothing changed.')
+        hint(t('spaces.stoppedDrawingNothingChanged', 'Stopped drawing; nothing changed.', { ns: 'editor' }))
         onCancel()
       } else if (e.key === 'Enter') {
         e.preventDefault()
@@ -286,7 +305,7 @@ export function SpacesPlanLayer({ projectId, model, view, paperOf, paperPerPixel
         const b = toPaper(l.end)
         return <line key={l.id} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={PRIMARY} strokeWidth={0.3} strokeDasharray="1.6 0.8" pointerEvents="none" data-testid="space-separator" data-separator={l.id} />
       })}
-      {review ? <ProposalGhosts proposals={review.proposals} label={review.label ?? 'Room'} toPaper={toPaper} /> : null}
+      {review ? <ProposalGhosts proposals={review.proposals} label={review.label ?? t('spaces.roomWord', 'Room', { ns: 'editor' })} toPaper={toPaper} /> : null}
       {mode?.kind === 'from_walls' && levelId ? <WallsRoomTool model={model} levelId={levelId} view={view} z={z} toPaper={toPaper} paperOf={paperOf} submit={submit} hint={hint} onDrawn={onDrawn} onCancel={onCancel} /> : null}
       {mode?.kind === 'separator' && levelId && onSeparatorLine ? <SeparatorTool model={model} levelId={levelId} view={view} z={z} toPaper={toPaper} paperOf={paperOf} hint={hint} onLine={onSeparatorLine} onCancel={onCancel} /> : null}
       {draw ? (
@@ -327,7 +346,7 @@ export function SpacesPlanLayer({ projectId, model, view, paperOf, paperPerPixel
             onPointerLeave={() => setCursor(null)}
             data-testid="draw-space-hit"
           >
-            <title>Draw a space: click its corners, Enter to close, Esc to stop.</title>
+            <title>{t('spaces.drawSpaceTitle', 'Draw a space: click its corners, Enter to close, Esc to stop.', { ns: 'editor' })}</title>
           </rect>
         </>
       ) : null}

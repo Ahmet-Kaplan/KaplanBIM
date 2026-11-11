@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { previewRoomFromWalls, spaceAt, type Command, type ElementId, type ModelState, type Vec2, type ViewOnPaper } from '@permitzip/bim-kernel'
 import { newElementId } from '../placement'
+import { englishOnly, useEditorTranslate, type Translate } from '../i18n/translate'
 import { formatFt2, nextSpaceNumber } from './space-rows'
 import { tracePointAt } from './trace-geometry'
 
@@ -19,20 +20,22 @@ export type WallsRoomHover =
   | { readonly kind: 'taken'; readonly outline: readonly Vec2[]; readonly message: string }
   | { readonly kind: 'gap'; readonly message: string; readonly at: Vec2 | null; readonly elementId: ElementId | null }
 
-export function wallsRoomHover(model: ModelState, levelId: ElementId, seed: Vec2): WallsRoomHover {
+export function wallsRoomHover(model: ModelState, levelId: ElementId, seed: Vec2, t: Translate = englishOnly): WallsRoomHover {
   const found = previewRoomFromWalls(model.elements, levelId, seed)
   if (!found.ok) return { kind: 'gap', message: found.message, at: found.gap?.at ?? null, elementId: found.gap?.elementId ?? null }
   const there = spaceAt(model.elements, levelId, seed)
-  const label = there ? [there.name, there.number].filter((t) => t.trim() !== '').join(' ') : ''
-  if (there && there.bounds.kind === 'bounded') return { kind: 'taken', outline: found.outline, message: `${label || 'A space'} already fills this room` }
+  // The space's own label is model data (a name and a number), never a caption.
+  const label = there ? [there.name, there.number].filter((part) => part.trim() !== '').join(' ') : ''
+  if (there && there.bounds.kind === 'bounded')
+    return { kind: 'taken', outline: found.outline, message: t('spaces.roomAlreadyFilled', '{{space}} already fills this room', { ns: 'editor', space: label || t('spaces.aSpace', 'A space', { ns: 'editor' }) }) }
   return { kind: 'room', outline: found.outline, area: formatFt2(found.areaM2 * FT2_PER_M2) }
 }
 
 /** The command a click makes: a space bounded by the walls around the point, numbered on from the level's highest. */
-export function roomFromWallsCommand(model: ModelState, levelId: ElementId, seed: Vec2): { readonly command: Command; readonly spaceId: ElementId } {
+export function roomFromWallsCommand(model: ModelState, levelId: ElementId, seed: Vec2, t: Translate = englishOnly): { readonly command: Command; readonly spaceId: ElementId } {
   const spaceId = newElementId('space') as ElementId
   const number = nextSpaceNumber(model, levelId)
-  return { spaceId, command: { type: 'place_space_in_walls', spaceId, levelId, seed: { x: Math.round(seed.x), y: Math.round(seed.y) }, number, name: `Space ${number}` } }
+  return { spaceId, command: { type: 'place_space_in_walls', spaceId, levelId, seed: { x: Math.round(seed.x), y: Math.round(seed.y) }, number, name: t('spaces.spaceName', 'Space {{number}}', { ns: 'editor', number }) } }
 }
 
 interface Props {
@@ -54,22 +57,24 @@ interface Props {
  * are open and rings the loose end; a click there changes nothing. Esc stops.
  */
 export function WallsRoomTool({ model, levelId, view, z, toPaper, paperOf, submit, hint, onDrawn, onCancel }: Props) {
+  const t = useEditorTranslate()
   const [at, setAt] = useState<Vec2 | null>(null)
   const key = at ? `${Math.round(at.x / HOVER_STEP_MM)},${Math.round(at.y / HOVER_STEP_MM)}` : null
   // eslint-disable-next-line react-hooks/exhaustive-deps -- re-asked per hover step, not per pixel
-  const hover = useMemo(() => (at ? wallsRoomHover(model, levelId, at) : null), [model, levelId, key])
+  const hover = useMemo(() => (at ? wallsRoomHover(model, levelId, at, t) : null), [model, levelId, key, t])
+  const hoverTitle = t('spaces.roomFromWallsTitle', 'Room from walls: click inside the walls of a room. Esc stops.', { ns: 'editor' })
 
   useEffect(() => {
-    hint('Room from walls: hover inside the walls to see the room and its area, click to make it. Esc stops.')
+    hint(t('spaces.roomFromWallsHowTo', 'Room from walls: hover inside the walls to see the room and its area, click to make it. Esc stops.', { ns: 'editor' }))
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
       e.stopPropagation()
-      hint('Stopped; nothing changed.')
+      hint(t('spaces.stoppedNothingChanged', 'Stopped; nothing changed.', { ns: 'editor' }))
       onCancel()
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [hint, onCancel])
+  }, [hint, onCancel, t])
 
   const aim = (e: React.PointerEvent<SVGElement>): Vec2 | null => {
     const p = paperOf(e)
@@ -83,18 +88,18 @@ export function WallsRoomTool({ model, levelId, view, z, toPaper, paperOf, submi
     e.stopPropagation()
     const seed = aim(e)
     if (!seed) return
-    const now = wallsRoomHover(model, levelId, seed)
+    const now = wallsRoomHover(model, levelId, seed, t)
     if (now.kind !== 'room') {
       hint(now.message)
       return
     }
-    const { command, spaceId } = roomFromWallsCommand(model, levelId, seed)
-    const refused = submit(command, 'Room from walls')
+    const { command, spaceId } = roomFromWallsCommand(model, levelId, seed, t)
+    const refused = submit(command, t('spaces.roomFromWallsCommand', 'Room from walls', { ns: 'editor' }))
     if (refused) {
       hint(refused)
       return
     }
-    hint(`Made a space of ${now.area} from the walls around it. Name it and give it a use in the Spaces panel.`)
+    hint(t('spaces.madeRoomFromWalls', 'Made a space of {{area}} from the walls around it. Name it and give it a use in the Spaces panel.', { ns: 'editor', area: now.area }))
     onDrawn(spaceId)
   }
 
@@ -131,7 +136,7 @@ export function WallsRoomTool({ model, levelId, view, z, toPaper, paperOf, submi
         onPointerLeave={() => setAt(null)}
         data-testid="walls-room-hit"
       >
-        <title>Room from walls: click inside the walls of a room. Esc stops.</title>
+        <title>{hoverTitle}</title>
       </rect>
     </g>
   )

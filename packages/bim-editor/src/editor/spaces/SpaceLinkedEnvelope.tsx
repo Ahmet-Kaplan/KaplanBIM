@@ -8,6 +8,7 @@ import { linkedPlanHeight, linkedReferenceWords } from '../linked-reference/link
 import { copyEnvelopeForLoads } from '../linked-reference/linked-copies-for-loads'
 import { useLinkedReferenceState } from '../linked-reference/use-linked-reference'
 import { feetInches, newElementId } from '../placement'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
 
 /**
  * A space's envelope as the linked building model shows it: the outside
@@ -34,11 +35,27 @@ function envelopeOf(index: LinkedReferenceIndex, zMm: number): LinkedEnvelope {
 
 const SQ_FT_PER_M2 = 10.7639
 
-const COMPASS = ['east', 'north-east', 'north', 'north-west', 'west', 'south-west', 'south', 'south-east'] as const
-
 /** The model's +y is plan north until the project's true north is set, so this says "plan" directions. */
-function facingWords(deg: number): string {
-  return COMPASS[Math.round(deg / 45) % 8] ?? 'east'
+function facingWords(deg: number, t: Translate): string {
+  const at = Math.round(deg / 45) % 8
+  switch (at) {
+    case 0:
+      return t('spaces.facingEast', 'east', { ns: 'editor' })
+    case 1:
+      return t('spaces.facingNorthEast', 'north-east', { ns: 'editor' })
+    case 2:
+      return t('spaces.facingNorth', 'north', { ns: 'editor' })
+    case 3:
+      return t('spaces.facingNorthWest', 'north-west', { ns: 'editor' })
+    case 4:
+      return t('spaces.facingWest', 'west', { ns: 'editor' })
+    case 5:
+      return t('spaces.facingSouthWest', 'south-west', { ns: 'editor' })
+    case 6:
+      return t('spaces.facingSouth', 'south', { ns: 'editor' })
+    default:
+      return t('spaces.facingSouthEast', 'south-east', { ns: 'editor' })
+  }
 }
 
 interface Props {
@@ -50,6 +67,7 @@ interface Props {
 }
 
 export function SpaceLinkedEnvelope({ model, spaceId, submit, editReason }: Props) {
+  const t = useEditorTranslate()
   const linked = useLinkedReferenceState()
   const [notice, setNotice] = useState<{ readonly tone: 'info' | 'error'; readonly text: string } | null>(null)
   const space = model.elements[spaceId]
@@ -73,33 +91,65 @@ export function SpaceLinkedEnvelope({ model, spaceId, submit, editReason }: Prop
       setNotice({ tone: 'info', text: outcome.message })
       return
     }
-    const refused = submit(outcome.command, 'Copy outside walls and windows for loads')
-    setNotice(refused ? { tone: 'error', text: refused } : { tone: 'info', text: `Copied ${outcome.walls} ${outcome.walls === 1 ? 'wall' : 'walls'} and ${outcome.openings} ${outcome.openings === 1 ? 'window or door' : 'windows and doors'} from the linked model. They stay in step with it: when it changes, Spaces lists them to update or keep.` })
+    const refused = submit(outcome.command, t('spaces.copyOutsideWallsCommand', 'Copy outside walls and windows for loads', { ns: 'editor' }))
+    setNotice(
+      refused
+        ? { tone: 'error', text: refused }
+        : {
+            tone: 'info',
+            text: t(
+              'spaces.copiedEnvelope',
+              'Copied {{walls}} {{wallWord}} and {{openings}} {{openingWord}} from the linked model. They stay in step with it: when it changes, Spaces lists them to update or keep.',
+              {
+                ns: 'editor',
+                walls: outcome.walls,
+                wallWord: outcome.walls === 1 ? t('spaces.wallOne', 'wall', { ns: 'editor' }) : t('spaces.wallMany', 'walls', { ns: 'editor' }),
+                openings: outcome.openings,
+                openingWord: outcome.openings === 1 ? t('spaces.openingOne', 'window or door', { ns: 'editor' }) : t('spaces.openingMany', 'windows and doors', { ns: 'editor' }),
+              },
+            ),
+          },
+    )
   }
 
   return (
     <div className="flex flex-col gap-1 text-xs" data-testid="space-linked-envelope">
-      <span className="font-medium text-muted-foreground">Outside walls and windows from the linked model</span>
+      <span className="font-medium text-muted-foreground">{t('spaces.outsideWallsFromLinkedModel', 'Outside walls and windows from the linked model', { ns: 'editor' })}</span>
       {words ? (
         <span className="text-muted-foreground">{words}</span>
       ) : !result || result.walls.length === 0 ? (
-        <span className="text-muted-foreground">No outside wall of the linked model runs along this space.</span>
+        <span className="text-muted-foreground">{t('spaces.noOutsideWallAlongSpace', 'No outside wall of the linked model runs along this space.', { ns: 'editor' })}</span>
       ) : (
         <>
           <span data-testid="space-linked-envelope-summary">
-            {result.walls.length} outside {result.walls.length === 1 ? 'wall' : 'walls'}, {feetInches(result.exteriorLengthMm)} long; {windows} {windows === 1 ? 'window' : 'windows'}, {(result.windowAreaM2 * SQ_FT_PER_M2).toFixed(1)} sq ft
+            {t('spaces.envelopeSummary', '{{walls}} outside {{wallWord}}, {{length}} long; {{windows}} {{windowWord}}, {{area}} sq ft', {
+              ns: 'editor',
+              walls: result.walls.length,
+              wallWord: result.walls.length === 1 ? t('spaces.wallOne', 'wall', { ns: 'editor' }) : t('spaces.wallMany', 'walls', { ns: 'editor' }),
+              length: feetInches(result.exteriorLengthMm),
+              windows,
+              windowWord: windows === 1 ? t('spaces.windowOne', 'window', { ns: 'editor' }) : t('spaces.windowMany', 'windows', { ns: 'editor' }),
+              area: (result.windowAreaM2 * SQ_FT_PER_M2).toFixed(1),
+            })}
           </span>
           <ul className="flex flex-col gap-0.5 text-muted-foreground">
             {result.walls.map((w) => (
               <li key={`${w.wall.sourceId}:${w.wall.globalId}`}>
-                Faces plan {facingWords(w.facingDeg)}: {feetInches(w.lengthMm)} of {w.name}
+                {t('spaces.envelopeWallLine', 'Faces plan {{facing}}: {{length}} of {{name}}', { ns: 'editor', facing: facingWords(w.facingDeg, t), length: feetInches(w.lengthMm), name: w.name })}
               </li>
             ))}
           </ul>
           <div>
-            <Button size="sm" variant="outline" onClick={copy} disabled={editReason !== null} title={editReason ?? 'Copies these walls, windows and doors into this model as walls and openings that load calculations read; each is kept in step with the linked model'} data-testid="space-linked-envelope-copy">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={copy}
+              disabled={editReason !== null}
+              title={editReason ?? t('spaces.copyEnvelopeWhy', 'Copies these walls, windows and doors into this model as walls and openings that load calculations read; each is kept in step with the linked model', { ns: 'editor' })}
+              data-testid="space-linked-envelope-copy"
+            >
               <Copy data-icon="inline-start" />
-              Copy into the model for loads
+              {t('spaces.copyEnvelope', 'Copy into the model for loads', { ns: 'editor' })}
             </Button>
           </div>
         </>

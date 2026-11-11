@@ -11,6 +11,7 @@ import { Input } from '../../ui/input'
 import { Skeleton } from '../../ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs'
 import { useEditorHost } from '@permitzip/bim-editor/host'
+import { englishOnly, useEditorTranslate, type Translate } from '../i18n/translate'
 import { useUnderlayPageFrom } from './use-underlays'
 
 interface Props {
@@ -24,14 +25,14 @@ interface Props {
 }
 
 /** A typed distance in feet and inches (24'-0", 24', 288") as millimetres, or why not. */
-export function distanceMm(text: string): number | string {
-  if (text.trim() === '') return 'Type the real distance between the two points, such as 24\'-0".'
+export function distanceMm(text: string, t: Translate = englishOnly): number | string {
+  if (text.trim() === '') return t('spaces.typeTheRealDistance', 'Type the real distance between the two points, such as 24\'-0".', { ns: 'editor' })
   try {
     const mm = parseToSI(text, 'length', PROFILE_US_FEET_INCHES) * 1000
-    return mm > 0 ? mm : 'The distance has to be more than zero.'
+    return mm > 0 ? mm : t('spaces.distanceAboveZero', 'The distance has to be more than zero.', { ns: 'editor' })
   } catch (err) {
     console.error('[CalibrateUnderlayDialog] reading the distance failed', { text, err })
-    return `"${text}" isn't a length this can read. Try 24'-0" or 7.3 m.`
+    return t('spaces.distanceUnreadable', '"{{typed}}" isn\'t a length this can read. Try 24\'-0" or 7.3 m.', { ns: 'editor', typed: text })
   }
 }
 
@@ -42,6 +43,7 @@ export function distanceMm(text: string): number | string {
  * says so.
  */
 export function CalibrateUnderlayDialog({ open, onOpenChange, projectId, underlay, modelAt, submit }: Props) {
+  const t = useEditorTranslate()
   const { page } = useUnderlayPageFrom(useEditorHost().data.underlays, projectId, open ? underlay : null)
   const [points, setPoints] = useState<Vec2[]>([])
   const [distance, setDistance] = useState('')
@@ -72,16 +74,27 @@ export function CalibrateUnderlayDialog({ open, onOpenChange, projectId, underla
     setPoints((prev) => (prev.length >= 2 ? [p] : [...prev, p]))
   }
 
-  const parsedDistance = distanceMm(distance)
-  const pointsReason = points.length < 2 ? `Click ${points.length === 0 ? 'two points' : 'the second point'} on the drawing.` : typeof parsedDistance === 'string' ? parsedDistance : null
-  const scaleReason = parseDrawingScale(scale) === null ? 'Write the scale as printed, such as 1/8" = 1\'-0" or 1:100.' : null
-  const reason = underlay.locked ? `${underlay.source.name} is locked. Unlock it in the Spaces panel to change its scale.` : tab === 'points' ? pointsReason : scaleReason
+  const parsedDistance = distanceMm(distance, t)
+  const pointsReason =
+    points.length < 2
+      ? points.length === 0
+        ? t('spaces.clickTwoPoints', 'Click two points on the drawing.', { ns: 'editor' })
+        : t('spaces.clickSecondPoint', 'Click the second point on the drawing.', { ns: 'editor' })
+      : typeof parsedDistance === 'string'
+        ? parsedDistance
+        : null
+  const scaleReason = parseDrawingScale(scale) === null ? t('spaces.writeTheScale', 'Write the scale as printed, such as 1/8" = 1\'-0" or 1:100.', { ns: 'editor' }) : null
+  const reason = underlay.locked
+    ? t('spaces.drawingLocked', '{{drawing}} is locked. Unlock it in the Spaces panel to change its scale.', { ns: 'editor', drawing: underlay.source.name })
+    : tab === 'points'
+      ? pointsReason
+      : scaleReason
 
   const save = () => {
     if (reason) return
     const calibration: Extract<Command, { type: 'calibrate_underlay' }>['calibration'] =
       tab === 'points' && points[0] && points[1] && typeof parsedDistance === 'number' ? { method: 'two_points', a: points[0], b: points[1], distanceMm: parsedDistance } : { method: 'stated_scale', scale }
-    const refused = submit({ type: 'calibrate_underlay', underlayId: underlay.id, calibration, ...(underlay.calibration ? {} : { modelAt }) }, 'Set drawing scale')
+    const refused = submit({ type: 'calibrate_underlay', underlayId: underlay.id, calibration, ...(underlay.calibration ? {} : { modelAt }) }, t('spaces.setDrawingScaleCommand', 'Set drawing scale', { ns: 'editor' }))
     if (refused) {
       setRefusal(refused)
       return
@@ -93,14 +106,14 @@ export function CalibrateUnderlayDialog({ open, onOpenChange, projectId, underla
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-3xl" data-testid="calibrate-underlay-dialog">
         <DialogHeader>
-          <DialogTitle>Set the scale of {underlay.source.name}</DialogTitle>
-          <DialogDescription>Tracing over it stays off until it has a scale, so spaces come out the right size.</DialogDescription>
+          <DialogTitle>{t('spaces.setTheScaleOf', 'Set the scale of {{drawing}}', { ns: 'editor', drawing: underlay.source.name })}</DialogTitle>
+          <DialogDescription>{t('spaces.tracingOffUntilScale', 'Tracing over it stays off until it has a scale, so spaces come out the right size.', { ns: 'editor' })}</DialogDescription>
         </DialogHeader>
         <Tabs value={tab} onValueChange={(v) => setTab(v === 'scale' ? 'scale' : 'points')}>
           <TabsList>
-            <TabsTrigger value="points">Two points and a distance</TabsTrigger>
-            <TabsTrigger value="scale" disabled={underlay.source.format !== 'pdf'} title={underlay.source.format !== 'pdf' ? 'A picture has no printed size; use two points.' : undefined}>
-              Printed scale
+            <TabsTrigger value="points">{t('spaces.twoPointsAndDistance', 'Two points and a distance', { ns: 'editor' })}</TabsTrigger>
+            <TabsTrigger value="scale" disabled={underlay.source.format !== 'pdf'} title={underlay.source.format !== 'pdf' ? t('spaces.pictureHasNoPrintedSize', 'A picture has no printed size; use two points.', { ns: 'editor' }) : undefined}>
+              {t('spaces.printedScale', 'Printed scale', { ns: 'editor' })}
             </TabsTrigger>
           </TabsList>
           <TabsContent value="points" className="flex flex-col gap-3">
@@ -108,7 +121,7 @@ export function CalibrateUnderlayDialog({ open, onOpenChange, projectId, underla
               <Skeleton className="h-80" aria-busy="true" />
             ) : page.state === 'error' ? (
               <Alert variant="destructive">
-                <AlertTitle>The drawing didn’t load</AlertTitle>
+                <AlertTitle>{t('spaces.drawingDidntLoad', 'The drawing didn’t load', { ns: 'editor' })}</AlertTitle>
                 <AlertDescription>{page.message}</AlertDescription>
               </Alert>
             ) : (
@@ -124,34 +137,38 @@ export function CalibrateUnderlayDialog({ open, onOpenChange, projectId, underla
               </div>
             )}
             <Field data-invalid={points.length >= 2 && typeof parsedDistance === 'string' && distance !== ''}>
-              <FieldLabel htmlFor="calibrate-distance">Real distance between the two points</FieldLabel>
+              <FieldLabel htmlFor="calibrate-distance">{t('spaces.realDistanceBetweenPoints', 'Real distance between the two points', { ns: 'editor' })}</FieldLabel>
               <Input id="calibrate-distance" placeholder={`24'-0"`} value={distance} onChange={(e) => setDistance(e.target.value)} className="w-40" data-testid="calibrate-distance" />
-              <FieldDescription>{points.length < 2 ? `${points.length} of 2 points picked. Both ends of a dimension string work best.` : 'Click again to start over.'}</FieldDescription>
+              <FieldDescription>
+                {points.length < 2
+                  ? t('spaces.pointsPickedOfTwo', '{{count}} of 2 points picked. Both ends of a dimension string work best.', { ns: 'editor', count: points.length })
+                  : t('spaces.clickAgainToStartOver', 'Click again to start over.', { ns: 'editor' })}
+              </FieldDescription>
               {points.length >= 2 && distance !== '' && typeof parsedDistance === 'string' ? <FieldError>{parsedDistance}</FieldError> : null}
             </Field>
           </TabsContent>
           <TabsContent value="scale">
             <Field data-invalid={scaleReason !== null}>
-              <FieldLabel htmlFor="calibrate-scale">Scale printed on the sheet</FieldLabel>
+              <FieldLabel htmlFor="calibrate-scale">{t('spaces.scalePrintedOnSheet', 'Scale printed on the sheet', { ns: 'editor' })}</FieldLabel>
               <Input id="calibrate-scale" value={scale} onChange={(e) => setScale(e.target.value)} className="w-48" data-testid="calibrate-scale" />
-              <FieldDescription>Only right when the PDF is the original sheet size (not shrunk to fit a page). If unsure, use two points.</FieldDescription>
+              <FieldDescription>{t('spaces.scaleOnlyForOriginalSize', 'Only right when the PDF is the original sheet size (not shrunk to fit a page). If unsure, use two points.', { ns: 'editor' })}</FieldDescription>
               {scaleReason ? <FieldError>{scaleReason}</FieldError> : null}
             </Field>
           </TabsContent>
         </Tabs>
         {refusal ? (
           <Alert variant="destructive" data-testid="calibrate-refusal">
-            <AlertTitle>The scale wasn’t set</AlertTitle>
+            <AlertTitle>{t('spaces.scaleWasntSet', 'The scale wasn’t set', { ns: 'editor' })}</AlertTitle>
             <AlertDescription>{refusal}</AlertDescription>
           </Alert>
         ) : null}
         <DialogFooter className="items-center">
           {reason ? <span className="mr-auto text-xs text-muted-foreground" data-testid="calibrate-reason">{reason}</span> : null}
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t('spaces.cancel', 'Cancel', { ns: 'editor' })}
           </Button>
           <Button onClick={save} disabled={reason !== null} title={reason ?? undefined} data-testid="calibrate-save">
-            Set scale
+            {t('spaces.setScale', 'Set scale', { ns: 'editor' })}
           </Button>
         </DialogFooter>
       </DialogContent>

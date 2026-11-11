@@ -11,6 +11,7 @@ import { acceptedWallRoomsCommand, proposeRoomsFromWalls } from './walls-rooms'
 import { linkedPlanHeight, linkedReferenceWords } from '../linked-reference/linked-reference-store'
 import { useLinkedReferenceState } from '../linked-reference/use-linked-reference'
 import { useEditorHost } from '@permitzip/bim-editor/host'
+import { useEditorTranslate } from '../i18n/translate'
 import { underlayLineworkFrom, underlayPageInfoFrom } from './use-underlays'
 import { useFireAreas } from './use-fire-areas'
 
@@ -49,7 +50,15 @@ export interface ProposeControls {
   /** Why Find rooms from walls is off, in words; null when it can run. */
   readonly wallsReason: string | null
   /** "Use the linked model's walls" for Find rooms from walls: shown when a model is linked, on by default. */
-  readonly linkedWalls: { readonly shown: boolean; readonly on: boolean; readonly toggle: () => void; /** Why they can't be used right now (still loading, failed), in words. */ readonly note: string | null }
+  readonly linkedWalls: {
+    readonly shown: boolean
+    readonly on: boolean
+    readonly toggle: () => void
+    /** Why they can't be used right now (still loading, failed), in words. */
+    readonly note: string | null
+    /** True while the linked model is still being read: the note is a "still reading" message, not a refusal. */
+    readonly reading: boolean
+  }
   readonly decide: (key: string, decision: ProposalDecision) => void
   readonly acceptAll: () => void
   /** Writes the accepted rooms as spaces in one undoable step; the refusal in words, or null. */
@@ -65,6 +74,7 @@ export interface ProposeControls {
  * Esc on the plan ends drawing or reviewing; closing a dialog changes nothing.
  */
 export function useSpacesTool({ projectId, model, levelId, levelName, submit, planCentre, currentModel }: Options) {
+  const t = useEditorTranslate()
   const underlays = useEditorHost().data.underlays
   const [mode, setMode] = useState<DrawSpaceMode | null>(null)
   const [addOpen, setAddOpen] = useState(false)
@@ -94,7 +104,13 @@ export function useSpacesTool({ projectId, model, levelId, levelName, submit, pl
     return () => window.removeEventListener('keydown', onKey)
   }, [reviewing])
 
-  const proposeReason = !levelId ? 'Open a floor plan to propose rooms on its level.' : !proposeFrom ? 'Add a drawing under this plan and set its scale first.' : mode !== null ? 'Stop drawing first.' : null
+  const proposeReason = !levelId
+    ? t('spaces.proposeNeedsPlan', 'Open a floor plan to propose rooms on its level.', { ns: 'editor' })
+    : !proposeFrom
+      ? t('spaces.proposeNeedsDrawing', 'Add a drawing under this plan and set its scale first.', { ns: 'editor' })
+      : mode !== null
+        ? t('spaces.stopDrawingFirst', 'Stop drawing first.', { ns: 'editor' })
+        : null
 
   const startPropose = useCallback(() => {
     if (!model || !levelId || !proposeFrom) return
@@ -102,46 +118,49 @@ export function useSpacesTool({ projectId, model, levelId, levelName, submit, pl
     const drawing = `${proposeFrom.source.name}${proposeFrom.source.page ? `, page ${proposeFrom.source.page}` : ''}`
     setProposeLevel(levelId)
     setPropose({ kind: 'loading', drawing })
-    underlayPageInfoFrom(underlays, projectId, proposeFrom.source.ref, proposeFrom.source.page ?? 1)
+    underlayPageInfoFrom(underlays, projectId, proposeFrom.source.ref, proposeFrom.source.page ?? 1, t)
       .then((info) => {
         if (!info.lineworkUrl) {
-          setPropose({ kind: 'error', message: `${drawing} has no drawn lines to read (it is a scanned picture). Draw the spaces with Draw space.` })
+          setPropose({ kind: 'error', message: t('spaces.drawingHasNoLines', '{{drawing}} has no drawn lines to read (it is a scanned picture). Draw the spaces with Draw space.', { ns: 'editor', drawing }) })
           return null
         }
-        return underlayLineworkFrom(underlays, info.lineworkUrl)
+        return underlayLineworkFrom(underlays, info.lineworkUrl, t)
       })
       .then((linework) => {
         if (!linework) return
         const now = latest() ?? model
-        const outcome = proposeRooms(now, levelId, proposeFrom, linework)
+        const outcome = proposeRooms(now, levelId, proposeFrom, linework, t)
         if (outcome.kind === 'review') setPropose({ kind: 'review', drawing, underlayId: proposeFrom.id, proposals: outcome.proposals, alreadySpaces: outcome.alreadySpaces })
         else setPropose(outcome)
       })
       .catch((err: unknown) => {
         console.error('[use-spaces-tool] proposing rooms failed', { projectId, underlayId: proposeFrom.id, err })
-        setPropose({ kind: 'error', message: `The drawing’s lines didn’t load: ${err instanceof Error ? err.message : String(err)}` })
+        setPropose({ kind: 'error', message: t('spaces.drawingLinesFailed', 'The drawing’s lines didn’t load: {{reason}}', { ns: 'editor', reason: err instanceof Error ? err.message : String(err) }) })
       })
-  }, [underlays, model, levelId, proposeFrom, projectId, currentModel])
+  }, [underlays, model, levelId, proposeFrom, projectId, currentModel, t])
 
-  const wallsReason = !levelId ? 'Open a floor plan to find the rooms its walls close.' : mode !== null ? 'Stop drawing first.' : null
+  const wallsReason = !levelId ? t('spaces.openPlanForWalls', 'Open a floor plan to find the rooms its walls close.', { ns: 'editor' }) : mode !== null ? t('spaces.stopDrawingFirst', 'Stop drawing first.', { ns: 'editor' }) : null
   const linkedReference = useLinkedReferenceState()
   const [useLinkedWalls, setUseLinkedWalls] = useState(true)
   const linkedShown = linkedReference.status !== 'none'
-  const linkedNote = linkedReference.status === 'ready' && !linkedReference.index.items.some((i) => i.rule.boundsRooms) ? `${linkedReference.index.sources.map((x) => x.label).join(', ')} has no walls that bound rooms.` : linkedReferenceWords(linkedReference)
+  const linkedNote =
+    linkedReference.status === 'ready' && !linkedReference.index.items.some((i) => i.rule.boundsRooms)
+      ? t('spaces.linkedHasNoBoundWalls', '{{sources}} has no walls that bound rooms.', { ns: 'editor', sources: linkedReference.index.sources.map((x) => x.label).join(', ') })
+      : linkedReferenceWords(linkedReference)
   const startFromWalls = useCallback(() => {
     const now = currentModel?.() ?? model
     if (!now || !levelId) return
     setProposeLevel(levelId)
     const zMm = linkedPlanHeight(now, levelId)
     const linked = useLinkedWalls && linkedReference.status === 'ready' && zMm !== null ? { index: linkedReference.index, zMm } : null
-    const outcome = proposeRoomsFromWalls(now, levelId, linked)
-    const own = `the walls on ${levelName ?? 'this level'}`
+    const outcome = proposeRoomsFromWalls(now, levelId, linked, t)
+    const own = t('spaces.theWallsOn', 'the walls on {{level}}', { ns: 'editor', level: levelName ?? t('spaces.thisLevel', 'this level', { ns: 'editor' }) })
     // Say plainly when the linked walls were wanted but couldn't be used.
     const linkedLabel = linked ? linked.index.sources.map((x) => x.label).join(', ') : null
-    const drawing = linkedLabel ? `${own} and ${linkedLabel}` : useLinkedWalls && linkedNote ? `${own} only (${linkedNote})` : own
+    const drawing = linkedLabel ? t('spaces.ownAndLinkedWalls', '{{own}} and {{linked}}', { ns: 'editor', own, linked: linkedLabel }) : useLinkedWalls && linkedNote ? t('spaces.ownWallsOnly', '{{own}} only ({{note}})', { ns: 'editor', own, note: linkedNote }) : own
     if (outcome.kind === 'review') setPropose({ kind: 'review', drawing, underlayId: null, proposals: outcome.proposals, alreadySpaces: 0, seeds: outcome.seeds, ...(outcome.linkedOutlines ? { linkedOutlines: outcome.linkedOutlines } : {}) })
     else setPropose({ kind: 'empty', message: useLinkedWalls && linkedNote && !linked ? `${outcome.message} ${linkedNote}` : outcome.message })
-  }, [model, levelId, levelName, currentModel, useLinkedWalls, linkedReference, linkedNote])
+  }, [model, levelId, levelName, currentModel, useLinkedWalls, linkedReference, linkedNote, t])
 
   const proposeControls = useMemo<ProposeControls>(
     () => ({
@@ -150,36 +169,43 @@ export function useSpacesTool({ projectId, model, levelId, levelName, submit, pl
       start: startPropose,
       startFromWalls,
       wallsReason,
-      linkedWalls: { shown: linkedShown, on: useLinkedWalls, toggle: () => setUseLinkedWalls((v) => !v), note: linkedNote },
+      linkedWalls: { shown: linkedShown, on: useLinkedWalls, toggle: () => setUseLinkedWalls((v) => !v), note: linkedNote, reading: linkedReference.status === 'loading' },
       decide: (key, decision) => setPropose((s) => (s.kind === 'review' ? { ...s, proposals: decide(s.proposals, key, decision) } : s)),
       acceptAll: () => setPropose((s) => (s.kind === 'review' ? { ...s, proposals: acceptAll(s.proposals) } : s)),
       commit: () => {
         const now = currentModel?.() ?? model
-        if (propose.kind !== 'review' || !now || !levelId) return 'Nothing to add.'
+        if (propose.kind !== 'review' || !now || !levelId) return t('spaces.nothingToAdd', 'Nothing to add.', { ns: 'editor' })
         if (propose.seeds) {
-          const fromWalls = acceptedWallRoomsCommand(now, levelId, propose.proposals, propose.seeds, propose.linkedOutlines)
-          if (!fromWalls) return 'Accept at least one room first.'
+          const fromWalls = acceptedWallRoomsCommand(now, levelId, propose.proposals, propose.seeds, propose.linkedOutlines, t)
+          if (!fromWalls) return t('spaces.acceptAtLeastOneRoom', 'Accept at least one room first.', { ns: 'editor' })
           const n = propose.proposals.filter((p) => p.decision === 'accepted').length
-          const refusedWalls = submit(fromWalls, n === 1 ? 'Add room from walls' : `Add ${n} rooms from walls`)
+          const refusedWalls = submit(fromWalls, n === 1 ? t('spaces.addRoomFromWalls', 'Add room from walls', { ns: 'editor' }) : t('spaces.addRoomsFromWallsCount', 'Add {{count}} rooms from walls', { ns: 'editor', count: n }))
           if (refusedWalls === null) setPropose({ kind: 'idle' })
           return refusedWalls
         }
-        if (!propose.underlayId) return 'The drawing was removed; propose the rooms again.'
+        if (!propose.underlayId) return t('spaces.drawingRemoved', 'The drawing was removed; propose the rooms again.', { ns: 'editor' })
         const u = now.elements[propose.underlayId]
-        if (u?.kind !== 'drawing_underlay') return 'The drawing was removed; propose the rooms again.'
-        const command = acceptedSpacesCommand(now, levelId, u, propose.proposals)
-        if (!command) return 'Accept at least one room first.'
+        if (u?.kind !== 'drawing_underlay') return t('spaces.drawingRemoved', 'The drawing was removed; propose the rooms again.', { ns: 'editor' })
+        const command = acceptedSpacesCommand(now, levelId, u, propose.proposals, t)
+        if (!command) return t('spaces.acceptAtLeastOneRoom', 'Accept at least one room first.', { ns: 'editor' })
         const accepted = propose.proposals.filter((p) => p.decision === 'accepted').length
-        const refused = submit(command, accepted === 1 ? 'Add proposed room' : `Add ${accepted} proposed rooms`)
+        const refused = submit(command, accepted === 1 ? t('spaces.addProposedRoom', 'Add proposed room', { ns: 'editor' }) : t('spaces.addProposedRoomsCount', 'Add {{count}} proposed rooms', { ns: 'editor', count: accepted }))
         if (refused === null) setPropose({ kind: 'idle' })
         return refused
       },
       cancel: cancelPropose,
     }),
-    [propose, proposeReason, startPropose, startFromWalls, wallsReason, linkedShown, useLinkedWalls, linkedNote, model, levelId, submit, cancelPropose, currentModel],
+    [propose, proposeReason, startPropose, startFromWalls, wallsReason, linkedShown, useLinkedWalls, linkedNote, linkedReference.status, model, levelId, submit, cancelPropose, currentModel, t],
   )
 
-  const fireAreas = useFireAreas({ model, levelId, submit, currentModel, busyReason: mode !== null ? 'Stop drawing first.' : propose.kind !== 'idle' ? 'Finish the room review open below first.' : null })
+  const fireAreas = useFireAreas({
+    model,
+    levelId,
+    submit,
+    currentModel,
+    busyReason:
+      mode !== null ? t('spaces.stopDrawingFirst', 'Stop drawing first.', { ns: 'editor' }) : propose.kind !== 'idle' ? t('spaces.finishRoomReview', 'Finish the room review open below first.', { ns: 'editor' }) : null,
+  })
   const fireOpen = fireAreas.state.kind !== 'idle'
   const closeFireAreas = fireAreas.close
   useEffect(() => {
@@ -191,9 +217,9 @@ export function useSpacesTool({ projectId, model, levelId, levelName, submit, pl
   const planMode = useMemo<DrawSpaceMode | null>(() => {
     if (propose.kind === 'review') return { kind: 'review', proposals: propose.proposals }
     if (fireState.kind === 'review')
-      return { kind: 'review', label: 'Fire area', proposals: fireState.rows.map((r) => ({ room: r.proposal, decision: r.decision === 'added' ? 'accepted' : r.decision === 'dismissed' ? 'rejected' : 'pending' })) }
+      return { kind: 'review', label: t('spaces.fireAreaWord', 'Fire area', { ns: 'editor' }), proposals: fireState.rows.map((r) => ({ room: r.proposal, decision: r.decision === 'added' ? 'accepted' : r.decision === 'dismissed' ? 'rejected' : 'pending' })) }
     return mode
-  }, [propose, fireState, mode])
+  }, [propose, fireState, mode, t])
 
   const panel = useMemo(
     () => ({

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Command, ElementId, ModelState, RatedZoneProposal } from '@permitzip/bim-kernel'
 import type { RatingKindRow } from '@permitzip/bim-kernel/rated-routes'
+import { useEditorTranslate } from '../i18n/translate'
 import type { RatedPick } from './fire-areas'
 
 // The finder and the rating kinds load on first use, off the Building Model's first download.
@@ -54,6 +55,7 @@ interface Options {
 
 /** The fire-area review's state: found off the render (its spinner shows), Esc closes, a plan change leaves it. */
 export function useFireAreas({ model, levelId, submit, currentModel, busyReason }: Options): FireAreaControls {
+  const t = useEditorTranslate()
   const [kinds, setKinds] = useState<readonly RatingKindRow[]>([])
   const [pick, setPickState] = useState<RatedPick | null>(null)
   const [raw, setRaw] = useState<FireAreasState>({ kind: 'idle' })
@@ -78,19 +80,19 @@ export function useFireAreas({ model, levelId, submit, currentModel, busyReason 
           setKinds(found)
           setPickState(chosen)
           if (!chosen) {
-            setRaw({ kind: 'empty', message: loaded.NO_RATING_KINDS })
+            setRaw({ kind: 'empty', message: loaded.noRatingKinds(t) })
             return
           }
-          const outcome = loaded.proposeFireAreas(now, levelId, chosen)
+          const outcome = loaded.proposeFireAreas(now, levelId, chosen, t)
           setRaw(outcome.kind === 'review' ? { kind: 'review', rows: outcome.proposals.map((proposal) => ({ proposal, decision: 'pending' })), alreadyZones: outcome.alreadyZones } : outcome)
         })
         .catch((err: unknown) => {
           if (ticket !== run.current) return
           console.error('[use-fire-areas] finding fire areas failed', { levelId, pick: wanted, err })
-          setRaw({ kind: 'error', message: `The fire areas couldn’t be found: ${err instanceof Error ? err.message : String(err)}` })
+          setRaw({ kind: 'error', message: t('spaces.fireAreasNotFound', 'The fire areas couldn’t be found: {{reason}}', { ns: 'editor', reason: err instanceof Error ? err.message : String(err) }) })
         })
     },
-    [model, levelId, currentModel],
+    [model, levelId, currentModel, t],
   )
 
   const close = useCallback(() => {
@@ -108,16 +110,16 @@ export function useFireAreas({ model, levelId, submit, currentModel, busyReason 
     return () => window.removeEventListener('keydown', onKey)
   }, [open, close])
 
-  const reason = !levelId ? 'Open a floor plan to find the fire areas on its level.' : busyReason
+  const reason = !levelId ? t('spaces.openPlanForFireAreas', 'Open a floor plan to find the fire areas on its level.', { ns: 'editor' }) : busyReason
 
   const add = useCallback(
-    (keys: ReadonlySet<string>, label: (n: number) => string): string | null => {
+    (keys: ReadonlySet<string>, label: (count: number) => string): string | null => {
       const now = currentModel?.() ?? model
       const loaded = lib.current
-      if (state.kind !== 'review' || !now || !levelId || !loaded) return 'Nothing to add.'
+      if (state.kind !== 'review' || !now || !levelId || !loaded) return t('spaces.nothingToAdd', 'Nothing to add.', { ns: 'editor' })
       const chosen = state.rows.filter((r) => r.decision === 'pending' && keys.has(r.proposal.key)).map((r) => r.proposal)
-      const command = loaded.fireAreaZonesCommand(now, levelId, chosen)
-      if (!command) return 'Every fire area here is already added or dismissed.'
+      const command = loaded.fireAreaZonesCommand(now, levelId, chosen, t)
+      if (!command) return t('spaces.everyFireAreaDecided', 'Every fire area here is already added or dismissed.', { ns: 'editor' })
       const refused = submit(command, label(chosen.length))
       if (refused === null) {
         const added = new Set(chosen.map((p) => p.key))
@@ -125,7 +127,7 @@ export function useFireAreas({ model, levelId, submit, currentModel, busyReason 
       }
       return refused
     },
-    [state, model, levelId, submit, currentModel],
+    [state, model, levelId, submit, currentModel, t],
   )
 
   return useMemo<FireAreaControls>(
@@ -139,11 +141,14 @@ export function useFireAreas({ model, levelId, submit, currentModel, busyReason 
         if (state.kind !== 'idle') find(next)
       },
       start: () => find(pick),
-      accept: (key) => add(new Set([key]), () => 'Add fire area'),
-      acceptAll: () => add(new Set(state.kind === 'review' ? state.rows.map((r) => r.proposal.key) : []), (n) => (n === 1 ? 'Add fire area' : `Add ${n} fire areas`)),
+      accept: (key) => add(new Set([key]), () => t('spaces.addFireArea', 'Add fire area', { ns: 'editor' })),
+      acceptAll: () =>
+        add(new Set(state.kind === 'review' ? state.rows.map((r) => r.proposal.key) : []), (count) =>
+          count === 1 ? t('spaces.addFireArea', 'Add fire area', { ns: 'editor' }) : t('spaces.addFireAreasCount', 'Add {{count}} fire areas', { ns: 'editor', count }),
+        ),
       dismiss: (key) => setRaw((s) => (s.kind === 'review' ? { ...s, rows: s.rows.map((r) => (r.proposal.key === key && r.decision !== 'added' ? { ...r, decision: r.decision === 'dismissed' ? 'pending' : 'dismissed' } : r)) } : s)),
       close,
     }),
-    [state, reason, kinds, pick, find, add, close],
+    [state, reason, kinds, pick, find, add, close, t],
   )
 }

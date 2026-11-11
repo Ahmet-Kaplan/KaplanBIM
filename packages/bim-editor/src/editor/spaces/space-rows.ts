@@ -19,6 +19,7 @@ import {
 } from '@permitzip/bim-kernel'
 import { SPACE_USE_RATE_TARGETS, spaceUseCatalog, spaceUseRateTargets, type SpaceUseRow } from '@permitzip/bim-library'
 import { requireAddOns } from '../../contracts/building-model/add-ons'
+import { englishOnly, type Translate } from '../i18n/translate'
 
 /**
  * What the Spaces panel shows, worked out from the model: one row per space
@@ -57,26 +58,26 @@ export interface SpaceRow {
   readonly loads: AllocatedActualSummary | null
 }
 
-function madeBy(model: ModelState, s: Space): string {
-  if (s.bounds.kind === 'none' || !s.levelId) return 'Not drawn yet'
-  if (s.bounds.kind === 'bounded') return s.bounds.open ? 'Bounded by walls; no longer closed' : 'Bounded by walls'
+function madeBy(model: ModelState, s: Space, t: Translate): string {
+  if (s.bounds.kind === 'none' || !s.levelId) return t('spaces.notDrawnYet', 'Not drawn yet', { ns: 'editor' })
+  if (s.bounds.kind === 'bounded') return s.bounds.open ? t('spaces.boundedOpen', 'Bounded by walls; no longer closed', { ns: 'editor' }) : t('spaces.boundedByWalls', 'Bounded by walls', { ns: 'editor' })
   switch (s.origin.kind) {
     case 'traced': {
       const u = model.elements[s.origin.underlayId]
-      return `Traced over ${u?.kind === 'drawing_underlay' ? u.source.name : 'a removed drawing'}`
+      return t('spaces.tracedOver', 'Traced over {{drawing}}', { ns: 'editor', drawing: u?.kind === 'drawing_underlay' ? u.source.name : t('spaces.aRemovedDrawing', 'a removed drawing', { ns: 'editor' }) })
     }
     case 'from_room':
-      return 'From the room'
+      return t('spaces.fromTheRoom', 'From the room', { ns: 'editor' })
     case 'from_linked_room':
-      return "From the linked model's room"
+      return t('spaces.fromLinkedRoom', 'From the linked model\'s room', { ns: 'editor' })
     case 'detected':
-      return s.origin.accepted ? 'Detected, accepted' : 'Proposed, check it'
+      return s.origin.accepted ? t('spaces.detectedAccepted', 'Detected, accepted', { ns: 'editor' }) : t('spaces.detectedProposed', 'Proposed, check it', { ns: 'editor' })
     default:
-      return 'Drawn'
+      return t('spaces.drawn', 'Drawn', { ns: 'editor' })
   }
 }
 
-export function spaceRows(model: ModelState, loads?: SpaceLoadsReader): SpaceRow[] {
+export function spaceRows(model: ModelState, loads?: SpaceLoadsReader, t: Translate = englishOnly): SpaceRow[] {
   return elementsOfKind(model.elements, 'space')
     .map((s) => {
       const basis = spaceBasis(model.elements, s)
@@ -96,7 +97,7 @@ export function spaceRows(model: ModelState, loads?: SpaceLoadsReader): SpaceRow
         occupantsTyped: basis.occupantsBasis === 'typed',
         zones: zonesOfSpace(model.elements, s.id).map((z) => z.name),
         origin: s.origin.kind,
-        madeBy: madeBy(model, s),
+        madeBy: madeBy(model, s, t),
         loads: loads?.(s.id) ?? null,
       }
     })
@@ -119,33 +120,33 @@ function markOf(model: ModelState, id: ElementId): string {
 }
 
 /** What an outlined, derived or unknown zone covers, in words. Null for a spaces zone. */
-export function zoneBoundsLine(model: ModelState, zone: Zone): string | null {
+export function zoneBoundsLine(model: ModelState, zone: Zone, t: Translate = englishOnly): string | null {
   const b = zoneBoundsOf(zone)
   switch (b.kind) {
     case 'spaces':
       return null
     case 'outline':
-      return `Drawn outline, ${formatFt2((outlineAreaMm2(b.outline) / 1e6) * FT2_PER_M2)}`
+      return t('spaces.zoneDrawnOutline', 'Drawn outline, {{area}}', { ns: 'editor', area: formatFt2((outlineAreaMm2(b.outline) / 1e6) * FT2_PER_M2) })
     case 'derived': {
       const r = derivedRegionsOfZone(model, zone)
       if (!r || !r.ok) return r ? r.reason : null
       const first = r.regions[0]
       const highFt = first ? Math.round(((first.topMm - first.bottomMm) / 304.8) * 10) / 10 : null
-      return `Follows ${markOf(model, b.hostId)}${highFt !== null ? `: up to ${highFt} ft above it` : ''}${first?.cite ? `, ${first.cite}` : ''}`
+      return `${t('spaces.zoneFollows', 'Follows {{mark}}', { ns: 'editor', mark: markOf(model, b.hostId) })}${highFt === null ? '' : t('spaces.zoneUpTo', ': up to {{feet}} ft above it', { ns: 'editor', feet: highFt })}${first?.cite ? `, ${first.cite}` : ''}`
     }
     case 'unknown':
-      return 'A kind of zone this version can’t show yet; it is kept as it is'
+      return t('spaces.zoneUnknownKind', 'A kind of zone this version can’t show yet; it is kept as it is', { ns: 'editor' })
   }
 }
 
-export function zoneRows(model: ModelState): ZoneRow[] {
+export function zoneRows(model: ModelState, t: Translate = englishOnly): ZoneRow[] {
   return elementsOfKind(model.elements, 'zone').map((zone) => {
     const mark = zone.servedBy ? markOf(model, zone.servedBy) : null
     const spaceLabels = zoneSpaceIds(zone).flatMap((id) => {
       const s = model.elements[id]
       return s?.kind === 'space' ? [spaceLabel(s)] : []
     })
-    return { zone, servedByMark: mark, spaceLabels, boundsLine: zoneBoundsLine(model, zone), ofSpaces: zoneBoundsOf(zone).kind === 'spaces' }
+    return { zone, servedByMark: mark, spaceLabels, boundsLine: zoneBoundsLine(model, zone, t), ofSpaces: zoneBoundsOf(zone).kind === 'spaces' }
   })
 }
 
@@ -154,17 +155,26 @@ export interface ZoneServer {
   readonly label: string
 }
 
-const FIT_HEADINGS: Readonly<Partial<Record<ZonePurpose, string>>> = {
-  thermal: 'Heating and cooling equipment',
-  ventilation: 'Heating and cooling equipment',
-  electrical_load_region: 'Electrical equipment',
-  lighting_control: 'Electrical equipment',
-  drainage_catchment: 'Plumbing equipment',
+const FIT_HEADINGS: Readonly<Partial<Record<ZonePurpose, 'hvac' | 'electrical' | 'plumbing'>>> = {
+  thermal: 'hvac',
+  ventilation: 'hvac',
+  electrical_load_region: 'electrical',
+  lighting_control: 'electrical',
+  drainage_catchment: 'plumbing',
 }
 
 /** The picker's heading for equipment that fits a zone's purpose; other equipment is listed after it. */
-export function zoneFitHeading(purpose: ZonePurpose): string {
-  return FIT_HEADINGS[purpose] ?? 'Equipment'
+export function zoneFitHeading(purpose: ZonePurpose, t: Translate = englishOnly): string {
+  switch (FIT_HEADINGS[purpose]) {
+    case 'hvac':
+      return t('spaces.fitHvac', 'Heating and cooling equipment', { ns: 'editor' })
+    case 'electrical':
+      return t('spaces.fitElectrical', 'Electrical equipment', { ns: 'editor' })
+    case 'plumbing':
+      return t('spaces.fitPlumbing', 'Plumbing equipment', { ns: 'editor' })
+    default:
+      return t('spaces.fitEquipment', 'Equipment', { ns: 'editor' })
+  }
 }
 
 /**
@@ -173,7 +183,7 @@ export function zoneFitHeading(purpose: ZonePurpose): string {
  * shared connection model (`fitsZonePurpose`): for a thermal zone the RTUs
  * come first, the fryers and dishwasher after them under "Other equipment".
  */
-export function zoneServers(model: ModelState, purpose: ZonePurpose): { readonly fits: readonly ZoneServer[]; readonly others: readonly ZoneServer[] } {
+export function zoneServers(model: ModelState, purpose: ZonePurpose, t: Translate = englishOnly): { readonly fits: readonly ZoneServer[]; readonly others: readonly ZoneServer[] } {
   const fits: ZoneServer[] = []
   const others: ZoneServer[] = []
   for (const el of elementsOfKind(model.elements, 'part', 'equipment')) {
@@ -181,7 +191,10 @@ export function zoneServers(model: ModelState, purpose: ZonePurpose): { readonly
     const type = el.kind === 'part' ? model.elements[el.typeId] : undefined
     const category = type?.kind === 'part_type' ? type.definition.category : 'mechanical_equipment'
     if (category !== 'mechanical_equipment' && category !== 'electrical_equipment') continue
-    const row = { id: el.id, label: `${el.mark}${el.kind === 'part' && el.planned ? ' (not placed yet)' : ''}` }
+    // Hoisted: a nested template inside the argument reads as prose to the
+    // negative-space scan, and this suffix is already keyed.
+    const notPlaced = el.kind === 'part' && el.planned ? ` ${t('spaces.notPlacedYet', '(not placed yet)', { ns: 'editor' })}` : ''
+    const row = { id: el.id, label: `${el.mark}${notPlaced}` }
     const fit = el.kind === 'part' ? fitsZonePurpose(model.elements, el, purpose) : purpose === 'fire_area'
     ;(fit ? fits : others).push(row)
   }
@@ -205,12 +218,12 @@ export function spaceUsesIn(model: Pick<ModelState, 'modelId' | 'settings'>): re
  * A `set use` edit for one space, with the row's rates pinned; or why not, in words.
  * With `model`, the rows and rate keys of the add-ons it pins are in force, so an add-on's rate (a live load) is pinned too.
  */
-export function setUseCommand(spaceId: ElementId, useId: string | null, uses: readonly SpaceUseRow[] = SPACE_USES, model?: Pick<ModelState, 'modelId' | 'settings'>): Command | string {
+export function setUseCommand(spaceId: ElementId, useId: string | null, uses: readonly SpaceUseRow[] = SPACE_USES, model?: Pick<ModelState, 'modelId' | 'settings'>, t: Translate = englishOnly): Command | string {
   if (useId === null) return { type: 'edit_space', spaceId, use: null }
   const pin = (): Command | string => {
     const rows = model ? spaceUseCatalog().catalog.rows : uses
     const row = rows.find((u) => u.id === useId)
-    if (!row) return `There is no space use ${useId} in the library`
+    if (!row) return t('spaces.useNotFound', 'There is no space use {{use}} in the library', { ns: 'editor', use: useId })
     const { calc } = requireAddOns()
     const pinned = calc.pinSpaceUse('builtin:space-uses', row, model ? spaceUseRateTargets() : SPACE_USE_RATE_TARGETS)
     if (typeof pinned === 'string') return pinned

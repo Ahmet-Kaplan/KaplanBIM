@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '../../ui/field'
 import { ToggleGroup, ToggleGroupItem } from '../../ui/toggle-group'
 import { newElementId } from '../placement'
+import { useEditorTranslate } from '../i18n/translate'
 import type { SeparatorLine } from './separator-tool'
 import { formatFt2 } from './space-rows'
 
@@ -42,6 +43,7 @@ export function splitCommand(line: SeparatorLine, loadsTo: Readonly<Record<strin
  * starting on the larger sub-room. Cancel or Esc leaves the model as it was.
  */
 export function SplitSpaceDialog({ line, model, submit, onClose }: Props) {
+  const t = useEditorTranslate()
   const preview = useMemo(() => (line ? previewSplit(model.elements, line.spaceId as ElementId, line) : null), [line, model])
   const [choice, setChoice] = useState<Readonly<Record<string, string>>>({})
   const [refusal, setRefusal] = useState<string | null>(null)
@@ -57,7 +59,7 @@ export function SplitSpaceDialog({ line, model, submit, onClose }: Props) {
 
   const split = () => {
     if (!line || !ok) return
-    const refused = submit(splitCommand(line, loadsTo), `Split ${ok.room}`)
+    const refused = submit(splitCommand(line, loadsTo), t('spaces.splitNamed', 'Split {{space}}', { ns: 'editor', space: ok.room }))
     if (refused) {
       setRefusal(refused)
       return
@@ -69,9 +71,11 @@ export function SplitSpaceDialog({ line, model, submit, onClose }: Props) {
     <Dialog open={line !== null} onOpenChange={(o) => !o && close(null)}>
       <DialogContent data-testid="split-space-dialog">
         <DialogHeader>
-          <DialogTitle>{ok ? `Split ${ok.room}` : 'Split space'}</DialogTitle>
+          <DialogTitle>{ok ? t('spaces.splitNamed', 'Split {{space}}', { ns: 'editor', space: ok.room }) : t('spaces.splitSpace', 'Split space', { ns: 'editor' })}</DialogTitle>
           <DialogDescription>
-            {ok ? `${ok.room} keeps its name and total area. The line makes ${ok.children.length} sub-rooms under it, each with its own number, use and loads.` : 'The line can’t split this room.'}
+            {ok
+              ? t('spaces.splitWhat', '{{space}} keeps its name and total area. The line makes {{count}} sub-rooms under it, each with its own number, use and loads.', { ns: 'editor', space: ok.room, count: ok.children.length })
+              : t('spaces.lineCantSplit', 'The line can’t split this room.', { ns: 'editor' })}
           </DialogDescription>
         </DialogHeader>
         {preview && !preview.ok ? (
@@ -86,13 +90,15 @@ export function SplitSpaceDialog({ line, model, submit, onClose }: Props) {
             </p>
             {ok.byAreaLoads > 0 ? (
               <p className="text-xs text-muted-foreground" data-testid="split-space-by-area">
-                {ok.byAreaLoads === 1 ? '1 load by area shares' : `${ok.byAreaLoads} loads by area share`} by each sub-room’s area.
+                {ok.byAreaLoads === 1
+                  ? t('spaces.oneLoadByArea', '1 load by area shares by each sub-room’s area.', { ns: 'editor' })
+                  : t('spaces.loadsByArea', '{{count}} loads by area share by each sub-room’s area.', { ns: 'editor', count: ok.byAreaLoads })}
               </p>
             ) : null}
             {ok.typedLoads.length > 0 ? (
               <FieldSet>
-                <FieldLegend variant="label">Which sub-room keeps each load?</FieldLegend>
-                <FieldDescription>Loads that aren’t by area go to one sub-room. The larger one is picked to start.</FieldDescription>
+                <FieldLegend variant="label">{t('spaces.whichSubroomKeeps', 'Which sub-room keeps each load?', { ns: 'editor' })}</FieldLegend>
+                <FieldDescription>{t('spaces.loadsNotByArea', 'Loads that aren’t by area go to one sub-room. The larger one is picked to start.', { ns: 'editor' })}</FieldDescription>
                 {ok.typedLoads.map((l) => (
                   <Field key={l.id} orientation="horizontal" data-testid="split-space-load" data-load={l.id}>
                     <FieldLabel className="min-w-32">{l.label}</FieldLabel>
@@ -102,10 +108,10 @@ export function SplitSpaceDialog({ line, model, submit, onClose }: Props) {
                       size="sm"
                       value={loadsTo[l.id] ?? fallback}
                       onValueChange={(v) => v && setChoice((c) => ({ ...c, [l.id]: v }))}
-                      aria-label={`Sub-room that keeps ${l.label}`}
+                      aria-label={t('spaces.subroomThatKeeps', 'Sub-room that keeps {{load}}', { ns: 'editor', load: l.label })}
                     >
                       {ok.children.map((c) => (
-                        <ToggleGroupItem key={c.number} value={c.number} aria-label={`${l.label} goes to ${c.number}`}>
+                        <ToggleGroupItem key={c.number} value={c.number} aria-label={t('spaces.loadGoesTo', '{{load}} goes to {{room}}', { ns: 'editor', load: l.label, room: c.number })}>
                           {c.number}
                         </ToggleGroupItem>
                       ))}
@@ -123,10 +129,10 @@ export function SplitSpaceDialog({ line, model, submit, onClose }: Props) {
         ) : null}
         <DialogFooter>
           <Button variant="outline" onClick={() => close(null)} data-testid="split-space-cancel">
-            Cancel
+            {t('spaces.cancel', 'Cancel', { ns: 'editor' })}
           </Button>
           <Button onClick={split} disabled={!ok} title={ok ? undefined : preview && !preview.ok ? preview.message : undefined} data-testid="split-space-confirm">
-            Split
+            {t('spaces.split', 'Split', { ns: 'editor' })}
           </Button>
         </DialogFooter>
       </DialogContent>

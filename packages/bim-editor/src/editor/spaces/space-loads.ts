@@ -19,6 +19,7 @@ import {
   type QuantityKey,
   ZERO_TOTALS,
 } from '@permitzip/bim-kernel'
+import { englishOnly, type Translate } from '../i18n/translate'
 import { SPACE_USES } from './space-rows'
 
 /**
@@ -44,15 +45,21 @@ export type LoadBasisChoice = 'lump' | 'density'
 
 interface UnitChoice {
   readonly unit: UnitCode
-  /** As the engineer types it. */
-  readonly label: string
+  /**
+   * As the engineer types it. A translator because §7 sends the written unit
+   * names with the language while a *symbol* (`kW`, `CFM`) never changes: the
+   * Turkish value of a symbol is the symbol itself, and keying it says so out
+   * loud instead of leaving it to look like an oversight.
+   */
+  readonly label: (t: Translate) => string
 }
 
 export interface LoadQuantity {
   readonly id: LoadQuantityId
   readonly key: QuantityKey
   readonly service: LoadService
-  readonly label: string
+  /** The quantity's own word (§5): Electrical, Airflow, Gas, Hot water. */
+  readonly label: (t: Translate) => string
   readonly lump: UnitChoice
   /** Absent: a density makes no sense for it (gas, hot water are per appliance). */
   readonly density?: UnitChoice
@@ -62,13 +69,27 @@ export interface LoadQuantity {
  * The quantities an area load can carry, from the shared quantity bag. Power
  * is VA in the kernel; people type kW, counted at unity power factor (kVA).
  */
-const POWER: LoadQuantity = { id: 'power', key: 'va', service: 'power', label: 'Electrical', lump: { unit: 'kVA', label: 'kW' }, density: { unit: 'VA/ft2', label: 'W/ft²' } }
+const POWER: LoadQuantity = {
+  id: 'power',
+  key: 'va',
+  service: 'power',
+  label: (t) => t('spaces.loadElectrical', 'Electrical', { ns: 'editor' }),
+  lump: { unit: 'kVA', label: (t) => t('spaces.unitKw', 'kW', { ns: 'editor' }) },
+  density: { unit: 'VA/ft2', label: (t) => t('spaces.unitWPerFt2', 'W/ft²', { ns: 'editor' }) },
+}
 
 export const LOAD_QUANTITIES: readonly LoadQuantity[] = [
   POWER,
-  { id: 'air', key: 'cfm', service: 'supply_air', label: 'Airflow', lump: { unit: 'cfm', label: 'CFM' }, density: { unit: 'cfm/ft2', label: 'CFM/ft²' } },
-  { id: 'gas', key: 'mbh', service: 'gas', label: 'Gas', lump: { unit: 'MBH', label: 'MBH' } },
-  { id: 'hot_water', key: 'gph_demand', service: 'hot_water', label: 'Hot water', lump: { unit: 'gph', label: 'gal/h' } },
+  {
+    id: 'air',
+    key: 'cfm',
+    service: 'supply_air',
+    label: (t) => t('spaces.loadAirflow', 'Airflow', { ns: 'editor' }),
+    lump: { unit: 'cfm', label: (t) => t('spaces.unitCfm', 'CFM', { ns: 'editor' }) },
+    density: { unit: 'cfm/ft2', label: (t) => t('spaces.unitCfmPerFt2', 'CFM/ft²', { ns: 'editor' }) },
+  },
+  { id: 'gas', key: 'mbh', service: 'gas', label: (t) => t('spaces.loadGas', 'Gas', { ns: 'editor' }), lump: { unit: 'MBH', label: (t) => t('spaces.unitMbh', 'MBH', { ns: 'editor' }) } },
+  { id: 'hot_water', key: 'gph_demand', service: 'hot_water', label: (t) => t('spaces.loadHotWater', 'Hot water', { ns: 'editor' }), lump: { unit: 'gph', label: (t) => t('spaces.unitGalPerHour', 'gal/h', { ns: 'editor' }) } },
 ]
 
 export function loadQuantity(id: LoadQuantityId): LoadQuantity {
@@ -129,7 +150,7 @@ function quantityOf(lp: LoadPointElement): LoadQuantity {
 }
 
 /** The loads spread over this space or zone, from the per-record load index (never a pass over the model). */
-export function scopeLoads(model: ModelState, scope: Pick<LoadScope, 'kind' | 'id'>): ScopeLoadRow[] {
+export function scopeLoads(model: ModelState, scope: Pick<LoadScope, 'kind' | 'id'>, t: Translate = englishOnly): ScopeLoadRow[] {
   const index = loadIndexOf(model.elements)
   const ids = scope.kind === 'space' ? index.inSpace(scope.id) : index.inZone(scope.id)
   const locator = modelSpaceLocator(model.elements)
@@ -139,11 +160,13 @@ export function scopeLoads(model: ModelState, scope: Pick<LoadScope, 'kind' | 'i
     if (lp?.kind !== 'load_point') continue
     const q = quantityOf(lp)
     const value = loadValueOf(model.elements, lp, locator)[q.key]
-    const name = lp.mark || lp.connectionType || 'Load'
+    const name = lp.mark || lp.connectionType || t('spaces.loadWord', 'Load', { ns: 'editor' })
     if (lp.basis === 'density' && q.density) {
       const rate = lp.rates?.find((r) => r.key === q.key && r.per === 'area')?.value ?? 0
       const typed = rateToDensity(q, rate)
-      out.push({ id: lp.id, name, quantity: q, basis: 'density', typed, text: `${round(typed)} ${q.density.label} over the ${scope.kind}: ${formatLoadAmount(q.key, value)}` })
+      // `scopeNoun`, not `scopeWord`: the sentence already carries its own "the".
+      const text = t('spaces.densityOver', '{{amount}} {{unit}} over the {{scope}}: {{total}}', { ns: 'editor', amount: round(typed), unit: q.density.label(t), scope: scopeNoun(scope.kind, t), total: formatLoadAmount(q.key, value) })
+      out.push({ id: lp.id, name, quantity: q, basis: 'density', typed, text })
     } else out.push({ id: lp.id, name, quantity: q, basis: 'lump', typed: bagToLump(q, lp.values[q.key] ?? value), text: formatLoadAmount(q.key, value) })
   }
   return out.sort((a, b) => a.name.localeCompare(b.name))
@@ -160,24 +183,45 @@ export function scopeFigures(model: ModelState, scope: Pick<LoadScope, 'kind' | 
 }
 
 /** "Electrical: estimate 7 kW, devices so far 0 kW · Airflow: …", only the quantities that are set. */
-export function figuresLine(figures: AllocatedActual): string {
+export function figuresLine(figures: AllocatedActual, t: Translate = englishOnly): string {
   const parts = LOAD_QUANTITIES.flatMap((q) => {
     const a = figures.allocated[q.key]
     const b = figures.actual[q.key]
     if (a === 0 && b === 0) return []
-    return [`${q.label}: ${a === 0 ? `no estimate, devices so far ${formatLoadAmount(q.key, b)}` : allocatedActualLine(figures, q.key, formatLoadAmount)}`]
+    const shown = a === 0 ? t('spaces.noEstimateDevices', 'no estimate, devices so far {{devices}}', { ns: 'editor', devices: formatLoadAmount(q.key, b) }) : allocatedActualLine(figures, q.key, formatLoadAmount)
+    return [t('spaces.quantityFigures', '{{quantity}}: {{figures}}', { ns: 'editor', quantity: q.label(t), figures: shown })]
   })
   return parts.join(' · ')
 }
 
-export const POLICY_WORDS: Readonly<Record<AllocationPolicy, string>> = {
-  max: 'Devices placed inside count against these estimates; the larger of the two counts.',
-  actual_only: 'Once any device is placed inside, the devices count and the estimate stops counting.',
-  allocation_only: 'Only the estimate counts (study mode); devices placed inside are shown, not added.',
+/** "the space" / "the zone": what a load is spread over, in the sentence. */
+export function scopeWord(kind: LoadScope['kind'], t: Translate = englishOnly): string {
+  return kind === 'space' ? t('spaces.scopeSpace', 'the space', { ns: 'editor' }) : t('spaces.scopeZone', 'the zone', { ns: 'editor' })
 }
 
-export function policyWords(model: ModelState): string {
-  return POLICY_WORDS[allocationPolicyOf(model.elements)]
+/** "space" / "zone", the bare noun, for a sentence that already carries its own article. */
+export function scopeNoun(kind: LoadScope['kind'], t: Translate = englishOnly): string {
+  return kind === 'space' ? t('spaces.spaceNoun', 'space', { ns: 'editor' }) : t('spaces.zoneNoun', 'zone', { ns: 'editor' })
+}
+
+/**
+ * The model's load-counting policy (Spaces › loads), in words. Not a table of
+ * strings: the sentence a person reads is the one for this model's policy, and
+ * a table would have shown English to a Turkish screen for two of the three.
+ */
+export function policyWords(model: ModelState, t: Translate = englishOnly): string {
+  return policyWord(allocationPolicyOf(model.elements), t)
+}
+
+export function policyWord(policy: AllocationPolicy, t: Translate = englishOnly): string {
+  switch (policy) {
+    case 'max':
+      return t('spaces.policyMax', 'Devices placed inside count against these estimates; the larger of the two counts.', { ns: 'editor' })
+    case 'actual_only':
+      return t('spaces.policyActualOnly', 'Once any device is placed inside, the devices count and the estimate stops counting.', { ns: 'editor' })
+    case 'allocation_only':
+      return t('spaces.policyAllocationOnly', 'Only the estimate counts (study mode); devices placed inside are shown, not added.', { ns: 'editor' })
+  }
 }
 
 const LIBRARY_RATE_OF: ReadonlyArray<readonly [RegExp, 'lighting' | 'receptacles']> = [
@@ -190,23 +234,23 @@ const LIBRARY_RATE_OF: ReadonlyArray<readonly [RegExp, 'lighting' | 'receptacles
  * space ("1.5 W/ft², Restaurant dining, NEC 2020 Table 220.12"), or why there
  * isn't one, in words.
  */
-export function libraryDensity(model: ModelState, scope: Pick<LoadScope, 'kind' | 'id'>, q: LoadQuantity, name: string): { readonly typed: number; readonly source: string } | string {
-  if (q.id !== 'power' || !q.density) return 'The space-use library has densities for lighting and receptacles only.'
-  if (scope.kind !== 'space') return 'A zone has no use of its own; type the density, or add it on each space.'
+export function libraryDensity(model: ModelState, scope: Pick<LoadScope, 'kind' | 'id'>, q: LoadQuantity, name: string, t: Translate = englishOnly): { readonly typed: number; readonly source: string } | string {
+  if (q.id !== 'power' || !q.density) return t('spaces.libraryPowerOnly', 'The space-use library has densities for lighting and receptacles only.', { ns: 'editor' })
+  if (scope.kind !== 'space') return t('spaces.libraryZone', 'A zone has no use of its own; type the density, or add it on each space.', { ns: 'editor' })
   const space = model.elements[scope.id]
-  if (space?.kind !== 'space') return 'This space isn’t in the model any more.'
+  if (space?.kind !== 'space') return t('spaces.librarySpaceGone', 'This space isn’t in the model any more.', { ns: 'editor' })
   const useId = space.use?.useId
-  if (!useId) return 'Pick the space’s use first; the library density comes from it.'
+  if (!useId) return t('spaces.libraryPickUse', 'Pick the space’s use first; the library density comes from it.', { ns: 'editor' })
   const row = SPACE_USES.find((u) => u.id === useId)
-  if (!row) return `The use ${useId} isn’t in the library any more; type the density.`
+  if (!row) return t('spaces.libraryUseGone', 'The use {{use}} isn’t in the library any more; type the density.', { ns: 'editor', use: useId })
   const which = LIBRARY_RATE_OF.find(([re]) => re.test(name))?.[1]
-  if (!which) return 'Name the load “Lighting” or “Receptacles” to use the library density, or type one.'
+  if (!which) return t('spaces.libraryNameIt', 'Name the load “Lighting” or “Receptacles” to use the library density, or type one.', { ns: 'editor' })
   const rate = row.rates.find((r) => r.key === which)
-  if (!rate) return `${row.name} has no ${which} density in the library; type one.`
+  if (!rate) return t('spaces.libraryNoRate', '{{use}} has no {{which}} density in the library; type one.', { ns: 'editor', use: row.name, which: rateWord(which, t) })
   const unit = findUnit(rate.unit, 'power_per_area')
-  if (!unit) return `${row.name}’s ${which} density is in ${rate.unit}, which isn’t a power density unit.`
+  if (!unit) return t('spaces.libraryNotPowerDensity', '{{use}}’s {{which}} density is in {{unit}}, which isn’t a power density unit.', { ns: 'editor', use: row.name, which: rateWord(which, t), unit: rate.unit })
   const typed = fromSI(toSI(rate.value, unit), q.density.unit)
-  return { typed, source: `${row.name}, ${rate.cite.code}${rate.cite.edition ? ` ${rate.cite.edition}` : ''} ${rate.cite.clause}${rate.cite.verified ? '' : ' (not verified)'}` }
+  return { typed, source: `${row.name}, ${rate.cite.code}${rate.cite.edition ? ` ${rate.cite.edition}` : ''} ${rate.cite.clause}${rate.cite.verified ? '' : ` ${t('spaces.notVerified', '(not verified)', { ns: 'editor' })}`}` }
 }
 
 export interface LoadDraft {
@@ -217,31 +261,36 @@ export interface LoadDraft {
   readonly amount: string
 }
 
+/** "lighting" / "receptacles", the library's two densities (§5), in the sentence that names one. */
+function rateWord(which: 'lighting' | 'receptacles', t: Translate): string {
+  return which === 'lighting' ? t('spaces.rateLighting', 'lighting', { ns: 'editor' }) : t('spaces.rateReceptacles', 'receptacles', { ns: 'editor' })
+}
+
 /** The typed amount, or why it can't be used, in words. */
-function amountOf(draft: LoadDraft, q: LoadQuantity): number | string {
+function amountOf(draft: LoadDraft, q: LoadQuantity, t: Translate): number | string {
   const n = Number(draft.amount.replace(/,/g, '').trim())
-  const unit = draft.basis === 'density' ? q.density?.label : q.lump.label
-  if (draft.amount.trim() === '' || !Number.isFinite(n) || n <= 0) return `Type the load as a number above 0${unit ? ` (${unit})` : ''}.`
+  const unit = draft.basis === 'density' ? q.density?.label(t) : q.lump.label(t)
+  if (draft.amount.trim() === '' || !Number.isFinite(n) || n <= 0) return t('spaces.loadNeedsAmount', 'Type the load as a number above 0{{unit}}.', { ns: 'editor', unit: unit ? ` (${unit})` : '' })
   return n
 }
 
-function nameOf(draft: LoadDraft): string | { readonly error: string } {
+function nameOf(draft: LoadDraft, t: Translate): string | { readonly error: string } {
   const name = draft.name.trim()
-  if (name === '') return { error: 'Give the load a name, like Lighting or Receptacles.' }
-  if (name.length > 40) return { error: 'Keep the name to 40 characters.' }
+  if (name === '') return { error: t('spaces.loadNeedsName', 'Give the load a name, like Lighting or Receptacles.', { ns: 'editor' }) }
+  if (name.length > 40) return { error: t('spaces.loadNameTooLong', 'Keep the name to 40 characters.', { ns: 'editor' }) }
   return name
 }
 
 /** A new load spread over the space or zone, through k2's `create_load`; or why not, in words. */
-export function addLoadCommand(scope: Pick<LoadScope, 'kind' | 'id'>, draft: LoadDraft, id: string): Command | string {
+export function addLoadCommand(scope: Pick<LoadScope, 'kind' | 'id'>, draft: LoadDraft, id: string, t: Translate = englishOnly): Command | string {
   const q = loadQuantity(draft.quantityId)
-  const name = nameOf(draft)
+  const name = nameOf(draft, t)
   if (typeof name !== 'string') return name.error
-  const amount = amountOf(draft, q)
+  const amount = amountOf(draft, q, t)
   if (typeof amount === 'string') return amount
   const anchor = { kind: scope.kind, id: scope.id }
   if (draft.basis === 'density') {
-    if (!q.density) return `${q.label} loads are typed as a total, not per square foot.`
+    if (!q.density) return t('spaces.loadsAreTotals', '{{kind}} loads are typed as a total, not per square foot.', { ns: 'editor', kind: q.label(t) })
     return { type: 'create_load', loads: [{ id, anchor, mark: name, service: q.service, basis: 'density', rates: [{ key: q.key, per: 'area', value: densityToRate(q, amount) }] }] }
   }
   return { type: 'create_load', loads: [{ id, anchor, mark: name, service: q.service, values: bagOf(q.key, lumpToBag(q, amount)) }] }
@@ -252,16 +301,16 @@ export function addLoadCommand(scope: Pick<LoadScope, 'kind' | 'id'>, draft: Loa
  * density, and the amount (the quantity stays; remove and add to change it).
  * Null when nothing would change.
  */
-export function editLoadCommand(row: ScopeLoadRow, draft: LoadDraft): Command | string | null {
+export function editLoadCommand(row: ScopeLoadRow, draft: LoadDraft, t: Translate = englishOnly): Command | string | null {
   const q = row.quantity
-  const name = nameOf(draft)
+  const name = nameOf(draft, t)
   if (typeof name !== 'string') return name.error
-  const amount = amountOf(draft, q)
+  const amount = amountOf(draft, q, t)
   if (typeof amount === 'string') return amount
   if (name === row.name && draft.basis === row.basis && Math.abs(amount - row.typed) < 1e-9) return null
   const mark = name === row.name ? {} : { mark: name }
   if (draft.basis === 'density') {
-    if (!q.density) return `${q.label} loads are typed as a total, not per square foot.`
+    if (!q.density) return t('spaces.loadsAreTotals', '{{kind}} loads are typed as a total, not per square foot.', { ns: 'editor', kind: q.label(t) })
     return { type: 'edit_load_point', loadId: row.id, ...mark, basis: 'density', rates: [{ key: q.key, per: 'area', value: densityToRate(q, amount) }], ...(row.basis === 'lump' ? { reset: [q.key] } : {}) }
   }
   return { type: 'edit_load_point', loadId: row.id, ...mark, basis: 'lump', values: bagOf(q.key, lumpToBag(q, amount)) }
