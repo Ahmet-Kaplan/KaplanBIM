@@ -90,6 +90,28 @@ describe("MutinyBIM contrast (WCAG 2.1 AA)", () => {
     }
   });
 
+  /**
+   * The status tokens the schedule and grid stylesheets read as text (a pill, a
+   * log line, a save state), on the tint each one sits on and on a panel. These
+   * replaced hardcoded hex: `--mutiny-warning` measured 3.3:1 before, which is not
+   * AA for a word, so the light theme's amber was darkened to meet it.
+   */
+  it("every status word reads AA on its own tint and on a panel, in both themes", () => {
+    const pairs = [
+      ["success", "successSubtle"],
+      ["warning", "warningSubtle"],
+      ["danger", "dangerSubtle"],
+      ["info", "infoSubtle"],
+    ] as const;
+    for (const theme of [mutinyDefaultTheme, mutinyDarkTheme]) {
+      for (const [word, tint] of pairs) {
+        expect({ theme: theme.id, pair: `${word} on ${tint}`, ratio: (contrastRatio(theme.colors[word], theme.colors[tint]) ?? 0) >= 4.5 }).toEqual({ theme: theme.id, pair: `${word} on ${tint}`, ratio: true });
+        expect({ theme: theme.id, pair: `${word} on panel`, ratio: (contrastRatio(theme.colors[word], theme.colors.panel) ?? 0) >= 4.5 }).toEqual({ theme: theme.id, pair: `${word} on panel`, ratio: true });
+        expect({ theme: theme.id, pair: `${word} on surface`, ratio: (contrastRatio(theme.colors[word], theme.colors.surface) ?? 0) >= 4.5 }).toEqual({ theme: theme.id, pair: `${word} on surface`, ratio: true });
+      }
+    }
+  });
+
   it("dark keeps on-screen selection strokes visible on sheets, which stay white", () => {
     const ratio = contrastRatio(mutinyDarkTheme.colors.selection, "#FFFFFF");
     expect(ratio).not.toBeNull();

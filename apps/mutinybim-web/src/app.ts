@@ -16,7 +16,7 @@ import postcss from "postcss";
 import tailwind from "@tailwindcss/postcss";
 import { WebSocketServer, type WebSocket } from "ws";
 import type { TFunction } from "i18next";
-import { isMutinyLanguage, type MutinyLanguage } from "@permitzip/bim-ui";
+import { isMutinyLanguage, themeStyleSheet, type MutinyLanguage } from "@permitzip/bim-ui";
 import { parseBranchModelId } from "@permitzip/bim-kernel";
 import { TOOL_FAMILIES } from "@permitzip/bim-mcp";
 import { installFirstPartyAddOns } from "@permitzip/bim-first-party";
@@ -777,8 +777,9 @@ export function createApp(config: WebConfig, options: AppOptions = {}): App {
 <title>${esc(modelName)} · MutinyBIM</title>
 <link rel="icon" type="image/svg+xml" href="/assets/bim-ui/mutiny-icon.svg">
 <link rel="stylesheet" href="/dist/styles.css">
+<style>${themeStyleSheet()}</style>
 <script type="application/json" id="mutinybim-page">${pageData}</script>
-</head><body><div id="app"><p style="font:15px system-ui,sans-serif;padding:24px;color:#5d6670" id="loading">Opening the editor…</p></div>
+</head><body><div id="app"><p style="font:15px var(--mutiny-font-body);padding:24px;color:var(--mutiny-muted)" id="loading">Opening the editor…</p></div>
 <script type="module" src="/dist/app.js"></script></body></html>`;
   }
 

@@ -33,7 +33,11 @@ export function useLevelPlanes({
     let cancelled = false
     import('@permitzip/bim-viewer-3d')
       .then((m) => {
-        if (!cancelled) setPlanes(new m.LevelPlanes({ line: '#0f2a4a', highlight: '#ff7a1a', background: '#ffffff' }))
+        // The colours a level plane starts with are the resolved viewer's own
+        // (its theme's viewer slots, through `ModelViewer3D.colors`), never a
+        // literal: the planes are built before the effect below repaints them,
+        // and a fixed light-blue outline would flash on a dark canvas.
+        if (!cancelled) setPlanes(new m.LevelPlanes({ line: viewer.colors.edges, highlight: viewer.colors.selection, background: viewer.colors.background }))
       })
       .catch((err: unknown) => console.error('[useLevelPlanes] loading the 3D level planes failed; the 3D view shows no level outlines', err))
     return () => {

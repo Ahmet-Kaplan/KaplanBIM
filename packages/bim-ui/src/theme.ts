@@ -34,9 +34,18 @@ export interface MutinyColors {
   /** On-screen selection strokes and labels in 2D editors, and the active-tab bar (must read on white paper). */
   readonly selection: string;
   readonly warning: string;
+  /** A healthy state: live, connected, saved. Never the only signal — the words say it too. */
+  readonly success: string;
   readonly danger: string;
   /** Text on `danger`. */
   readonly dangerForeground: string;
+  /** The tint behind a success/warning/danger badge or message; pair it with the matching `success`/`warning`/`danger` text. */
+  readonly successSubtle: string;
+  readonly warningSubtle: string;
+  readonly dangerSubtle: string;
+  /** Neither good nor bad: a linked model, someone else's work, a count that is just information. */
+  readonly info: string;
+  readonly infoSubtle: string;
   readonly focusRing: string;
 }
 
@@ -124,9 +133,17 @@ export const mutinyDefaultTheme: MutinyTheme = {
     accentForeground: MUTINY_PALETTE.charcoal,
     accentSubtle: MUTINY_PALETTE.paleLime,
     selection: MUTINY_PALETTE.olive,
-    warning: "#B7790E",
+    // Amber, darkened to 4.7:1 on a panel: a warning is a word on a screen, not
+    // just a tint, and the darker `#B7790E` measured 3.3:1.
+    warning: "#966106",
+    success: "#2F6B3A",
     danger: "#B8402C",
     dangerForeground: MUTINY_PALETTE.white,
+    successSubtle: "#DCF2E1",
+    warningSubtle: "#FDF3D6",
+    dangerSubtle: "#FDE4E1",
+    info: "#3730A3",
+    infoSubtle: "#EEF2FF",
     focusRing: MUTINY_PALETTE.charcoal,
   },
   viewer: {

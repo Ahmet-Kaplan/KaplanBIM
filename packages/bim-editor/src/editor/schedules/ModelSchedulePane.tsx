@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { SyncScheduleConnection, type ActorRef, type ScheduleTarget } from '@permitzip/bim-sync'
+import { SyncScheduleConnection, actorColor, type ActorRef, type ScheduleTarget } from '@permitzip/bim-sync'
 import { ScheduleColumnsSheet, ScheduleBuilder, ScheduleGrid, type BuilderSection, type ScheduleColumnStep, type ScheduleConnection as GridScheduleConnection, type ScheduleTarget as GridScheduleTarget } from '@permitzip/bim-schedules-ui'
 import { formulaEngine } from '@permitzip/bim-formula'
 import { scheduleStepsBetween } from '@permitzip/bim-kernel/schedules'
@@ -26,14 +26,16 @@ import { useEditorTranslate, type Translate } from '../i18n/translate'
 
 import type { BranchChannel } from '../branches/useBranches'
 
-const PRESENCE_COLORS = ['#2563eb', '#db2777', '#16a34a', '#ea580c', '#7c3aed', '#0891b2', '#ca8a04', '#dc2626'] as const
-
-/** A steady colour per person, so the same colleague's outline looks the same every time. */
-export function presenceColor(id: string): string {
-  let h = 0
-  for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) | 0
-  return PRESENCE_COLORS[Math.abs(h) % PRESENCE_COLORS.length] ?? PRESENCE_COLORS[0]
-}
+/**
+ * A steady colour per person, so the same colleague's outline looks the same every
+ * time.
+ *
+ * One palette for the whole product: `actorColor` in `@permitzip/bim-sync` is what
+ * the model server and every other schedule surface already use, and a person who
+ * is blue in one panel must not be pink in the next. The colours themselves are
+ * presence data, not styling: they belong to the person, not to the theme.
+ */
+export const presenceColor = actorColor
 
 interface Props {
   readonly projectId: string

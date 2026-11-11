@@ -4,11 +4,16 @@ import { useMemo } from 'react'
 import { modelToPaperPoint, viewModelLevel, type ElementId, type ModelState, type ViewOnPaper } from '@permitzip/bim-kernel'
 import { questionPinsOn, type QuestionPin } from '../../contracts/bim/questions/kernel'
 
-/** The magenta of the firm's hand-drawn question notes; assumptions and answered ones are quieter. */
-const OPEN = 'var(--mutiny-question, var(--primary))'
-const QUIET = 'var(--muted-foreground)'
+/**
+ * An open question pin wears the theme's provisional colour (the same one a
+ * placement not yet committed uses); assumptions and answered ones are quieter.
+ * These were bridged shadcn tokens (`--primary`, `--muted-foreground`,
+ * `--destructive`), which no theme defines.
+ */
+const OPEN = 'var(--mutiny-viewer-provisional)'
+const QUIET = 'var(--mutiny-muted)'
 /** An answer that may no longer hold: its tick turns to a warning. */
-const WARN = 'var(--warning-600, var(--destructive))'
+const WARN = 'var(--mutiny-warning)'
 
 interface Props {
   readonly model: ModelState

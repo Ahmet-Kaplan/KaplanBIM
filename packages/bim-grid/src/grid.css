@@ -10,14 +10,14 @@
   flex-direction: column;
   min-height: 0;
   font: 13px/1.3 var(--mutiny-font-body, system-ui, sans-serif);
-  color: var(--mutiny-text, #182126);
-  background: var(--mutiny-field, #fff);
-  border: 1px solid var(--mutiny-border, #dde1e4);
+  color: var(--mutiny-text);
+  background: var(--mutiny-field);
+  border: 1px solid var(--mutiny-border);
   border-radius: var(--mutiny-radius, 6px);
   outline: none;
 }
 .mutiny-grid:focus-visible {
-  box-shadow: 0 0 0 2px var(--mutiny-focus-ring, #d7e620);
+  box-shadow: 0 0 0 2px var(--mutiny-focus-ring);
 }
 .mutiny-grid-scroller {
   position: relative;
@@ -29,8 +29,8 @@
   position: sticky;
   top: 0;
   z-index: 3;
-  background: var(--mutiny-panel, #f2f3f4);
-  border-bottom: 1px solid var(--mutiny-border, #dde1e4);
+  background: var(--mutiny-panel);
+  border-bottom: 1px solid var(--mutiny-border);
 }
 .mutiny-grid-body {
   position: relative;
@@ -43,7 +43,7 @@
   top: 0;
 }
 .mutiny-grid-row.is-child {
-  background: var(--mutiny-subtle, #f7f8f8);
+  background: var(--mutiny-subtle);
 }
 .mutiny-grid-cell {
   position: absolute;
@@ -55,24 +55,24 @@
   padding: 0 8px;
   overflow: hidden;
   white-space: nowrap;
-  border-right: 1px solid var(--mutiny-border, #dde1e4);
-  border-bottom: 1px solid var(--mutiny-border, #dde1e4);
+  border-right: 1px solid var(--mutiny-border);
+  border-bottom: 1px solid var(--mutiny-border);
   background: inherit;
   cursor: cell;
 }
 .mutiny-grid-body .mutiny-grid-cell {
-  background: var(--mutiny-field, #fff);
+  background: var(--mutiny-field);
 }
 .mutiny-grid-row.is-child .mutiny-grid-cell {
-  background: var(--mutiny-subtle, #f7f8f8);
+  background: var(--mutiny-subtle);
 }
 .mutiny-grid-cell.is-frozen {
   z-index: 2;
-  box-shadow: 1px 0 0 var(--mutiny-border, #dde1e4);
+  box-shadow: 1px 0 0 var(--mutiny-border);
 }
 .mutiny-grid-heading {
   font-weight: 600;
-  background: var(--mutiny-panel, #f2f3f4);
+  background: var(--mutiny-panel);
   cursor: default;
 }
 .mutiny-grid-cell.is-end {
@@ -89,16 +89,16 @@
 }
 .mutiny-grid-unit {
   font-weight: 400;
-  color: var(--mutiny-muted, #626c73);
+  color: var(--mutiny-muted);
 }
 .mutiny-grid-cell.is-selected {
-  background: var(--mutiny-selection, #eef3c7) !important;
+  background: var(--mutiny-selection) !important;
 }
 .mutiny-grid-cell.is-active {
-  box-shadow: inset 0 0 0 2px var(--mutiny-text, #182126);
+  box-shadow: inset 0 0 0 2px var(--mutiny-text);
 }
 .mutiny-grid-cell.is-locked {
-  color: var(--mutiny-muted, #626c73);
+  color: var(--mutiny-muted);
   cursor: default;
 }
 .mutiny-grid-cell.is-pending {
@@ -111,22 +111,22 @@
 .mutiny-grid-cell.is-saved::after {
   content: "✓";
   margin-inline-start: auto;
-  color: var(--mutiny-muted, #626c73);
+  color: var(--mutiny-muted);
 }
 .mutiny-grid-cell.is-refused {
-  box-shadow: inset 0 0 0 2px var(--mutiny-danger, #b42318);
+  box-shadow: inset 0 0 0 2px var(--mutiny-danger);
 }
 .mutiny-grid-cell.is-refused::after {
   content: "!";
   margin-inline-start: auto;
   font-weight: 700;
-  color: var(--mutiny-danger, #b42318);
+  color: var(--mutiny-danger);
 }
 .mutiny-grid-cell.is-warning {
-  background: var(--mutiny-warning-subtle, #fff4d6) !important;
+  background: var(--mutiny-warning-subtle) !important;
 }
 .mutiny-grid-cell.is-danger {
-  background: var(--mutiny-danger-subtle, #fde4e1) !important;
+  background: var(--mutiny-danger-subtle) !important;
 }
 .mutiny-grid-cell.is-held {
   opacity: 0.75;
@@ -139,8 +139,8 @@
   font-size: 10px;
   line-height: 14px;
   border-radius: 3px;
-  color: #fff;
-  background: var(--mutiny-text, #182126);
+  color: var(--mutiny-field);
+  background: var(--mutiny-text);
   pointer-events: none;
 }
 .mutiny-grid-toggle,
@@ -159,7 +159,7 @@
   right: 2px;
   top: 50%;
   transform: translateY(-50%);
-  color: var(--mutiny-muted, #626c73);
+  color: var(--mutiny-muted);
   opacity: 0;
 }
 .mutiny-grid-cell.is-active .mutiny-grid-source,
@@ -172,10 +172,10 @@
   inset: 0;
   width: 100%;
   box-sizing: border-box;
-  border: 2px solid var(--mutiny-text, #182126);
+  border: 2px solid var(--mutiny-text);
   padding: 0 6px;
   font: inherit;
-  background: var(--mutiny-field, #fff);
+  background: var(--mutiny-field);
   color: inherit;
 }
 .mutiny-grid-resize {
@@ -192,17 +192,17 @@
   align-items: center;
   gap: 8px;
   padding: 4px 8px;
-  border-bottom: 1px solid var(--mutiny-border, #dde1e4);
-  background: var(--mutiny-panel, #f2f3f4);
+  border-bottom: 1px solid var(--mutiny-border);
+  background: var(--mutiny-panel);
 }
 .mutiny-grid-find input {
   font: inherit;
   padding: 2px 6px;
-  border: 1px solid var(--mutiny-border, #dde1e4);
+  border: 1px solid var(--mutiny-border);
   border-radius: var(--mutiny-radius, 6px);
 }
 .mutiny-grid-find-status {
-  color: var(--mutiny-muted, #626c73);
+  color: var(--mutiny-muted);
 }
 .mutiny-grid-find-close {
   margin-inline-start: auto;
@@ -214,7 +214,7 @@
 .mutiny-grid-empty {
   padding: 24px;
   text-align: center;
-  color: var(--mutiny-muted, #626c73);
+  color: var(--mutiny-muted);
 }
 .mutiny-grid-explain {
   position: absolute;
@@ -223,9 +223,9 @@
   z-index: 10;
   max-width: 360px;
   padding: 12px;
-  border: 1px solid var(--mutiny-border, #dde1e4);
+  border: 1px solid var(--mutiny-border);
   border-radius: var(--mutiny-radius, 6px);
-  background: var(--mutiny-panel, #f2f3f4);
+  background: var(--mutiny-panel);
   box-shadow: 0 4px 16px rgb(0 0 0 / 0.12);
 }
 .mutiny-grid-explain p {
@@ -245,20 +245,20 @@
 .mutiny-grid-button {
   font: inherit;
   padding: 4px 10px;
-  border: 1px solid var(--mutiny-border, #dde1e4);
+  border: 1px solid var(--mutiny-border);
   border-radius: var(--mutiny-radius, 6px);
-  background: var(--mutiny-field, #fff);
+  background: var(--mutiny-field);
   cursor: pointer;
 }
 .mutiny-grid-button.is-primary {
-  background: var(--mutiny-accent, #d7e620);
-  color: var(--mutiny-accent-foreground, #182126);
+  background: var(--mutiny-accent);
+  color: var(--mutiny-accent-foreground);
   border-color: transparent;
 }
 .mutiny-grid-button:focus-visible,
 .mutiny-grid-toggle:focus-visible,
 .mutiny-grid-source:focus-visible {
-  outline: 2px solid var(--mutiny-focus-ring, #d7e620);
+  outline: 2px solid var(--mutiny-focus-ring);
 }
 .mutiny-grid-sr {
   position: absolute;

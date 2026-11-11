@@ -4,7 +4,7 @@
   flex-direction: column;
   gap: 4px;
   min-height: 0;
-  color: var(--mutiny-text, #182126);
+  color: var(--mutiny-text);
   font: 13px/1.4 var(--mutiny-font-body, system-ui, sans-serif);
 }
 .mutiny-sched-toolbar {
@@ -26,19 +26,19 @@
 .mutiny-sched-status {
   min-height: 1.4em;
   margin: 0;
-  color: var(--mutiny-muted, #626c73);
+  color: var(--mutiny-muted);
 }
 .mutiny-sched-loading {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  color: var(--mutiny-muted, #626c73);
-  border: 1px solid var(--mutiny-border, #dde1e4);
+  color: var(--mutiny-muted);
+  border: 1px solid var(--mutiny-border);
   border-radius: var(--mutiny-radius, 6px);
 }
 .mutiny-sched-muted {
-  color: var(--mutiny-muted, #626c73);
+  color: var(--mutiny-muted);
 }
 .mutiny-sched-impacts {
   margin: 8px 0 0;
@@ -61,8 +61,8 @@
   overflow: auto;
   padding: 16px;
   border-radius: var(--mutiny-radius, 6px);
-  border: 1px solid var(--mutiny-border, #dde1e4);
-  background: var(--mutiny-panel, #f2f3f4);
+  border: 1px solid var(--mutiny-border);
+  background: var(--mutiny-panel);
   box-shadow: 0 12px 40px rgb(0 0 0 / 0.2);
 }
 .mutiny-sched-dialog-title {
@@ -86,8 +86,8 @@
   width: min(560px, 100vw);
   display: flex;
   flex-direction: column;
-  background: var(--mutiny-panel, #f2f3f4);
-  border-inline-start: 1px solid var(--mutiny-border, #dde1e4);
+  background: var(--mutiny-panel);
+  border-inline-start: 1px solid var(--mutiny-border);
   box-shadow: 0 0 40px rgb(0 0 0 / 0.2);
 }
 .mutiny-sched-sheet.is-right {
@@ -99,11 +99,11 @@
 .mutiny-sched-sheet-header {
   position: relative;
   padding: 16px 48px 8px 16px;
-  border-bottom: 1px solid var(--mutiny-border, #dde1e4);
+  border-bottom: 1px solid var(--mutiny-border);
 }
 .mutiny-sched-sheet-header /* In a confirm dialog the focused button is the default action: always show it, whatever moved focus there. */
 .mutiny-sched-dialog .mutiny-sched-button:focus {
-  outline: 2px solid var(--mutiny-focus-ring, #d7e620);
+  outline: 2px solid var(--mutiny-focus-ring);
   outline-offset: 2px;
 }
 .mutiny-sched-icon-button {
@@ -125,7 +125,7 @@
   gap: 8px;
   justify-content: flex-end;
   padding: 12px 16px;
-  border-top: 1px solid var(--mutiny-border, #dde1e4);
+  border-top: 1px solid var(--mutiny-border);
 }
 .mutiny-sched-section {
   display: flex;
@@ -156,9 +156,9 @@
   font: inherit;
   color: inherit;
   padding: 4px 8px;
-  border: 1px solid var(--mutiny-border, #dde1e4);
+  border: 1px solid var(--mutiny-border);
   border-radius: var(--mutiny-radius, 6px);
-  background: var(--mutiny-field, #fff);
+  background: var(--mutiny-field);
 }
 .mutiny-sched-textarea {
   font-family: var(--mutiny-font-mono, ui-monospace, monospace);
@@ -167,10 +167,10 @@
 }
 .mutiny-sched-input[aria-invalid="true"],
 .mutiny-sched-textarea[aria-invalid="true"] {
-  border-color: var(--mutiny-danger, #b42318);
+  border-color: var(--mutiny-danger);
 }
 .mutiny-sched-error {
-  color: var(--mutiny-danger, #b42318);
+  color: var(--mutiny-danger);
   margin: 0;
 }
 .mutiny-sched-error-span {
@@ -179,12 +179,12 @@
   margin: 0;
 }
 .mutiny-sched-error-span mark {
-  background: var(--mutiny-danger-subtle, #fde4e1);
-  color: var(--mutiny-danger, #b42318);
+  background: var(--mutiny-danger-subtle);
+  color: var(--mutiny-danger);
   text-decoration: underline wavy;
 }
 .mutiny-sched-help {
-  color: var(--mutiny-muted, #626c73);
+  color: var(--mutiny-muted);
   margin: 0;
   font-size: 12px;
 }
@@ -211,7 +211,7 @@
   flex-basis: 100%;
 }
 .mutiny-sched-list-item:hover {
-  background: var(--mutiny-subtle, #eef0f1);
+  background: var(--mutiny-subtle);
 }
 .mutiny-sched-list-item > .mutiny-sched-grow {
   flex: 1 1 auto;
@@ -227,7 +227,7 @@
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--mutiny-muted, #626c73);
+  color: var(--mutiny-muted);
   margin-top: 6px;
 }
 .mutiny-sched-button {
@@ -237,9 +237,9 @@
   gap: 6px;
   height: 30px;
   padding: 0 10px;
-  border: 1px solid var(--mutiny-border, #dde1e4);
+  border: 1px solid var(--mutiny-border);
   border-radius: var(--mutiny-radius, 6px);
-  background: var(--mutiny-field, #fff);
+  background: var(--mutiny-field);
   color: inherit;
   cursor: pointer;
 }
@@ -248,13 +248,13 @@
   cursor: not-allowed;
 }
 .mutiny-sched-button.is-primary {
-  background: var(--mutiny-accent, #d7e620);
-  color: var(--mutiny-accent-foreground, #182126);
+  background: var(--mutiny-accent);
+  color: var(--mutiny-accent-foreground);
   border-color: transparent;
 }
 .mutiny-sched-button.is-danger {
-  background: var(--mutiny-danger, #b42318);
-  color: var(--mutiny-danger-foreground, #fff);
+  background: var(--mutiny-danger);
+  color: var(--mutiny-danger-foreground);
   border-color: transparent;
 }
 .mutiny-sched-button.is-ghost {
@@ -266,12 +266,12 @@
 .mutiny-sched-input:focus-visible,
 .mutiny-sched-select:focus-visible,
 .mutiny-sched-textarea:focus-visible {
-  outline: 2px solid var(--mutiny-focus-ring, #d7e620);
+  outline: 2px solid var(--mutiny-focus-ring);
   outline-offset: 1px;
 }
 /* In a confirm dialog the focused button is the default action: always show it, whatever moved focus there. */
 .mutiny-sched-dialog .mutiny-sched-button:focus {
-  outline: 2px solid var(--mutiny-focus-ring, #d7e620);
+  outline: 2px solid var(--mutiny-focus-ring);
   outline-offset: 2px;
 }
 .mutiny-sched-icon-button {
@@ -286,9 +286,9 @@
   z-index: 60;
   min-width: 220px;
   padding: 4px;
-  border: 1px solid var(--mutiny-border, #dde1e4);
+  border: 1px solid var(--mutiny-border);
   border-radius: var(--mutiny-radius, 6px);
-  background: var(--mutiny-panel, #f2f3f4);
+  background: var(--mutiny-panel);
   box-shadow: 0 8px 24px rgb(0 0 0 / 0.15);
 }
 .mutiny-sched-menu-item {
@@ -300,7 +300,7 @@
   outline: none;
 }
 .mutiny-sched-menu-item[data-highlighted] {
-  background: var(--mutiny-subtle, #e6e9eb);
+  background: var(--mutiny-subtle);
 }
 .mutiny-sched-menu-item[data-disabled] {
   opacity: 0.6;
@@ -313,8 +313,8 @@
   font-size: 11px;
   padding: 0 6px;
   border-radius: 999px;
-  border: 1px solid var(--mutiny-border, #dde1e4);
-  color: var(--mutiny-muted, #626c73);
+  border: 1px solid var(--mutiny-border);
+  color: var(--mutiny-muted);
 }
 .mutiny-sched-columns {
   display: flex;
