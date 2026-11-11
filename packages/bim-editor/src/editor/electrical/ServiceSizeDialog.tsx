@@ -88,8 +88,23 @@ export function ServiceSizeDialog({ nec, model, onClose, onStartLayout, capacity
   const fill = () => {
     setTextIn(modelLoadListText(fromModel))
     setClasses(new Map())
-    const planned = fromModel.filter((r) => r.from === 'planned item').length
-    setFillNote(`Filled from the model: ${planned} planned item${planned === 1 ? '' : 's'} and ${fromModel.length - planned} estimate${fromModel.length - planned === 1 ? '' : 's'}. Edit any row; the model doesn't change.`)
+    // `ModelLoadRow.from` is the pack's own discriminator ("planned item", "estimate on …"),
+    // not a caption: it is matched, never shown here. It stays English until the domain
+    // label map owns pack words (docs/i18n/glossary.md §5.5). Matched as a pattern so the
+    // negative-space guard does not read it as a sentence somebody forgot to key.
+    const planned = fromModel.filter((r) => /^planned item$/u.test(r.from)).length
+    const estimates = fromModel.length - planned
+    setFillNote(
+      t(
+        'electrical.filledFromTheModelCounts',
+        "Filled from the model: {{plannedItems}} and {{estimates}}. Edit any row; the model doesn't change.",
+        {
+          ns: 'editor',
+          plannedItems: planned === 1 ? t('electrical.onePlannedItem', '1 planned item', { ns: 'editor' }) : t('electrical.nPlannedItems', '{{count}} planned items', { ns: 'editor', count: planned }),
+          estimates: estimates === 1 ? t('electrical.oneEstimate', '1 estimate', { ns: 'editor' }) : t('electrical.nEstimates', '{{count}} estimates', { ns: 'editor', count: estimates }),
+        },
+      ),
+    )
   }
   const rows = useMemo<ParsedEquipment[]>(() => (nec.necEdition && textIn.trim() ? parseEquipmentList(nec.necEdition, textIn, { voltageV: sys.voltage, phases: sys.phases }) : []), [nec.necEdition, textIn, sys])
   const sparePct = Math.min(100, Math.max(0, Number(spare) || 0))
@@ -117,7 +132,7 @@ export function ServiceSizeDialog({ nec, model, onClose, onStartLayout, capacity
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-4xl" data-testid="service-size-dialog">
         <DialogHeader>
-          <DialogTitle>Service size from an equipment list</DialogTitle>
+          <DialogTitle>{t('electrical.serviceSizeFromAnEquipmentList', 'Service size from an equipment list', { ns: 'editor' })}</DialogTitle>
           <DialogDescription>{t('electrical.pasteTheKitchenAndMechanicalSchedulesFromASp', "Paste the kitchen and mechanical schedules (from a spreadsheet, a CSV, or text copied out of a PDF). Check each row's load class; the size follows NEC Article 220. Nothing in the model changes.", { ns: 'editor' })}</DialogDescription>
         </DialogHeader>
         {!nec.necEdition && (
@@ -163,7 +178,9 @@ export function ServiceSizeDialog({ nec, model, onClose, onStartLayout, capacity
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" size="sm" onClick={fill} disabled={fromModel.length === 0} title={fromModel.length === 0 ? t('electrical.nothingToFillYetAddPlannedEquipmentEquipment', 'Nothing to fill yet: add planned equipment (Equipment list) or an estimate on a space first.', { ns: 'editor' }) : t('electrical.replaceTheListWithThePlannedEquipmentAndEsti', 'Replace the list with the planned equipment and estimates already in the model', { ns: 'editor' })} data-testid="service-fill-from-model">
               <ListRestart data-icon="inline-start" />
-              Fill from the model{fromModel.length > 0 ? ` (${fromModel.length})` : ''}
+              {fromModel.length > 0
+                ? t('electrical.fillFromTheModelWithCount', 'Fill from the model ({{count}})', { ns: 'editor', count: fromModel.length })
+                : t('electrical.fillFromTheModel', 'Fill from the model', { ns: 'editor' })}
             </Button>
             {fromModel.length === 0 ? (
               <FieldDescription>{t('electrical.nothingPlannedOrEstimatedInTheModelYetAddPla', 'Nothing planned or estimated in the model yet: add planned equipment (Equipment list) or an estimate on a space first.', { ns: 'editor' })}</FieldDescription>
@@ -174,12 +191,12 @@ export function ServiceSizeDialog({ nec, model, onClose, onStartLayout, capacity
         )}
         <Field>
           <FieldLabel htmlFor="bm-service-text">{t('electrical.equipmentList', 'Equipment list', { ns: 'editor' })}</FieldLabel>
-          <Textarea id="bm-service-text" rows={5} value={textIn} onChange={(e) => setTextIn(e.target.value)} placeholder={'K-10\tSandwich prep refrigerator\t1\t120\t1\t4.2 A\nK-14\tFryer, electric\t2\t208\t3\t17 kW'} data-testid="service-text" />
+          <Textarea id="bm-service-text" rows={5} value={textIn} onChange={(e) => setTextIn(e.target.value)} placeholder={t('electrical.equipmentListSample', 'K-10\tSandwich prep refrigerator\t1\t120\t1\t4.2 A\nK-14\tFryer, electric\t2\t208\t3\t17 kW', { ns: 'editor' })} data-testid="service-text" />
         </Field>
         {rows.length > 0 && (
           <div className="max-h-64 overflow-auto rounded-md border">
             <Table data-testid="service-rows">
-              <TableCaption className="sr-only">Equipment read from the list</TableCaption>
+              <TableCaption className="sr-only">{t('electrical.equipmentReadFromTheList', 'Equipment read from the list', { ns: 'editor' })}</TableCaption>
               <TableHeader>
                 <TableRow>
                   <TableHead>{t('electrical.item', 'Item', { ns: 'editor' })}</TableHead>
@@ -203,7 +220,7 @@ export function ServiceSizeDialog({ nec, model, onClose, onStartLayout, capacity
                     </TableCell>
                     <TableCell className="text-xs">
                       <Select value={classes.get(r.line) ?? r.suggestedClass} onValueChange={(v) => { const c = LOAD_CLASSES.find((x) => x === v); if (c) setClasses(new Map([...classes, [r.line, c]])) }}>
-                        <SelectTrigger size="sm" aria-label={`Load class of ${r.tag || r.description}`} data-testid={`service-class-${r.line}`}>
+                        <SelectTrigger size="sm" aria-label={t('electrical.loadClassOfName', 'Load class of {{name}}', { ns: 'editor', name: r.tag || r.description })} data-testid={`service-class-${r.line}`}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -224,12 +241,19 @@ export function ServiceSizeDialog({ nec, model, onClose, onStartLayout, capacity
             </Table>
           </div>
         )}
-        {problems.length > 0 && <FieldDescription className="text-warning-700">{problems.length} row{problems.length === 1 ? '' : 's'} could not be read and are left out; fix them in the list.</FieldDescription>}
+        {problems.length > 0 && (
+          <FieldDescription className="text-warning-700">
+            {problems.length === 1
+              ? t('electrical.oneRowCouldNotBeRead', '1 row could not be read and are left out; fix them in the list.', { ns: 'editor' })
+              : t('electrical.nRowsCouldNotBeRead', '{{count}} rows could not be read and are left out; fix them in the list.', { ns: 'editor', count: problems.length })}
+          </FieldDescription>
+        )}
         {result && (
           <Alert data-testid="service-result">
             <Gauge />
             <AlertTitle>
-              {t('electrical.service_186', 'Service:', { ns: 'editor' })} {result.detail.label} ({Math.round(result.detail.requiredA)} A needed)
+              {t('electrical.service_186', 'Service:', { ns: 'editor' })} {result.detail.label}{' '}
+              {t('electrical.ampsNeeded', '({{amps}} A needed)', { ns: 'editor', amps: Math.round(result.detail.requiredA) })}
             </AlertTitle>
             <AlertDescription>
               <p className="font-medium" data-testid="service-connected">
@@ -255,7 +279,7 @@ export function ServiceSizeDialog({ nec, model, onClose, onStartLayout, capacity
           {onStartLayout && result?.detail.serviceA && (
             <Button onClick={() => result.detail.serviceA && onStartLayout({ serviceA: result.detail.serviceA, system: sys.service })} data-testid="service-start-layout">
               <Network data-icon="inline-start" />
-              {t('electrical.startA', 'Start a', { ns: 'editor' })} {result.detail.serviceA} A service layout
+              {t('electrical.startAServiceLayout', 'Start a {{amps}} A service layout', { ns: 'editor', amps: result.detail.serviceA })}
             </Button>
           )}
         </DialogFooter>

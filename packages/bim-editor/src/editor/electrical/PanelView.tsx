@@ -199,7 +199,7 @@ export function PanelView({
     e.preventDefault()
     const v = name.trim()
     if (!v) return
-    const refusal = submit({ type: 'set_parameters', id: panelId, scope: 'instance', values: { panel_name: v } }, `name the panel ${v}`)
+    const refusal = submit({ type: 'set_parameters', id: panelId, scope: 'instance', values: { panel_name: v } }, t('electrical.nameThePanelUndo', 'name the panel {{name}}', { ns: 'editor', name: v }))
     if (!refusal) setName('')
   }
   return (
@@ -221,11 +221,41 @@ export function PanelView({
           </SelectContent>
         </Select>
         <Badge variant="outline">{s.system}</Badge>
-        {!hasPositions(s.kind) ? <Badge variant="outline">{[s.kva ? `${s.kva} kVA` : null, s.busA ? `${s.busA} A` : null, s.mainA ? `${s.mainA} A fuses` : null, s.supply ? `fed at ${s.supply}` : null].filter(Boolean).join(', ') || s.kind.replace(/_/g, ' ')}</Badge> : <Badge variant="outline">{s.busA ? `${s.busA} A bus` : t('electrical.noBusRating', 'no bus rating', { ns: 'editor' })}, {s.mainA ? `${s.mainA} A main` : t('electrical.mainLugs', 'main lugs', { ns: 'editor' })}</Badge>}
+        {!hasPositions(s.kind) ? <Badge variant="outline">{[
+              s.kva ? t('electrical.kvaValue', '{{value}} kVA', { ns: 'editor', value: s.kva }) : null,
+              s.busA ? t('electrical.ampsValue', '{{value}} A', { ns: 'editor', value: s.busA }) : null,
+              s.mainA ? t('electrical.ampsFusesValue', '{{value}} A fuses', { ns: 'editor', value: s.mainA }) : null,
+              s.supply ? t('electrical.fedAtSupply', 'fed at {{supply}}', { ns: 'editor', supply: s.supply }) : null,
+            ]
+              .filter(Boolean)
+              .join(', ') || s.kind.replace(/_/g, ' ')}</Badge> : <Badge variant="outline">
+          {s.busA ? t('electrical.ampsBusValue', '{{value}} A bus', { ns: 'editor', value: s.busA }) : t('electrical.noBusRating', 'no bus rating', { ns: 'editor' })}
+          {', '}
+          {s.mainA ? t('electrical.ampsMainValue', '{{value}} A main', { ns: 'editor', value: s.mainA }) : t('electrical.mainLugs', 'main lugs', { ns: 'editor' })}
+        </Badge>}
         <span className="text-xs text-muted-foreground" data-testid="panel-view-supply">
-          {t('electrical.supplyFrom_217', 'Supply from:', { ns: 'editor' })} {s.fedBy ? `${s.fedBy.sourceName}${s.fedBy.positions.length > 0 ? ` via ${s.fedBy.ratingA ? `${s.fedBy.ratingA} A ` : ''}breaker ${s.fedBy.positions.join(',')}` : ''}` : t('electrical.notFedYet', 'not fed yet', { ns: 'editor' })}
+          {t('electrical.supplyFrom_217', 'Supply from:', { ns: 'editor' })}{' '}
+          {s.fedBy ? (
+            <>
+              {s.fedBy.sourceName}
+              {s.fedBy.positions.length > 0 ? (
+                <>
+                  {' '}
+                  {s.fedBy.ratingA
+                    ? t('electrical.viaAmpsBreaker', 'via {{amps}} A breaker {{positions}}', { ns: 'editor', amps: s.fedBy.ratingA, positions: s.fedBy.positions.join(',') })
+                    : t('electrical.viaBreaker', 'via breaker {{positions}}', { ns: 'editor', positions: s.fedBy.positions.join(',') })}
+                </>
+              ) : null}
+            </>
+          ) : (
+            t('electrical.notFedYet', 'not fed yet', { ns: 'editor' })
+          )}
         </span>
-        {s.spaces !== null && <span className="text-xs text-muted-foreground">{s.freeSlots} of {s.spaces} slots free</span>}
+        {s.spaces !== null && (
+          <span className="text-xs text-muted-foreground">
+            {t('electrical.freeOfTotalSlotsFree', '{{free}} of {{total}} slots free', { ns: 'editor', free: s.freeSlots, total: s.spaces })}
+          </span>
+        )}
         {onRebalance && hasPositions(s.kind) && s.circuits.length > 1 && (
           <Button variant="outline" size="sm" onClick={() => onRebalance(panelId)} disabled={!canEdit} title={canEdit ? t('electrical.evenOutTheLoadOnABAndC', 'Even out the load on A, B and C', { ns: 'editor' }) : (editBlocked ?? undefined)} data-testid="panel-view-rebalance">
             <Scale data-icon="inline-start" />
@@ -247,7 +277,7 @@ export function PanelView({
         <form className="flex items-end gap-2" onSubmit={saveName}>
           <Field className="w-56">
             <FieldLabel htmlFor="bm-panel-name" className="text-xs">
-              Name this panel so its circuits read L1-3, not “{s.name}-3”
+              {t('electrical.nameThisPanelSoItsCircuitsRead', 'Name this panel so its circuits read L1-3, not “{{name}}-3”', { ns: 'editor', name: s.name })}
             </FieldLabel>
             <Input id="bm-panel-name" placeholder="L1" value={name} maxLength={20} onChange={(e) => setName(e.target.value)} disabled={!canEdit} />
           </Field>
@@ -280,8 +310,14 @@ export function PanelView({
       {!hasPositions(s.kind) ? (
         <div className="text-sm" data-testid="panel-view-feeds">
           {s.circuits.length === 0
-            ? `Feeds nothing yet. Select what it should feed and press Electrical › Feed panel (or Add to circuit for a load), then choose ${s.name}.`
-            : `Feeds ${s.circuits.map((c) => c.feeds?.name ?? (c.members.map((m) => m.name).join(', ') || 'a spare')).join(', ')}${s.kind === 'transformer' ? ' from its secondary' : ''}.`}
+            ? t('electrical.feedsNothingYet', 'Feeds nothing yet. Select what it should feed and press Electrical › Feed panel (or Add to circuit for a load), then choose {{name}}.', { ns: 'editor', name: s.name })
+            : t('electrical.feedsNames', 'Feeds {{names}}{{fromSecondary}}.', {
+                ns: 'editor',
+                names: s.circuits
+                  .map((c) => c.feeds?.name ?? (c.members.map((m) => m.name).join(', ') || t('electrical.aSpare', 'a spare', { ns: 'editor' })))
+                  .join(', '),
+                fromSecondary: s.kind === 'transformer' ? t('electrical.fromItsSecondary', ' from its secondary', { ns: 'editor' }) : '',
+              })}
         </div>
       ) : s.circuits.length === 0 ? (
         <Empty
@@ -299,7 +335,9 @@ export function PanelView({
               <CircleDot />
             </EmptyMedia>
             <EmptyTitle>{t('electrical.noCircuitsOn', 'No circuits on', { ns: 'editor' })} {s.name} yet</EmptyTitle>
-            <EmptyDescription>Select receptacles, lights or equipment (box select with B), then press Electrical › Add to circuit and choose {s.name}, or drag them here.</EmptyDescription>
+            <EmptyDescription>
+              {t('electrical.selectLoadsThenAddToCircuitChooseName', 'Select receptacles, lights or equipment (box select with B), then press Electrical › Add to circuit and choose {{name}}, or drag them here.', { ns: 'editor', name: s.name })}
+            </EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (
@@ -343,7 +381,11 @@ export function PanelView({
           {report.estimates.map((e) => (
             <span key={e.loadIds.join(',')} data-testid="panel-view-estimate">
               {e.label}: <span className="tabular-nums">{kva(e.va)} kVA</span>
-              <span className="text-muted-foreground">{e.kind === 'estimate' ? ' (counts until the devices inside it are more)' : ' (circuit it to move it onto a breaker)'}</span>
+              <span className="text-muted-foreground">
+                {e.kind === 'estimate'
+                  ? t('electrical.countsUntilTheDevicesInsideItAreMore', ' (counts until the devices inside it are more)', { ns: 'editor' })
+                  : t('electrical.circuitItToMoveItOntoABreaker', ' (circuit it to move it onto a breaker)', { ns: 'editor' })}
+              </span>
             </span>
           ))}
         </div>
@@ -357,17 +399,30 @@ export function PanelView({
             variant="outline"
             size="sm"
             disabled={!canEdit}
-            title={canEdit ? `${s.name} counts them in its connected load (and everything above it counts them too)` : (editBlocked ?? undefined)}
+            title={
+              canEdit
+                ? t('electrical.nameCountsThemInItsConnectedLoad', '{{name}} counts them in its connected load (and everything above it counts them too)', { ns: 'editor', name: s.name })
+                : (editBlocked ?? undefined)
+            }
             onClick={() => {
               const command = countEstimatesAtCommand(panelId, s.name, unassigned.map((u) => u.loadId))
               if (!command) return
-              const refusal = submit(command, `count ${unassigned.length === 1 ? 'the estimate' : `${unassigned.length} estimates`} on ${s.name}`)
+              const refusal = submit(
+                command,
+                t(
+                  'electrical.countOnName',
+                  'count {{what}} on {{name}}',
+                  { ns: 'editor', what: unassigned.length === 1 ? t('electrical.theEstimate', 'the estimate', { ns: 'editor' }) : t('electrical.nEstimates', '{{count}} estimates', { ns: 'editor', count: unassigned.length }), name: s.name },
+                ),
+              )
               setCountError(refusal)
             }}
             data-testid="panel-view-count-estimates"
           >
             <Plus data-icon="inline-start" />
-            {t('electrical.count_361', 'Count', { ns: 'editor' })} {unassigned.length === 1 ? 'it' : 'them'} on {s.name}
+            {unassigned.length === 1
+              ? t('electrical.countItOnName', 'Count it on {{name}}', { ns: 'editor', name: s.name })
+              : t('electrical.countThemOnName', 'Count them on {{name}}', { ns: 'editor', name: s.name })}
           </Button>
           {countError && (
             <span className="text-danger-600" role="alert">
@@ -393,18 +448,32 @@ function PanelTotals({ report, nec, targets, canEdit }: { readonly report: Elect
     <footer className="flex flex-col gap-2 text-xs" data-testid="panel-view-totals">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <span data-testid="panel-view-connected">
-          {t('electrical.connected', 'Connected:', { ns: 'editor' })} <span className="font-medium tabular-nums">{kva(report.connectedVa)} kVA, {amps(report.connectedA)}</span>
+          {t('electrical.connected', 'Connected:', { ns: 'editor' })}{' '}
+          <span className="font-medium tabular-nums">
+            {t('electrical.kvaAndAmps', '{{kva}} kVA, {{amps}}', { ns: 'editor', kva: kva(report.connectedVa), amps: amps(report.connectedA) })}
+          </span>
         </span>
         <span data-testid="panel-view-demand">
-          {report.rules.placeholder ? t('electrical.demandNoCode', 'Demand (no code)', { ns: 'editor' }) : t('electrical.necDemand', 'NEC demand', { ns: 'editor' })}: <span className="font-medium tabular-nums">{kva(d.demandVa)} kVA, {amps(report.demandA)}</span>
+          {report.rules.placeholder ? t('electrical.demandNoCode', 'Demand (no code)', { ns: 'editor' }) : t('electrical.necDemand', 'NEC demand', { ns: 'editor' })}
+          {': '}
+          <span className="font-medium tabular-nums">
+            {t('electrical.kvaAndAmps', '{{kva}} kVA, {{amps}}', { ns: 'editor', kva: kva(d.demandVa), amps: amps(report.demandA) })}
+          </span>
         </span>
         <span>
-          {t('electrical.sizedFor', 'Sized for:', { ns: 'editor' })} <span className="font-medium tabular-nums">{kva(d.sizingVa)} kVA, {amps(report.sizingA)}</span>
-          {d.minimumDeviceA ? ` (at least a ${d.minimumDeviceA} A device)` : ''}
+          {t('electrical.sizedFor', 'Sized for:', { ns: 'editor' })}{' '}
+          <span className="font-medium tabular-nums">
+            {t('electrical.kvaAndAmps', '{{kva}} kVA, {{amps}}', { ns: 'editor', kva: kva(d.sizingVa), amps: amps(report.sizingA) })}
+          </span>
+          {d.minimumDeviceA ? t('electrical.atLeastAnAmpsDevice', ' (at least a {{amps}} A device)', { ns: 'editor', amps: d.minimumDeviceA }) : ''}
         </span>
         {report.perPhase.map((p) => (
           <span key={p.phase} data-testid={`panel-view-phase-${p.phase}`}>
-            {t('electrical.phase', 'Phase', { ns: 'editor' })} {p.phase}: <span className="font-medium tabular-nums">{kva(p.va)} kVA, {amps(p.amps)}</span>
+            {t('electrical.phase', 'Phase', { ns: 'editor' })} {p.phase}
+            {': '}
+            <span className="font-medium tabular-nums">
+              {t('electrical.kvaAndAmps', '{{kva}} kVA, {{amps}}', { ns: 'editor', kva: kva(p.va), amps: amps(p.amps) })}
+            </span>
           </span>
         ))}
       </div>

@@ -40,13 +40,13 @@ export function ApplyTemplateDialog({ model, initialTemplate, selectedIds, submi
   const template = templateName ? circuitTemplateOf(els, templateName) : null
   const chosen = suggested.filter((u) => include.has(u.unit))
   const missingPanel = chosen.find((u) => !panelFor[u.unit])
-  const units = useMemo<TemplateUnit[]>(() => suggested.filter((u) => include.has(u.unit)).flatMap((u) => (panelFor[u.unit] ? [{ panelId: panelFor[u.unit] as string, roomIds: u.roomIds, label: `Unit ${u.unit}` }] : [])), [suggested, include, panelFor])
+  const units = useMemo<TemplateUnit[]>(() => suggested.filter((u) => include.has(u.unit)).flatMap((u) => (panelFor[u.unit] ? [{ panelId: panelFor[u.unit] as string, roomIds: u.roomIds, label: t('electrical.unitNameLabel', 'Unit {{unit}}', { ns: 'editor', unit: u.unit }) }] : [])), [suggested, include, panelFor, t])
   const plan = useMemo(() => (template && units.length > 0 && !missingPanel ? planCircuitTemplate(model, template, units) : null), [model, template, units, missingPanel])
-  const why = !template ? t('electrical.chooseARoomTemplateMakeOneInElectricalTypesR', 'Choose a room template (make one in Electrical types › Room templates).', { ns: 'editor' }) : chosen.length === 0 ? t('electrical.tickTheUnitsToCircuit', 'Tick the units to circuit.', { ns: 'editor' }) : missingPanel ? `Choose the panel for unit ${missingPanel.unit}.` : plan && !plan.command ? plan.message : null
+  const why = !template ? t('electrical.chooseARoomTemplateMakeOneInElectricalTypesR', 'Choose a room template (make one in Electrical types › Room templates).', { ns: 'editor' }) : chosen.length === 0 ? t('electrical.tickTheUnitsToCircuit', 'Tick the units to circuit.', { ns: 'editor' }) : missingPanel ? t('electrical.chooseThePanelForUnit', 'Choose the panel for unit {{unit}}.', { ns: 'editor', unit: missingPanel.unit }) : plan && !plan.command ? plan.message : null
 
   const apply = () => {
     if (!plan?.command) return
-    const refusal = submit(plan.command, `apply room template ${templateName}`)
+    const refusal = submit(plan.command, t('electrical.applyRoomTemplate', 'apply room template {{name}}', { ns: 'editor', name: templateName }))
     if (refusal) return setError(refusal)
     onDone(units[0]?.panelId ?? null)
   }
@@ -62,7 +62,7 @@ export function ApplyTemplateDialog({ model, initialTemplate, selectedIds, submi
           <FieldLabel htmlFor="bm-template">{t('electrical.roomTemplate', 'Room template', { ns: 'editor' })}</FieldLabel>
           <Select value={templateName} onValueChange={setTemplateName}>
             <SelectTrigger id="bm-template" data-testid="apply-template-select">
-              <SelectValue placeholder="Choose a template" />
+              <SelectValue placeholder={t('electrical.chooseATemplate', 'Choose a template', { ns: 'editor' })} />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
@@ -79,7 +79,7 @@ export function ApplyTemplateDialog({ model, initialTemplate, selectedIds, submi
           <Empty className="border py-4">
             <EmptyHeader>
               <EmptyTitle>{t('electrical.noRoomsInThisModel', 'No rooms in this model', { ns: 'editor' })}</EmptyTitle>
-              <EmptyDescription>Rooms come from the architectural model. Link or import it, then come back.</EmptyDescription>
+              <EmptyDescription>{t('electrical.roomsComeFromTheArchitecturalModelLinkOrImpo', 'Rooms come from the architectural model. Link or import it, then come back.', { ns: 'editor' })}</EmptyDescription>
             </EmptyHeader>
           </Empty>
         ) : (
@@ -98,13 +98,13 @@ export function ApplyTemplateDialog({ model, initialTemplate, selectedIds, submi
                 {suggested.map((u) => (
                   <TableRow key={u.unit}>
                     <TableCell>
-                      <Checkbox aria-label={`Circuit unit ${u.unit}`} checked={include.has(u.unit)} onCheckedChange={(v) => setInclude(new Set(v === true ? [...include, u.unit] : [...include].filter((x) => x !== u.unit)))} />
+                      <Checkbox aria-label={t('electrical.circuitUnitName', 'Circuit unit {{unit}}', { ns: 'editor', unit: u.unit })} checked={include.has(u.unit)} onCheckedChange={(v) => setInclude(new Set(v === true ? [...include, u.unit] : [...include].filter((x) => x !== u.unit)))} />
                     </TableCell>
                     <TableCell className="text-xs font-medium">{u.unit}</TableCell>
                     <TableCell className="text-xs">{u.roomIds.map((r) => { const el = els[r]; return el?.kind === 'room' ? el.name || el.number : r }).join(', ')}</TableCell>
                     <TableCell>
                       <Select value={panelFor[u.unit] ?? NO_PANEL} onValueChange={(v) => setPanelFor({ ...panelFor, [u.unit]: v === NO_PANEL ? '' : v })}>
-                        <SelectTrigger size="sm" aria-label={`Panel for unit ${u.unit}`}>
+                        <SelectTrigger size="sm" aria-label={t('electrical.panelForUnitName', 'Panel for unit {{unit}}', { ns: 'editor', unit: u.unit })}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>

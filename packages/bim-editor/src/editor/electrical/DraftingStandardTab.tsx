@@ -64,7 +64,7 @@ export function DraftingStandardTab({ model, canEdit, editBlocked, submit }: Pro
     const source: DraftingStandardEntry['source'] =
       choice.kind === 'preset' ? { kind: 'preset', presetId: choice.presetId } : choice.kind === 'firm' && firmTemplate ? { kind: 'firm', itemId: firmTemplate.itemId, revision: firmTemplate.revision } : { kind: 'project' }
     const entry: DraftingStandardEntry = { type: 'electrical_drafting', name: DRAFTING_STANDARD_NAME, typLabelTemplate: template.trim(), source }
-    setError(submit({ type: 'save_catalog_entry', entry }, `typical label "${template.trim()}"`))
+    setError(submit({ type: 'save_catalog_entry', entry }, t('electrical.typicalLabelUndoName', 'typical label "{{name}}"', { ns: 'editor', name: template.trim() })))
   }
 
   return (
@@ -72,7 +72,10 @@ export function DraftingStandardTab({ model, canEdit, editBlocked, submit }: Pro
       <Field>
         <FieldLabel>{t('electrical.labelForATypicalSRepeatedHomeRun', 'Label for a typical’s repeated home run', { ns: 'editor' })}</FieldLabel>
         <FieldDescription>
-          When units fed from one shared panel are drawn on all copies, the first copy’s home run carries this label and the others draw the arrow only. Now in use: “{typLabelFrom(inUse, 'P2-1', 3)}”.
+          {t('electrical.whenUnitsFedFromOneSharedPanelAreDrawn', 'When units fed from one shared panel are drawn on all copies, the first copy’s home run carries this label and the others draw the arrow only. Now in use: “{{inUse}}”.', {
+            ns: 'editor',
+            inUse: typLabelFrom(inUse, 'P2-1', 3),
+          })}
         </FieldDescription>
         <RadioGroup value={keyOf(choice)} onValueChange={(v) => setChoice(v === 'firm' ? { kind: 'firm' } : v === 'project' ? { kind: 'project' } : { kind: 'preset', presetId: v.slice('preset:'.length) })} disabled={!canEdit}>
           {TYP_LABEL_PRESETS.map((p) => (
@@ -87,10 +90,10 @@ export function DraftingStandardTab({ model, canEdit, editBlocked, submit }: Pro
               {firm.status === 'loading'
                 ? t('electrical.theFirmSStandardLoading', 'The firm’s standard (loading…)', { ns: 'editor' })
                 : firm.status === 'error'
-                  ? `The firm’s standard (couldn’t load it: ${firm.message})`
+                  ? t('electrical.theFirmSStandardCouldnTLoadItReason', 'The firm’s standard (couldn’t load it: {{reason}})', { ns: 'editor', reason: firm.message })
                   : firmTemplate
-                    ? `The firm’s standard (${typLabelFrom(firmTemplate.template, 'P2-1', 3)})`
-                    : 'The firm’s standard (none published: add a tag type “electrical.typ_label” in Library)'}
+                    ? t('electrical.theFirmSStandardLabel', 'The firm’s standard ({{label}})', { ns: 'editor', label: typLabelFrom(firmTemplate.template, 'P2-1', 3) })
+                    : t('electrical.theFirmSStandardNonePublished', 'The firm’s standard (none published: add a tag type “electrical.typ_label” in Library)', { ns: 'editor' })}
             </FieldLabel>
           </Field>
           <Field orientation="horizontal">
@@ -103,11 +106,17 @@ export function DraftingStandardTab({ model, canEdit, editBlocked, submit }: Pro
         <Field>
           <FieldLabel htmlFor="typ-custom">{t('electrical.label', 'Label', { ns: 'editor' })}</FieldLabel>
           <Input id="typ-custom" value={custom} onChange={(e) => setCustom(e.target.value)} disabled={!canEdit} data-testid="typ-custom" />
-          <FieldDescription>{t('electrical.use', 'Use', { ns: 'editor' })} {'{circuit}'} for the home run’s tag and {'{count}'} for how many units carry it.</FieldDescription>
+          <FieldDescription>
+            {t('electrical.useForTheHomeRunSTag', 'Use {{circuit}} for the home run’s tag and {{count}} for how many units carry it.', {
+              ns: 'editor',
+              circuit: '{circuit}',
+              count: '{count}',
+            })}
+          </FieldDescription>
         </Field>
       )}
       <Field>
-        <FieldDescription data-testid="typ-preview">{problem ?? `Plans will read: “${typLabelFrom(template, 'P2-1', 3)}”.`}</FieldDescription>
+        <FieldDescription data-testid="typ-preview">{problem ?? t('electrical.plansWillReadLabel', 'Plans will read: “{{label}}”.', { ns: 'editor', label: typLabelFrom(template, 'P2-1', 3) })}</FieldDescription>
       </Field>
       {error && (
         <Alert variant="destructive">

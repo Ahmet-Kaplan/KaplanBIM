@@ -11,6 +11,7 @@ import { ScheduleProperties } from './ScheduleProperties'
 import { ScheduleTemplateEditor } from './ScheduleTemplateEditor'
 import { useEditorHost } from '@permitzip/bim-editor/host'
 import { useScheduleTemplatesFrom } from './use-schedule-templates'
+import { useEditorTranslate, type Translate } from '../../i18n/translate'
 
 export interface ScheduleAction {
   readonly run: (kind: ScheduleChoice) => void
@@ -40,10 +41,13 @@ export interface ScheduleWorkflow {
   readonly formSlot: NewScheduleFormSlot
 }
 
-const PLACE_PANEL_FIRST = 'Place a panel first: Electrical › Panel, then name it in its properties.'
+/** What to say when there is no panel to schedule yet. A function of `t`, so the sentence is not frozen in one language. */
+const placePanelFirst = (t: Translate): string =>
+  t('electrical.placeAPanelFirstElectricalPanelThenNameItInI', 'Place a panel first: Electrical › Panel, then name it in its properties.', { ns: 'editor' })
 
 /** Electrical › Schedules (they open the one New schedule window), the form kinds' fields in it, and a schedule's properties and template editor. */
 export function useScheduleWorkflow(input: ScheduleWorkflowInput): ScheduleWorkflow {
+  const t = useEditorTranslate()
   const { model, nec, editBlocked, submit, panelId, openNewSchedule } = input
   const [editing, setEditing] = useState<string | null>(null)
   const hasFormSchedule = useMemo(() => (model ? documentIndex(model).views.some((v) => v.props?.formSchedule) : false), [model])
@@ -53,12 +57,12 @@ export function useScheduleWorkflow(input: ScheduleWorkflowInput): ScheduleWorkf
   // Read on every render (the pack set memoizes it): a form kind whose add-on registers after this mounts is
   // offered once it has, instead of the New schedule window saying "still loading" until a reload.
   const kindsKey = formScheduleKinds().join('\n')
-  const formSlot = useMemo(() => electricalFormSlot(kindsKey === '' ? [] : kindsKey.split('\n'), { nec: { label: nec.label, edition: nec.edition }, templates, initialPanelId: panelId }), [kindsKey, nec.label, nec.edition, templates, panelId])
+  const formSlot = useMemo(() => electricalFormSlot(kindsKey === '' ? [] : kindsKey.split('\n'), { t, nec: { label: nec.label, edition: nec.edition }, templates, initialPanelId: panelId }), [kindsKey, nec.label, nec.edition, templates, panelId, t])
 
   const blockedFor = (kind: ScheduleChoice): string | null => {
-    if (!model) return 'The model is still opening.'
+    if (!model) return t('electrical.theModelIsStillOpening', 'The model is still opening.', { ns: 'editor' })
     if (editBlocked) return editBlocked
-    if (isBoundKind(kind) && !hasPanels) return PLACE_PANEL_FIRST
+    if (isBoundKind(kind) && !hasPanels) return placePanelFirst(t)
     return null
   }
 

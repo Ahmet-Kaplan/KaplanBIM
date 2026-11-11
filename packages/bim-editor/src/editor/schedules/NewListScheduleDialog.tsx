@@ -13,7 +13,7 @@ import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldLeg
 import { Input } from '../../ui/input'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '../../ui/select'
 import { newId } from '../views-sheets/types'
-import { EQUIPMENT_LIST_CHOICE, scheduleChoiceLabel } from '../electrical/schedules/schedule-plan'
+import { EQUIPMENT_LIST_CHOICE, equipmentListChoiceLabel, scheduleChoiceLabel } from '../electrical/schedules/schedule-plan'
 
 import { BUILTIN_LIST_IDS, builtinListBlocked, builtinListDefinition, builtinListDescription, builtinListLabel, type BuiltinListId } from './builtin-lists'
 import { useEditorTranslate, type Translate } from '../i18n/translate'
@@ -197,7 +197,7 @@ export function NewScheduleWindow({ model, initialCategory, initialList, initial
     typedName ??
 
     (pick.kind === 'builtin'
-      ? uniqueName(model, EQUIPMENT_LIST_CHOICE.label)
+      ? uniqueName(model, equipmentListChoiceLabel(t))
       : pick.kind === 'list'
 
         ? uniqueName(model, builtinListLabel(pick.list, t))
@@ -358,7 +358,7 @@ export function NewScheduleWindow({ model, initialCategory, initialList, initial
                       ))}
                       {g.equipmentList && (
                         <SelectItem value="builtin:equipment" data-testid="list-schedule-builtin-equipment">
-                          {EQUIPMENT_LIST_CHOICE.label}
+                          {equipmentListChoiceLabel(t)}
                         </SelectItem>
                       )}
                     </SelectGroup>

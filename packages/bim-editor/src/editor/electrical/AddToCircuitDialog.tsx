@@ -96,9 +96,18 @@ export function AddToCircuitDialog({
       <DialogContent className="sm:max-w-lg" data-testid="circuit-dialog">
         <form onSubmit={send} className="flex flex-col gap-4">
           <DialogHeader>
-            <DialogTitle>{moving > 0 ? `Change the circuit of ${noun}` : `Add ${noun} to a circuit`}</DialogTitle>
+            <DialogTitle>
+              {moving > 0
+                ? t('electrical.changeTheCircuitOf', 'Change the circuit of {{noun}}', { ns: 'editor', noun })
+                : t('electrical.addNounToACircuit', 'Add {{noun}} to a circuit', { ns: 'editor', noun })}
+            </DialogTitle>
             <DialogDescription>
-              {moving > 0 ? `${moving === loads.length ? 'Everything selected is' : `${moving} of these are`} on a circuit now; they come off it first.` : t('electrical.pickThePanelTheFreeSlotsThatBestEvenOutItsPh', 'Pick the panel. The free slots that best even out its phases are chosen for you; you can pick others.', { ns: 'editor' })} You can undo this.
+              {moving > 0
+                ? moving === loads.length
+                  ? t('electrical.everythingSelectedIsOnACircuitNowTheyCome', 'Everything selected is on a circuit now; they come off it first.', { ns: 'editor' })
+                  : t('electrical.nOfTheseAreOnACircuitNowTheyComeOffItFir', '{{n}} of these are on a circuit now; they come off it first.', { ns: 'editor', n: moving })
+                : t('electrical.pickThePanelTheFreeSlotsThatBestEvenOutItsPh', 'Pick the panel. The free slots that best even out its phases are chosen for you; you can pick others.', { ns: 'editor' })}{' '}
+              {t('electrical.youCanUndoThis', 'You can undo this.', { ns: 'editor' })}
             </DialogDescription>
           </DialogHeader>
           {panels.length === 0 ? (
@@ -130,7 +139,7 @@ export function AddToCircuitDialog({
                   }}
                 >
                   <SelectTrigger id="bm-circuit-panel" data-testid="circuit-panel-select">
-                    <SelectValue placeholder="Choose the panel it goes on" />
+                    <SelectValue placeholder={t('electrical.chooseThePanelItGoesOnPlaceholder', 'Choose the panel it goes on', { ns: 'editor' })} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
@@ -146,7 +155,7 @@ export function AddToCircuitDialog({
               {existing.length > 0 && (
                 <Field>
                   <FieldLabel>{t('electrical.circuit', 'Circuit', { ns: 'editor' })}</FieldLabel>
-                  <ToggleGroup type="single" variant="outline" value={circuit === NEW ? NEW : 'existing'} onValueChange={(v) => v && setCircuit(v === NEW ? NEW : (existing[0]?.linkId ?? NEW))} aria-label="New or existing circuit">
+                  <ToggleGroup type="single" variant="outline" value={circuit === NEW ? NEW : 'existing'} onValueChange={(v) => v && setCircuit(v === NEW ? NEW : (existing[0]?.linkId ?? NEW))} aria-label={t('electrical.newOrExistingCircuit', 'New or existing circuit', { ns: 'editor' })}>
                     <ToggleGroupItem value={NEW}>{t('electrical.newCircuit', 'New circuit', { ns: 'editor' })}</ToggleGroupItem>
                     <ToggleGroupItem value="existing">{t('electrical.addToOneOn', 'Add to one on', { ns: 'editor' })} {schedule?.name}</ToggleGroupItem>
                   </ToggleGroup>
@@ -176,7 +185,7 @@ export function AddToCircuitDialog({
                     <Field>
                       <FieldLabel htmlFor="bm-circuit-slots">{t('electrical.slots', 'Slots', { ns: 'editor' })}</FieldLabel>
                       <Select value={slotsKey} onValueChange={(key) => setSlotsPick({ panel: panelId, key })} disabled={choices.length === 0}>
-                        <SelectTrigger id="bm-circuit-slots" data-testid="circuit-slots-select" aria-label="Slots">
+                        <SelectTrigger id="bm-circuit-slots" data-testid="circuit-slots-select" aria-label={t('electrical.slots', 'Slots', { ns: 'editor' })}>
                           <SelectValue placeholder={choices.length === 0 ? t('electrical.noFreeSlots', 'No free slots', { ns: 'editor' }) : t('electrical.slots', 'Slots', { ns: 'editor' })} />
                         </SelectTrigger>
                         <SelectContent>
@@ -190,7 +199,7 @@ export function AddToCircuitDialog({
                           </SelectGroup>
                         </SelectContent>
                       </Select>
-                      <FieldDescription>{poles ? `${poles}-pole breaker` : t('electrical.theseNeedDifferentBreakers', 'These need different breakers', { ns: 'editor' })}</FieldDescription>
+                      <FieldDescription>{poles ? t('electrical.poleBreaker', '{{poles}}-pole breaker', { ns: 'editor', poles }) : t('electrical.theseNeedDifferentBreakers', 'These need different breakers', { ns: 'editor' })}</FieldDescription>
                     </Field>
                     <Field>
                       <FieldLabel htmlFor="bm-circuit-breaker">{t('electrical.breakerA', 'Breaker (A)', { ns: 'editor' })}</FieldLabel>
@@ -206,18 +215,23 @@ export function AddToCircuitDialog({
               )}
             </FieldGroup>
           )}
-          <ItemGroup className="max-h-40 gap-1 overflow-y-auto" aria-label="What goes on the circuit">
+          <ItemGroup className="max-h-40 gap-1 overflow-y-auto" aria-label={t('electrical.whatGoesOnTheCircuit', 'What goes on the circuit', { ns: 'editor' })}>
             {loads.map((id) => {
               const el = els[id]
               const conn = electricalConnections(els, id)[0]
+              const onCircuit = conn?.circuit ? t('electrical.nowOn', 'now on {{name}}', { ns: 'editor', name: conn.circuit.name }) : null
               return (
                 <Item key={id} size="sm" variant="muted">
                   <ItemContent>
                     <ItemTitle className="text-xs">{el?.kind === 'part' ? memberName(els, el) : id}</ItemTitle>
                     <ItemDescription className="text-xs">
-                      {conn?.voltage ? `${conn.voltage} V, ${conn.poles ?? 1} pole${(conn.poles ?? 1) === 1 ? '' : 's'}` : t('electrical.noVoltageSet', 'no voltage set', { ns: 'editor' })}
+                      {conn?.voltage
+                        ? (conn.poles ?? 1) === 1
+                          ? t('electrical.voltageV1Pole', '{{voltage}} V, 1 pole', { ns: 'editor', voltage: conn.voltage })
+                          : t('electrical.voltageVPoles', '{{voltage}} V, {{poles}} poles', { ns: 'editor', voltage: conn.voltage, poles: conn.poles ?? 1 })
+                        : t('electrical.noVoltageSet', 'no voltage set', { ns: 'editor' })}
                       {conn?.loadVa ? `, ${Math.round(conn.loadVa)} VA` : ''}
-                      {conn?.circuit ? ` · now on ${conn.circuit.name}` : ''}
+                      {onCircuit ? ` · ${onCircuit}` : ''}
                     </ItemDescription>
                   </ItemContent>
                 </Item>

@@ -65,7 +65,7 @@ export function ContinueCircuitPanel({ model, editBlocked, submit, place, onClos
 
   const panelName = panels.find((p) => p.panelId === (active?.panelId ?? panelId))?.name ?? ''
   const device = continueDeviceWords(active?.kind ?? kind, t)
-  const circuitLabel = (linkId: string | null) => (linkId ? (panelCircuits(model, active?.panelId ?? panelId).find((c) => c.linkId === linkId)?.label ?? t('electrical.theCircuit', 'the circuit', { ns: 'editor' })) : `a new circuit on ${panelName}`)
+  const circuitLabel = (linkId: string | null) => (linkId ? (panelCircuits(model, active?.panelId ?? panelId).find((c) => c.linkId === linkId)?.label ?? t('electrical.theCircuit', 'the circuit', { ns: 'editor' })) : t('electrical.aNewCircuitOnPanel', 'a new circuit on {{panel}}', { ns: 'editor', panel: panelName }))
 
   const startBlocked = editBlocked ?? (panels.length === 0 ? t('electrical.placeAPanelFirstElectricalPanelThenNameItInI', 'Place a panel first: Electrical › Panel, then name it in its properties.', { ns: 'editor' }) : !panelId ? t('electrical.pickThePanel', 'Pick the panel.', { ns: 'editor' }) : null)
 
@@ -81,7 +81,15 @@ export function ContinueCircuitPanel({ model, editBlocked, submit, place, onClos
     setActive({ panelId, linkId: circuit === NEW_CIRCUIT ? null : circuit, newLinkId: newElementId('ckt'), kind, added: 0 })
   }
   const stop = () => {
-    if (active && active.added > 0) notify(`Added ${active.added} ${active.added === 1 ? device?.label.toLowerCase() : device?.plural} to ${circuitLabel(active.linkId)}.`)
+    if (active && active.added > 0)
+      notify(
+        t('electrical.addedDevicesToCircuit', 'Added {{count}} {{device}} to {{circuit}}.', {
+          ns: 'editor',
+          count: active.added,
+          device: active.added === 1 ? (device?.label.toLowerCase() ?? '') : (device?.plural ?? ''),
+          circuit: circuitLabel(active.linkId),
+        }),
+      )
     setActive(null)
     onClose()
   }
@@ -133,7 +141,7 @@ export function ContinueCircuitPanel({ model, editBlocked, submit, place, onClos
           {t('electrical.continueCircuit', 'Continue circuit', { ns: 'editor' })}
         </span>
         {!active && (
-          <Button variant="ghost" size="icon-sm" aria-label="Close Continue circuit" onClick={onClose} data-testid="continue-circuit-close">
+          <Button variant="ghost" size="icon-sm" aria-label={t('electrical.closeContinueCircuit', 'Close Continue circuit', { ns: 'editor' })} onClick={onClose} data-testid="continue-circuit-close">
             <X />
           </Button>
         )}
@@ -141,7 +149,12 @@ export function ContinueCircuitPanel({ model, editBlocked, submit, place, onClos
       {active ? (
         <>
           <p className="text-sm" data-testid="continue-circuit-status">
-            {t('electrical.each', 'Each', { ns: 'editor' })} {device?.label.toLowerCase()} you place joins {circuitLabel(active.linkId)}. Added {active.added}.
+            {t('electrical.eachDeviceJoinsCircuitAdded', 'Each {{device}} you place joins {{circuit}}. Added {{count}}.', {
+              ns: 'editor',
+              device: device?.label.toLowerCase() ?? '',
+              circuit: circuitLabel(active.linkId),
+              count: active.added,
+            })}
           </p>
           <p className="text-xs text-muted-foreground">{t('electrical.clickInThePlanToPlaceUndoTakesTheLastOneOffT', 'Click in the plan to place. Undo takes the last one off the circuit. Esc stops placing and circuiting; Stop ends circuiting only (Place part stays on).', { ns: 'editor' })}</p>
           <Button onClick={stop} data-testid="continue-circuit-stop">
@@ -161,7 +174,7 @@ export function ContinueCircuitPanel({ model, editBlocked, submit, place, onClos
               }}
             >
               <SelectTrigger id="continue-circuit-panel-pick" data-testid="continue-circuit-panel-pick">
-                <SelectValue placeholder="Pick a panel" />
+                <SelectValue placeholder={t('electrical.pickAPanel', 'Pick a panel', { ns: 'editor' })} />
               </SelectTrigger>
               <SelectContent className={CLOSES_AT_ONCE}>
                 <SelectGroup>
@@ -185,7 +198,7 @@ export function ContinueCircuitPanel({ model, editBlocked, submit, place, onClos
                   <SelectItem value={NEW_CIRCUIT}>{t('electrical.newCircuitBestBalancedFreeSpaces', 'New circuit (best-balanced free spaces)', { ns: 'editor' })}</SelectItem>
                   {circuits.map((c) => (
                     <SelectItem key={c.linkId} value={c.linkId}>
-                      {c.label} · {c.members} on it
+                      {t('electrical.labelWithMembersOnIt', '{{label}} · {{count}} on it', { ns: 'editor', label: c.label, count: c.members })}
                     </SelectItem>
                   ))}
                 </SelectGroup>

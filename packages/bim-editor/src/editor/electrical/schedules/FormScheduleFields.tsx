@@ -11,12 +11,16 @@ import type { NecRules } from '../use-nec-rules'
 import type { FormScheduleReady, NewScheduleFormFieldsProps, NewScheduleFormSlot } from '../../schedules/new-schedule-plan'
 import { ruleChoices, boundKindFor, isBoundKind, nextScheduleSheetNumber, scheduleChoiceLabel, uniqueScheduleName, withRules, type RuleChoice } from './schedule-plan'
 import type { ScheduleTemplates } from './use-schedule-templates'
-import { useEditorTranslate } from '../../i18n/translate'
+import { useEditorTranslate, type Translate } from '../../i18n/translate'
 
 const BUILTIN = 'builtin'
-const PLACE_PANEL_FIRST = 'Place a panel first: Electrical › Panel, then name it in its properties.'
+/** What to say when there is no panel to schedule yet. A function of `t`: a module-level English string would freeze the language. */
+const placePanelFirst = (t: Translate): string =>
+  t('electrical.placeAPanelFirstElectricalPanelThenNameItInI', 'Place a panel first: Electrical › Panel, then name it in its properties.', { ns: 'editor' })
 
 interface Lent {
+  /** The language the new sheet's default name is written in (the slot outlives the component that drew it). */
+  readonly t: Translate
   readonly nec: Pick<NecRules, 'label' | 'edition'>
   readonly templates: ScheduleTemplates
   /** The selected panel, or the panel of the selected device; null when nothing points at one. */
@@ -39,22 +43,23 @@ function FormScheduleFields({ model, kind, onReady, nec, templates, initialPanel
   const bound = isBoundKind(kind)
   const picked = bound ? (equipment.find((e) => e.id === panelId) ?? null) : null
   const formKind: FormScheduleKind = picked ? boundKindFor(picked) : kind
-  const firmChoices = templates.firm.filter((t) => t.kind === formKind)
+  const firmChoices = templates.firm.filter((tpl) => tpl.kind === formKind)
   const firmDefault = templates.firmDefault(formKind)
-  const templateValue = templatePick && templatePick.kind === formKind && (templatePick.value === BUILTIN || firmChoices.some((t) => `firm:${t.name}` === templatePick.value)) ? templatePick.value : firmDefault ? `firm:${firmDefault.name}` : BUILTIN
+  const templateValue = templatePick && templatePick.kind === formKind && (templatePick.value === BUILTIN || firmChoices.some((tpl) => `firm:${tpl.name}` === templatePick.value)) ? templatePick.value : firmDefault ? `firm:${firmDefault.name}` : BUILTIN
 
   const firm = templates.firm
   const ready: FormScheduleReady = useMemo(() => {
     const chosen = bound ? (equipment.find((e) => e.id === panelId) ?? null) : null
     const formKindNow: FormScheduleKind = chosen ? boundKindFor(chosen) : kind
     const firmNow = templateValue === BUILTIN ? null : (firm.find((t) => t.kind === formKindNow && `firm:${t.name}` === templateValue) ?? null)
-    const suggestedName = uniqueScheduleName(model, formKindNow, chosen?.name ?? null)
-    if (bound && equipment.length === 0) return { ok: false, reason: PLACE_PANEL_FIRST, suggestedName }
-    if (bound && !chosen) return { ok: false, reason: 'Choose the panel or switchboard this schedule is for.', suggestedName }
+    const suggestedName = uniqueScheduleName(model, formKindNow, chosen?.name ?? null, t)
+    if (bound && equipment.length === 0) return { ok: false, reason: placePanelFirst(t), suggestedName }
+    if (bound && !chosen)
+      return { ok: false, reason: t('electrical.chooseThePanelOrSwitchboardThisScheduleIsF', 'Choose the panel or switchboard this schedule is for.', { ns: 'editor' }), suggestedName }
     const base: FormScheduleDefinition = { kind: formKindNow, ...(chosen ? { elementId: chosen.id } : {}), template: firmNow?.template ?? builtinFormTemplate(formKindNow), ...(firmNow ? { templateSource: { name: firmNow.name, revision: firmNow.revision } } : {}) }
     const subject = chosen ? `${scheduleChoiceLabel(formKindNow, t).toLowerCase()} ${chosen.name}` : scheduleChoiceLabel(formKindNow, t).toLowerCase()
     return { ok: true, form: withRules(base, rule), suggestedName, subject }
-  }, [model, kind, bound, equipment, panelId, templateValue, firm, rule])
+  }, [model, kind, bound, equipment, panelId, templateValue, firm, rule, t])
 
   useEffect(() => onReady(ready), [ready, onReady])
 
@@ -65,7 +70,7 @@ function FormScheduleFields({ model, kind, onReady, nec, templates, initialPanel
           <FieldLabel htmlFor="bm-schedule-panel">{t('electrical.panel', 'Panel', { ns: 'editor' })}</FieldLabel>
           <Select value={panelId} onValueChange={setPanelId} disabled={equipment.length === 0}>
             <SelectTrigger id="bm-schedule-panel" data-testid="schedule-panel-select">
-              <SelectValue placeholder={equipment.length === 0 ? 'No panels yet' : 'Choose a panel or switchboard'} />
+              <SelectValue placeholder={equipment.length === 0 ? t('electrical.noPanelsYet', 'No panels yet', { ns: 'editor' }) : t('electrical.chooseAPanelOrSwitchboard', 'Choose a panel or switchboard', { ns: 'editor' })} />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
@@ -77,11 +82,15 @@ function FormScheduleFields({ model, kind, onReady, nec, templates, initialPanel
               </SelectGroup>
             </SelectContent>
           </Select>
-          {picked && formKind !== kind && <FieldDescription>{picked.name} is a {picked.kind}, so this is a switchboard schedule (its feeders as rows).</FieldDescription>}
+          {picked && formKind !== kind && (
+            <FieldDescription>
+              {t('electrical.nameIsAKindSoThisIsASwitchboardSchedule', '{{name}} is a {{kind}}, so this is a switchboard schedule (its feeders as rows).', { ns: 'editor', name: picked.name, kind: picked.kind })}
+            </FieldDescription>
+          )}
         </Field>
       )}
       <Field>
-        <FieldLabel htmlFor="bm-schedule-template">Template</FieldLabel>
+        <FieldLabel htmlFor="bm-schedule-template">{t('electrical.template', 'Template', { ns: 'editor' })}</FieldLabel>
         <Select value={templateValue} onValueChange={(value) => setTemplatePick({ kind: formKind, value })}>
           <SelectTrigger id="bm-schedule-template" data-testid="schedule-template-select">
             <SelectValue />
@@ -89,34 +98,34 @@ function FormScheduleFields({ model, kind, onReady, nec, templates, initialPanel
           <SelectContent>
             {firmChoices.length > 0 && (
               <SelectGroup>
-                <SelectLabel>Your firm</SelectLabel>
+                <SelectLabel>{t('electrical.yourFirm', 'Your firm', { ns: 'editor' })}</SelectLabel>
                 {[...firmChoices]
                   .sort((a, b) => Number(b.isDefault) - Number(a.isDefault) || a.name.localeCompare(b.name))
-                  .map((t) => (
-                    <SelectItem key={t.name} value={`firm:${t.name}`}>
-                      {t.name}
-                      {t.isDefault ? ' (firm default)' : ''}
+                  .map((tpl) => (
+                    <SelectItem key={tpl.name} value={`firm:${tpl.name}`}>
+                      {tpl.name}
+                      {tpl.isDefault ? t('electrical.firmDefaultSuffix', ' (firm default)', { ns: 'editor' }) : ''}
                     </SelectItem>
                   ))}
               </SelectGroup>
             )}
             <SelectGroup>
-              <SelectLabel>Built in</SelectLabel>
+              <SelectLabel>{t('electrical.builtIn', 'Built in', { ns: 'editor' })}</SelectLabel>
               <SelectItem value={BUILTIN}>{builtinFormTemplate(formKind).name}</SelectItem>
             </SelectGroup>
           </SelectContent>
         </Select>
-        {templates.status === 'loading' && <FieldDescription>Loading your firm&apos;s templates…</FieldDescription>}
+        {templates.status === 'loading' && <FieldDescription>{t('electrical.loadingYourFirmSTemplates', 'Loading your firm’s templates…', { ns: 'editor' })}</FieldDescription>}
       </Field>
       {templates.problem && (
         <Alert data-testid="schedule-templates-problem">
           <CircleAlert />
-          <AlertTitle>Firm templates unavailable</AlertTitle>
+          <AlertTitle>{t('electrical.firmTemplatesUnavailable', 'Firm templates unavailable', { ns: 'editor' })}</AlertTitle>
           <AlertDescription>{templates.problem}</AlertDescription>
         </Alert>
       )}
       <Field>
-        <FieldLabel htmlFor="bm-schedule-rules">Demand figures</FieldLabel>
+        <FieldLabel htmlFor="bm-schedule-rules">{t('electrical.demandFigures', 'Demand figures', { ns: 'editor' })}</FieldLabel>
         <Select value={rule} onValueChange={(v) => setRule(ruleChoices(t).find((r) => r.value === v)?.value ?? 'none')}>
           <SelectTrigger id="bm-schedule-rules" data-testid="schedule-rules-select">
             <SelectValue />
@@ -131,7 +140,7 @@ function FormScheduleFields({ model, kind, onReady, nec, templates, initialPanel
             </SelectGroup>
           </SelectContent>
         </Select>
-        <FieldDescription data-testid="schedule-nec-label">This project: {nec.label}</FieldDescription>
+        <FieldDescription data-testid="schedule-nec-label">{t('electrical.thisProjectCode', 'This project: {{code}}', { ns: 'editor', code: nec.label })}</FieldDescription>
       </Field>
     </>
   )
@@ -142,6 +151,9 @@ export function electricalFormSlot(kinds: readonly string[], lent: Lent): NewSch
   return {
     kinds,
     renderFields: (props) => <FormScheduleFields key={props.kind} {...props} {...lent} />,
-    newSheet: (model: ModelState) => ({ number: nextScheduleSheetNumber(model), name: 'Electrical schedules' }),
+    newSheet: (model: ModelState) => ({
+      number: nextScheduleSheetNumber(model),
+      name: lent.t('electrical.electricalSchedules', 'Electrical schedules', { ns: 'editor' }),
+    }),
   }
 }

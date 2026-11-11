@@ -54,7 +54,7 @@ export function ConnectionTypePicker({ model, ids, submit, editBlocked, onManage
             <SelectGroup>
               <SelectItem value={NONE}>{t('electrical.noneThePartAposSOwnValues', "None (the part's own values)", { ns: 'editor' })}</SelectItem>
               {current === MIXED && <SelectItem value={MIXED}>{t('electrical.differentOnEach', 'Different on each', { ns: 'editor' })}</SelectItem>}
-              {current !== NONE && current !== MIXED && !known && <SelectItem value={current}>{current} (not in the project&apos;s types)</SelectItem>}
+              {current !== NONE && current !== MIXED && !known && <SelectItem value={current}>{t('electrical.designatorNotInTheProjectSTypes', "{{designator}} (not in the project's types)", { ns: 'editor', designator: current })}</SelectItem>}
               {records.map((r) => (
                 <SelectItem key={r.entry.designator} value={r.entry.designator}>
                   {r.entry.designator} · {r.entry.description || connectionTypeSummary(r.entry)}
@@ -63,7 +63,7 @@ export function ConnectionTypePicker({ model, ids, submit, editBlocked, onManage
             </SelectGroup>
           </SelectContent>
         </Select>
-        <Button variant="ghost" size="icon-sm" aria-label="Manage connection types" onClick={onManage}>
+        <Button variant="ghost" size="icon-sm" aria-label={t('electrical.manageConnectionTypes', 'Manage connection types', { ns: 'editor' })} onClick={onManage}>
           <Settings2 />
         </Button>
       </div>

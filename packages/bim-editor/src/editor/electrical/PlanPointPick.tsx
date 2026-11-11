@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Vec2 } from '@permitzip/bim-kernel'
 import { ToolHintBar } from '../ToolHintBar'
+import { useEditorTranslate } from '../i18n/translate'
 
 /**
  * Pick one point in the plan for something a dialog is placing (the service
@@ -20,8 +21,9 @@ export function PlanPointPick({
   readonly onPicked: (point: Vec2) => void
   readonly onCancel: () => void
 }) {
+  const t = useEditorTranslate()
   const box = useRef<HTMLDivElement>(null)
-  const [hint, setHint] = useState(`${prompt} Esc goes back.`)
+  const [hint, setHint] = useState(`${prompt} ${t('electrical.escGoesBack', 'Esc goes back.', { ns: 'editor' })}`)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -42,7 +44,7 @@ export function PlanPointPick({
     if (e.button !== 0) return
     const at = pickPlanPointAt(e.clientX, e.clientY)
     if (!at) {
-      setHint('That point is off the plan. Click inside the plan or 3D view, or Esc to go back.')
+      setHint(t('electrical.thatPointIsOffThePlanClickInsideThePlan', 'That point is off the plan. Click inside the plan or 3D view, or Esc to go back.', { ns: 'editor' }))
       return
     }
     onPicked(at)

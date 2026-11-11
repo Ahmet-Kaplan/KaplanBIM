@@ -60,7 +60,7 @@ export function RebalanceDialog({ model, initialPanelId, submit, onClose, onDone
             }}
           >
             <SelectTrigger id="bm-rebalance-panel" data-testid="rebalance-panel-select">
-              <SelectValue placeholder="Choose the panel" />
+              <SelectValue placeholder={t('electrical.chooseThePanel', 'Choose the panel', { ns: 'editor' })} />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
@@ -112,7 +112,7 @@ export function RebalanceDialog({ model, initialPanelId, submit, onClose, onDone
                     </TableCell>
                     <TableCell className="text-xs">{va(m.va)}</TableCell>
                     <TableCell>
-                      <Checkbox aria-label={`Keep ${m.from} where it is`} checked={false} onCheckedChange={() => setKeep(new Set([...keep, m.linkId]))} />
+                      <Checkbox aria-label={t('electrical.keepSlotWhereItIs', 'Keep {{slot}} where it is', { ns: 'editor', slot: m.from })} checked={false} onCheckedChange={() => setKeep(new Set([...keep, m.linkId]))} />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -121,10 +121,10 @@ export function RebalanceDialog({ model, initialPanelId, submit, onClose, onDone
                   return (
                     <TableRow key={id} className="text-muted-foreground">
                       <TableCell className="text-xs" colSpan={3}>
-                        {l?.kind === 'service_link' ? `${l.description || id}` : id}: kept where it is
+                        {t('electrical.slotKeptWhereItIs', '{{slot}}: kept where it is', { ns: 'editor', slot: l?.kind === 'service_link' ? `${l.description || id}` : id })}
                       </TableCell>
                       <TableCell>
-                        <Checkbox aria-label="Let it move again" checked onCheckedChange={() => setKeep(new Set(kept.filter((k) => k !== id)))} />
+                        <Checkbox aria-label={t('electrical.letItMoveAgain', 'Let it move again', { ns: 'editor' })} checked onCheckedChange={() => setKeep(new Set(kept.filter((k) => k !== id)))} />
                       </TableCell>
                     </TableRow>
                   )

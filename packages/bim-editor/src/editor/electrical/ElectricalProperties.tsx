@@ -71,7 +71,7 @@ export function ElectricalProperties({
                 <ItemDescription className="text-xs">{hasPositions(s.kind) ? t('electrical.circuits', 'Circuits', { ns: 'editor' }) : t('electrical.feeds_67', 'Feeds', { ns: 'editor' })}</ItemDescription>
                 <ItemTitle className="text-xs font-normal" data-testid="electrical-props-circuits">
                   {s.circuits.length === 0 ? t('empty.noneYet', 'None yet', { ns: 'editor' }) : s.circuits.slice(0, 8).map((c) => (c.role === 'feeder' ? `${c.name} (feeder)` : `${c.name} ${c.description}`.trim())).join(' · ')}
-                  {s.circuits.length > 8 ? ` · and ${s.circuits.length - 8} more` : ''}
+                  {s.circuits.length > 8 ? ` · ${t('electrical.andNMore', 'and {{count}} more', { ns: 'editor', count: s.circuits.length - 8 })}` : ''}
                 </ItemTitle>
               </ItemContent>
             </Item>
@@ -93,7 +93,7 @@ export function ElectricalProperties({
             </Button>
             <Button variant="outline" size="sm" onClick={onFeed} data-testid="electrical-props-feed">
               <Unplug data-icon="inline-start" />
-              {s.fedBy ? t('electrical.changeFeeder', 'Change feeder', { ns: 'editor' }) : `Feed ${s.name}`}
+              {s.fedBy ? t('electrical.changeFeeder', 'Change feeder', { ns: 'editor' }) : t('electrical.feedName', 'Feed {{name}}', { ns: 'editor', name: s.name })}
             </Button>
           </div>
           {panelPart?.kind === 'part' && <DedicatedSpaceForm key={panelId} model={model} part={panelPart} canEdit={editBlocked === null} editBlocked={editBlocked} submit={submit} />}
@@ -111,7 +111,7 @@ export function ElectricalProperties({
               <ItemContent>
                 <ItemDescription className="text-xs">{t('electrical.circuit', 'Circuit', { ns: 'editor' })}</ItemDescription>
                 <ItemTitle className="text-xs font-normal" data-testid="electrical-props-circuit">
-                  {circuit ? `${circuit.name} (panel ${circuit.sourceName})` : t('empty.notOnCircuit', 'Not on a circuit', { ns: 'editor' })}
+                  {circuit ? t('electrical.circuitNameOnPanel', '{{name}} (panel {{panel}})', { ns: 'editor', name: circuit.name, panel: circuit.sourceName }) : t('empty.notOnCircuit', 'Not on a circuit', { ns: 'editor' })}
                 </ItemTitle>
               </ItemContent>
             </Item>
@@ -119,7 +119,11 @@ export function ElectricalProperties({
               <ItemContent>
                 <ItemDescription className="text-xs">{t('electrical.needs', 'Needs', { ns: 'editor' })}</ItemDescription>
                 <ItemTitle className="text-xs font-normal">
-                  {conn?.voltage ? `${conn.voltage} V, ${conn.poles ?? 1} pole${(conn.poles ?? 1) === 1 ? '' : 's'}` : t('empty.noVoltageSet', 'No voltage set: set it above before circuiting', { ns: 'editor' })}
+                  {conn?.voltage
+                    ? (conn.poles ?? 1) === 1
+                      ? t('electrical.voltageV1Pole', '{{voltage}} V, 1 pole', { ns: 'editor', voltage: conn.voltage })
+                      : t('electrical.voltageVPoles', '{{voltage}} V, {{poles}} poles', { ns: 'editor', voltage: conn.voltage, poles: conn.poles ?? 1 })
+                    : t('empty.noVoltageSet', 'No voltage set: set it above before circuiting', { ns: 'editor' })}
                   {conn?.loadVa ? `, ${Math.round(conn.loadVa)} VA` : ''}
                 </ItemTitle>
               </ItemContent>
@@ -153,7 +157,15 @@ export function ElectricalProperties({
     return (
       <>
         <p className="text-xs" data-testid="electrical-props-group">
-          {target.loads.length} device{target.loads.length === 1 ? '' : 's'} that take power: {circuited === 0 ? t('electrical.noneOnACircuitYet', 'none on a circuit yet', { ns: 'editor' }) : `${circuited} on a circuit`}.{target.panels.length > 0 ? ` ${target.panels.length} panel${target.panels.length === 1 ? '' : 's'} in the selection stay as they are.` : ''}
+          {target.loads.length === 1
+            ? t('electrical.oneDeviceThatTakesPower', '1 device that takes power: {{circuit}}.', { ns: 'editor', circuit: circuited === 0 ? t('electrical.noneOnACircuitYet', 'none on a circuit yet', { ns: 'editor' }) : t('electrical.nOnACircuit', '{{count}} on a circuit', { ns: 'editor', count: circuited }) })
+            : t('electrical.nDevicesThatTakePower', '{{count}} devices that take power: {{circuit}}.', { ns: 'editor', count: target.loads.length, circuit: circuited === 0 ? t('electrical.noneOnACircuitYet', 'none on a circuit yet', { ns: 'editor' }) : t('electrical.nOnACircuit', '{{count}} on a circuit', { ns: 'editor', count: circuited }) })}
+          {target.panels.length > 0 ? ' ' : ''}
+          {target.panels.length === 1
+            ? t('electrical.onePanelInTheSelectionStays', '1 panel in the selection stay as they are.', { ns: 'editor' })
+            : target.panels.length > 0
+              ? t('electrical.nPanelsInTheSelectionStay', '{{count}} panels in the selection stay as they are.', { ns: 'editor', count: target.panels.length })
+              : ''}
         </p>
         <ConnectionTypePicker model={model} ids={target.loads} submit={submit} editBlocked={editBlocked} onManage={onManageTypes} />
         <Button size="sm" onClick={onAdd} disabled={addBlocked !== null} title={addBlocked ?? undefined} data-testid="electrical-props-add">

@@ -152,7 +152,9 @@ export function ServiceLayoutDialog({
         <form onSubmit={place} className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>{t('electrical.serviceLayout', 'Service layout', { ns: 'editor' })}</DialogTitle>
-            <DialogDescription>Start the distribution from the service size: list the panels and transformers and what feeds each. Check the preview, then place it as one edit you can undo. The one-line opens and draws it.</DialogDescription>
+            <DialogDescription>
+              {t('electrical.startTheDistributionFromTheServiceSize', 'Start the distribution from the service size: list the panels and transformers and what feeds each. Check the preview, then place it as one edit you can undo. The one-line opens and draws it.', { ns: 'editor' })}
+            </DialogDescription>
           </DialogHeader>
           <div className="flex flex-wrap gap-3">
             <Field className="w-32">
@@ -256,7 +258,11 @@ export function ServiceLayoutDialog({
                   <Crosshair data-icon="inline-start" />
                   {point ? t('electrical.pickAgain', 'Pick again', { ns: 'editor' }) : t('electrical.pickInPlan', 'Pick in plan', { ns: 'editor' })}
                 </Button>
-                <FieldDescription data-testid="service-layout-point">{point ? `Starts ${feet(point.x)} east, ${feet(point.y)} north` : t('electrical.noPointPickedYet', 'No point picked yet', { ns: 'editor' })}</FieldDescription>
+                <FieldDescription data-testid="service-layout-point">
+                  {point
+                    ? t('electrical.startsEastNorth', 'Starts {{east}} east, {{north}} north', { ns: 'editor', east: feet(point.x), north: feet(point.y) })
+                    : t('electrical.noPointPickedYet', 'No point picked yet', { ns: 'editor' })}
+                </FieldDescription>
               </div>
             )}
           </div>
@@ -266,12 +272,12 @@ export function ServiceLayoutDialog({
               <TableCaption className="sr-only">{t('electrical.panelsAndTransformersToPlace', 'Panels and transformers to place', { ns: 'editor' })}</TableCaption>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
+                  <TableHead>{t('electrical.name', 'Name', { ns: 'editor' })}</TableHead>
                   <TableHead>{t('electrical.kind', 'Kind', { ns: 'editor' })}</TableHead>
                   <TableHead>{t('electrical.size', 'Size', { ns: 'editor' })}</TableHead>
-                  <TableHead>System</TableHead>
+                  <TableHead>{t('electrical.systemHeading', 'System', { ns: 'editor' })}</TableHead>
                   <TableHead>{t('electrical.mains', 'Mains', { ns: 'editor' })}</TableHead>
-                  <TableHead>Fed from</TableHead>
+                  <TableHead>{t('electrical.fedFrom', 'Fed from', { ns: 'editor' })}</TableHead>
                   <TableHead>{t('electrical.breakerA', 'Breaker (A)', { ns: 'editor' })}</TableHead>
                   <TableHead className="sr-only">{t('electrical.remove', 'Remove', { ns: 'editor' })}</TableHead>
                 </TableRow>
@@ -284,7 +290,11 @@ export function ServiceLayoutDialog({
                     </TableCell>
                     <TableCell className="text-xs">{r.kind === 'panel' ? t('electrical.panel', 'Panel', { ns: 'editor' }) : t('electrical.transformer', 'Transformer', { ns: 'editor' })}</TableCell>
                     <TableCell>
-                      <Input aria-label={r.kind === 'panel' ? `${r.name} bus amps` : `${r.name} kVA`} className="h-8 w-20" inputMode="decimal" placeholder={r.kind === 'panel' ? 'A' : 'kVA'} value={r.size} onChange={(e) => update(r.key, { size: e.target.value })} />
+                      <Input aria-label={
+                        r.kind === 'panel'
+                          ? t('electrical.nameBusAmpsAria', '{{name}} bus amps', { ns: 'editor', name: r.name })
+                          : t('electrical.nameKvaAria', '{{name}} kVA', { ns: 'editor', name: r.name })
+                      } className="h-8 w-20" inputMode="decimal" placeholder={r.kind === 'panel' ? 'A' : 'kVA'} value={r.size} onChange={(e) => update(r.key, { size: e.target.value })} />
                     </TableCell>
                     <TableCell>
                       <Select value={r.system} onValueChange={(v) => isSystem(v) && update(r.key, { system: v })}>
@@ -321,7 +331,7 @@ export function ServiceLayoutDialog({
                     </TableCell>
                     <TableCell>
                       <Select value={r.fedFrom} onValueChange={(v) => update(r.key, { fedFrom: v })}>
-                        <SelectTrigger size="sm" aria-label={`${r.name} fed from`} data-testid={`service-layout-fed-from-${r.key}`}>
+                        <SelectTrigger size="sm" aria-label={t('electrical.nameFedFromAria', '{{name}} fed from', { ns: 'editor', name: r.name })} data-testid={`service-layout-fed-from-${r.key}`}>
                           <SelectValue placeholder={t('electrical.fedFrom', 'Fed from', { ns: 'editor' })} />
                         </SelectTrigger>
                         <SelectContent>
@@ -338,10 +348,10 @@ export function ServiceLayoutDialog({
                       </Select>
                     </TableCell>
                     <TableCell>
-                      <Input aria-label={`${r.name} feeder breaker`} className="h-8 w-20" inputMode="numeric" placeholder={r.kind === 'transformer' ? t('electrical.required', 'Required', { ns: 'editor' }) : t('electrical.default', 'Default', { ns: 'editor' })} value={r.breaker} onChange={(e) => update(r.key, { breaker: e.target.value })} />
+                      <Input aria-label={t('electrical.nameFeederBreakerAria', '{{name}} feeder breaker', { ns: 'editor', name: r.name })} className="h-8 w-20" inputMode="numeric" placeholder={r.kind === 'transformer' ? t('electrical.required', 'Required', { ns: 'editor' }) : t('electrical.default', 'Default', { ns: 'editor' })} value={r.breaker} onChange={(e) => update(r.key, { breaker: e.target.value })} />
                     </TableCell>
                     <TableCell>
-                      <Button type="button" variant="ghost" size="icon-sm" aria-label={`Remove ${r.name}`} onClick={() => setRows(rows.filter((x) => x.key !== r.key))}>
+                      <Button type="button" variant="ghost" size="icon-sm" aria-label={t('electrical.removeNameAria', 'Remove {{name}}', { ns: 'editor', name: r.name })} onClick={() => setRows(rows.filter((x) => x.key !== r.key))}>
                         <Trash2 />
                       </Button>
                     </TableCell>
@@ -370,7 +380,9 @@ export function ServiceLayoutDialog({
             plan?.ok && (
               <div className="flex flex-col gap-1 text-sm" data-testid="service-layout-preview">
                 <p className="font-medium">
-                  {planOnly ? `Plans ${plan.items.length} pieces for ${levelName}, ${plan.where}:` : `Places ${plan.items.length} pieces on ${levelName}, ${plan.where}:`}
+                  {planOnly
+                    ? t('electrical.plansPiecesForLevelWhere', 'Plans {{count}} pieces for {{level}}, {{where}}:', { ns: 'editor', count: plan.items.length, level: levelName, where: plan.where })
+                    : t('electrical.placesPiecesOnLevelWhere', 'Places {{count}} pieces on {{level}}, {{where}}:', { ns: 'editor', count: plan.items.length, level: levelName, where: plan.where })}
                 </p>
                 <ol className="list-decimal pl-5">
                   {plan.items.map((i) => (

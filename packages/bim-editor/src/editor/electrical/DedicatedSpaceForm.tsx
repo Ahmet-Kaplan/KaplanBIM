@@ -40,7 +40,7 @@ export function DedicatedSpaceForm({ model, part, canEdit, editBlocked, submit }
     const { id, override } = dedicatedSpaceOverride()
     return (
       <div className="flex flex-col gap-1" data-testid="dedicated-space">
-        <Button variant="outline" size="sm" disabled={!canEdit} title={canEdit ? t('electrical.ductsAndPipesAreKeptOutOfTheSpace6FtAboveItO', 'Ducts and pipes are kept out of the space 6 ft above it (or to the structure), as NEC 110.26(E) requires', { ns: 'editor' }) : (editBlocked ?? undefined)} onClick={() => send({ [id]: override }, `keep the space above ${name} clear`)} data-testid="dedicated-space-add">
+        <Button variant="outline" size="sm" disabled={!canEdit} title={canEdit ? t('electrical.ductsAndPipesAreKeptOutOfTheSpace6FtAboveItO', 'Ducts and pipes are kept out of the space 6 ft above it (or to the structure), as NEC 110.26(E) requires', { ns: 'editor' }) : (editBlocked ?? undefined)} onClick={() => send({ [id]: override }, t('electrical.keepTheSpaceAboveNameClear', 'keep the space above {{name}} clear', { ns: 'editor', name }))} data-testid="dedicated-space-add">
           <ShieldCheck data-icon="inline-start" />
           {t('electrical.keepTheSpaceAboveClearNEC11026E', 'Keep the space above clear (NEC 110.26(E))', { ns: 'editor' })}
         </Button>
@@ -60,34 +60,38 @@ export function DedicatedSpaceForm({ model, part, canEdit, editBlocked, submit }
     e.preventDefault()
     if (bad) return
     const { override } = dedicatedSpaceOverride({ ...(c !== null ? { suspendedCeilingMm: c * MM_PER_FT } : {}), ...(s !== null ? { structureMm: s * MM_PER_FT } : {}) })
-    send({ [zone.id]: override }, `say what is above ${name}`)
+    send({ [zone.id]: override }, t('electrical.sayWhatIsAboveName', 'say what is above {{name}}', { ns: 'editor', name }))
   }
   return (
     <form className="flex flex-col gap-2 rounded-md border p-2" onSubmit={save} data-testid="dedicated-space">
       <FieldDescription className="text-xs">
-        Dedicated space above {name}: its footprint, 6 ft up from its top or to the structure if lower, kept free of ducts and pipes ({zone.cite ?? 'NEC 110.26(E)(1)(a)'}). A suspended ceiling with removable panels ends it.
+        {t('electrical.dedicatedSpaceAboveNameItsFootprint', 'Dedicated space above {{name}}: its footprint, 6 ft up from its top or to the structure if lower, kept free of ducts and pipes ({{cite}}). A suspended ceiling with removable panels ends it.', {
+          ns: 'editor',
+          name,
+          cite: zone.cite ?? 'NEC 110.26(E)(1)(a)',
+        })}
       </FieldDescription>
       <FieldGroup className="grid grid-cols-2 gap-2">
         <Field>
           <FieldLabel htmlFor={`bm-ded-ceiling-${part.id}`} className="text-xs">
             {t('electrical.suspendedCeilingFtAboveFloor', 'Suspended ceiling (ft above floor)', { ns: 'editor' })}
           </FieldLabel>
-          <Input id={`bm-ded-ceiling-${part.id}`} inputMode="decimal" placeholder="none" value={ceiling} onChange={(e) => setCeiling(e.target.value)} disabled={!canEdit} data-testid="dedicated-space-ceiling" />
+          <Input id={`bm-ded-ceiling-${part.id}`} inputMode="decimal" placeholder={t('electrical.nonePlaceholder', 'none', { ns: 'editor' })} value={ceiling} onChange={(e) => setCeiling(e.target.value)} disabled={!canEdit} data-testid="dedicated-space-ceiling" />
         </Field>
         <Field>
           <FieldLabel htmlFor={`bm-ded-structure-${part.id}`} className="text-xs">
             {t('electrical.structureAboveFtAboveFloor', 'Structure above (ft above floor)', { ns: 'editor' })}
           </FieldLabel>
-          <Input id={`bm-ded-structure-${part.id}`} inputMode="decimal" placeholder="from the model" value={structure} onChange={(e) => setStructure(e.target.value)} disabled={!canEdit} data-testid="dedicated-space-structure" />
+          <Input id={`bm-ded-structure-${part.id}`} inputMode="decimal" placeholder={t('electrical.fromTheModel', 'from the model', { ns: 'editor' })} value={structure} onChange={(e) => setStructure(e.target.value)} disabled={!canEdit} data-testid="dedicated-space-structure" />
         </Field>
       </FieldGroup>
       {bad && <FieldDescription className="text-xs text-danger-600">{t('electrical.heightsAreFeetAboveTheFloorNumbersAbove0', 'Heights are feet above the floor, numbers above 0.', { ns: 'editor' })}</FieldDescription>}
       <div className="flex gap-2">
         <Button type="submit" size="sm" variant="outline" disabled={!canEdit || bad} title={canEdit ? undefined : (editBlocked ?? undefined)} data-testid="dedicated-space-save">
           <Save data-icon="inline-start" />
-          Save
+          {t('electrical.save', 'Save', { ns: 'editor' })}
         </Button>
-        <Button type="button" size="sm" variant="ghost" disabled={!canEdit} title={canEdit ? undefined : (editBlocked ?? undefined)} onClick={() => send({ [zone.id]: null }, `stop keeping the space above ${name} clear`)} data-testid="dedicated-space-remove">
+        <Button type="button" size="sm" variant="ghost" disabled={!canEdit} title={canEdit ? undefined : (editBlocked ?? undefined)} onClick={() => send({ [zone.id]: null }, t('electrical.stopKeepingTheSpaceAboveNameClear', 'stop keeping the space above {{name}} clear', { ns: 'editor', name }))} data-testid="dedicated-space-remove">
           <Trash2 data-icon="inline-start" />
           {t('electrical.remove', 'Remove', { ns: 'editor' })}
         </Button>

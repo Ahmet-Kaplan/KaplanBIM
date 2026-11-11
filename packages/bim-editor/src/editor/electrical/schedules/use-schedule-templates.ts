@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { formTemplateSchema, type FormScheduleKind, type FormTemplate } from '@permitzip/bim-kernel'
 import type { EditorDataAnswer, EditorDataHost } from '@permitzip/bim-editor-host'
 import { unavailableWords } from '@permitzip/bim-editor/host/unavailable'
+import { useEditorTranslate, type Translate } from '../../i18n/translate'
 
 /** One of the firm's saved schedule templates (GET /api/bim/schedule-templates `firm`). */
 export interface FirmScheduleTemplate {
@@ -48,14 +49,14 @@ export function parseScheduleTemplatesResponse(body: unknown): { canWrite: boole
   return { canWrite, firm: body.firm.flatMap((row: unknown) => firmTemplateFrom(row) ?? []) }
 }
 
-async function errorText(res: EditorDataAnswer): Promise<string> {
+async function errorText(res: EditorDataAnswer, t: Translate): Promise<string> {
   try {
     const body: unknown = await res.json()
     if (typeof body === 'object' && body !== null && 'error' in body && typeof body.error === 'string') return body.error
   } catch (err) {
     console.error('[useScheduleTemplates] error response had no JSON body', err)
   }
-  return `the server answered HTTP ${res.status}`
+  return t('electrical.theServerAnsweredHttpStatus', 'the server answered HTTP {{status}}', { ns: 'editor', status: res.status })
 }
 
 /**
@@ -64,6 +65,7 @@ async function errorText(res: EditorDataAnswer): Promise<string> {
  * templates (in the kernel) work without it.
  */
 export function useScheduleTemplatesFrom(port: EditorDataHost['firmLibrary'], enabled: boolean): ScheduleTemplates {
+  const t = useEditorTranslate()
   const [status, setStatus] = useState<ScheduleTemplates['status']>('idle')
   const [problem, setProblem] = useState<string | null>(null)
   const [canWrite, setCanWrite] = useState(false)
@@ -77,7 +79,7 @@ export function useScheduleTemplatesFrom(port: EditorDataHost['firmLibrary'], en
       .scheduleTemplates()
       .then(async (res) => {
         if (res.status === 401 || res.status === 403) throw new Error("you don't have access to the firm library")
-        if (!res.ok) throw new Error(await errorText(res))
+        if (!res.ok) throw new Error(await errorText(res, t))
         const parsed = parseScheduleTemplatesResponse(await res.json())
         if (!parsed) throw new Error('the answer was not a list of templates')
         if (cancelled) return
@@ -89,29 +91,40 @@ export function useScheduleTemplatesFrom(port: EditorDataHost['firmLibrary'], en
       .catch((err: unknown) => {
         console.error('[useScheduleTemplates] loading firm schedule templates failed', err)
         if (cancelled) return
-        setProblem(`Your firm's templates couldn't load (${err instanceof Error ? err.message : String(err)}). The built-in templates still work.`)
+        setProblem(
+          t('electrical.yourFirmSTemplatesCouldnTLoadReasonBuiltIn', "Your firm's templates couldn't load ({{reason}}). The built-in templates still work.", {
+            ns: 'editor',
+            reason: err instanceof Error ? err.message : String(err),
+          }),
+        )
         setCanWrite(false)
         setStatus('error')
       })
     return () => {
       cancelled = true
     }
-  }, [port, enabled, generation])
+  }, [port, enabled, generation, t])
 
   const save = useCallback<ScheduleTemplates['save']>(async (input) => {
-    if (!port) return `Not saved. ${unavailableWords('Saving to the firm library')}`
+    // `unavailableWords` is English and shared outside this tree (its own owner: `src/host/unavailable.ts`).
+    if (!port) return t('electrical.notSavedReason', 'Not saved. {{reason}}', { ns: 'editor', reason: unavailableWords('Saving to the firm library') })
     try {
       const res = await port.saveScheduleTemplate(input)
-      if (!res.ok) return `Not saved: ${await errorText(res)}.`
+      if (!res.ok) return t('electrical.notSavedWithReason', 'Not saved: {{reason}}.', { ns: 'editor', reason: await errorText(res, t) })
       setGeneration((g) => g + 1)
       return null
     } catch (err) {
       console.error('[useScheduleTemplates] saving a firm schedule template failed', err)
-      return `Not saved: ${err instanceof Error ? err.message : 'the connection failed'}. Try again.`
+      return t('electrical.notSavedReasonTryAgain', 'Not saved: {{reason}}. Try again.', {
+        ns: 'editor',
+        reason: err instanceof Error ? err.message : t('electrical.theConnectionFailed', 'the connection failed', { ns: 'editor' }),
+      })
     }
-  }, [port])
+  }, [port, t])
 
-  const missing = enabled && !port ? `${unavailableWords("Your firm's templates")} The built-in templates still work.` : null
+  const missing = enabled && !port
+    ? `${unavailableWords("Your firm's templates")} ${t('electrical.theBuiltInTemplatesStillWork', 'The built-in templates still work.', { ns: 'editor' })}`
+    : null
   const shown = missing ? 'error' : enabled && status === 'idle' ? 'loading' : status
   return useMemo(
     () => ({ status: shown, problem: missing ?? problem, canWrite: missing ? false : canWrite, firm, firmDefault: (kind: FormScheduleKind) => firm.find((t) => t.kind === kind && t.isDefault) ?? null, save }),

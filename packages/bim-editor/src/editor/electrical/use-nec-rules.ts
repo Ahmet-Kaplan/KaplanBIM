@@ -5,6 +5,7 @@ import { NEC_EDITIONS, resolveNecEdition, type NecEdition, type NecEditionYear }
 import { necElectricalRules, CONNECTED_LOAD_ONLY, ElectricalLoadEngine, type ElectricalRules } from '@permitzip/bim-pack-electrical/host'
 import type { EditorDataHost } from '@permitzip/bim-editor-host'
 import { unavailableWords } from '@permitzip/bim-editor/host/unavailable'
+import { useEditorTranslate } from '../i18n/translate'
 
 export { NEC_EDITIONS }
 
@@ -49,6 +50,7 @@ export interface NecRules {
  * choice, not project data), else connected loads only, labelled as such.
  */
 export function useNecRulesFrom(port: EditorDataHost['codeAdoption'], projectId: string): NecRules {
+  const t = useEditorTranslate()
   const [adoption, setAdoption] = useState<Adoption | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
   const [picked, setPicked] = useState<NecEditionYear | null>(null)
@@ -66,22 +68,42 @@ export function useNecRulesFrom(port: EditorDataHost['codeAdoption'], projectId:
       })
       .catch((err: unknown) => {
         console.error('[useNecRules] reading the project Code Study failed', { projectId, err })
-        if (!cancelled) setProblem(`The NEC edition couldn't be read from the Code Study (${err instanceof Error ? err.message : String(err)}). Pick it here.`)
+        if (!cancelled)
+          setProblem(
+            t('electrical.theNecEditionCouldnTBeReadFromTheCodeStud', "The NEC edition couldn't be read from the Code Study ({{reason}}). Pick it here.", {
+              ns: 'editor',
+              reason: err instanceof Error ? err.message : String(err),
+            }),
+          )
       })
     return () => {
       cancelled = true
     }
-  }, [port, projectId])
+  }, [port, projectId, t])
 
-  const missing = port ? null : `${unavailableWords("The project's Code Study")} Pick the NEC edition here.`
+  // `unavailableWords` is English and shared outside this tree (its own owner: `src/host/unavailable.ts`),
+  // so only this module's own half of the sentence is keyed here.
+  const missing = port ? null : `${unavailableWords("The project's Code Study")} ${t('electrical.pickTheNecEditionHere', 'Pick the NEC edition here.', { ns: 'editor' })}`
   return useMemo(() => {
     const resolved = resolveNecEdition({ ...(picked ? { necEdition: picked } : {}), projectAdoption: adoption })
     const rules: ElectricalRules = resolved.ok ? necElectricalRules(resolved.edition) : CONNECTED_LOAD_ONLY
     const source = picked ? 'picked' : resolved.ok ? 'project' : 'none'
     const label = resolved.ok
-      ? `NEC ${resolved.edition.edition}${source === 'project' && adoption ? ` (Code Study: ${adoption.codeName} ${adoption.edition}${adoption.status === 'unconfirmed' ? ', not yet confirmed' : ''})` : ' (picked here)'}`
-      : 'Connected loads only: no NEC edition is recorded in the Code Study. Pick one to see NEC demand.'
+      ? t('electrical.necEditionLabel', 'NEC {{edition}}{{origin}}', {
+          ns: 'editor',
+          edition: resolved.edition.edition,
+          origin:
+            source === 'project' && adoption
+              ? t('electrical.necCodeStudyOrigin', ' (Code Study: {{code}} {{edition}}{{status}})', {
+                  ns: 'editor',
+                  code: adoption.codeName,
+                  edition: adoption.edition,
+                  status: adoption.status === 'unconfirmed' ? t('electrical.necNotYetConfirmed', ', not yet confirmed', { ns: 'editor' }) : '',
+                })
+              : t('electrical.necPickedHere', ' (picked here)', { ns: 'editor' }),
+        })
+      : t('electrical.connectedLoadsOnlyNoNecEditionIsRecorded', 'Connected loads only: no NEC edition is recorded in the Code Study. Pick one to see NEC demand.', { ns: 'editor' })
     const edition = resolved.ok ? (NEC_EDITIONS.find((e) => e === resolved.edition.edition) ?? null) : null
     return { engine: new ElectricalLoadEngine(rules), necEdition: resolved.ok ? resolved.edition : null, label, source, picked, edition, pick: setPicked, problem: missing ?? problem }
-  }, [adoption, picked, problem, missing])
+  }, [adoption, picked, problem, missing, t])
 }

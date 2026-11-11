@@ -36,8 +36,8 @@ export function boundKindFor(equipment: Pick<DistributionSummary, 'kind'>): 'pan
 export function ruleChoices(t: Translate = englishOnly): readonly { readonly value: RuleChoice; readonly label: string }[] {
   return [
     { value: 'none', label: t('electrical.ruleChoice.none', 'Connected loads only', { ns: 'editor' }) },
-    { value: 'nec-2020', label: 'NEC 2020' },
-    { value: 'nec-2023', label: 'NEC 2023' },
+    { value: 'nec-2020', label: t('electrical.ruleChoice.nec2020', 'NEC 2020', { ns: 'editor' }) },
+    { value: 'nec-2023', label: t('electrical.ruleChoice.nec2023', 'NEC 2023', { ns: 'editor' }) },
   ]
 }
 
@@ -56,8 +56,13 @@ export function withRules(def: FormScheduleDefinition, rule: RuleChoice): FormSc
 }
 
 /** "Panel L1 schedule", "Feeder schedule", made unique against the model's views ("… 2"). */
-export function uniqueScheduleName(model: Pick<ModelState, 'elements' | 'connections'>, kind: ScheduleChoice, equipmentName: string | null): string {
-  const base = kind === 'panel' && equipmentName ? `Panel ${equipmentName} schedule` : kind === 'switchboard' && equipmentName ? `${equipmentName} schedule` : scheduleChoiceLabel(kind)
+export function uniqueScheduleName(model: Pick<ModelState, 'elements' | 'connections'>, kind: ScheduleChoice, equipmentName: string | null, t: Translate = englishOnly): string {
+  const base =
+    kind === 'panel' && equipmentName
+      ? t('electrical.panelNameSchedule', 'Panel {{name}} schedule', { ns: 'editor', name: equipmentName })
+      : kind === 'switchboard' && equipmentName
+        ? t('electrical.nameSchedule', '{{name}} schedule', { ns: 'editor', name: equipmentName })
+        : scheduleChoiceLabel(kind, t)
   const taken = new Set(documentIndex(model).views.map((v) => v.name.toLowerCase()))
   if (!taken.has(base.toLowerCase())) return base
   for (let n = 2; n < 100; n++) if (!taken.has(`${base} ${n}`.toLowerCase())) return `${base} ${n}`
@@ -74,4 +79,9 @@ export function nextScheduleSheetNumber(model: Pick<ModelState, 'elements' | 'co
 export { freeSpotOnSheet, sheetSpotOf, type SheetSpot } from '../../schedules/new-schedule-plan'
 
 /** The equipment list with live circuit columns, as the one New schedule window offers it (under this add-on). */
-export const EQUIPMENT_LIST_CHOICE = { definition: MECHANICAL_EQUIPMENT_SCHEDULE, label: 'Equipment (with electrical)' } as const
+/** The equipment list as one New schedule choice (its words come from `equipmentListChoiceLabel`). */
+export const EQUIPMENT_LIST_CHOICE = { definition: MECHANICAL_EQUIPMENT_SCHEDULE } as const
+
+/** The equipment list choice's caption, in the language of the window that offers it. */
+export const equipmentListChoiceLabel = (t: Translate = englishOnly): string =>
+  t('electrical.equipmentWithElectrical', 'Equipment (with electrical)', { ns: 'editor' })

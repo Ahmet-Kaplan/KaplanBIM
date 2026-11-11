@@ -49,7 +49,7 @@ export function CheckPanel({ model, engine, rulesLabel, onSelect, onOpenPanel, o
         {counts.error > 0 && <Badge variant="destructive">{t('electrical.toFixCount', '{{count}} to fix', { ns: 'editor', count: counts.error })}</Badge>}
         {counts.warning > 0 && <Badge variant="outline">{t('electrical.toCheckCount', '{{count}} to check', { ns: 'editor', count: counts.warning })}</Badge>}
         <span className="text-xs text-muted-foreground">{rulesLabel}</span>
-        <Button variant="ghost" size="icon-sm" className="ml-auto" aria-label="Close the electrical check" onClick={onClose}>
+        <Button variant="ghost" size="icon-sm" className="ml-auto" aria-label={t('electrical.closeTheElectricalCheck', 'Close the electrical check', { ns: 'editor' })} onClick={onClose}>
           <X />
         </Button>
       </header>

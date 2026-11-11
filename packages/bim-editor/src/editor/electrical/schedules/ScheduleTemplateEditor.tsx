@@ -58,15 +58,23 @@ export function templateIssue(template: FormTemplate, t: Translate = englishOnly
   const [a, b, c, d] = issue.path
   const where =
     a === 'title'
-      ? 'Title'
+      ? t('electrical.title', 'Title', { ns: 'editor' })
       : a === 'name'
         ? t('electrical.templateName', 'Template name', { ns: 'editor' })
         : a === 'supplyFrom'
-          ? 'Supply from wording'
+          ? t('electrical.supplyFromWording', 'Supply from wording', { ns: 'editor' })
           : a === 'header' && b === 'fields' && typeof c === 'number'
-            ? `Header field ${c + 1} ${d === 'label' ? 'label' : 'value'}`
+            ? t('electrical.templateIssue.headerField', 'Header field {{number}} {{part}}', {
+                ns: 'editor',
+                number: c + 1,
+                part: d === 'label' ? t('electrical.labelWord', 'label', { ns: 'editor' }) : t('electrical.valueWord', 'value', { ns: 'editor' }),
+              })
             : a === 'body' && b === 'columns' && typeof c === 'number'
-              ? `Column ${c + 1} ${d === 'heading' ? 'heading' : 'value'}`
+              ? t('electrical.templateIssue.columnField', 'Column {{number}} {{part}}', {
+                  ns: 'editor',
+                  number: c + 1,
+                  part: d === 'heading' ? t('electrical.headingWord', 'heading', { ns: 'editor' }) : t('electrical.valueWord', 'value', { ns: 'editor' }),
+                })
               : a === 'body' && b === 'columns'
                 ? t('electrical.columns', 'Columns', { ns: 'editor' })
                 : a === 'notes' && typeof b === 'number'
@@ -101,12 +109,15 @@ function TemplateInput({
       <InputGroup>
         <InputGroupInput id={id} value={value} onChange={(e) => onChange(e.target.value)} className="font-mono text-xs" aria-invalid={!parsed.ok} data-testid={testId} />
         <InputGroupAddon align="inline-end">
-          <FieldPathMenu onPick={(path) => onChange(`${value}{${path}}`)} label={`Insert a field into ${label}`} />
+          <FieldPathMenu
+            onPick={(path) => onChange(`${value}{${path}}`)}
+            label={t('electrical.insertAFieldIntoLabel', 'Insert a field into {{label}}', { ns: 'editor', label })}
+          />
         </InputGroupAddon>
       </InputGroup>
       {!parsed.ok ? (
         <FieldError data-testid={testId ? `${testId}-error` : undefined}>
-          {parsed.error} (at character {parsed.at + 1})
+          {t('electrical.fieldErrorAtCharacter', '{{error}} (at character {{at}})', { ns: 'editor', error: parsed.error, at: parsed.at + 1 })}
         </FieldError>
       ) : (
         reads !== null && (
@@ -125,7 +136,7 @@ function FieldPathMenu({ onPick, label }: { onPick: (path: string) => void; labe
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <InputGroupButton aria-label={label} title="Insert a field">
+        <InputGroupButton aria-label={label} title={t('electrical.insertAField', 'Insert a field', { ns: 'editor' })}>
           <Braces />
         </InputGroupButton>
       </DropdownMenuTrigger>
@@ -210,7 +221,12 @@ export function ScheduleTemplateEditor({
     const issue = templateIssue(draft)
     if (issue) return setRefusal(issue)
     const parsed = formTemplateSchema.parse(draft)
-    const refused = submit({ type: 'set_view_properties', viewId, props: { formSchedule: { ...def, template: parsed } } }, `edit the ${formScheduleKindLabel(def.kind).toLowerCase()} template${boundName ? ` of ${boundName}` : ''}`)
+    const refused = submit(
+      { type: 'set_view_properties', viewId, props: { formSchedule: { ...def, template: parsed } } },
+      boundName
+        ? t('electrical.editTheKindTemplateOfName', 'edit the {{kind}} template of {{name}}', { ns: 'editor', kind: formScheduleKindLabel(def.kind).toLowerCase(), name: boundName })
+        : t('electrical.editTheKindTemplate', 'edit the {{kind}} template', { ns: 'editor', kind: formScheduleKindLabel(def.kind).toLowerCase() }),
+    )
     if (refused) return setRefusal(refused)
     onClose()
   }
@@ -232,10 +248,10 @@ export function ScheduleTemplateEditor({
                 <Input id="ste-name" value={draft.name} maxLength={80} onChange={(e) => set({ name: e.target.value })} />
               </Field>
               <div className="col-span-2">
-                <TemplateInput id="ste-title" label="Title" value={draft.title} onChange={(title) => set({ title })} preview={preview} testId="ste-title" />
+                <TemplateInput id="ste-title" label={t('electrical.title', 'Title', { ns: 'editor' })} value={draft.title} onChange={(title) => set({ title })} preview={preview} testId="ste-title" />
               </div>
             </div>
-            <Section title="Header" count={header.length} defaultOpen>
+            <Section title={t('electrical.header', 'Header', { ns: 'editor' })} count={header.length} defaultOpen>
               {header.map((f, i) => (
                 <div key={i} className="grid grid-cols-[8rem_1fr_auto] items-start gap-2" data-testid={`ste-header-${i}`}>
                   <Field>
@@ -244,8 +260,14 @@ export function ScheduleTemplateEditor({
                     </FieldLabel>
                     <Input id={`ste-hl-${i}`} value={f.label} maxLength={40} onChange={(e) => setHeader(header.map((h, j) => (j === i ? { ...h, label: e.target.value } : h)))} />
                   </Field>
-                  <TemplateInput id={`ste-hv-${i}`} label={`${f.label || `Header field ${i + 1}`} value`} value={f.value} onChange={(value) => setHeader(header.map((h, j) => (j === i ? { ...h, value } : h)))} preview={preview} testId={`ste-header-value-${i}`} />
-                  <Button type="button" variant="ghost" size="icon-sm" aria-label={`Remove header field ${f.label || i + 1}`} onClick={() => setHeader(header.filter((_, j) => j !== i))}>
+                  <TemplateInput
+                    id={`ste-hv-${i}`}
+                    label={t('electrical.headerFieldValueLabel', '{{field}} value', {
+                      ns: 'editor',
+                      field: f.label || t('electrical.headerFieldNumber', 'Header field {{number}}', { ns: 'editor', number: i + 1 }),
+                    })}
+                    value={f.value} onChange={(value) => setHeader(header.map((h, j) => (j === i ? { ...h, value } : h)))} preview={preview} testId={`ste-header-value-${i}`} />
+                  <Button type="button" variant="ghost" size="icon-sm" aria-label={t('electrical.removeHeaderFieldName', 'Remove header field {{name}}', { ns: 'editor', name: f.label || i + 1 })} onClick={() => setHeader(header.filter((_, j) => j !== i))}>
                     <Trash2 />
                   </Button>
                 </div>
@@ -255,7 +277,7 @@ export function ScheduleTemplateEditor({
                 {t('electrical.addHeaderField', 'Add header field', { ns: 'editor' })}
               </Button>
             </Section>
-            <Section title={draft.body.layout === 'slots' ? t('electrical.columnsEachHalfOfTheSlotGrid', 'Columns (each half of the slot grid)', { ns: 'editor' }) : 'Columns'} count={columns.length}>
+            <Section title={draft.body.layout === 'slots' ? t('electrical.columnsEachHalfOfTheSlotGrid', 'Columns (each half of the slot grid)', { ns: 'editor' }) : t('electrical.columns', 'Columns', { ns: 'editor' })} count={columns.length}>
               {columns.map((c, i) => (
                 <div key={i} className="grid grid-cols-[7rem_1fr_6rem_auto] items-start gap-2" data-testid={`ste-column-${i}`}>
                   <Field>
@@ -264,9 +286,15 @@ export function ScheduleTemplateEditor({
                     </FieldLabel>
                     <Input id={`ste-ch-${i}`} value={c.heading} maxLength={40} onChange={(e) => editColumn(i, { heading: e.target.value })} />
                   </Field>
-                  <TemplateInput id={`ste-cv-${i}`} label={`${c.heading || `Column ${i + 1}`} value`} value={c.value} onChange={(value) => editColumn(i, { value })} preview={null} testId={`ste-column-value-${i}`} />
+                  <TemplateInput
+                    id={`ste-cv-${i}`}
+                    label={t('electrical.columnValueLabel', '{{column}} value', {
+                      ns: 'editor',
+                      column: c.heading || t('electrical.columnNumber', 'Column {{number}}', { ns: 'editor', number: i + 1 }),
+                    })}
+                    value={c.value} onChange={(value) => editColumn(i, { value })} preview={null} testId={`ste-column-value-${i}`} />
                   <Select value={c.align ?? 'left'} onValueChange={(v) => editColumn(i, { align: FORM_ALIGNS.find((a) => a === v) ?? 'left' })}>
-                    <SelectTrigger size="sm" aria-label={`Column ${c.heading || i + 1} alignment`}>
+                    <SelectTrigger size="sm" aria-label={t('electrical.columnAlignmentAria', 'Column {{column}} alignment', { ns: 'editor', column: c.heading || i + 1 })}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -280,13 +308,13 @@ export function ScheduleTemplateEditor({
                     </SelectContent>
                   </Select>
                   <div className="flex">
-                    <Button type="button" variant="ghost" size="icon-sm" aria-label={`Move column ${c.heading || i + 1} up`} disabled={i === 0} onClick={() => setColumns(moved(columns, i, i - 1))}>
+                    <Button type="button" variant="ghost" size="icon-sm" aria-label={t('electrical.moveColumnUpAria', 'Move column {{column}} up', { ns: 'editor', column: c.heading || i + 1 })} disabled={i === 0} onClick={() => setColumns(moved(columns, i, i - 1))}>
                       <ArrowUp />
                     </Button>
-                    <Button type="button" variant="ghost" size="icon-sm" aria-label={`Move column ${c.heading || i + 1} down`} disabled={i === columns.length - 1} onClick={() => setColumns(moved(columns, i, i + 1))}>
+                    <Button type="button" variant="ghost" size="icon-sm" aria-label={t('electrical.moveColumnDownAria', 'Move column {{column}} down', { ns: 'editor', column: c.heading || i + 1 })} disabled={i === columns.length - 1} onClick={() => setColumns(moved(columns, i, i + 1))}>
                       <ArrowDown />
                     </Button>
-                    <Button type="button" variant="ghost" size="icon-sm" aria-label={`Remove column ${c.heading || i + 1}`} disabled={columns.length <= 1} onClick={() => setColumns(columns.filter((_, j) => j !== i))}>
+                    <Button type="button" variant="ghost" size="icon-sm" aria-label={t('electrical.removeColumnAria', 'Remove column {{column}}', { ns: 'editor', column: c.heading || i + 1 })} disabled={columns.length <= 1} onClick={() => setColumns(columns.filter((_, j) => j !== i))}>
                       <Trash2 />
                     </Button>
                   </div>
@@ -298,14 +326,16 @@ export function ScheduleTemplateEditor({
               </Button>
             </Section>
             <Section title={t('panel.notesLegend', 'Notes legend', { ns: 'editor' })} count={draft.notes.length}>
-              <FieldDescription className="text-xs">A mark prints in brackets ([G]) beside each circuit it applies to. “Applies when” is a part setting that is on (gfci) or field=value (load_class=Motor); leave it empty for a general note.</FieldDescription>
+              <FieldDescription className="text-xs">
+                {t('electrical.aMarkPrintsInBracketsBesideEachCircuit', 'A mark prints in brackets ([G]) beside each circuit it applies to. “Applies when” is a part setting that is on (gfci) or field=value (load_class=Motor); leave it empty for a general note.', { ns: 'editor' })}
+              </FieldDescription>
               {draft.notes.map((n, i) => (
                 <div key={i} className="grid grid-cols-[4rem_1fr_9rem_auto] items-start gap-2" data-testid={`ste-note-${i}`}>
-                  <Input aria-label={`Note ${i + 1} mark`} value={n.mark} maxLength={4} onChange={(e) => setNotes(draft.notes.map((x, j) => (j === i ? { ...x, mark: e.target.value } : x)))} />
-                  <Input aria-label={`Note ${i + 1} text`} value={n.text} maxLength={120} onChange={(e) => setNotes(draft.notes.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))} />
+                  <Input aria-label={t('electrical.noteMarkAria', 'Note {{number}} mark', { ns: 'editor', number: i + 1 })} value={n.mark} maxLength={4} onChange={(e) => setNotes(draft.notes.map((x, j) => (j === i ? { ...x, mark: e.target.value } : x)))} />
+                  <Input aria-label={t('electrical.noteTextAria', 'Note {{number}} text', { ns: 'editor', number: i + 1 })} value={n.text} maxLength={120} onChange={(e) => setNotes(draft.notes.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))} />
                   <Input
-                    aria-label={`Note ${i + 1} applies when`}
-                    placeholder="Applies when"
+                    aria-label={t('electrical.noteAppliesWhenAria', 'Note {{number}} applies when', { ns: 'editor', number: i + 1 })}
+                    placeholder={t('electrical.appliesWhen', 'Applies when', { ns: 'editor' })}
                     value={n.when ?? ''}
                     maxLength={60}
                     onChange={(e) => {
@@ -313,7 +343,7 @@ export function ScheduleTemplateEditor({
                       setNotes(draft.notes.map((x, j) => (j === i ? (when.trim() ? { ...x, when } : { mark: x.mark, text: x.text }) : x)))
                     }}
                   />
-                  <Button type="button" variant="ghost" size="icon-sm" aria-label={`Remove note ${n.mark || i + 1}`} onClick={() => setNotes(draft.notes.filter((_, j) => j !== i))}>
+                  <Button type="button" variant="ghost" size="icon-sm" aria-label={t('electrical.removeNoteAria', 'Remove note {{note}}', { ns: 'editor', note: n.mark || i + 1 })} onClick={() => setNotes(draft.notes.filter((_, j) => j !== i))}>
                     <Trash2 />
                   </Button>
                 </div>
@@ -324,10 +354,10 @@ export function ScheduleTemplateEditor({
               </Button>
             </Section>
             {(def.kind === 'panel' || def.kind === 'switchboard') && (
-              <Section title="Supply from wording">
+              <Section title={t('electrical.supplyFromWording', 'Supply from wording', { ns: 'editor' })}>
                 <TemplateInput
                   id="ste-supply"
-                  label="Supply from"
+                  label={t('electrical.supplyFrom', 'Supply from', { ns: 'editor' })}
                   value={draft.supplyFrom ?? DEFAULT_SUPPLY_FROM_TEMPLATE}
                   onChange={(v) => {
                     if (v.trim() === '' || v === DEFAULT_SUPPLY_FROM_TEMPLATE) {
@@ -338,7 +368,9 @@ export function ScheduleTemplateEditor({
                   preview={preview}
                   testId="ste-supply"
                 />
-                <FieldDescription className="text-xs">{t('electrical.where', 'Where', { ns: 'editor' })} {'{supply_from}'} is used, it prints this: the default reads “MDP via 225A/3P via F225”.</FieldDescription>
+                <FieldDescription className="text-xs">
+                  {t('electrical.whereSupplyFromIsUsedItPrintsThis', 'Where {{field}} is used, it prints this: the default reads “MDP via 225A/3P via F225”.', { ns: 'editor', field: '{supply_from}' })}
+                </FieldDescription>
               </Section>
             )}
           </FieldGroup>

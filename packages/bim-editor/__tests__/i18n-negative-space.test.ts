@@ -37,6 +37,7 @@ const OWNED_DIRS = [
   "ventilation",
   "balance",
   "loads",
+  "electrical",
   // Stage 4 · Task 4.4 — project management, library, settings and IFC.
   "parts-list",
   "change-orders",
@@ -54,17 +55,72 @@ const OWNED_DIRS = [
 ];
 
 /**
- * Trees the two tasks own that are **not** finished, so they are not guarded
- * yet: a guard over a half-keyed tree reports the half that is honest to report
- * and hides the half nobody has looked at. Each joins this list when its task
- * closes (`docs/superpowers/plans/2026-11-10-bilingual-ui.md`, Stage 4).
+ * Trees the bilingual plan owns that are **not** finished, so they are not
+ * guarded yet: a guard over a half-keyed tree reports the half that is honest to
+ * report and hides the half nobody has looked at. Each joins `OWNED_DIRS` when
+ * its task closes (`docs/superpowers/plans/2026-11-10-bilingual-ui.md`, Stage 4).
  *
- *   Task 4.3  electrical (835 sites), plumbing (402 sites)
+ *   Task 4.3  plumbing (402 sites)
  *   Task 4.4  spaces (427), questions (213), equipment-list (110),
  *             library (68), coordination (58)
  */
-export const NOT_YET_GUARDED = ["electrical", "plumbing", "spaces", "questions", "equipment-list", "library", "coordination"] as const;
+export const NOT_YET_GUARDED = ["plumbing", "spaces", "questions", "equipment-list", "library", "coordination"] as const;
 
+/**
+ * Every tree under `src/editor` that **Aşama 4 never covered**: a panel or a
+ * surface the bilingual plan does not name, so no task owes it a `t()` call.
+ * They are listed so the discovery below can tell "not in this plan" from
+ * "somebody forgot", which is the whole reason it is a list and not an omission.
+ */
+const OUTSIDE_STAGE_4 = [
+  "architecture",
+  "blocks",
+  "branches",
+  "calc-sheets",
+  "ceilings",
+  "checklist",
+  "code-change",
+  "code-study",
+  "connect-agent",
+  "connect-grip",
+  "connection-status",
+  "connection-types",
+  "construction",
+  "contributions",
+  "copies",
+  "design-limits",
+  "diagrams",
+  "graph",
+  "graphics",
+  "i18n",
+  "input",
+  "inspector",
+  "layout",
+  "linked-display",
+  "linked-reference",
+  "loads-policy",
+  "organization",
+  "part-editor",
+  "planned",
+  "responsibilities",
+  "schedule-tab",
+  "schedules",
+  "state",
+  "view-input",
+] as const;
+
+/**
+ * The three lists above are one classification, and it is checked against the
+ * filesystem rather than trusted: `every tree under src/editor is classified`
+ * fails on a directory nobody named. That is how a tree added tomorrow cannot be
+ * forgotten — it is unguarded and unexplained until someone classifies it — and
+ * how a tree renamed or deleted cannot leave the guard pointing at nothing.
+ */
+const CLASSIFIED = new Set<string>([...OWNED_DIRS, ...NOT_YET_GUARDED, ...OUTSIDE_STAGE_4]);
+
+const EDITOR_ENTRIES = fs.readdirSync(EDITOR_SRC, { withFileTypes: true });
+
+/** The roots, read off the filesystem: `roots` takes paths, and a stale name here would guard a hole. */
 const OWNED = OWNED_DIRS.map((dir) => path.join(EDITOR_SRC, dir));
 
 /**
@@ -83,6 +139,14 @@ const APP_CLIENT_DIRS = fs
   .filter((entry) => entry.isDirectory())
   .map((entry) => path.join(REPO_ROOT, "apps", entry.name, "client"))
   .filter((dir) => fs.existsSync(dir));
+
+test("every tree under src/editor is classified, and every guarded name exists", () => {
+  // A new directory that nobody named would be unguarded and unexplained, which is
+  // exactly how the hosted app's own bar stayed English under a Turkish editor.
+  const unclassified = EDITOR_ENTRIES.filter((entry) => entry.isDirectory() && !CLASSIFIED.has(entry.name)).map((entry) => entry.name);
+  const missing = OWNED_DIRS.filter((dir) => !EDITOR_ENTRIES.some((entry) => entry.name === dir));
+  expect({ unclassified, missing }).toEqual({ unclassified: [], missing: [] });
+});
 
 test("no user-visible English in the stage-4 trees sits outside a translator", () => {
   const found = visibleEnglish(OWNED);

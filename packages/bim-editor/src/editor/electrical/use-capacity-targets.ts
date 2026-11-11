@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { DesignLimit, DesignLimitSources } from '@permitzip/bim-kernel/policy'
 import { useEditorHost } from '@permitzip/bim-editor/host'
 import { loadDesignLimitRowsFrom, publishDesignLimitFrom, type PublishOutcome } from '../design-limits/design-limits-client'
+import { useEditorTranslate } from '../i18n/translate'
 
 /**
  * The firm's and this project's design limits, for the capacity lines on the
@@ -21,6 +22,7 @@ export interface CapacityTargets {
 }
 
 export function useCapacityTargets(projectId: string): CapacityTargets {
+  const t = useEditorTranslate()
   const library = useEditorHost().data.firmLibrary
   const scope = `project:${projectId}`
   const [state, setState] = useState<{ status: CapacityTargets['status']; sources: DesignLimitSources; own: ReadonlyMap<string, number>; problem: string | null }>({ status: 'loading', sources: {}, own: new Map(), problem: null })
@@ -37,12 +39,12 @@ export function useCapacityTargets(projectId: string): CapacityTargets {
       })
       .catch((err: unknown) => {
         console.error('[useCapacityTargets] the design limits failed to load', { scope, err })
-        if (live) setState({ status: 'error', sources: {}, own: new Map(), problem: 'The firm’s and project’s targets didn’t load, so the default targets are shown.' })
+        if (live) setState({ status: 'error', sources: {}, own: new Map(), problem: t('electrical.theFirmSAndProjectSTargetsDidnTLoadSo', 'The firm’s and project’s targets didn’t load, so the default targets are shown.', { ns: 'editor' }) })
       })
     return () => {
       live = false
     }
-  }, [library, scope, attempt])
+  }, [library, scope, attempt, t])
 
   const setProjectMinimum = useCallback(
     async (limit: DesignLimit, minPercent: number): Promise<PublishOutcome> => {

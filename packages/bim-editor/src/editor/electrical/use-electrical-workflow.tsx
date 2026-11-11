@@ -34,7 +34,7 @@ import { useNecRulesFrom, type NecRules } from './use-nec-rules'
 import { useCapacityTargets } from './use-capacity-targets'
 import { useScheduleWorkflow } from './schedules/use-schedule-workflow'
 import type { NewScheduleFormSlot } from '../schedules/new-schedule-plan'
-import { useEditorTranslate } from '../i18n/translate'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
 
 export interface ElectricalWorkflowInput {
   /** The host project, for its Code Study's NEC edition. */
@@ -118,8 +118,12 @@ function dockedName(model: ModelState, id: string): string {
   return distributionEquipment(model.elements).find((p) => p.id === id)?.name ?? id
 }
 
-const SELECT_LOADS = 'Select the receptacles, lights or equipment to circuit first: click one, or box select several (B).'
-const PLACE_PANEL_FIRST = 'Place a panel first: Electrical › Panel, then name it in its properties.'
+/** What to say when nothing circuit-able is selected — `label(t)` accessors, so no English is frozen at module load. */
+const selectLoads = (t: Translate): string =>
+  t('electrical.selectTheLoadsToCircuitFirst', 'Select the receptacles, lights or equipment to circuit first: click one, or box select several (B).', { ns: 'editor' })
+const placePanelFirst = (t: Translate): string =>
+  t('electrical.placeAPanelFirstElectricalPanelThenNameIt', 'Place a panel first: Electrical › Panel, then name it in its properties.', { ns: 'editor' })
+const modelStillLoading = (t: Translate): string => t('electrical.theModelIsStillLoading', 'The model is still loading.', { ns: 'editor' })
 
 /**
  * Everything the Electrical tab, the Circuit tab, the properties panel and
@@ -155,15 +159,15 @@ export function useElectricalWorkflow(input: ElectricalWorkflowInput): Electrica
     editBlocked ??
     (target.loads.length === 0
       ? target.panels.length > 0
-        ? 'Panels and transformers are fed, not put on a circuit: use Feed panel.'
-        : (unreadyWhy ?? SELECT_LOADS)
+        ? t('electrical.panelsAndTransformersAreFedNotPutOnACircu', 'Panels and transformers are fed, not put on a circuit: use Feed panel.', { ns: 'editor' })
+        : (unreadyWhy ?? selectLoads(t))
       : polesForMembers(els, target.loads.map((elementId) => ({ elementId }))) === null
-        ? 'These need different breakers (1-, 2- and 3-pole loads, or one has no voltage set); select loads that can share one circuit.'
+        ? t('electrical.theseNeedDifferentBreakersOneTwoAndThreePole', 'These need different breakers (1-, 2- and 3-pole loads, or one has no voltage set); select loads that can share one circuit.', { ns: 'editor' })
         : null)
-  const editCircuitBlocked = editBlocked ?? (singleCircuit ? null : 'Select one device that is on a circuit, or click a circuit in Panel view.')
-  const removeBlocked = editBlocked ?? (circuitedLoads.length === 0 ? 'Nothing selected is on a circuit.' : null)
-  const feedBlocked = editBlocked ?? (target.panels.length === 1 && target.loads.length === 0 ? null : (unreadyWhy ?? 'Select one panel or transformer to feed.'))
-  const panelViewBlocked = panels.length === 0 ? PLACE_PANEL_FIRST : null
+  const editCircuitBlocked = editBlocked ?? (singleCircuit ? null : t('electrical.selectOneDeviceThatIsOnACircuitOrClickACircu', 'Select one device that is on a circuit, or click a circuit in Panel view.', { ns: 'editor' }))
+  const removeBlocked = editBlocked ?? (circuitedLoads.length === 0 ? t('electrical.nothingSelectedIsOnACircuit', 'Nothing selected is on a circuit.', { ns: 'editor' }) : null)
+  const feedBlocked = editBlocked ?? (target.panels.length === 1 && target.loads.length === 0 ? null : (unreadyWhy ?? t('electrical.selectOnePanelOrTransformerToFeed', 'Select one panel or transformer to feed.', { ns: 'editor' })))
+  const panelViewBlocked = panels.length === 0 ? placePanelFirst(t) : null
 
   const panelFor = (): string | null => {
     if (target.panels.length === 1) return target.panels[0] ?? null
@@ -178,13 +182,15 @@ export function useElectricalWorkflow(input: ElectricalWorkflowInput): Electrica
   }
   const openFeed = (panelId?: string) => {
     const id = panelId ?? (target.panels.length === 1 ? target.panels[0] : undefined)
-    if (!id) return notify('Select one panel or transformer to feed.')
+    if (!id) return notify(
+      t('electrical.selectOnePanelOrTransformerToFeed', 'Select one panel or transformer to feed.', { ns: 'editor' }),
+    )
     if (editBlocked) return notify(editBlocked)
     setDialog({ kind: 'feed', panelId: id, linkId: newElementId('fdr') })
   }
   const openPanelView = (panelId?: string) => {
     const id = panelId ?? panelFor()
-    if (!id) return notify(PLACE_PANEL_FIRST)
+    if (!id) return notify(placePanelFirst(t))
     setPanelViewId(id)
     setLastPanelId(id)
   }
@@ -216,7 +222,7 @@ export function useElectricalWorkflow(input: ElectricalWorkflowInput): Electrica
     submit,
     panelId: schedulePanelId && panels.some((p) => p.id === schedulePanelId) ? schedulePanelId : null,
     panelCount: panels.length,
-    openNewSchedule: input.openNewSchedule ?? (() => notify('New schedule… is in Views and sheets.')),
+    openNewSchedule: input.openNewSchedule ?? (() => notify(t('electrical.newScheduleIsInViewsAndSheets', 'New schedule… is in Views and sheets.', { ns: 'editor' }))),
   })
 
   const ribbon: ElectricalRibbon = {
@@ -251,19 +257,19 @@ export function useElectricalWorkflow(input: ElectricalWorkflowInput): Electrica
               const refusal = openDiagram(kind)
               if (refusal) notify(refusal, 'error')
             },
-            blocked: model ? null : "The model isn't open yet.",
+            blocked: model ? null : t('electrical.theModelIsNotOpenYet', "The model isn't open yet.", { ns: 'editor' }),
           },
         }
       : {}),
-    selection: ribbonElectricalSelection(model, target),
-    check: { run: () => setDock({ kind: 'check' }), blocked: model ? null : 'The model is still loading.' },
-    propose: { run: () => setDock({ kind: 'propose' }), blocked: editBlocked ?? (model ? null : 'The model is still loading.') },
-    continueCircuit: { run: () => setDock({ kind: 'continue' }), blocked: modelToolsBlocked ?? editBlocked ?? (model ? (panels.length === 0 ? PLACE_PANEL_FIRST : null) : 'The model is still loading.') },
+    selection: ribbonElectricalSelection(model, target, t),
+    check: { run: () => setDock({ kind: 'check' }), blocked: model ? null : modelStillLoading(t) },
+    propose: { run: () => setDock({ kind: 'propose' }), blocked: editBlocked ?? (model ? null : modelStillLoading(t)) },
+    continueCircuit: { run: () => setDock({ kind: 'continue' }), blocked: modelToolsBlocked ?? editBlocked ?? (model ? (panels.length === 0 ? placePanelFirst(t) : null) : modelStillLoading(t)) },
     serviceSize: { run: () => setDialog({ kind: 'service' }), blocked: null },
-    serviceLayout: { run: () => setDialog({ kind: 'layout', seed: null }), blocked: editBlocked ?? (model ? null : 'The model is still loading.') },
-    balance: { run: () => setDialog({ kind: 'rebalance', panelId: panelFor() }), blocked: editBlocked ?? (hasCircuits ? null : PLACE_PANEL_FIRST) },
-    types: { run: () => setDialog({ kind: 'types', tab: 'connection' }), blocked: model ? null : 'The model is still loading.' },
-    templates: { run: () => setDialog(templateCount > 0 ? { kind: 'template', name: null } : { kind: 'types', tab: 'template' }), blocked: editBlocked ?? (hasCircuits ? null : PLACE_PANEL_FIRST) },
+    serviceLayout: { run: () => setDialog({ kind: 'layout', seed: null }), blocked: editBlocked ?? (model ? null : modelStillLoading(t)) },
+    balance: { run: () => setDialog({ kind: 'rebalance', panelId: panelFor() }), blocked: editBlocked ?? (hasCircuits ? null : placePanelFirst(t)) },
+    types: { run: () => setDialog({ kind: 'types', tab: 'connection' }), blocked: model ? null : modelStillLoading(t) },
+    templates: { run: () => setDialog(templateCount > 0 ? { kind: 'template', name: null } : { kind: 'types', tab: 'template' }), blocked: editBlocked ?? (hasCircuits ? null : placePanelFirst(t)) },
     docked: { addon: ADDON_UI.addon, dock: DOCK, list: panels.map((p) => ({ id: p.id, name: p.name })), open: (id) => openPanelView(id) },
   }
 
@@ -273,7 +279,7 @@ export function useElectricalWorkflow(input: ElectricalWorkflowInput): Electrica
     ) : model && unreadyWhy ? (
       <Alert data-testid="electrical-not-ready">
         <Plug />
-        <AlertTitle>Not ready to circuit</AlertTitle>
+        <AlertTitle>{t('electrical.notReadyToCircuit', 'Not ready to circuit', { ns: 'editor' })}</AlertTitle>
         <AlertDescription>{unreadyWhy}</AlertDescription>
       </Alert>
     ) : null
@@ -291,15 +297,15 @@ export function useElectricalWorkflow(input: ElectricalWorkflowInput): Electrica
       {showHint && (
         <Alert className="absolute bottom-3 left-3 z-20 w-96 shadow-sm" data-testid="electrical-first-run">
           <Lightbulb />
-          <AlertTitle>Circuiting in three steps</AlertTitle>
+          <AlertTitle>{t('electrical.circuitingInThreeSteps', 'Circuiting in three steps', { ns: 'editor' })}</AlertTitle>
           <AlertDescription>
             <ol className="list-decimal pl-4">
-              <li>Panel ▾ places a panelboard; name it (L1) in its properties.</li>
-              <li>Device ▾ places receptacles, lights and equipment.</li>
-              <li>Select devices (click one, or box select with B) and press Add to circuit.</li>
+              <li>{t('electrical.firstRunPlacePanel', 'Panel ▾ places a panelboard; name it (L1) in its properties.', { ns: 'editor' })}</li>
+              <li>{t('electrical.firstRunPlaceDevices', 'Device ▾ places receptacles, lights and equipment.', { ns: 'editor' })}</li>
+              <li>{t('electrical.firstRunCircuit', 'Select devices (click one, or box select with B) and press Add to circuit.', { ns: 'editor' })}</li>
             </ol>
           </AlertDescription>
-          <Button variant="ghost" size="icon-sm" className="absolute top-2 right-2" aria-label="Hide these steps" onClick={() => setHintDismissed(true)}>
+          <Button variant="ghost" size="icon-sm" className="absolute top-2 right-2" aria-label={t('electrical.hideTheseSteps', 'Hide these steps', { ns: 'editor' })} onClick={() => setHintDismissed(true)}>
             <X />
           </Button>
         </Alert>
@@ -381,7 +387,9 @@ export function useElectricalWorkflow(input: ElectricalWorkflowInput): Electrica
             onClose={closeDock}
             onDone={(placed) => {
               setDock(null)
-              notify(`Placed ${placed} receptacle${placed === 1 ? '' : 's'}. Select them and press Add to circuit to circuit them.`)
+              notify(placed === 1
+                ? t('electrical.placedOneReceptacleSelectThemAndPressAddTo', 'Placed 1 receptacle. Select them and press Add to circuit to circuit them.', { ns: 'editor' })
+                : t('electrical.placedReceptaclesSelectThemAndPressAddToCi', 'Placed {{count}} receptacles. Select them and press Add to circuit to circuit them.', { ns: 'editor', count: placed }))
             }}
           />
         </div>
@@ -470,13 +478,15 @@ export function useElectricalWorkflow(input: ElectricalWorkflowInput): Electrica
           onDone={() => {
             setDialog(null)
             const refusal = openDiagram?.('one_line') ?? null
-            notify(refusal ? `Service equipment placed. ${refusal}` : 'Service equipment placed; the one-line shows it. Undo takes it all out.')
+            notify(refusal
+              ? t('electrical.serviceEquipmentPlacedThen', 'Service equipment placed. {{reason}}', { ns: 'editor', reason: refusal })
+              : t('electrical.serviceEquipmentPlacedTheOneLineShowsItUndo', 'Service equipment placed; the one-line shows it. Undo takes it all out.', { ns: 'editor' }))
           }}
         />
       )}
       {dialog?.kind === 'layout_pick' && input.pickPlanPointAt && (
         <PlanPointPick
-          prompt="Click where the service lineup starts (its left end)."
+          prompt={t('electrical.clickWhereTheServiceLineupStartsItsLeftE', 'Click where the service lineup starts (its left end).', { ns: 'editor' })}
           pickPlanPointAt={input.pickPlanPointAt}
           onPicked={(point) => setDialog({ kind: 'layout', seed: dialog.seed, draft: { ...dialog.draft, where: 'point', point } })}
           onCancel={() => setDialog({ kind: 'layout', seed: dialog.seed, draft: dialog.draft })}

@@ -13,12 +13,15 @@
  *   3. **Real components draw it** — the pressurization section and the
  *      ventilation panel, in both languages.
  *
- * **Deliberately not asserted here, because the tree is not done.**
- * `electrical/` and `plumbing/` are not keyed yet, so Ç7 (*pano* for an
- * electrical panelboard, *panel* for a UI side panel), Ç8 (*branşman* for a MEP
- * branch, *dal* for a version) and the kVA columns have no Turkish to assert.
- * They are named in `NOT_YET_GUARDED` (`i18n-negative-space.test.ts`) and in the
- * task report, with the round that owes them.
+ * **Ç7 (pano / panel) and Ç12 (armatür) are asserted here**, now that `electrical/`
+ * is keyed: a panelboard is a *pano* while a UI side panel stays a *panel*, and a
+ * luminaire is an *armatür*.
+ *
+ * **Deliberately not asserted here, because the tree is not done.** `plumbing/` and
+ * `spaces/` are not keyed yet, so the plumbing half of Ç8 (*branşman*) and the
+ * WSFU/DFU columns have no Turkish to assert. They are named in
+ * `NOT_YET_GUARDED` (`i18n-negative-space.test.ts`) and in the task report, with
+ * the round that owes them.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -65,6 +68,21 @@ const CAPTIONS: readonly Caption[] = [
   { key: "loads.title", english: "Loads", turkish: "Yükler" },
   { key: "loads.byTrade", english: "By trade", turkish: "Türe göre" },
   { key: "loads.counted", english: "Counted: {{parts}}", turkish: "Sayılan: {{parts}}" },
+  // Ç7: an electrical panelboard is a pano; a UI side panel stays a panel.
+  { key: "electrical.panelSchedule", english: "Panel schedule", turkish: "Pano çizelgesi" },
+  { key: "electrical.feedPanel", english: "Feed panel", turkish: "Panoyu besle" },
+  { key: "electrical.mainBreaker", english: "main breaker", turkish: "ana şalter" },
+  // Ç8: a branch circuit is a branşman devresi.
+  { key: "electrical.keyword.branchcircuit", english: "branch circuit", turkish: "branşman devresi" },
+  // Ç12: a luminaire is an armatür.
+  { key: "electrical.continueDevice.light", english: "Light", turkish: "Armatür" },
+  { key: "electrical.continueDevice.downlight", english: "Downlight", turkish: "Gömme spot" },
+  // §2.3: a dedicated space is an ayrılmış boşluk, never an *alan*.
+  { key: "electrical.keepTheSpaceAboveClearNEC11026E", english: "Keep the space above clear (NEC 110.26(E))", turkish: "Üstündeki boşluğu açık tut (NEC 110.26(E))" },
+  // §7: the kVA and amp columns keep their symbols; only the frame is Turkish.
+  { key: "electrical.kvaAndAmps", english: "{{kva}} kVA, {{amps}}", turkish: "{{kva}} kVA, {{amps}}" },
+  { key: "electrical.ampsBusValue", english: "{{value}} A bus", turkish: "{{value}} A bara" },
+  { key: "electrical.fedFrom", english: "Fed from", turkish: "Beslendiği yer" },
 ];
 
 /**
@@ -116,6 +134,83 @@ const SITES: Readonly<Record<string, number>> = {
   "ventilation.keyword.ashrae621": 2,
   "ventilation.keyword.schedule": 2,
   "ventilation.modelStillLoading": 5,
+  // Electrical: every caption the electrical panels and the ribbon share.
+  "electrical.225A42CircuitsMainLugs": 2,
+  "electrical.225AMainBreaker42Circuits": 2,
+  "electrical.addToCircuit": 4,
+  "electrical.bedroom": 2,
+  "electrical.bkr": 2,
+  "electrical.breakerA": 4,
+  "electrical.cancel": 8,
+  "electrical.changeCircuit": 3,
+  "electrical.circuit": 8,
+  "electrical.class": 2,
+  "electrical.close": 2,
+  "electrical.columns": 2,
+  "electrical.connectionTypes": 3,
+  "electrical.continueCircuit": 3,
+  "electrical.default": 3,
+  "electrical.demandFigures": 2,
+  "electrical.description": 5,
+  "electrical.designator": 2,
+  "electrical.editCircuit": 2,
+  "electrical.editNameAria": 3,
+  "electrical.electrical": 4,
+  "electrical.electricalCheck": 2,
+  "electrical.electricalSchedules": 2,
+  "electrical.electricaltypesdialog_195": 2,
+  "electrical.electricaltypesdialog_336": 2,
+  "electrical.electricaltypesdialog_338": 2,
+  "electrical.fedFrom": 3,
+  "electrical.feed": 3,
+  "electrical.feederTypes": 2,
+  "electrical.keepIt": 2,
+  "electrical.keyword.homerun": 2,
+  "electrical.keyword.singleline": 2,
+  "electrical.kvaAndAmps": 4,
+  "electrical.lengthFt": 2,
+  "electrical.load": 2,
+  "electrical.mainBreaker": 2,
+  "electrical.mainLugs": 2,
+  "electrical.makes": 2,
+  "electrical.mark": 2,
+  "electrical.mechanicalEquipmentWithElectrical": 2,
+  "electrical.nEstimates": 2,
+  "electrical.nOnACircuit": 2,
+  "electrical.name": 2,
+  "electrical.noFreeSlots": 2,
+  "electrical.noneOnACircuitYet": 2,
+  "electrical.now": 2,
+  "electrical.panel": 7,
+  "electrical.placeAPanelFirstElectricalPanelThenNameItInI": 3,
+  "electrical.poleBreaker": 2,
+  "electrical.proposeReceptacles": 2,
+  "electrical.remove": 2,
+  "electrical.required": 2,
+  "electrical.rooms": 3,
+  "electrical.safetySwitch": 4,
+  "electrical.save": 3,
+  "electrical.saveForThisProject": 2,
+  "electrical.saveName": 3,
+  "electrical.saving": 2,
+  "electrical.selectOnePanelOrTransformerToFeed": 2,
+  "electrical.serves": 2,
+  "electrical.sizeIt": 2,
+  "electrical.slots": 5,
+  "electrical.supplyFrom": 2,
+  "electrical.supplyFromWording": 2,
+  "electrical.systemHeading": 3,
+  "electrical.template": 2,
+  "electrical.templateName": 3,
+  "electrical.theBreakerIsAmpsANumberAbove0OrLeaveItEmptyF": 2,
+  "electrical.theLengthIsFeetANumberAbove0": 2,
+  "electrical.thePanel": 2,
+  "electrical.title": 2,
+  "electrical.unit": 2,
+  "electrical.valueWord": 2,
+  "electrical.voltageV1Pole": 2,
+  "electrical.voltageVPoles": 2,
+  "electrical.youCanUndoThis": 2,
 };
 
 const fill = (template: string, values: Readonly<Record<string, string | number>> | undefined): string =>
@@ -137,7 +232,7 @@ test("an MEP caption is still keyed at every place it is written", () => {
 
 test("every MEP caption written twice or more has its site count pinned", () => {
   const source = editorSourceCaptions();
-  const prefixes = ["ventilation.", "balance.", "loads."];
+  const prefixes = ["ventilation.", "balance.", "loads.", "electrical."];
   const unpinned = [...source.entries()]
     .filter(([key]) => prefixes.some((prefix) => key.startsWith(prefix)))
     .filter(([key, caption]) => caption.sites > 1 && SITES[key] === undefined)
@@ -169,6 +264,26 @@ test("rate is disambiguated per Ç13: a friction rate is a sürtünme oranı", (
   expect(TR("ventilation.airflow", "Airflow", { ns: "editor" })).toBe("Hava debisi");
 });
 
+test("Ç7: a panelboard reads pano, and a UI side panel stays panel", () => {
+  expect(TR("electrical.panel", "Panel", { ns: "editor" })).toBe("Pano");
+  expect(TR("electrical.panelSchedule", "Panel schedule", { ns: "editor" })).toBe("Pano çizelgesi");
+  expect(TR("electrical.feedPanel", "Feed panel", { ns: "editor" })).toBe("Panoyu besle");
+  // Ç7's other half: the dock a person drags a view from is a *panel*, never a *pano*.
+  const dock = TR("canvas.noViewsPlaced", "No views placed yet. Drag a view from the panel onto the sheet.", { ns: "editor" });
+  expect(dock).toContain("Panel");
+  expect(dock).not.toContain("Pano");
+});
+
+test("Ç12 and §2.3: a luminaire is an armatür, a dedicated space is a boşluk", () => {
+  expect(TR("electrical.continueDevice.light", "Light", { ns: "editor" })).toBe("Armatür");
+  expect(TR("electrical.continueDevice.downlight", "Downlight", { ns: "editor" })).toBe("Gömme spot");
+  const dedicated = TR("electrical.keepTheSpaceAboveClearNEC11026E", "Keep the space above clear (NEC 110.26(E))", { ns: "editor" });
+  expect(dedicated).toContain("boşluğ");
+  expect(dedicated).not.toContain("alan");
+  // Ç8: a MEP branch stays a branşman, never a *dal* (that is a version branch).
+  expect(TR("electrical.keyword.branchcircuit", "branch circuit", { ns: "editor" })).toBe("branşman devresi");
+});
+
 test("unit symbols are never translated", () => {
   // §7: the symbols travel as they are. CFM, fpm, in. w.c. and kVA are not words.
   expect(TR("ventilation.airflowCfm", "Airflow (CFM)", { ns: "editor" })).toBe("Hava debisi (CFM)");
@@ -185,6 +300,8 @@ test("unit symbols are never translated", () => {
   expect(carries).toContain("100 ft");
   // A kVA column keeps its symbol too, in the words around it.
   expect(TR("balance.tableKind.pressurization", "pressurization", { ns: "editor" })).toBe("basınçlandırma");
+  expect(TR("electrical.kvaAndAmps", "{{kva}} kVA, {{amps}}", { ns: "editor", kva: "12", amps: "33 A" })).toBe("12 kVA, 33 A");
+  expect(TR("electrical.ampsBusValue", "{{value}} A bus", { ns: "editor", value: "800" })).toBe("800 A bara");
 });
 
 test("the load statuses and trades are Turkish, and the trade words are not spliced raw", () => {
@@ -216,7 +333,7 @@ function flatten(source: Record<string, unknown>, prefix = ""): Record<string, s
 
 const LOCALE = flatten(JSON.parse(fs.readFileSync(path.join(__dirname, "..", "locales", "tr", "editor.json"), "utf8")) as Record<string, unknown>);
 
-const MEP_PREFIXES = ["ventilation.", "balance.", "loads."] as const;
+const MEP_PREFIXES = ["ventilation.", "balance.", "loads.", "electrical."] as const;
 
 test("every MEP caption in the source has its Turkish", () => {
   const inSource = [...editorSourceCaptions().keys()].filter((key) => MEP_PREFIXES.some((prefix) => key.startsWith(prefix)));

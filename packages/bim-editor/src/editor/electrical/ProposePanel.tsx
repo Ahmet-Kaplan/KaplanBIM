@@ -230,7 +230,7 @@ export function ProposePanel({ model, nec, levelId, editBlocked, submit, onPrevi
       <header className="flex items-center gap-2">
         <h2 className="text-sm font-medium">{t('electrical.proposeReceptacles', 'Propose receptacles', { ns: 'editor' })}</h2>
         <span className="text-xs text-muted-foreground">{nec.label}</span>
-        <Button variant="ghost" size="icon-sm" className="ml-auto" aria-label="Close propose receptacles" onClick={onClose} data-testid="propose-close">
+        <Button variant="ghost" size="icon-sm" className="ml-auto" aria-label={t('electrical.closeProposeReceptacles', 'Close propose receptacles', { ns: 'editor' })} onClick={onClose} data-testid="propose-close">
           <X />
         </Button>
       </header>
@@ -241,7 +241,9 @@ export function ProposePanel({ model, nec, levelId, editBlocked, submit, onPrevi
               <SquareDashed />
             </EmptyMedia>
             <EmptyTitle>{t('electrical.noRoomsInThisModelYet', 'No rooms in this model yet', { ns: 'editor' })}</EmptyTitle>
-            <EmptyDescription>Proposals measure rooms: their walls, doors and counters. Ask the agent in Cmd+J to trace the rooms from the architect&apos;s plan, then open this again.</EmptyDescription>
+            <EmptyDescription>
+              {t('electrical.proposalsMeasureRoomsTheirWallsDoorsAndCount', "Proposals measure rooms: their walls, doors and counters. Ask the agent in Cmd+J to trace the rooms from the architect's plan, then open this again.", { ns: 'editor' })}
+            </EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (
@@ -271,7 +273,7 @@ export function ProposePanel({ model, nec, levelId, editBlocked, submit, onPrevi
                 <FieldLabel htmlFor="bm-propose-nec">{t('electrical.necEdition', 'NEC edition', { ns: 'editor' })}</FieldLabel>
                 <Select value={nec.picked ?? ''} onValueChange={(v) => nec.pick(NEC_EDITIONS.find((e): e is NecEditionYear => e === v) ?? null)}>
                   <SelectTrigger id="bm-propose-nec" data-testid="propose-nec">
-                    <SelectValue placeholder="Pick one" />
+                    <SelectValue placeholder={t('electrical.pickOne', 'Pick one', { ns: 'editor' })} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
@@ -297,7 +299,7 @@ export function ProposePanel({ model, nec, levelId, editBlocked, submit, onPrevi
               {rooms.map((r) => (
                 <Label key={r.id} className="flex items-center gap-1.5 text-xs font-normal">
                   <Checkbox
-                    aria-label={`Propose for ${r.name} ${r.number}`}
+                    aria-label={t('electrical.proposeForRoom', 'Propose for {{name}} {{number}}', { ns: 'editor', name: r.name, number: r.number })}
                     checked={picked.has(r.id)}
                     onCheckedChange={(on) => {
                       setError(null)
@@ -313,17 +315,25 @@ export function ProposePanel({ model, nec, levelId, editBlocked, submit, onPrevi
           {hoverProposal && hoverRoomId && (
             <Alert data-testid="propose-hover">
               <AlertTitle>
-                {hoverName}: {hoverProposal.devices.length} proposed
+                {t('electrical.hoverNameNProposed', '{{name}}: {{count}} proposed', { ns: 'editor', name: hoverName, count: hoverProposal.devices.length })}
               </AlertTitle>
               <AlertDescription className="flex flex-col gap-2">
-                <span>{hoverProposal.devices.length === 0 ? t('electrical.thisRoomAlreadyHasWhatTheRuleAsksFor', 'This room already has what the rule asks for.', { ns: 'editor' }) : clickRoomId ? `Click the room to place these ${hoverProposal.devices.length}, or press Esc.` : `Place these ${hoverProposal.devices.length}, or press Esc.`}</span>
+                <span>
+                  {hoverProposal.devices.length === 0
+                    ? t('electrical.thisRoomAlreadyHasWhatTheRuleAsksFor', 'This room already has what the rule asks for.', { ns: 'editor' })
+                    : clickRoomId
+                      ? t('electrical.clickTheRoomToPlaceTheseOrPressEsc', 'Click the room to place these {{count}}, or press Esc.', { ns: 'editor', count: hoverProposal.devices.length })
+                      : t('electrical.placeTheseOrPressEsc', 'Place these {{count}}, or press Esc.', { ns: 'editor', count: hoverProposal.devices.length })}
+                </span>
                 <div className="flex flex-wrap gap-2">
                   <Button size="sm" disabled={editBlocked !== null || hoverProposal.devices.length === 0} title={editBlocked ?? undefined} onClick={() => acceptHovered(false)} data-testid="propose-hover-place">
                     {t('electrical.placeThese', 'Place these', { ns: 'editor' })} {hoverProposal.devices.length}
                   </Button>
                   {similar.length > 0 && (
                     <Button size="sm" variant="outline" disabled={editBlocked !== null || hoverProposal.devices.length === 0} title={editBlocked ?? undefined} onClick={() => acceptHovered(true)} data-testid="propose-hover-similar">
-                      {similar.length} similar room{similar.length === 1 ? '' : 's'}: do the same
+                      {similar.length === 1
+                        ? t('electrical.oneSimilarRoomDoTheSame', '1 similar room: do the same', { ns: 'editor' })
+                        : t('electrical.nSimilarRoomsDoTheSame', '{{count}} similar rooms: do the same', { ns: 'editor', count: similar.length })}
                     </Button>
                   )}
                 </div>

@@ -153,7 +153,9 @@ function ConnectionTypesTab({ model, canEdit, editBlocked, submit, selectedDevic
         <Empty className="border py-4">
           <EmptyHeader>
             <EmptyTitle>{t('electrical.noConnectionTypesYet', 'No connection types yet', { ns: 'editor' })}</EmptyTitle>
-            <EmptyDescription>A connection type is a designator drawn beside devices (E.05) with its load, voltage, poles and class. Devices that name it take their load from it.</EmptyDescription>
+            <EmptyDescription>
+              {t('electrical.aConnectionTypeIsADesignatorDrawnBesideDevic', 'A connection type is a designator drawn beside devices (E.05) with its load, voltage, poles and class. Devices that name it take their load from it.', { ns: 'editor' })}
+            </EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (
@@ -162,8 +164,8 @@ function ConnectionTypesTab({ model, canEdit, editBlocked, submit, selectedDevic
             <TableCaption className="sr-only">{t('electrical.connectionTypes', 'Connection types', { ns: 'editor' })}</TableCaption>
             <TableHeader>
               <TableRow>
-                <TableHead>Designator</TableHead>
-                <TableHead>Serves</TableHead>
+                <TableHead>{t('electrical.designator', 'Designator', { ns: 'editor' })}</TableHead>
+                <TableHead>{t('electrical.serves', 'Serves', { ns: 'editor' })}</TableHead>
                 <TableHead>{t('electrical.electrical', 'Electrical', { ns: 'editor' })}</TableHead>
                 <TableHead>{t('electrical.class', 'Class', { ns: 'editor' })}</TableHead>
                 <TableHead />
@@ -177,10 +179,27 @@ function ConnectionTypesTab({ model, canEdit, editBlocked, submit, selectedDevic
                   <TableCell className="text-xs">{connectionTypeSummary(e)}</TableCell>
                   <TableCell className="text-xs">{loadClassLabel(e.loadClass)}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon-sm" aria-label={`Edit ${e.designator}`} onClick={() => edit(e)} disabled={!canEdit} title={canEdit ? undefined : (editBlocked ?? undefined)}>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={t('electrical.editNameAria', 'Edit {{name}}', { ns: 'editor', name: e.designator })}
+                      onClick={() => edit(e)}
+                      disabled={!canEdit}
+                      title={canEdit ? undefined : (editBlocked ?? undefined)}
+                    >
                       <Pencil />
                     </Button>
-                    <DeleteButton what={`connection type ${e.designator}`} disabled={!canEdit} why={editBlocked} onConfirm={() => send({ type: 'delete_catalog_entry', entryType: 'connection_type', name: e.designator }, `delete connection type ${e.designator}`)} />
+                    <DeleteButton
+                      what={t('electrical.connectionTypeNamed', 'connection type {{name}}', { ns: 'editor', name: e.designator })}
+                      disabled={!canEdit}
+                      why={editBlocked}
+                      onConfirm={() =>
+                        send(
+                          { type: 'delete_catalog_entry', entryType: 'connection_type', name: e.designator },
+                          t('electrical.deleteConnectionTypeNamed', 'delete connection type {{name}}', { ns: 'editor', name: e.designator }),
+                        )
+                      }
+                    />
                     <Button
                       variant="ghost"
                       size="sm"
@@ -222,7 +241,7 @@ function ConnectionTypesTab({ model, canEdit, editBlocked, submit, selectedDevic
           )}
           <Button size="sm" disabled={saveBlocked !== null} title={saveBlocked ?? undefined} data-testid="ct-save" onClick={() => send(saveCommand(entry, editing, t), t('electrical.undo.saveConnectionTypeNamed', 'save connection type {{name}}', { ns: 'editor', name: form.designator })) && (setEditing(null), setForm(EMPTY_CT))}>
             <Save data-icon="inline-start" />
-            {editing ? `Save ${editing}` : t('electrical.addConnectionType', 'Add connection type', { ns: 'editor' })}
+            {editing ? t('electrical.saveName', 'Save {{name}}', { ns: 'editor', name: editing }) : t('electrical.addConnectionType', 'Add connection type', { ns: 'editor' })}
           </Button>
         </div>
       </FieldGroup>
@@ -290,7 +309,7 @@ function FeederTypesTab({ model, canEdit, editBlocked, submit, engine, edition }
             <TableCaption className="sr-only">{t('electrical.feederTypes', 'Feeder types', { ns: 'editor' })}</TableCaption>
             <TableHeader>
               <TableRow>
-                <TableHead>Mark</TableHead>
+                <TableHead>{t('electrical.mark', 'Mark', { ns: 'editor' })}</TableHead>
                 <TableHead>{t('electrical.breakerConductorsAndConduit', 'Breaker, conductors and conduit', { ns: 'editor' })}</TableHead>
                 <TableHead />
               </TableRow>
@@ -301,10 +320,20 @@ function FeederTypesTab({ model, canEdit, editBlocked, submit, engine, edition }
                   <TableCell className="text-xs font-medium">{e.mark}</TableCell>
                   <TableCell className="text-xs">{feederTypeText(e)}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon-sm" aria-label={`Edit ${e.mark}`} disabled={!canEdit} title={canEdit ? undefined : (editBlocked ?? undefined)} onClick={() => (setEditing(e.mark), setForm(formFromFeeder(e)), setBasis(e.basis), setError(null))}>
+                    <Button variant="ghost" size="icon-sm" aria-label={t('electrical.editNameAria', 'Edit {{name}}', { ns: 'editor', name: e.mark })} disabled={!canEdit} title={canEdit ? undefined : (editBlocked ?? undefined)} onClick={() => (setEditing(e.mark), setForm(formFromFeeder(e)), setBasis(e.basis), setError(null))}>
                       <Pencil />
                     </Button>
-                    <DeleteButton what={`feeder type ${e.mark}`} disabled={!canEdit} why={editBlocked} onConfirm={() => send({ type: 'delete_catalog_entry', entryType: 'feeder_type', name: e.mark }, `delete feeder type ${e.mark}`)} />
+                    <DeleteButton
+                      what={t('electrical.feederTypeNamed', 'feeder type {{name}}', { ns: 'editor', name: e.mark })}
+                      disabled={!canEdit}
+                      why={editBlocked}
+                      onConfirm={() =>
+                        send(
+                          { type: 'delete_catalog_entry', entryType: 'feeder_type', name: e.mark },
+                          t('electrical.deleteFeederTypeNamed', 'delete feeder type {{name}}', { ns: 'editor', name: e.mark }),
+                        )
+                      }
+                    />
                   </TableCell>
                 </TableRow>
               ))}
@@ -315,7 +344,7 @@ function FeederTypesTab({ model, canEdit, editBlocked, submit, engine, edition }
       <div className="flex items-end gap-2 rounded-md border p-2">
         <Field className="w-48">
           <FieldLabel htmlFor="ft-size-for" className="text-xs">
-            Size from a panel&apos;s load
+            {t('electrical.sizeFromAPanelSLoad', 'Size from a panel’s load', { ns: 'editor' })}
           </FieldLabel>
           <Select value={sizeFor} onValueChange={setSizeFor}>
             <SelectTrigger id="ft-size-for" size="sm" data-testid="ft-size-for">
@@ -348,13 +377,13 @@ function FeederTypesTab({ model, canEdit, editBlocked, submit, engine, edition }
         <TextField id="ft-neutral" label={t('electrical.neutralSize', 'Neutral size', { ns: 'editor' })} value={form.neutralSize} placeholder="none" onChange={(v) => set({ neutralSize: v })} />
         <TextField id="ft-ground" label={t('electrical.groundSize', 'Ground size', { ns: 'editor' })} value={form.groundSize} placeholder="4" onChange={(v) => set({ groundSize: v })} />
         <Choice id="ft-material" label="Material" value={form.material} options={[{ value: 'cu', label: t('electrical.electricaltypesdialog_336', 'Copper', { ns: 'editor' }) }, { value: 'al', label: t('electrical.electricaltypesdialog_336', 'Aluminum', { ns: 'editor' }) }]} onChange={(v) => set({ material: v })} />
-        <TextField id="ft-insulation" label="Insulation" value={form.insulation} onChange={(v) => set({ insulation: v })} />
+        <TextField id="ft-insulation" label={t('electrical.insulation', 'Insulation', { ns: 'editor' })} value={form.insulation} onChange={(v) => set({ insulation: v })} />
         <Choice id="ft-conduit-type" label="Conduit" value={form.conduitType} options={[{ value: 'emt', label: 'EMT' }, { value: 'pvc40', label: t('electrical.electricaltypesdialog_338', 'PVC Sch 40', { ns: 'editor' }) }, { value: 'pvc80', label: t('electrical.electricaltypesdialog_338', 'PVC Sch 80', { ns: 'editor' }) }]} onChange={(v) => set({ conduitType: v })} />
         <TextField id="ft-conduit-size" label={t('electrical.tradeSizeIn', 'Trade size (in)', { ns: 'editor' })} value={form.conduitSize} placeholder="2-1/2" onChange={(v) => set({ conduitSize: v })} />
         <div className="flex justify-end gap-2 self-end">
           <Button size="sm" disabled={saveBlocked !== null} title={saveBlocked ?? undefined} data-testid="ft-save" onClick={() => send(saveCommand(entry, editing, t), t('electrical.undo.saveFeederTypeNamed', 'save feeder type {{name}}', { ns: 'editor', name: form.mark })) && (setEditing(null), setForm(EMPTY_FT), setBasis(undefined))}>
             <Save data-icon="inline-start" />
-            {editing ? `Save ${editing}` : t('electrical.addFeederType', 'Add feeder type', { ns: 'editor' })}
+            {editing ? t('electrical.saveName', 'Save {{name}}', { ns: 'editor', name: editing }) : t('electrical.addFeederType', 'Add feeder type', { ns: 'editor' })}
           </Button>
         </div>
       </FieldGroup>
@@ -409,11 +438,28 @@ function TemplatesTab({ model, canEdit, editBlocked, submit, onApply }: CommonPr
           {records.map(({ entry: e }) => (
             <div key={e.name} className="flex items-center gap-1 rounded-md border px-2 py-1 text-xs">
               <span className="font-medium">{e.name}</span>
-              <span className="text-muted-foreground">({e.rules.length} rules)</span>
-              <Button variant="ghost" size="icon-sm" aria-label={`Edit ${e.name}`} disabled={!canEdit} title={canEdit ? undefined : (editBlocked ?? undefined)} onClick={() => load(e)}>
+              <span className="text-muted-foreground">{t('electrical.rulesCountParen', '({{count}} rules)', { ns: 'editor', count: e.rules.length })}</span>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={t('electrical.editNameAria', 'Edit {{name}}', { ns: 'editor', name: e.name })}
+                disabled={!canEdit}
+                title={canEdit ? undefined : (editBlocked ?? undefined)}
+                onClick={() => load(e)}
+              >
                 <Pencil />
               </Button>
-              <DeleteButton what={`room template ${e.name}`} disabled={!canEdit} why={editBlocked} onConfirm={() => send({ type: 'delete_catalog_entry', entryType: 'circuit_template', name: e.name }, `delete room template ${e.name}`)} />
+              <DeleteButton
+                what={t('electrical.roomTemplateNamed', 'room template {{name}}', { ns: 'editor', name: e.name })}
+                disabled={!canEdit}
+                why={editBlocked}
+                onConfirm={() =>
+                  send(
+                    { type: 'delete_catalog_entry', entryType: 'circuit_template', name: e.name },
+                    t('electrical.deleteRoomTemplateNamed', 'delete room template {{name}}', { ns: 'editor', name: e.name }),
+                  )
+                }
+              />
               <Button variant="outline" size="sm" onClick={() => onApply(e.name)} disabled={!canEdit} title={canEdit ? undefined : (editBlocked ?? undefined)} data-testid="template-apply">
                 <SquareStack data-icon="inline-start" />
                 {t('electrical.applyToUnits', 'Apply to units', { ns: 'editor' })}
@@ -424,16 +470,16 @@ function TemplatesTab({ model, canEdit, editBlocked, submit, onApply }: CommonPr
       )}
       <FieldGroup className="grid grid-cols-2 gap-2">
         <TextField id="tpl-name" label={t('electrical.templateName', 'Template name', { ns: 'editor' })} value={name} placeholder={t('electrical.twoBedroomUnit', 'Two-bedroom unit', { ns: 'editor' })} onChange={setName} />
-        <TextField id="tpl-description" label="Description" value={description} onChange={setDescription} />
+        <TextField id="tpl-description" label={t('electrical.description', 'Description', { ns: 'editor' })} value={description} onChange={setDescription} />
       </FieldGroup>
       <div className="flex flex-col gap-1" data-testid="template-rules">
         {rules.map((r, i) => (
           <div key={i} className="grid grid-cols-[2fr_1.5fr_1fr_2fr_auto] items-end gap-2">
-            <TextField id={`tpl-room-${i}`} label={i === 0 ? t('electrical.roomNameHas', 'Room name has', { ns: 'editor' }) : ''} value={r.room} placeholder="Bedroom" onChange={(v) => setRule(i, { room: v })} />
+            <TextField id={`tpl-room-${i}`} label={i === 0 ? t('electrical.roomNameHas', 'Room name has', { ns: 'editor' }) : ''} value={r.room} placeholder={t('electrical.bedroom', 'Bedroom', { ns: 'editor' })} onChange={(v) => setRule(i, { room: v })} />
             <Choice id={`tpl-devices-${i}`} label={i === 0 ? 'Devices' : ''} value={r.devices} options={TEMPLATE_DEVICE_FILTERS.map((d) => ({ value: d, label: deviceWords(d, t) }))} onChange={(v) => setRule(i, { devices: v })} />
-            <TextField id={`tpl-circuit-${i}`} label={i === 0 ? 'Circuit' : ''} value={r.circuit} placeholder="next" onChange={(v) => setRule(i, { circuit: v })} />
+            <TextField id={`tpl-circuit-${i}`} label={i === 0 ? 'Circuit' : ''} value={r.circuit} placeholder={t('electrical.next', 'next', { ns: 'editor' })} onChange={(v) => setRule(i, { circuit: v })} />
             <TextField id={`tpl-desc-${i}`} label={i === 0 ? 'Description' : ''} value={r.description} placeholder={t('electrical.electricaltypesdialogWhy_420', 'Bedroom receptacles', { ns: 'editor' })} onChange={(v) => setRule(i, { description: v })} />
-            <Button variant="ghost" size="icon-sm" aria-label={`Remove rule ${i + 1}`} onClick={() => setRules(rules.filter((_, k) => k !== i))} disabled={rules.length === 1} title={rules.length === 1 ? t('electrical.aTemplateNeedsAtLeastOneRule', 'A template needs at least one rule', { ns: 'editor' }) : undefined}>
+            <Button variant="ghost" size="icon-sm" aria-label={t('electrical.removeRuleAria', 'Remove rule {{number}}', { ns: 'editor', number: i + 1 })} onClick={() => setRules(rules.filter((_, k) => k !== i))} disabled={rules.length === 1} title={rules.length === 1 ? t('electrical.aTemplateNeedsAtLeastOneRule', 'A template needs at least one rule', { ns: 'editor' }) : undefined}>
               <Trash2 />
             </Button>
           </div>
@@ -445,7 +491,7 @@ function TemplatesTab({ model, canEdit, editBlocked, submit, onApply }: CommonPr
           </Button>
           <Button size="sm" disabled={saveBlocked !== null} title={saveBlocked ?? undefined} data-testid="tpl-save" onClick={() => send(saveCommand(entry, editing, t), t('electrical.undo.saveRoomTemplateNamed', 'save room template {{name}}', { ns: 'editor', name })) && setEditing(null)}>
             <Save data-icon="inline-start" />
-            {editing ? `Save ${editing}` : t('electrical.saveTemplate', 'Save template', { ns: 'editor' })}
+            {editing ? t('electrical.saveName', 'Save {{name}}', { ns: 'editor', name: editing }) : t('electrical.saveTemplate', 'Save template', { ns: 'editor' })}
           </Button>
         </div>
       </div>
@@ -501,8 +547,8 @@ export function ElectricalTypesDialog({
         )}
         <Tabs value={tab} onValueChange={(v) => setTab(v as ElectricalTypesTab)}>
           <TabsList>
-            <TabsTrigger value="connection">Connection types</TabsTrigger>
-            <TabsTrigger value="feeder">Feeder types</TabsTrigger>
+            <TabsTrigger value="connection">{t('electrical.connectionTypes', 'Connection types', { ns: 'editor' })}</TabsTrigger>
+            <TabsTrigger value="feeder">{t('electrical.feederTypes', 'Feeder types', { ns: 'editor' })}</TabsTrigger>
             <TabsTrigger value="template">{t('electrical.roomTemplates', 'Room templates', { ns: 'editor' })}</TabsTrigger>
             <TabsTrigger value="drafting">{t('electrical.drafting', 'Drafting', { ns: 'editor' })}</TabsTrigger>
           </TabsList>

@@ -45,7 +45,10 @@ export function FaultCurrentStrip({ model, panelId, canEdit, editBlocked, submit
   const save = (e: React.FormEvent) => {
     e.preventDefault()
     if (bad || value.trim() === '') return
-    const refusal = submit({ type: 'set_parameters', id: panelId, scope: 'instance', values: { [param]: n } }, isTransformer ? `set ${info.name}'s impedance to ${n}%` : `set the available fault current at ${info.name} to ${n} A`)
+    const refusal = submit({ type: 'set_parameters', id: panelId, scope: 'instance', values: { [param]: n } }, isTransformer
+      ? t('electrical.setNameSImpedanceToPercent', "set {{name}}'s impedance to {{percent}}%", { ns: 'editor', name: info.name, percent: n })
+      : t('electrical.setTheAvailableFaultCurrentAtNameToAmps', 'set the available fault current at {{name}} to {{amps}} A', { ns: 'editor', name: info.name, amps: n }),
+  )
     setError(refusal)
     if (!refusal) setValue('')
   }
@@ -62,7 +65,7 @@ export function FaultCurrentStrip({ model, panelId, canEdit, editBlocked, submit
         {node.trail.length > 0 && (
           <Button variant="ghost" size="sm" className="h-6 px-1 text-xs" onClick={() => setOpen((o) => !o)} aria-expanded={open} data-testid="panel-view-fault-trail-toggle">
             {open ? <ChevronDown data-icon="inline-start" /> : <ChevronRight data-icon="inline-start" />}
-            How it is worked out
+            {t('electrical.howItIsWorkedOut', 'How it is worked out', { ns: 'editor' })}
           </Button>
         )}
       </div>
@@ -78,14 +81,16 @@ export function FaultCurrentStrip({ model, panelId, canEdit, editBlocked, submit
         <form className="flex items-end gap-2" onSubmit={save}>
           <Field className="w-60">
             <FieldLabel htmlFor={`bm-fault-${panelId}`} className="text-xs">
-              {isTransformer ? `${info.name} impedance (%Z, from its nameplate)` : `Available fault current at ${info.name} (A, from the utility)`}
+              {isTransformer
+                ? t('electrical.nameImpedancePercentZFromItsNameplate', '{{name}} impedance (%Z, from its nameplate)', { ns: 'editor', name: info.name })
+                : t('electrical.availableFaultCurrentAtNameAmpsFromTheUti', 'Available fault current at {{name}} (A, from the utility)', { ns: 'editor', name: info.name })}
             </FieldLabel>
             <Input id={`bm-fault-${panelId}`} inputMode="decimal" placeholder={isTransformer ? '5.75' : '22000'} value={value} onChange={(e) => setValue(e.target.value)} disabled={!canEdit} aria-invalid={bad} data-testid="panel-view-fault-input" />
             {bad && <FieldDescription className="text-danger-600">{isTransformer ? t('electrical.impedanceIsAPercentAbove0AndAtMost20', 'Impedance is a percent above 0 and at most 20.', { ns: 'editor' }) : t('electrical.ampsANumberAbove0', 'Amps, a number above 0.', { ns: 'editor' })}</FieldDescription>}
           </Field>
           <Button type="submit" size="sm" variant="outline" disabled={!canEdit || bad || value.trim() === ''} title={canEdit ? undefined : (editBlocked ?? undefined)} data-testid="panel-view-fault-save">
             <Save data-icon="inline-start" />
-            Save
+            {t('electrical.save', 'Save', { ns: 'editor' })}
           </Button>
         </form>
       )}

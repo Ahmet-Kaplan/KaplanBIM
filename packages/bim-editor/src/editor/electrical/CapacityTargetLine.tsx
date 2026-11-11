@@ -64,7 +64,7 @@ export function CapacityTargetLine({ reading, targets, canEdit, testId }: { read
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
-              <DropdownMenuLabel>Change the {reading.target.limit.label.toLowerCase()} target</DropdownMenuLabel>
+              <DropdownMenuLabel>{t('electrical.changeTheLimitTarget', 'Change the {{limit}} target', { ns: 'editor', limit: reading.target.limit.label.toLowerCase() })}</DropdownMenuLabel>
               <DropdownMenuGroup>
                 <DropdownMenuItem disabled={!canEdit || targets.status !== 'ready'} onSelect={() => setEditing(true)} data-testid={`${testId}-change-project`}>
                   {canEdit ? t('electrical.forThisProjectOnly', 'For this project only…', { ns: 'editor' }) : t('electrical.forThisProjectOnlyNeedsEditAccessToThisModel', 'For this project only (needs edit access to this model)', { ns: 'editor' })}
@@ -96,7 +96,7 @@ function ProjectTargetDialog({ reading, targets, onClose, testId }: { readonly r
   const save = async () => {
     const n = Number(value)
     if (!Number.isFinite(n) || n < 0 || n > 100) {
-      setProblem('Enter a percentage from 0 to 100.')
+      setProblem(t('electrical.enterAPercentageFrom0To100', 'Enter a percentage from 0 to 100.', { ns: 'editor' }))
       return
     }
     setSaving(true)
@@ -106,14 +106,14 @@ function ProjectTargetDialog({ reading, targets, onClose, testId }: { readonly r
       setProblem(outcome.message)
       return
     }
-    toast.success(`${label}: ${n} % for this project. The firm’s target is unchanged.`)
+    toast.success(t('electrical.limitPercentForThisProject', '{{limit}}: {{percent}} % for this project. The firm’s target is unchanged.', { ns: 'editor', limit: label, percent: n }))
     onClose()
   }
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent data-testid={`${testId}-dialog`}>
         <DialogHeader>
-          <DialogTitle>{label} for this project</DialogTitle>
+          <DialogTitle>{t('electrical.limitForThisProject', '{{limit}} for this project', { ns: 'editor', limit: label })}</DialogTitle>
           <DialogDescription>{t('electrical.thisProjectOnlyOtherProjectsKeepTheFirmSTarg', 'This project only. Other projects keep the firm’s target; change that in Library › Design limits.', { ns: 'editor' })}</DialogDescription>
         </DialogHeader>
         <Field data-invalid={problem !== null}>

@@ -70,7 +70,7 @@ export function EditCircuitDialog({ model, linkId, submit, onClose, sizing }: { 
   const setPhase = (existing: boolean) => {
     const phaseId = existing ? earlier?.id : org.activePhaseId
     if (!phaseId) return
-    const refusal = submit({ type: 'set_element_phases', ids: [linkId], phaseCreated: phaseId }, existing ? `mark ${circuit.name} existing` : `mark ${circuit.name} new work`)
+    const refusal = submit({ type: 'set_element_phases', ids: [linkId], phaseCreated: phaseId }, existing ? t('electrical.markNameExisting', 'mark {{name}} existing', { ns: 'editor', name: circuit.name }) : t('electrical.markNameNewWork', 'mark {{name}} new work', { ns: 'editor', name: circuit.name }))
     setSubmitError(refusal)
   }
   const breakerA = breaker.trim() === '' ? null : Number(breaker)
@@ -96,7 +96,14 @@ export function EditCircuitDialog({ model, linkId, submit, onClose, sizing }: { 
     setWire(s.entry.conductors.phaseSize)
     setMaterial(s.entry.conductors.material)
     setSizedSet(s.entry.conductors)
-    setSized(`Sized for ${fedInfo.name}'s calculated load: ${feederTypeText(s.entry)}. ${s.entry.description}. Save to use it.`)
+    setSized(
+      t('electrical.sizedForNameSCalculatedLoad', "Sized for {{name}}'s calculated load: {{type}}. {{description}}. Save to use it.", {
+        ns: 'editor',
+        name: fedInfo.name,
+        type: feederTypeText(s.entry),
+        description: s.entry.description,
+      }),
+    )
   }
   const plan = planEditCircuit(model, linkId, {
     description,
@@ -105,7 +112,7 @@ export function EditCircuitDialog({ model, linkId, submit, onClose, sizing }: { 
     ...(wireChanged ? { conductors: nextConductors } : {}),
     ...(circuit.role === 'feeder' && !lengthBad ? { lengthFt: lengthNum } : {}),
   })
-  const why = breakerBad ? t('electrical.theBreakerIsAmpsANumberAbove0', 'The breaker is amps, a number above 0.', { ns: 'editor' }) : lengthBad ? 'The length is feet, a number above 0.' : !plan.ok && plan.reason !== t('electrical.nothingChanged', 'Nothing changed.', { ns: 'editor' }) ? plan.reason : null
+  const why = breakerBad ? t('electrical.theBreakerIsAmpsANumberAbove0', 'The breaker is amps, a number above 0.', { ns: 'editor' }) : lengthBad ? t('electrical.theLengthIsFeetANumberAbove0', 'The length is feet, a number above 0.', { ns: 'editor' }) : !plan.ok && plan.reason !== t('electrical.nothingChanged', 'Nothing changed.', { ns: 'editor' }) ? plan.reason : null
 
   const save = (e: React.FormEvent) => {
     e.preventDefault()
@@ -121,12 +128,12 @@ export function EditCircuitDialog({ model, linkId, submit, onClose, sizing }: { 
   }
 
   const takeOff = (elementId: string, name: string) => {
-    const refusal = submit({ type: 'remove_link_members', linkId, elementIds: [elementId] }, `take ${name} off ${circuit.name}`)
+    const refusal = submit({ type: 'remove_link_members', linkId, elementIds: [elementId] }, t('electrical.takeNameOffCircuit', 'take {{name}} off {{circuit}}', { ns: 'editor', name, circuit: circuit.name }))
     if (refusal) setSubmitError(refusal)
   }
 
   const remove = () => {
-    const refusal = submit({ type: 'delete_elements', ids: [linkId], policy: 'disconnect' }, `delete circuit ${circuit.name}`)
+    const refusal = submit({ type: 'delete_elements', ids: [linkId], policy: 'disconnect' }, t('electrical.deleteCircuitNamed', 'delete circuit {{name}}', { ns: 'editor', name: circuit.name }))
     setConfirmDelete(false)
     if (refusal) setSubmitError(refusal)
     else onClose()
@@ -140,7 +147,10 @@ export function EditCircuitDialog({ model, linkId, submit, onClose, sizing }: { 
             <DialogHeader>
               <DialogTitle>{t('electrical.circuit', 'Circuit', { ns: 'editor' })} {circuit.name}</DialogTitle>
               <DialogDescription>
-                {circuit.role === 'feeder' ? `Feeds ${circuit.feeds?.name ?? 'nothing (a spare)'}.` : `${circuit.members.length} on it, ${Math.round(load?.inventory.va ?? 0)} VA connected.`} Changes save together; you can undo them.
+                {circuit.role === 'feeder'
+                  ? t('electrical.feedsName', 'Feeds {{name}}.', { ns: 'editor', name: circuit.feeds?.name ?? t('electrical.nothingASpare', 'nothing (a spare)', { ns: 'editor' }) })
+                  : t('electrical.countOnItVaConnected', '{{count}} on it, {{va}} VA connected.', { ns: 'editor', count: circuit.members.length, va: Math.round(load?.inventory.va ?? 0) })}{' '}
+                {t('electrical.changesSaveTogetherYouCanUndoThem', 'Changes save together; you can undo them.', { ns: 'editor' })}
               </DialogDescription>
             </DialogHeader>
             <FieldGroup className="grid grid-cols-2 gap-3">
@@ -164,9 +174,12 @@ export function EditCircuitDialog({ model, linkId, submit, onClose, sizing }: { 
                 </ToggleGroup>
                 <FieldDescription>
                   {!earlier
-                    ? `You are drawing the ${org.phases[designing]?.entry.name ?? 'first'} phase, so nothing is earlier; switch the active phase to the one you are designing to mark existing circuits.`
+                    ? t('electrical.youAreDrawingThePhaseSoNothingIsEarlier', 'You are drawing the {{phase}} phase, so nothing is earlier; switch the active phase to the one you are designing to mark existing circuits.', {
+                        ns: 'editor',
+                        phase: org.phases[designing]?.entry.name ?? t('electrical.first', 'first', { ns: 'editor' }),
+                      })
                     : circuit.existing
-                      ? `Existing (${circuit.existing.phase}): keeps its panel and circuit number, and Rebalance leaves it alone.`
+                      ? t('electrical.existingPhaseKeepsItsPanelAndCircuitNumber', 'Existing ({{phase}}): keeps its panel and circuit number, and Rebalance leaves it alone.', { ns: 'editor', phase: circuit.existing.phase })
                       : t('electrical.existingCircuitsKeepTheirPanelAndCircuitNumb', 'Existing circuits keep their panel and circuit number, and Rebalance leaves them alone.', { ns: 'editor' })}
                 </FieldDescription>
               </Field>
@@ -223,7 +236,7 @@ export function EditCircuitDialog({ model, linkId, submit, onClose, sizing }: { 
                       {t('electrical.sizeIt', 'Size it', { ns: 'editor' })}
                     </Button>
                   </div>
-                  <FieldDescription data-testid="edit-circuit-sizing">{sized ?? sizeBlocked ?? 'Sizes the breaker and conductors from what it feeds (NEC demand, continuous loads at 125%); the length also sets voltage drop and fault current.'}</FieldDescription>
+                  <FieldDescription data-testid="edit-circuit-sizing">{sized ?? sizeBlocked ?? t('electrical.sizesTheBreakerAndConductorsFromWhatItFe', 'Sizes the breaker and conductors from what it feeds (NEC demand, continuous loads at 125%); the length also sets voltage drop and fault current.', { ns: 'editor' })}</FieldDescription>
                 </Field>
               )}
               {wire !== DEFAULT_WIRE && (
@@ -246,7 +259,7 @@ export function EditCircuitDialog({ model, linkId, submit, onClose, sizing }: { 
                       <ItemDescription className="text-xs">{memberVa.get(m.elementId) ? `${Math.round(memberVa.get(m.elementId) ?? 0)} VA` : t('electrical.noLoadSet', 'no load set', { ns: 'editor' })}</ItemDescription>
                     </ItemContent>
                     <ItemActions>
-                      <Button type="button" variant="ghost" size="sm" onClick={() => takeOff(m.elementId, m.name)} aria-label={`Take ${m.name} off ${circuit.name}`}>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => takeOff(m.elementId, m.name)} aria-label={t('electrical.takeNameOffCircuitAria', 'Take {{name}} off {{circuit}}', { ns: 'editor', name: m.name, circuit: circuit.name })}>
                         <X data-icon="inline-start" />
                         {t('electrical.takeOff_245', 'Take off', { ns: 'editor' })}
                       </Button>
@@ -291,12 +304,17 @@ export function EditCircuitDialog({ model, linkId, submit, onClose, sizing }: { 
           <AlertDialogHeader>
             <AlertDialogTitle>{t('electrical.deleteCircuit_288', 'Delete circuit', { ns: 'editor' })} {circuit.name}?</AlertDialogTitle>
             <AlertDialogDescription>
-              {circuit.role === 'feeder' ? `${circuit.feeds?.name ?? 'The panel'} is left with no feeder.` : `${circuit.members.length} device${circuit.members.length === 1 ? '' : 's'} go back to no circuit, and the slots are freed.`} Undo brings it back.
+              {circuit.role === 'feeder'
+                ? t('electrical.nameIsLeftWithNoFeeder', '{{name}} is left with no feeder.', { ns: 'editor', name: circuit.feeds?.name ?? t('electrical.thePanel', 'The panel', { ns: 'editor' }) })
+                : circuit.members.length === 1
+                  ? t('electrical.oneDeviceGoesBackToNoCircuit', '1 device goes back to no circuit, and the slots are freed.', { ns: 'editor' })
+                  : t('electrical.nDevicesGoBackToNoCircuit', '{{count}} devices go back to no circuit, and the slots are freed.', { ns: 'editor', count: circuit.members.length })}{' '}
+              {t('electrical.undoBringsItBack', 'Undo brings it back.', { ns: 'editor' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t('electrical.keepIt', 'Keep it', { ns: 'editor' })}</AlertDialogCancel>
-            <AlertDialogAction onClick={remove}>Delete circuit</AlertDialogAction>
+            <AlertDialogAction onClick={remove}>{t('electrical.deleteCircuit', 'Delete circuit', { ns: 'editor' })}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
