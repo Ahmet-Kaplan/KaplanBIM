@@ -78,6 +78,7 @@ import type { AxisLock } from './route-axis'
 import type { DrawingTool } from './views-sheets/DrawingCanvas'
 import { annotateTab, type DetailShape } from './ribbon/annotate-tab'
 import { drawnItemsTab, modifyTab } from './ribbon/modify-tab'
+import { englishOnly, type Translate } from './i18n/translate'
 import { TOOL_SHORTCUTS, type BuildingModelTool } from './ribbon/tool-shortcuts'
 import type { AddonAvailability, AddonId, AddonInput, TablePlacer } from './contributions/types'
 import { addonTabAnalyzeCommands, addonTabPlanCommands, contributedCommands, contributedTabs } from './contributions/ribbon'
@@ -128,6 +129,12 @@ export type RibbonSelection =
   | null
 
 export interface BuildingModelRibbonContext {
+  /**
+   * The ribbon's translator (`useEditorTranslate()` in the surface), so the tab
+   * and group captions come out in the host's language. Absent: English, which
+   * is the English written at each `t('key', 'English')` call site.
+   */
+  readonly t?: Translate
   readonly tool: BuildingModelTool
   readonly chooseTool: (tool: BuildingModelTool) => void
   /** Null when editing is allowed; otherwise why not, in the operator's words. */
@@ -337,18 +344,19 @@ const MODEL_TOOLS_ON_SHEET = 'Model tools work in plans, sections and the 3D mod
  * the pointer (parts and runs in the model, drawn items on a drawing), box
  * select, and what box select keeps.
  */
-function selectGroup(ctx: BuildingModelRibbonContext, modelToolsOffReason: string | null): RibbonGroup {
+function selectGroup(ctx: BuildingModelRibbonContext, modelToolsOffReason: string | null, t: Translate): RibbonGroup {
   const selecting = ctx.drawingOpen && !ctx.liveViewOnDrawing ? ctx.drawingTool === 'select' && !ctx.draft?.pending : ctx.tool === 'select' && (!ctx.drawingOpen || ctx.drawingTool === 'select')
   const chooseSelect = () => {
     ctx.draft?.setPending(null)
     if (ctx.drawingOpen) ctx.setDrawingTool('select')
     ctx.chooseTool('select')
   }
+  const label = t('ribbon.group.select', 'Select', { ns: 'editor' })
   return {
     id: 'select',
-    label: 'Select',
+    label,
     shared: true,
-    tool: { value: ctx.tool === 'box' ? 'box' : selecting ? 'select' : '', onValueChange: (v) => (v === 'box' ? ctx.chooseTool('box') : chooseSelect()), ariaLabel: 'Select' },
+    tool: { value: ctx.tool === 'box' ? 'box' : selecting ? 'select' : '', onValueChange: (v) => (v === 'box' ? ctx.chooseTool('box') : chooseSelect()), ariaLabel: label },
     commands: [
       { id: 'select', label: 'Select', icon: MousePointer2, description: 'Pick something to see its properties: a part or a run in the model, a line or a note on a drawing. Drag on empty space of a drawing or plan to box select (left to right: wholly inside; right to left: touching). In 3D, drag turns the view and Shift+drag boxes; the middle button pans. Drag a selection to move it (hold Shift while dragging for up and down)', shortcut: TOOL_SHORTCUTS.select, keywords: ['pick', 'modify'], disabledReason: null, run: chooseSelect, testId: 'ribbon-select' },
       {
@@ -394,11 +402,12 @@ export function buildingModelQuickCommands(ctx: Pick<BuildingModelRibbonContext,
 
 /** The Building Model's ribbon: every tool it has, in tabs, with why each is off when it is. Undo and Redo are separate (`buildingModelQuickCommands`). */
 export function buildingModelRibbon(ctx: BuildingModelRibbonContext): RibbonTab[] {
+  const t = ctx.t ?? englishOnly
   const modelToolsOff = ctx.drawingOpen !== null && !ctx.liveViewOnDrawing
   // A view drawing that is off is a detail view: it has no model in it.
   const MODEL_TOOLS_ON_DRAWING = ctx.drawingOpen === 'detail' ? DRAFTING_VIEW_REASON : MODEL_TOOLS_ON_SHEET
   const modelToolReason = (needsEdit: boolean): string | null => (modelToolsOff ? MODEL_TOOLS_ON_DRAWING : needsEdit ? ctx.editBlocked : null)
-  const select = selectGroup(ctx, modelToolsOff ? MODEL_TOOLS_ON_DRAWING : null)
+  const select = selectGroup(ctx, modelToolsOff ? MODEL_TOOLS_ON_DRAWING : null, t)
   const tool = (id: BuildingModelTool, label: string, icon: RibbonCommand['icon'], description: string, needsEdit: boolean, keywords: string[] = []): RibbonCommand => ({
     id,
     label,
@@ -460,16 +469,16 @@ export function buildingModelRibbon(ctx: BuildingModelRibbonContext): RibbonTab[
   const tabs: RibbonTab[] = [
     {
       id: 'model',
-      label: 'Model',
+      label: t('ribbon.tab.model', 'Model', { ns: 'editor' }),
       groups: [
         select,
         {
           id: 'create',
-          label: 'Create',
+          label: t('ribbon.group.create', 'Create', { ns: 'editor' }),
           tool: {
             value: ctx.tool === 'place' ? 'place' : ctx.tool === 'route' ? (ctx.routeAs && ctx.routeKind === 'pipe' ? 'route-pipe' : 'route') : '',
             onValueChange: (v) => (v === 'route-pipe' ? routeAs('pipe') : v === 'route' ? routeAs('duct') : ctx.chooseTool(v === 'place' ? v : 'select')),
-            ariaLabel: 'Create',
+            ariaLabel: t('ribbon.group.create', 'Create', { ns: 'editor' }),
           },
           commands: [
             tool('place', 'Place part', PackagePlus, 'Add equipment, air devices, receptacles, panels, lights or fixtures', true, ['equipment', 'fixture', 'diffuser', 'insert', 'component']),
@@ -481,11 +490,11 @@ export function buildingModelRibbon(ctx: BuildingModelRibbonContext): RibbonTab[
               : [tool('route', 'Route', Route, 'Route duct or pipe between parts, with the fittings it needs', true, ['duct', 'pipe', 'run', 'draw'])]),
           ],
         },
-        ...(ctx.ceiling ? [{ id: 'build', label: 'Build', commands: [ctx.ceiling] }] : []),
-        { id: 'parts', label: 'Parts', commands: [newPart, ...(modelInPlace ? [modelInPlace] : []), editPart] },
+        ...(ctx.ceiling ? [{ id: 'build', label: t('ribbon.group.build', 'Build', { ns: 'editor' }), commands: [ctx.ceiling] }] : []),
+        { id: 'parts', label: t('ribbon.group.parts', 'Parts', { ns: 'editor' }), commands: [newPart, ...(modelInPlace ? [modelInPlace] : []), editPart] },
         {
           id: 'datum',
-          label: 'Datum',
+          label: t('ribbon.group.datum', 'Datum', { ns: 'editor' }),
           commands: [
             { id: 'levels', label: 'Add level', icon: Layers, description: 'Add a level (a storey) at an elevation you type or take from a roof or floor you click', keywords: ['storey', 'floor', 'datum', 'pick surface', 'roof'], disabledReason: modelToolsOff ? MODEL_TOOLS_ON_DRAWING : ctx.editBlocked, run: ctx.addLevel, testId: 'ribbon-add-level' },
             { id: 'mounting-plane', label: 'Mounting plane', icon: SquareDashed, description: 'A flat surface at a height above a level to place diffusers and grilles on where there is no ceiling; parts on it move with it', keywords: ['no ceiling', 'open ceiling', 'diffuser', 'register', 'datum'], disabledReason: modelToolsOff ? MODEL_TOOLS_ON_DRAWING : ctx.editBlocked, run: ctx.addMountingPlane, testId: 'ribbon-mounting-plane' },
@@ -495,7 +504,7 @@ export function buildingModelRibbon(ctx: BuildingModelRibbonContext): RibbonTab[
         },
         {
           id: 'display',
-          label: 'Display',
+          label: t('ribbon.group.display', 'Display', { ns: 'editor' }),
           commands: [
             { id: 'fit', label: 'Fit', icon: Maximize, description: 'Fit everything in view', shortcut: 'F', keywords: ['zoom', 'extents', 'home'], disabledReason: ctx.drawingOpen ? `${ctx.drawingOpen === 'sheet' ? 'Sheets' : 'Drawings'} fit with the zoom control above the drawing (0).` : null, run: ctx.fit },
             { id: 'roof', label: 'Lift the roof off', icon: Eye, description: 'Cut the model just above the new work so you can see in', keywords: ['section box', 'hide roof'], pressed: ctx.roofOff, disabledReason: ctx.model3dOpen ? null : 'Works in the 3D model. Open it from the Views and sheets panel.', run: () => ctx.setRoofOff(!ctx.roofOff) },
@@ -522,12 +531,12 @@ export function buildingModelRibbon(ctx: BuildingModelRibbonContext): RibbonTab[
     modifyTab(ctx, select, modelToolReason(false)),
     {
       id: 'views',
-      label: 'Views',
+      label: t('ribbon.tab.views', 'Views', { ns: 'editor' }),
       groups: [
         select,
         {
           id: 'create',
-          label: 'Create',
+          label: t('ribbon.group.create', 'Create', { ns: 'editor' }),
           commands: [
             { id: 'new', label: 'New view', icon: Plus, description: 'Make a plan, section, 3D view, detail view or sheet', disabledReason: ctx.editBlocked, children: newItems, testId: 'new-view-or-sheet' },
             {
@@ -554,7 +563,7 @@ export function buildingModelRibbon(ctx: BuildingModelRibbonContext): RibbonTab[
         },
         {
           id: 'open',
-          label: 'Open',
+          label: t('ribbon.group.open', 'Open', { ns: 'editor' }),
           commands: [
             { id: 'open-3d', label: '3D model', icon: Box, description: 'Everything, live, in 3D', run: () => ctx.openModel('3d') },
             { id: 'open-plan', label: 'Top-down plan', icon: LayoutTemplate, description: 'All levels, looking down', run: () => ctx.openModel('plan') },
@@ -562,7 +571,7 @@ export function buildingModelRibbon(ctx: BuildingModelRibbonContext): RibbonTab[
         },
         {
           id: 'graphics',
-          label: 'Graphics',
+          label: t('ribbon.group.graphics', 'Graphics', { ns: 'editor' }),
           commands: [
             { id: 'view-lines', label: 'Lines and colours', icon: PenLine, description: 'Line weight for duct, pipe, walls and each linked model, hidden lines and visual style for the open view', keywords: ['line weight', 'pen', 'pen weight', 'halftone', 'linework'], disabledReason: ctx.viewGraphics ? null : 'Open a saved plan, section or 3D view to set how it draws.', run: ctx.viewGraphics?.lines, testId: 'ribbon-view-lines' },
             { id: 'view-range', label: 'What this view shows', icon: ArrowUpDown, description: 'The top, cut height, bottom and depth of the open plan, for our model and the linked models', keywords: ['cut plane', 'cut height', 'view depth', 'bottom', 'top'], disabledReason: ctx.viewGraphics?.range ? null : 'Open a saved floor or ceiling plan to set its top, cut and bottom.', run: ctx.viewGraphics?.range ?? undefined, testId: 'ribbon-view-range' },
@@ -571,7 +580,7 @@ export function buildingModelRibbon(ctx: BuildingModelRibbonContext): RibbonTab[
         },
         {
           id: 'crop',
-          label: 'Crop',
+          label: t('ribbon.group.crop', 'Crop', { ns: 'editor' }),
           commands: ctx.crop3d ? crop3dCommands(ctx.crop3d) : [
             {
               id: 'crop-view',
@@ -600,12 +609,12 @@ export function buildingModelRibbon(ctx: BuildingModelRibbonContext): RibbonTab[
     },
     {
       id: 'sheets',
-      label: 'Sheets',
+      label: t('ribbon.tab.sheets', 'Sheets', { ns: 'editor' }),
       groups: [
         select,
         {
           id: 'sheet',
-          label: 'Sheet',
+          label: t('ribbon.group.sheet', 'Sheet', { ns: 'editor' }),
           commands: [
             { id: 'sheet-new', label: 'New sheet', icon: FileText, description: 'A sheet with a title block to place views on', disabledReason: ctx.editBlocked, run: () => ctx.request({ kind: 'new_sheet' }) },
             { id: 'sheet-title-block', label: 'Title block', icon: Pencil, description: 'Edit the sheet number, name and title block fields', disabledReason: ctx.sheet ? ctx.editBlocked : 'Open a sheet to edit its title block.', run: ctx.sheet?.editTitleBlock },
@@ -618,7 +627,7 @@ export function buildingModelRibbon(ctx: BuildingModelRibbonContext): RibbonTab[
         {
           id: 'figures',
           // Disabled with no sheet open: the caption says why, not only the tooltip.
-          label: ctx.sheet ? 'Figures' : 'Figures · open a sheet first',
+          label: ctx.sheet ? t('ribbon.group.figures', 'Figures', { ns: 'editor' }) : t('ribbon.group.figuresNeedsSheet', 'Figures · open a sheet first', { ns: 'editor' }),
           commands: [
             { id: 'sheet-chart', label: 'Chart', icon: ChartLine, description: 'Put a live chart on the sheet (the Hunter curve): drawn from the model every time it shows or prints', keywords: ['hunter curve', 'graph', 'demand curve', 'figure'], disabledReason: ctx.sheet?.chart ? ctx.editBlocked : 'Open a sheet to place a chart: Views and sheets › a sheet.', run: ctx.sheet?.chart, testId: 'ribbon-sheet-chart' },
             { id: 'sheet-picture', label: 'Picture', icon: ImagePlus, description: 'Put a PNG or JPEG on the sheet (a logo, a photo, a key plan); it is kept in the project workspace and prints in the PDF', keywords: ['image', 'logo', 'photo', 'png', 'jpeg', 'figure'], disabledReason: ctx.sheet?.picture ? ctx.editBlocked : 'Open a sheet to place a picture: Views and sheets › a sheet.', run: ctx.sheet?.picture, testId: 'ribbon-sheet-picture' },
@@ -641,7 +650,7 @@ export function buildingModelRibbon(ctx: BuildingModelRibbonContext): RibbonTab[
         },
         {
           id: 'issue',
-          label: ctx.sheet || !ctx.hasSheets ? 'Issue' : 'Issue · open a sheet to print it',
+          label: ctx.sheet || !ctx.hasSheets ? t('ribbon.group.issue', 'Issue', { ns: 'editor' }) : t('ribbon.group.issueNeedsSheet', 'Issue · open a sheet to print it', { ns: 'editor' }),
           commands: [
             {
               id: 'print-pdf',
@@ -673,12 +682,12 @@ export function buildingModelRibbon(ctx: BuildingModelRibbonContext): RibbonTab[
     },
     {
       id: 'manage',
-      label: 'Manage',
+      label: t('ribbon.tab.manage', 'Manage', { ns: 'editor' }),
       groups: [
         select,
         {
           id: 'project',
-          label: 'Project',
+          label: t('ribbon.group.project', 'Project', { ns: 'editor' }),
           commands: [
             {
               id: 'part-types',
@@ -700,7 +709,7 @@ export function buildingModelRibbon(ctx: BuildingModelRibbonContext): RibbonTab[
         coordinatesGroup(ctx),
         {
           id: 'groups-phases',
-          label: 'Groups & phases',
+          label: t('ribbon.group.groupsPhases', 'Groups & phases', { ns: 'editor' }),
           commands: [
             { id: 'manage-groups', label: 'Groups', icon: Group, description: 'Create, rename, colour, lock and delete groups', keywords: ['group', 'lock', 'existing', 'new work', 'demolition', 'coordination'], run: ctx.organization.openGroups, testId: 'ribbon-manage-groups' },
             { id: 'manage-phases', label: 'Phases', icon: History, description: 'Add, rename and reorder phases (Existing, New construction…)', keywords: ['phase', 'existing', 'new construction', 'demolish'], run: ctx.organization.openPhases, testId: 'ribbon-manage-phases' },
@@ -724,7 +733,7 @@ export function buildingModelRibbon(ctx: BuildingModelRibbonContext): RibbonTab[
           ? [
               {
                 id: 'versions-signoff',
-                label: 'Versions & sign-off',
+                label: t('ribbon.group.versionsSignoff', 'Versions & sign-off', { ns: 'editor' }),
                 commands: [
                   { id: 'manage-versions', label: 'Versions', icon: GitBranch, description: 'Saved versions and issued sets: save one, start a branch from one, say what kind of change it was', keywords: ['version', 'branch', 'history', 'save version', 'issued set', 'option', 'what kind of change'], run: ctx.history.openVersions, testId: 'ribbon-manage-versions' },
                   { id: 'manage-responsibilities', label: 'Responsibilities', icon: UserCheck, description: 'Who is responsible for each discipline and part of it; they accept, and approve merges of their parts', keywords: ['responsible', 'engineer of record', 'approve', 'merge', 'sign-off', 'architect of record'], run: ctx.history.openResponsibilities, testId: 'ribbon-manage-responsibilities' },
@@ -738,7 +747,7 @@ export function buildingModelRibbon(ctx: BuildingModelRibbonContext): RibbonTab[
           ? [
               {
                 id: 'coordination',
-                label: 'Coordination',
+                label: t('ribbon.group.coordination', 'Coordination', { ns: 'editor' }),
                 commands: [
                   {
                     id: 'coordination',
@@ -761,7 +770,7 @@ export function buildingModelRibbon(ctx: BuildingModelRibbonContext): RibbonTab[
   if (sel?.kind === 'part') {
     tabs.push({
       id: 'selection',
-      label: 'Part',
+      label: t('ribbon.tab.part', 'Part', { ns: 'editor' }),
       contextual: true,
       groups: [
         select,
@@ -777,7 +786,7 @@ export function buildingModelRibbon(ctx: BuildingModelRibbonContext): RibbonTab[
             { id: 'delete-part', label: 'Delete…', icon: Trash2, description: 'Delete it (asks first; undo brings it back)', shortcut: 'Del', disabledReason: ctx.editBlocked, run: ctx.deleteSelected },
           ],
         },
-        { id: 'done', label: 'Selection', commands: [{ id: 'deselect', label: 'Deselect', icon: X, description: 'Clear the selection', shortcut: 'Esc', run: ctx.clearSelection }] },
+        { id: 'done', label: t('ribbon.group.selection', 'Selection', { ns: 'editor' }), commands: [{ id: 'deselect', label: 'Deselect', icon: X, description: 'Clear the selection', shortcut: 'Esc', run: ctx.clearSelection }] },
       ],
     })
   } else if (sel?.kind === 'run') {
@@ -820,13 +829,13 @@ export function buildingModelRibbon(ctx: BuildingModelRibbonContext): RibbonTab[
             { id: 'delete-run', label: 'Delete…', icon: Trash2, description: 'Delete it, or it and what depends on it (asks first)', shortcut: 'Del', disabledReason: ctx.editBlocked, run: ctx.deleteSelected },
           ],
         },
-        { id: 'done', label: 'Selection', commands: [{ id: 'deselect', label: 'Deselect', icon: X, description: 'Clear the selection', shortcut: 'Esc', run: ctx.clearSelection }] },
+        { id: 'done', label: t('ribbon.group.selection', 'Selection', { ns: 'editor' }), commands: [{ id: 'deselect', label: 'Deselect', icon: X, description: 'Clear the selection', shortcut: 'Esc', run: ctx.clearSelection }] },
       ],
     })
   } else if (sel?.kind === 'group') {
     tabs.push({
       id: 'selection',
-      label: 'Selection',
+      label: t('ribbon.tab.selection', 'Selection', { ns: 'editor' }),
       contextual: true,
       groups: [
         select,
@@ -846,7 +855,7 @@ export function buildingModelRibbon(ctx: BuildingModelRibbonContext): RibbonTab[
   } else if (sel?.kind === 'branch') {
     tabs.push({
       id: 'selection',
-      label: 'Branch',
+      label: t('ribbon.tab.branch', 'Branch', { ns: 'editor' }),
       contextual: true,
       groups: [
         select,
@@ -866,13 +875,13 @@ export function buildingModelRibbon(ctx: BuildingModelRibbonContext): RibbonTab[
   if (route) {
     tabs.push({
       id: 'route',
-      label: 'Route',
+      label: t('ribbon.tab.route', 'Route', { ns: 'editor' }),
       contextual: true,
       groups: [
         select,
         {
           id: 'height',
-          label: 'Height',
+          label: t('ribbon.group.height', 'Height', { ns: 'editor' }),
           commands: [
             { id: 'rise', label: 'Rise 1 ft', icon: ArrowUp, description: 'Rise at the current point (or type a new height)', shortcut: ']', disabledReason: route.riseBlocked, run: () => route.rise(1), testId: 'ribbon-route-rise' },
             { id: 'drop', label: 'Drop 1 ft', icon: ArrowDown, description: 'Drop at the current point', shortcut: '[', disabledReason: route.riseBlocked, run: () => route.rise(-1), testId: 'ribbon-route-drop' },
@@ -881,7 +890,7 @@ export function buildingModelRibbon(ctx: BuildingModelRibbonContext): RibbonTab[
         },
         {
           id: 'axis',
-          label: 'Axis',
+          label: t('ribbon.group.axis', 'Axis', { ns: 'editor' }),
           commands: [
             ...(['x', 'y', 'z'] as const).map((a) => ({
               id: `lock-${a}`,
@@ -908,7 +917,7 @@ export function buildingModelRibbon(ctx: BuildingModelRibbonContext): RibbonTab[
         },
         {
           id: 'route-fittings',
-          label: 'Fittings',
+          label: t('ribbon.group.fittings', 'Fittings', { ns: 'editor' }),
           commands: [
             { id: 'route-elbow', label: 'Elbow type', icon: Spline, description: 'Choose the elbows this route places (radius, mitred with vanes, gored…)', run: route.chooseElbow, testId: 'ribbon-route-elbow' },
             { id: 'route-takeoff', label: 'Takeoff type', icon: SquareSplitHorizontal, description: 'Choose the tap, tee or wye a branch starts with', run: route.chooseTakeoff },
@@ -917,7 +926,7 @@ export function buildingModelRibbon(ctx: BuildingModelRibbonContext): RibbonTab[
         },
         {
           id: 'route-finish',
-          label: 'Finish',
+          label: t('ribbon.group.finish', 'Finish', { ns: 'editor' }),
           commands: [
             { id: 'route-done', label: 'Finish here', icon: Check, description: 'End the route at the last point', shortcut: 'Enter', disabledReason: route.finishBlocked, run: route.finish },
             { id: 'route-cancel', label: 'Cancel', icon: X, description: 'Drop the route being drawn; nothing is saved', shortcut: 'Esc', run: route.cancel },
@@ -929,8 +938,8 @@ export function buildingModelRibbon(ctx: BuildingModelRibbonContext): RibbonTab[
   const drawn = drawnItemsTab(ctx, select, modelToolReason(false))
   if (drawn) tabs.push(drawn)
   const analyze = addonTabAnalyzeCommands(ctx)
-  const withAnalyze = tabs.map((tab) => (analyze[tab.id] && isTradeTab(tab) ? withTradeSectionCommands(tab, 'analyze', analyze[tab.id] ?? []) : tab))
-  return withPlanGroups(withScheduleGroups(withAnalyze, ctx.schedules), ctx.plan, { ...addonTabPlanCommands(ctx), model: contributedCommands('model-plan', ctx) })
+  const withAnalyze = tabs.map((tab) => (analyze[tab.id] && isTradeTab(tab) ? withTradeSectionCommands(tab, 'analyze', analyze[tab.id] ?? [], false, t) : tab))
+  return withPlanGroups(withScheduleGroups(withAnalyze, ctx.schedules, t), ctx.plan, { ...addonTabPlanCommands(ctx), model: contributedCommands('model-plan', ctx) }, t)
 }
 
 function originOff(ctx: BuildingModelRibbonContext): boolean {
@@ -955,11 +964,12 @@ function showOriginCommand(ctx: BuildingModelRibbonContext): RibbonCommand {
 }
 
 function coordinatesGroup(ctx: BuildingModelRibbonContext): RibbonGroup {
+  const t = ctx.t ?? englishOnly
   const c = ctx.coordinates
   const orientationOff = c.orientation ? ctx.editBlocked : OPEN_A_PLAN_FOR_ORIENTATION
   return {
     id: 'coordinates',
-    label: 'Coordinates',
+    label: t('ribbon.group.coordinates', 'Coordinates', { ns: 'editor' }),
     commands: [
       {
         id: 'move-origin',

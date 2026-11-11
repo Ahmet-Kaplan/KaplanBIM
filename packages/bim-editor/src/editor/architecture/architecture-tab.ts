@@ -2,6 +2,7 @@ import { Building, Columns3, DoorOpen, Footprints, Frame, Grid3x3, House, Layers
 import type { ComponentType } from 'react'
 import type { RibbonCommand, RibbonGroup, RibbonTab } from '../ribbon/types'
 import { tradeTab } from '../ribbon/trade-tab'
+import { englishOnly, type Translate } from '../i18n/translate'
 import { BUILD_TOOLS, DATUM_TOOLS, type ArchitectureTool, type ArchitectureToolId } from './tools/catalog'
 
 /** What the Architecture tab reads from its workflow: the armed tool, how to arm one, and why it can't. */
@@ -64,7 +65,7 @@ function toolCommand(r: ArchitectureRibbon, t: ArchitectureTool): RibbonCommand 
   }
 }
 
-function architectureTab(r: ArchitectureRibbon, select: RibbonGroup): RibbonTab {
+function architectureTab(r: ArchitectureRibbon, select: RibbonGroup, translate: Translate = englishOnly): RibbonTab {
   const datums: RibbonGroup = { id: 'architecture.datums', label: 'Datums', commands: DATUM_TOOLS.map((t) => toolCommand(r, t)) }
   // Nine tools: the ribbon shows the first four and folds the rest under More.
   const build: RibbonGroup = { id: 'architecture.build', label: 'Build', commands: BUILD_TOOLS.map((t) => toolCommand(r, t)) }
@@ -73,7 +74,7 @@ function architectureTab(r: ArchitectureRibbon, select: RibbonGroup): RibbonTab 
     label: 'Types',
     commands: [{ id: 'architecture.edit_type', label: 'Edit type…', icon: Ruler, description: "Change the selection's type: layers, thickness, ratings", disabledReason: r.editType ? null : (r.editTypeWhy ?? r.blocked ?? 'Select one wall, door or window that has a type'), ...(r.editType ? { run: r.editType } : {}), testId: 'architecture-edit-type' }],
   }
-  return tradeTab({ id: 'architecture', label: 'Architecture', select, create: [datums, build], design: types })
+  return tradeTab({ id: 'architecture', label: 'Architecture', select, create: [datums, build], design: types }, translate)
 }
 
 const NOTHING = (): void => {}

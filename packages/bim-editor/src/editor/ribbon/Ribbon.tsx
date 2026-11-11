@@ -12,9 +12,10 @@ import { Tabs, TabsList, TabsTrigger } from '../../ui/tabs'
 import { ToggleGroup, ToggleGroupItem } from '../../ui/toggle-group'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip'
 import { cn } from '../../ui/cn'
+import { useEditorTranslate } from '../i18n/translate'
 import { LoadingLine } from '../LoadingLine'
 import { CLOSES_AT_ONCE } from '../menu-close'
-import { moreToolsLabel, splitGroup, tooltipFor, type RibbonCommand, type RibbonGroup, type RibbonTab } from './types'
+import { groupOwnWord, splitGroup, tooltipFor, type RibbonCommand, type RibbonGroup, type RibbonTab } from './types'
 
 const ToolSearchList = dynamic(() => import('./ToolSearchList').then((m) => m.ToolSearchList), {
   ssr: false,
@@ -169,11 +170,14 @@ export function Ribbon({
 }
 
 function GroupControls({ group, compact }: { readonly group: RibbonGroup; readonly compact: boolean }) {
+  const t = useEditorTranslate()
   const { visible, overflow } = splitGroup(group.commands)
+  // "More create tools": the group's own word, lowercased, in the language the caption is in.
+  const own = groupOwnWord(group.label)
   const more = overflow.length > 0 && (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size={compact ? 'icon-sm' : 'sm'} aria-label={moreToolsLabel(group.label)}>
+        <Button variant="ghost" size={compact ? 'icon-sm' : 'sm'} aria-label={t('ribbon.moreTools', 'More {{name}} tools', { name: own, ns: 'editor' })}>
           <MoreHorizontal data-icon={compact ? undefined : 'inline-start'} />
           {!compact && 'More'}
         </Button>

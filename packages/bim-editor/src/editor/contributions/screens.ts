@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react'
 import type { BuildingModelRibbonContext } from '../building-model-ribbon'
+import { englishOnly, type Translate } from '../i18n/translate'
 import type { RibbonGroup, RibbonTab } from '../ribbon/types'
 import { INSPECTOR_SECTION, PART_SECTION, RAIL_SECTION, ROUTE_SECTION, RUN_SECTION, SPACE_LOADS_SECTION, WORKFLOW_HOST, componentContribution } from './slots'
 import type { AddonContributions, AddonInput, AddonUiManifest, ComponentSlot, RibbonCommandModule, RibbonCommandTarget, RibbonTabModule } from './types'
@@ -65,9 +66,14 @@ export function addonInput<T>(ctx: BuildingModelRibbonContext, addon: string): A
   return ctx.addonInputs?.[addon] as AddonInput<T> | undefined
 }
 
-/** A tab module: its tabs by the ids in the add-on's UI data, and the input they show while the add-on's workflow isn't ready. */
+/**
+ * A tab module: its tabs by the ids in the add-on's UI data, and the input they
+ * show while the add-on's workflow isn't ready. A tab builder takes the host's
+ * translator as its third argument, for the words every trade tab shares
+ * (Select, Create, Connect…); the trade's own group names stay its own.
+ */
 export interface TabModule<T> {
-  readonly TABS: Readonly<Record<string, (input: T, select: RibbonGroup) => RibbonTab | null>>
+  readonly TABS: Readonly<Record<string, (input: T, select: RibbonGroup, t: Translate) => RibbonTab | null>>
   readonly waitingRibbon: (reason: string) => T
 }
 
@@ -82,7 +88,7 @@ export function tabsFrom<T>(ui: AddonUiManifest, load: () => Promise<TabModule<T
           return {
             build: (ctx: BuildingModelRibbonContext, select: RibbonGroup) => {
               const input = addonInput<T>(ctx, ui.addon)
-              return input ? build('ready' in input ? input.ready : m.waitingRibbon(input.waiting), select) : null
+              return input ? build('ready' in input ? input.ready : m.waitingRibbon(input.waiting), select, ctx.t ?? englishOnly) : null
             },
           }
         }),

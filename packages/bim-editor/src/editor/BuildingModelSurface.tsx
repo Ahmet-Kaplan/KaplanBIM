@@ -156,6 +156,7 @@ import { useSheetImagesFrom } from '@permitzip/bim-editor/editor/views-sheets/us
 import { addOns, loadAddOns } from '../contracts/building-model/add-ons'
 
 import { MemoRibbon, useStableCommands, useStableRibbonTabs } from './ribbon/stable-ribbon'
+import { useEditorTranslate } from './i18n/translate'
 import { useModelPacks } from './state/use-model-packs'
 import { buildingModelQuickCommands, buildingModelRibbon, PROJECTION_SHORTCUT, type BoxCategory, type BuildingModelTool, type RibbonSelection } from './building-model-ribbon'
 import { OrientationControls } from './orientation/OrientationControls'
@@ -2785,7 +2786,10 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
       else setDrawingPick({ openKey, tool: 'select' })
     }
   }, [tool, spacesDrawing, ceilingTool.active, drawingTool, stopSpacesTool, stopCeilingTool, openKey])
+  // The ribbon's words come out in the host's language (`<I18nProvider>`); with none it is English.
+  const translate = useEditorTranslate()
   const ribbonInput: Parameters<typeof buildingModelRibbon>[0] = {
+    t: translate,
     addons,
     ceiling: ceilingTool.ribbon,
     clipboard: { copyBlocked, copy: copyParts, pasteBlocked: partPasteBlocked, paste: pasteParts },

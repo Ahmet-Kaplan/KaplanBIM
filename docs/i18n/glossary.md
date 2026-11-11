@@ -248,6 +248,29 @@ Her sayfanın başlığı (üst çubuk), alt bilgisi ve dil/tema denetimleri. 20
 
 **Yan/dock panelleri:** Özellikler · Görünümler ve paftalar · Parçalar · Henüz yerleştirilmedi · Mekanlar · Çizelgeler · Sorular · Onay belgeleri · Değişiklik emirleri · Sürümler · Sorumluluklar · Koordinasyon bulguları · Bağlı modeller · Tasarım limitleri · Eklentiler · Geçmiş · Fiyat kitabı · Kontrol listesi · Kopyalar · Antetler · Not açıklamaları · Pano görünümü · Pano çizelgesi · Pano gösterimi
 
+### 4.1 Aşama 3'te eklenen ribbon sözcükleri (2026-11-10)
+
+Yukarıdaki listeler bağlayıcıydı ama eksikti: ribbon'un bazı sekme ve grup adları hiçbir listede yoktu. Aşama 3 (Task 3.1) bunları çevirirken buraya ekledi. Yukarıdaki satırlarda **zaten** karara bağlı olanlar tekrar yazılmadı (`Oluştur`, `Kur`, `Parçalar`, `Referans`, `Görüntüle`, `Aç`, `Grafikler`, `Kırp`, `Pafta`, `Şekiller`, `Yayın`, `Proje`, `Gruplar ve fazlar`, `Koordinasyon`, `Koordinatlar`, `Geometri`, `Kitaplık`, `Çizelgeler`, `Plan`).
+
+| EN (ribbon) | TR | Not |
+|----|----|-----|
+| Height | **Yükseklik** | Güzergâh sekmesi; §2.3 *Level* = kat ile karışmaz |
+| Axis | **Eksen** | §2.3 *Axis* = eksen |
+| Fittings | **Bağlantı parçaları** | §2.3 *Connector* = **bağlantı noktası** — ayrı kavram |
+| Finish | **Bitir** | §3 *Finish* = Bitir |
+| Dimension (grup) | **Ölçü** | §2.4 *Dimension* = ölçü; §3'teki *Measure* komutu **Ölç** kalır |
+| Detail (grup) | **Detay** | §2.4 *Detail line* = detay çizgisi |
+| Region | **Bölge** | §2.4 |
+| Text | **Metin** | §2.4 |
+| Tag | **Etiket** | §2.4 |
+| Edit (grup) | **Düzenle** | §3 *Edit* = Düzenle |
+| Versions & sign-off | **Sürümler ve imza onayı** | §2.2 *Version* = sürüm + §3 *Sign-off* = imza onayı |
+| Drawn items | **Çizilmiş öğeler** | `Modify · Drawn items` sekmesi → **Değiştir · Çizilmiş öğeler** |
+| Quick access | **Hızlı erişim** | Araç arama listesinin "Hızlı" grubu |
+| Figures · open a sheet first | **Şekiller · önce bir pafta açın** | Cümle → kibar çoğul emir (§0.7) |
+| Issue · open a sheet to print it | **Yayın · yazdırmak için bir pafta açın** | Cümle → kibar çoğul emir (§0.7) |
+| More {{name}} tools (erişilebilir ad) | **{{name}} grubunda daha fazla araç** | `{{name}}` grubun kendi sözcüğüdür, küçük harfle gelir; çoğul eki almaz ("daha fazla araç") |
+
 ---
 
 ## 5. Çizelgeler ve metraj

@@ -1,3 +1,4 @@
+import { englishOnly, type Translate } from '../i18n/translate'
 import type { RibbonCommand, RibbonGroup, RibbonTab, TradeSection } from './types'
 
 /**
@@ -41,25 +42,48 @@ export const TRADE_SECTION_LABEL: Readonly<Record<TradeSection, string>> = {
   documents: 'Documents',
 }
 
+/**
+ * A section's word in the host's language (`Create`, or `Oluştur` in Turkish).
+ *
+ * One literal `t()` per word, not a lookup: `npm run i18n:review` reads the key
+ * and the English off the call itself, and a word reached through a map would
+ * come back as an untranslated key with no English beside it.
+ */
+export function tradeSectionLabel(section: TradeSection, t: Translate = englishOnly): string {
+  switch (section) {
+    case 'create':
+      return t('ribbon.section.create', 'Create', { ns: 'editor' })
+    case 'connect':
+      return t('ribbon.section.connect', 'Connect', { ns: 'editor' })
+    case 'analyze':
+      return t('ribbon.section.analyze', 'Analyze', { ns: 'editor' })
+    case 'design':
+      return t('ribbon.section.design', 'Design', { ns: 'editor' })
+    case 'documents':
+      return t('ribbon.section.documents', 'Documents', { ns: 'editor' })
+  }
+}
+
 const keep = (g: RibbonGroup | null | undefined): g is RibbonGroup => g !== null && g !== undefined && g.commands.length > 0
 
-function inSection(section: TradeSection, groups: readonly (RibbonGroup | null | undefined)[]): RibbonGroup[] {
+function inSection(section: TradeSection, groups: readonly (RibbonGroup | null | undefined)[], t: Translate): RibbonGroup[] {
   const kept = groups.filter(keep)
-  const word = TRADE_SECTION_LABEL[section]
+  const word = tradeSectionLabel(section, t)
   return kept.map((g) => ({ ...g, section, label: kept.length > 1 && g.label !== word ? `${word} · ${g.label}` : word }))
 }
 
-export function tradeTab(s: TradeTabSections): RibbonTab {
+/** `t` is the host's translator; its words are the only part of a trade tab this builds that it translates, the trade's own group names follow in their own time. */
+export function tradeTab(s: TradeTabSections, t: Translate = englishOnly): RibbonTab {
   return {
     id: s.id,
     label: s.label,
     groups: [
       s.select,
-      ...inSection('create', s.create),
-      ...inSection('connect', [s.connect]),
-      ...inSection('analyze', [s.analyze]),
-      ...inSection('design', [s.design]),
-      ...inSection('documents', s.documents ?? []),
+      ...inSection('create', s.create, t),
+      ...inSection('connect', [s.connect], t),
+      ...inSection('analyze', [s.analyze], t),
+      ...inSection('design', [s.design], t),
+      ...inSection('documents', s.documents ?? [], t),
     ],
   }
 }
@@ -74,7 +98,7 @@ export function isTradeTab(tab: RibbonTab): boolean {
  * section, or a new group with the section's word in its place in the order.
  * `first` puts them before the group's own commands.
  */
-export function withTradeSectionCommands(tab: RibbonTab, section: TradeSection, commands: readonly RibbonCommand[], first = false): RibbonTab {
+export function withTradeSectionCommands(tab: RibbonTab, section: TradeSection, commands: readonly RibbonCommand[], first = false, t: Translate = englishOnly): RibbonTab {
   if (commands.length === 0) return tab
   const existing = tab.groups.findIndex((g) => g.section === section)
   if (existing >= 0) {
@@ -88,6 +112,6 @@ export function withTradeSectionCommands(tab: RibbonTab, section: TradeSection, 
     if (r < rank) at = i + 1
   })
   const groups = [...tab.groups]
-  groups.splice(at, 0, { id: `${tab.id}-${section}`, label: TRADE_SECTION_LABEL[section], section, commands })
+  groups.splice(at, 0, { id: `${tab.id}-${section}`, label: tradeSectionLabel(section, t), section, commands })
   return { ...tab, groups }
 }

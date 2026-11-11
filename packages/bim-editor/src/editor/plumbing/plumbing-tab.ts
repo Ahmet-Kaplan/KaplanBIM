@@ -2,6 +2,7 @@ import { ArrowDownToLine, ArrowUpFromLine, Check, ChartSpline, CircleDot, Circle
 import { type PipeSizingMode } from '@permitzip/bim-kernel'
 import { BUILDING_TYPE_LABEL, CLEANOUT_PROPOSAL_WORDS, DEMAND_CURVE_LABEL, FIXTURE_CONNECT_TARGETS, FIXTURE_CONNECT_WORDS, type FixtureConnectTarget, OUTFALL_CONNECTION_WORDS, PLUMBING_DEMAND_CURVES, type PlumbingBuildingType, type PlumbingDemandCurve } from '@permitzip/bim-pack-plumbing'
 import { tradeTab } from '../ribbon/trade-tab'
+import { englishOnly, type Translate } from '../i18n/translate'
 import type { RibbonCommand, RibbonGroup, RibbonTab } from '../ribbon/types'
 
 export interface PlumbingAction {
@@ -128,7 +129,7 @@ function sizingGroup(s: PlumbingSizingRibbon): RibbonGroup {
 }
 
 /** Plumbing: on every project's Building Model, like Electrical, in the same tab pattern. */
-export function plumbingTab(p: PlumbingRibbon, select: RibbonGroup): RibbonTab {
+export function plumbingTab(p: PlumbingRibbon, select: RibbonGroup, t: Translate = englishOnly): RibbonTab {
   return tradeTab({
     id: 'plumbing',
     label: 'Plumbing',
@@ -155,7 +156,7 @@ export function plumbingTab(p: PlumbingRibbon, select: RibbonGroup): RibbonTab {
       ],
     },
     documents: [p.riser ? { id: 'plumbing-diagrams', label: 'Diagrams', commands: [cmd('riser', 'Riser diagram', Network, 'The live plumbing riser drawn from the model, redrawn as it changes; place it on a sheet like any view', p.riser, ['riser', 'isometric', 'schematic', 'diagram'])] } : null],
-  })
+  }, t)
 }
 
 const NOTHING = (): void => undefined

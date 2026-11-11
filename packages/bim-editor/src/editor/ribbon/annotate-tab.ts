@@ -4,6 +4,7 @@ import type { RibbonCommand, RibbonGroup, RibbonTab } from './types'
 import type { DrawingTool } from '../views-sheets/DrawingCanvas'
 import type { DraftController } from '../views-sheets/draft/useDraftController'
 import type { BuildingModelRibbonContext } from '../building-model-ribbon'
+import { englishOnly } from '../i18n/translate'
 
 /**
  * The Annotate tab: everything drawn on a view or a sheet, in one place.
@@ -160,20 +161,21 @@ function component(ctx: BuildingModelRibbonContext, draft: DraftController): Rib
 }
 
 export function annotateTab(ctx: BuildingModelRibbonContext, leading: RibbonGroup): RibbonTab {
+  const t = ctx.t ?? englishOnly
   const draft = ctx.draft
   const groups: RibbonGroup[] = [
     leading,
     {
       id: 'dimension',
-      label: 'Dimension',
+      label: t('ribbon.group.dimension', 'Dimension', { ns: 'editor' }),
       commands: [drawingCommand(ctx, 'dimension', 'Dimension', MoveHorizontal, 'Drag between two points; ends that land on an element follow it', ['measure', 'annotation', 'associative', 'aligned', 'linear']), ...(draft ? [dimensionKinds(ctx, draft)] : [])],
     },
-    { id: 'detail', label: 'Detail', commands: [detailLine(ctx), ...(draft ? [filletArc(ctx, draft)] : []), drawingCommand(ctx, 'cloud', 'Revision cloud', Cloud, 'Cloud a change on the sheet', ['revision'])] },
-    ...(draft ? [{ id: 'region', label: 'Region', commands: [region(ctx, draft, false), region(ctx, draft, true)] }] : []),
-    { id: 'text', label: 'Text', commands: [drawingCommand(ctx, 'text', 'Text', Type, 'Add a note; drag its grips to re-wrap', ['note', 'label', 'leader'])] },
+    { id: 'detail', label: t('ribbon.group.detail', 'Detail', { ns: 'editor' }), commands: [detailLine(ctx), ...(draft ? [filletArc(ctx, draft)] : []), drawingCommand(ctx, 'cloud', 'Revision cloud', Cloud, 'Cloud a change on the sheet', ['revision'])] },
+    ...(draft ? [{ id: 'region', label: t('ribbon.group.region', 'Region', { ns: 'editor' }), commands: [region(ctx, draft, false), region(ctx, draft, true)] }] : []),
+    { id: 'text', label: t('ribbon.group.text', 'Text', { ns: 'editor' }), commands: [drawingCommand(ctx, 'text', 'Text', Type, 'Add a note; drag its grips to re-wrap', ['note', 'label', 'leader'])] },
     {
       id: 'tag',
-      label: 'Tag',
+      label: t('ribbon.group.tag', 'Tag', { ns: 'editor' }),
       commands: [
         drawingCommand(ctx, 'tag', 'Tag', Tag, 'Click an element to tag it with its size, mark or CFM', ['label', 'mark', 'size', 'cfm']),
         drawingCommand(ctx, 'keynote', 'Keynote', KeyRound, 'Pick a keynote (or type a key), then click elements: each gets the key and a keynote tag, and the sheet’s keynote list (Sheets › Live table › Keynote list) shows its words', ['keynote', 'key note', 'note number', 'general note', 'legend']),
@@ -214,5 +216,5 @@ export function annotateTab(ctx: BuildingModelRibbonContext, leading: RibbonGrou
         ]
       : []),
   ]
-  return { id: 'annotate', label: 'Annotate', groups }
+  return { id: 'annotate', label: t('ribbon.tab.annotate', 'Annotate', { ns: 'editor' }), groups }
 }

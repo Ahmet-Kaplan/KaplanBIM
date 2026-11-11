@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { defaultFilter } from 'cmdk'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandShortcut } from '../../ui/command'
+import { useEditorTranslate } from '../i18n/translate'
 import { searchEntries, type RibbonCommand, type RibbonTab } from './types'
 
 const QUICK_TAB_ID = 'quick'
@@ -29,7 +30,9 @@ export function ToolSearchList({
   readonly onOpenChange: (open: boolean) => void
   readonly onTab: (tabId: string) => void
 }) {
-  const tabs = useMemo<readonly RibbonTab[]>(() => (quick.length > 0 ? [...ribbonTabs, { id: QUICK_TAB_ID, label: 'Quick access', groups: [{ id: QUICK_TAB_ID, label: 'Quick access', commands: quick }] }] : ribbonTabs), [ribbonTabs, quick])
+  const t = useEditorTranslate()
+  const quickLabel = t('ribbon.tab.quickAccess', 'Quick access', { ns: 'editor' })
+  const tabs = useMemo<readonly RibbonTab[]>(() => (quick.length > 0 ? [...ribbonTabs, { id: QUICK_TAB_ID, label: quickLabel, groups: [{ id: QUICK_TAB_ID, label: quickLabel, commands: quick }] }] : ribbonTabs), [ribbonTabs, quick, quickLabel])
   const entries = useMemo(() => searchEntries(tabs), [tabs])
   const byTab = useMemo(() => {
     const map = new Map<string, typeof entries>()

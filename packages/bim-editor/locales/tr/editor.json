@@ -1,0 +1,63 @@
+{
+  "ribbon": {
+    "tab": {
+      "model": "Model",
+      "views": "Görünümler",
+      "sheets": "Paftalar",
+      "manage": "Yönet",
+      "annotate": "Açıklama",
+      "modify": "Değiştir",
+      "drawnItems": "Değiştir · Çizilmiş öğeler",
+      "part": "Parça",
+      "selection": "Seçim",
+      "branch": "Dal",
+      "route": "Güzergâh",
+      "quickAccess": "Hızlı erişim"
+    },
+    "group": {
+      "select": "Seç",
+      "create": "Oluştur",
+      "build": "Kur",
+      "parts": "Parçalar",
+      "datum": "Referans",
+      "display": "Görüntüle",
+      "open": "Aç",
+      "graphics": "Grafikler",
+      "crop": "Kırp",
+      "sheet": "Pafta",
+      "figures": "Şekiller",
+      "figuresNeedsSheet": "Şekiller · önce bir pafta açın",
+      "issue": "Yayın",
+      "issueNeedsSheet": "Yayın · yazdırmak için bir pafta açın",
+      "project": "Proje",
+      "groupsPhases": "Gruplar ve fazlar",
+      "versionsSignoff": "Sürümler ve imza onayı",
+      "coordination": "Koordinasyon",
+      "selection": "Seçim",
+      "height": "Yükseklik",
+      "axis": "Eksen",
+      "fittings": "Bağlantı parçaları",
+      "finish": "Bitir",
+      "coordinates": "Koordinatlar",
+      "dimension": "Ölçü",
+      "detail": "Detay",
+      "region": "Bölge",
+      "text": "Metin",
+      "tag": "Etiket",
+      "modify": "Değiştir",
+      "geometry": "Geometri",
+      "edit": "Düzenle",
+      "plan": "Plan",
+      "schedules": "Çizelgeler",
+      "library": "Kitaplık"
+    },
+    "section": {
+      "create": "Oluştur",
+      "connect": "Bağla",
+      "analyze": "Analiz",
+      "design": "Tasarım",
+      "documents": "Belgeler"
+    },
+    "moreTools": "{{name}} grubunda daha fazla araç"
+  }
+}

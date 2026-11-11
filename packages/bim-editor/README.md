@@ -21,4 +21,22 @@ Wrap the editor in `<EditorHostProvider host={createLocalEditorHost({ authorityU
 and mount `sonner`'s `<Toaster />` once. Outside AIs (Claude, ChatGPT, Grok…)
 connect to the model through the tool server, not through the editor.
 
+## Languages
+
+The host owns the language, as it owns the theme. Wrap the editor in
+`<I18nProvider>` from `@permitzip/bim-ui` and hand it this package's Turkish:
+
+```tsx
+import { I18nProvider } from '@permitzip/bim-ui'
+import { editorResources } from '@permitzip/bim-editor/editor/i18n/resources'
+
+<I18nProvider language={language} onLanguageChange={setLanguage} resources={editorResources}>
+  <EditorHostProvider host={host}>…</EditorHostProvider>
+</I18nProvider>
+```
+
+English is the source of truth: every string is `t('<key>', '<English>')` at the
+call site and the Turkish lives in `locales/tr/editor.json`. A host with no
+provider (or no Turkish for a key) sees the English, never a raw key.
+
 Must not import host code: the open-source boundary lint fails the build otherwise.

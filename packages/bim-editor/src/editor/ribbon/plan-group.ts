@@ -1,5 +1,6 @@
 import { BrickWall, ClipboardList, ListTodo, ScanSearch, SquareDashedMousePointer, SquareSplitHorizontal } from 'lucide-react'
 import { addonTabsWith } from '../contributions/registry'
+import { englishOnly, type Translate } from '../i18n/translate'
 import type { EquipmentListTrade } from '../equipment-list/EquipmentListDialog'
 import type { RibbonCommand, RibbonGroup, RibbonTab } from './types'
 
@@ -128,15 +129,16 @@ export function planCommands(tabId: string, trade: PlanTrade, p: RibbonPlan): Ri
 
 /**
  * Put the Plan group right after Select on each trade tab. `added` by tab id:
- * commands the add-ons contribute after the shared three.
+ * commands the add-ons contribute after the shared three. `t` translates the
+ * group's caption.
  */
-export function withPlanGroups(tabs: readonly RibbonTab[], p: RibbonPlan | null | undefined, added: Readonly<Record<string, readonly RibbonCommand[]>> = {}): RibbonTab[] {
+export function withPlanGroups(tabs: readonly RibbonTab[], p: RibbonPlan | null | undefined, added: Readonly<Record<string, readonly RibbonCommand[]>> = {}, t: Translate = englishOnly): RibbonTab[] {
   if (!p) return [...tabs]
   const plans = planTabs()
   return tabs.map((tab) => {
     const trade = plans.get(tab.id)
     if (!trade) return tab
-    const group: RibbonGroup = { id: `${tab.id}-plan`, label: 'Plan', commands: [...planCommands(tab.id, trade, p), ...(added[tab.id] ?? [])] }
+    const group: RibbonGroup = { id: `${tab.id}-plan`, label: t('ribbon.group.plan', 'Plan', { ns: 'editor' }), commands: [...planCommands(tab.id, trade, p), ...(added[tab.id] ?? [])] }
     const at = tab.groups.findIndex((g) => g.id === 'select')
     const groups = [...tab.groups]
     groups.splice(at >= 0 ? at + 1 : 0, 0, group)

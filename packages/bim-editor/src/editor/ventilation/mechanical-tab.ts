@@ -1,6 +1,7 @@
 import { Cable, Network, PackagePlus, Route, Ruler } from 'lucide-react'
 import { AIR_CONNECT_WORDS, SIZE_DUCTS_WORDS } from '@permitzip/bim-pack-mechanical/ui'
 import { tradeTab } from '../ribbon/trade-tab'
+import { englishOnly, type Translate } from '../i18n/translate'
 import type { RibbonCommand, RibbonGroup, RibbonTab } from '../ribbon/types'
 
 export interface MechanicalAction {
@@ -24,7 +25,7 @@ export interface MechanicalRibbon {
 const cmd = (id: string, label: string, icon: RibbonCommand['icon'], description: string, a: MechanicalAction, keywords: readonly string[]): RibbonCommand => ({ id, label, icon, description, keywords: [...keywords], disabledReason: a.blocked, run: a.run, testId: `ribbon-mechanical-${id}` })
 
 /** Mechanical: the same trade tab pattern as Electrical and Plumbing. Ventilation and Kitchen heat join Analyze from the add-on's commands. */
-export function mechanicalTab(m: MechanicalRibbon, select: RibbonGroup): RibbonTab {
+export function mechanicalTab(m: MechanicalRibbon, select: RibbonGroup, t: Translate = englishOnly): RibbonTab {
   return tradeTab({
     id: 'mechanical',
     label: 'Mechanical',
@@ -48,7 +49,7 @@ export function mechanicalTab(m: MechanicalRibbon, select: RibbonGroup): RibbonT
         commands: [cmd('air-schematic', 'Air schematic', Network, 'Each air system from its unit through the mains and branches to every diffuser, with sizes and airflow, drawn live from the model; click a symbol to select it in the model', m.airSchematic, ['schematic', 'air', 'duct diagram', 'riser', 'cfm', 'diagram'])],
       },
     ],
-  })
+  }, t)
 }
 
 const NOTHING = (): void => undefined

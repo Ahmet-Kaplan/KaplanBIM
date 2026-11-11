@@ -4,12 +4,13 @@
  * makes and the model at /sync). Package imports only: this file ships in the
  * open-source tree.
  */
-import { StrictMode, type ReactNode } from 'react'
+import { StrictMode, useCallback, useState, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Toaster } from 'sonner'
-import { MutinyThemeProvider, useMutinyPortalContainer, type MutinyThemeOverrides } from '@permitzip/bim-ui'
+import { I18nProvider, MutinyThemeProvider, readLanguagePreference, resolveInitialLanguage, useMutinyPortalContainer, writeLanguagePreference, type MutinyLanguage, type MutinyThemeOverrides } from '@permitzip/bim-ui'
 import { EditorHostProvider } from '@permitzip/bim-editor/host'
 import { createLocalEditorHost } from '@permitzip/bim-editor/host/local'
+import { editorResources } from '@permitzip/bim-editor/editor/i18n/resources'
 import { PortalContainerProvider } from '@permitzip/bim-editor/ui/overlay-boundary'
 import { TooltipProvider } from '@permitzip/bim-editor/ui/tooltip'
 import { BuildingModelSurface, type BuildingModelView } from '@permitzip/bim-editor/editor/BuildingModelSurface'
@@ -68,6 +69,29 @@ function render(config: DemoConfig) {
   })
   root.render(
     <StrictMode>
+      <EditorDemo host={host} userId={userId} displayName={displayName} />
+    </StrictMode>,
+  )
+}
+
+/**
+ * The page's own language, around the editor and the theme it draws in.
+ *
+ * The editor takes its words from `<I18nProvider>` and its Turkish from
+ * `editorResources`, exactly as the hosted app does: this demo is the host here,
+ * so the choice lives here — saved in `localStorage`, starting from what this
+ * browser used last (then its own language).
+ */
+function EditorDemo({ host, userId, displayName }: { readonly host: ReturnType<typeof createLocalEditorHost>; readonly userId: string; readonly displayName: string }) {
+  const [language, setLanguage] = useState<MutinyLanguage>(() =>
+    resolveInitialLanguage({ stored: readLanguagePreference(typeof window === 'undefined' ? undefined : window.localStorage), navigator: typeof navigator === 'undefined' ? undefined : navigator.language }),
+  )
+  const changeLanguage = useCallback((next: MutinyLanguage) => {
+    setLanguage(next)
+    writeLanguagePreference(typeof window === 'undefined' ? undefined : window.localStorage, next)
+  }, [])
+  return (
+    <I18nProvider language={language} onLanguageChange={changeLanguage} resources={editorResources}>
       <MutinyThemeProvider presentation="standalone" theme={THEME} hostVars={mutinyToShadcnVars} applyToDocument className="flex h-dvh min-h-0 w-full flex-col overflow-hidden bg-(--mutiny-surface)" data-testid="mutiny-root">
         <TooltipProvider>
           <Overlays>
@@ -78,7 +102,7 @@ function render(config: DemoConfig) {
         </TooltipProvider>
         <Toaster />
       </MutinyThemeProvider>
-    </StrictMode>,
+    </I18nProvider>
   )
 }
 

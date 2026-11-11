@@ -1,6 +1,7 @@
 import { BatteryCharging, Box, Cable, CircleDot, ClipboardCheck, Factory, Gauge, LayoutGrid, Library, Lightbulb, Network, Plug, PlugZap, Power, Repeat, Scale, Server, SquareStack, Table2, TableProperties, ToggleLeft, Unplug, Waypoints, X, Zap } from 'lucide-react'
 import type { RibbonCommand, RibbonGroup, RibbonTab } from '../ribbon/types'
 import { tradeTab } from '../ribbon/trade-tab'
+import { englishOnly, type Translate } from '../i18n/translate'
 import type { ScheduleChoice } from './schedules/schedule-plan'
 import type { ScheduleAction } from './schedules/use-schedule-workflow'
 import type { DockDeclaration } from '../contributions/types'
@@ -268,7 +269,7 @@ function diagramsGroup(d: NonNullable<ElectricalRibbon['diagram']>): RibbonGroup
 }
 
 /** Electrical: on every project's Building Model, whether or not anything electrical is in it yet. Same pattern as every trade's tab (ribbon/trade-tab.ts). */
-export function electricalTab(e: ElectricalRibbon, select: RibbonGroup): RibbonTab {
+export function electricalTab(e: ElectricalRibbon, select: RibbonGroup, t: Translate = englishOnly): RibbonTab {
   return tradeTab({
     id: 'electrical',
     label: 'Electrical',
@@ -307,7 +308,7 @@ export function electricalTab(e: ElectricalRibbon, select: RibbonGroup): RibbonT
       ],
     },
     documents: [e.schedules ? schedulesGroup(e.schedules) : null, e.diagram ? diagramsGroup(e.diagram) : null],
-  })
+  }, t)
 }
 
 /** Circuit: opens by itself when something electrical is selected. Null when nothing is. */

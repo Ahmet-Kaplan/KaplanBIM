@@ -1,6 +1,7 @@
 import { FolderOpen, Library, Sigma, TableProperties } from 'lucide-react'
 import { SCHEDULE_CATEGORIES, type ScheduleCategory } from '@permitzip/bim-kernel'
 import { addonTabsWith } from '../contributions/registry'
+import { englishOnly, type Translate } from '../i18n/translate'
 import { isTradeTab, withTradeSectionCommands } from './trade-tab'
 import type { RibbonCommand, RibbonGroup, RibbonTab } from './types'
 
@@ -116,22 +117,23 @@ export function libraryCommand(s: RibbonSchedules): RibbonCommand {
   }
 }
 
-/** Add the Schedules commands to each discipline tab (into its own Schedules group when it has one), and Library to Manage. */
-export function withScheduleGroups(tabs: readonly RibbonTab[], s: RibbonSchedules | null | undefined): RibbonTab[] {
+/** Add the Schedules commands to each discipline tab (into its own Schedules group when it has one), and Library to Manage. `t` translates the group captions. */
+export function withScheduleGroups(tabs: readonly RibbonTab[], s: RibbonSchedules | null | undefined, t: Translate = englishOnly): RibbonTab[] {
   if (!s) return [...tabs]
   const starts = tabStarts()
   return tabs.map((tab) => {
-    if (tab.id === 'manage') return { ...tab, groups: [...tab.groups, { id: 'manage-library', label: 'Library', commands: [libraryCommand(s)] }] }
+    if (tab.id === 'manage') return { ...tab, groups: [...tab.groups, { id: 'manage-library', label: t('ribbon.group.library', 'Library', { ns: 'editor' }), commands: [libraryCommand(s)] }] }
     const start = starts.get(tab.id)
     if (!start) return tab
     const commands = scheduleCommands(tab.id, start, s)
     // A trade's tab keeps them in its Documents section, first.
-    if (isTradeTab(tab)) return withTradeSectionCommands(tab, 'documents', commands, true)
+    if (isTradeTab(tab)) return withTradeSectionCommands(tab, 'documents', commands, true, t)
+    // An add-on tab that already names its own Schedules group keeps it: the pack wrote that caption, in English.
     const existing = tab.groups.findIndex((g) => g.label === 'Schedules')
     if (existing >= 0) {
       const groups = tab.groups.map((g, i): RibbonGroup => (i === existing ? { ...g, commands: [...commands, ...g.commands] } : g))
       return { ...tab, groups }
     }
-    return { ...tab, groups: [...tab.groups, { id: `${tab.id}-schedules`, label: 'Schedules', commands }] }
+    return { ...tab, groups: [...tab.groups, { id: `${tab.id}-schedules`, label: t('ribbon.group.schedules', 'Schedules', { ns: 'editor' }), commands }] }
   })
 }

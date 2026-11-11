@@ -26,6 +26,7 @@ import {
 import type { RibbonCommand, RibbonGroup, RibbonTab } from './types'
 import { MODIFY_LABEL, PICK_ELEMENT_OPS, type ModifyOpName } from '../views-sheets/draft/draft-input'
 import type { BuildingModelRibbonContext } from '../building-model-ribbon'
+import { englishOnly } from '../i18n/translate'
 import { TOOL_SHORTCUTS } from './tool-shortcuts'
 
 /**
@@ -246,10 +247,11 @@ function clipboardCommands(ctx: BuildingModelRibbonContext): RibbonCommand[] {
 
 /** The Modify, Geometry and Edit groups (shared by the Modify tab and the drawn-items tab). `modelToolReason` is why model tools are off here, if they are. */
 export function modifyGroups(ctx: BuildingModelRibbonContext, modelToolReason: string | null): RibbonGroup[] {
+  const t = ctx.t ?? englishOnly
   return [
     {
       id: 'modify',
-      label: 'Modify',
+      label: t('ribbon.group.modify', 'Modify', { ns: 'editor' }),
       shared: true,
       commands: [
         move(ctx),
@@ -259,22 +261,24 @@ export function modifyGroups(ctx: BuildingModelRibbonContext, modelToolReason: s
         { id: 'draft-modify-more', label: 'More', icon: MoreHorizontal, description: ctx.clipboard ? 'Copy and paste parts, scale, align and arrays' : 'Scale, align and arrays', children: [...clipboardCommands(ctx), draftOp(ctx, 'scale'), draftOp(ctx, 'align'), draftOp(ctx, 'array'), draftOp(ctx, 'polar_array')], testId: 'ribbon-draft-modify-more' },
       ],
     },
-    { id: 'geometry', label: 'Geometry', shared: true, commands: [draftOp(ctx, 'offset'), trimExtend(ctx), split(ctx), draftOp(ctx, 'fillet_arc')] },
-    { id: 'edit', label: 'Edit', shared: true, commands: [deleteCommand(ctx), pinCommand(ctx), measure(ctx, modelToolReason)] },
+    { id: 'geometry', label: t('ribbon.group.geometry', 'Geometry', { ns: 'editor' }), shared: true, commands: [draftOp(ctx, 'offset'), trimExtend(ctx), split(ctx), draftOp(ctx, 'fillet_arc')] },
+    { id: 'edit', label: t('ribbon.group.edit', 'Edit', { ns: 'editor' }), shared: true, commands: [deleteCommand(ctx), pinCommand(ctx), measure(ctx, modelToolReason)] },
   ]
 }
 
 export function modifyTab(ctx: BuildingModelRibbonContext, leading: RibbonGroup, modelToolReason: string | null): RibbonTab {
-  return { id: 'modify', label: 'Modify', groups: [leading, ...modifyGroups(ctx, modelToolReason)] }
+  const t = ctx.t ?? englishOnly
+  return { id: 'modify', label: t('ribbon.tab.modify', 'Modify', { ns: 'editor' }), groups: [leading, ...modifyGroups(ctx, modelToolReason)] }
 }
 
 /** "Modify · Drawn items": opens while drawn lines, notes or symbols are selected on the open drawing. */
 export function drawnItemsTab(ctx: BuildingModelRibbonContext, leading: RibbonGroup, modelToolReason: string | null): RibbonTab | null {
+  const t = ctx.t ?? englishOnly
   const n = ctx.draft?.selectedIds.length ?? 0
   if (!ctx.drawingOpen || n === 0) return null
   return {
     id: 'drawn-items',
-    label: 'Modify · Drawn items',
+    label: t('ribbon.tab.drawnItems', 'Modify · Drawn items', { ns: 'editor' }),
     contextual: true,
     groups: [
       leading,
