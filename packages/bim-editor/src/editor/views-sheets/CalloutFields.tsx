@@ -9,7 +9,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '../../ui/empty
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '../../ui/field'
 import { Input } from '../../ui/input'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../ui/select'
-import { useEditorTranslate } from '../i18n/translate'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
 
 /** Views a callout can refer to: plans, sections and detail views, other than the one it is drawn in. */
 export function calloutTargets(model: ModelState, ownerId: string): ViewElement[] {
@@ -18,9 +18,11 @@ export function calloutTargets(model: ModelState, ownerId: string): ViewElement[
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 
-function placedText(model: ModelState, view: ViewElement): string {
+function placedText(model: ModelState, view: ViewElement, t: Translate): string {
   const head = calloutHead(model, { viewId: view.id })
-  return head.resolved ? `${view.name} (view ${head.top} on ${head.bottom})` : `${view.name} (not on a sheet yet)`
+  return head.resolved
+    ? t('callout.placedOn', '{{name}} (view {{view}} on {{sheet}})', { ns: 'editor', name: view.name, view: head.top, sheet: head.bottom })
+    : t('callout.placedNowhere', '{{name}} (not on a sheet yet)', { ns: 'editor', name: view.name })
 }
 
 function ViewPicker({ model, ownerId, value, onChange, disabled }: { model: ModelState; ownerId: string; value: string; onChange: (viewId: string) => void; disabled?: boolean }) {
@@ -35,7 +37,7 @@ function ViewPicker({ model, ownerId, value, onChange, disabled }: { model: Mode
         <SelectGroup>
           {views.map((v) => (
             <SelectItem key={v.id} value={v.id}>
-              {placedText(model, v)}
+              {placedText(model, v, t)}
             </SelectItem>
           ))}
         </SelectGroup>

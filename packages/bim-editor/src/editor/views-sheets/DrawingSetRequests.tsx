@@ -56,7 +56,9 @@ export function openAgentToMakeDrawings(
   const index = documentIndex(model)
   const text = agentDrawingPrompt({ projectNumber: project.projectNumber, projectName: project.projectName, levels, sheetCount: index.sheets.length, scheduleCount: index.views.filter((v) => v.viewType === 'schedule').length })
   agent.seedComposer({ text, modelRef: project.projectId })
-  toast('Cmd+J has a drafted request in a new thread. Edit it and press Send; nothing changes until you approve.')
+  toast(
+    t('agent.draftedRequest', 'Cmd+J has a drafted request in a new thread. Edit it and press Send; nothing changes until you approve.', { ns: 'editor' }),
+  )
 }
 
 const noModelServer = (t: Translate): string =>

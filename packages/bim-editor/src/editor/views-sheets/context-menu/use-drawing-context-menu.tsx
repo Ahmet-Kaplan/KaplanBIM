@@ -114,7 +114,7 @@ export function useDrawingContextMenu(opts: DrawingContextMenuOptions): {
       const patch = hideInViewPatch(model, view, el, t)
       if (!patch) return
       const command: Command = { type: 'set_view_properties', viewId: view.id, props: { hiddenCategories: [...patch.hiddenCategories] } }
-      const label = `hide ${patch.label} in ${view.name}`
+      const label = t('drawing.undo.hideInView', 'hide {{what}} in {{view}}', { ns: 'editor', what: patch.label, view: view.name })
       if (modelEdit) {
         const refusal = modelEdit.submit(command, label)
         if (refusal) {

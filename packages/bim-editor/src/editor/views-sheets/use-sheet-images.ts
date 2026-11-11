@@ -98,7 +98,7 @@ export function useSheetImagesFrom(port: SheetImagesPort, projectId: string, mod
       })) as { results?: Array<{ ok: boolean; id?: string; error?: string }>; error?: string }
       const first = body.results?.[0]
       if (!res.ok || !first?.ok || !first.id) {
-        const error = first?.error ?? body.error ?? `The upload failed (HTTP ${res.status})`
+        const error = first?.error ?? body.error ?? t('sheetImages.uploadFailed', 'The upload failed (HTTP {{status}})', { ns: 'editor', status: res.status })
         console.error('[use-sheet-images] uploading a sheet picture failed', { projectId, status: res.status, error })
         return { error: res.status === 403 ? t('sheetImages.cannotAddFiles', "You can't add files to this project's workspace; ask a project lead.", { ns: 'editor' }) : error }
       }

@@ -2786,7 +2786,9 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
   const partClip = useSyncExternalStore(subscribeClip, currentClip, () => null)
   const clipNow = useMemo(() => (selectionModel ? clipOf(selectionModel, selectedIds) : 'The model is still loading.'), [selectionModel, selectedIds])
   const copyBlocked = typeof clipNow === 'string' ? clipNow : null
-  const partPasteBlocked = pasteBlocked(partClip, editBlocked) ?? (showDrawing ? 'On a drawing, point where the copies go and press Ctrl+V (⌘V on a Mac).' : null)
+  const partPasteBlocked =
+    pasteBlocked(partClip, editBlocked, t) ??
+    (showDrawing ? t('copy.pointWhereCopiesGo', 'On a drawing, point where the copies go and press Ctrl+V (⌘V on a Mac).', { ns: 'editor' }) : null)
   const copyParts = useCallback(() => {
     if (typeof clipNow === 'string') {
       setToolHint(clipNow)
@@ -2798,7 +2800,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
   }, [clipNow])
   const pasteParts = useCallback(() => {
     const clip = currentClip()
-    const blocked = pasteBlocked(clip, editBlocked)
+    const blocked = pasteBlocked(clip, editBlocked, t)
     if (blocked || !clip) {
       setToolHint(blocked)
       toast.error(blocked ?? 'Nothing to paste.')
@@ -2813,7 +2815,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
     const refused = submitWithUndo(paste.command, paste.label)
     if (refused) toast.error(refused)
     setToolHint(refused ?? paste.hint)
-  }, [editBlocked, activeLevel, model, submitWithUndo])
+  }, [editBlocked, activeLevel, model, submitWithUndo, t])
   // C then C copies too (Revit's CC), in every view and drawing.
   useCopyChord({ active: selectedIds.length > 0, onCopy: copyParts })
   // Drawings answer Ctrl+C / Ctrl+V themselves (where the pointer is on the paper); this is the 3D and live plan view.
@@ -3493,7 +3495,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
             onNewView={() => void crop3d.newViewOfSelection()}
             editDefinition={selection?.kind === 'authored' && selection.element.kind === 'part' ? { blocked: editPartBlocked, run: editSelectedPart } : null}
             copy={{ blocked: copyBlocked, run: copyParts }}
-            paste={{ blocked: pasteBlocked(partClip, editBlocked), run: pasteParts }}
+            paste={{ blocked: pasteBlocked(partClip, editBlocked, t), run: pasteParts }}
           />
           {planOpen && viewer && openView && (
             <SectionCutOverlay

@@ -34,7 +34,7 @@ export const EDITOR_SRC = path.join(__dirname, "..", "..", "src", "editor");
  * schedule surfaces (`@permitzip/bim-schedules-ui`) double, and the scan has to
  * read both or their guard would pass over a literal it never saw.
  */
-const CAPTION_CALL = /\b(?:t|tr)\((['"])([A-Za-z][\w.]*)\1,\s*(['"])((?:\\.|(?!\3)[^\\])*)\3/g;
+const CAPTION_CALL = /\b(?:t|tr)\(\s*(['"])([A-Za-z][\w.]*)\1,\s*(['"])((?:\\.|(?!\3)[^\\])*)\3/g;
 
 /** One caption as the source writes it: the English the call sites hold, and how many call sites hold it. */
 export interface SourceCaption {

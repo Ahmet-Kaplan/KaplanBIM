@@ -226,7 +226,12 @@ export function CropBox3dOverlay({ viewer, model, box, cropOn, extent, canEdit, 
       {drag && (
         <foreignObject x={8} y={8} width={460} height={32}>
           <div className="rounded-md border bg-background/95 px-2 py-1 text-xs shadow-sm" role="status" data-testid="crop-3d-drag-status">
-            {`Crop box ${size}${drag.snapped ? ', lined up with a level or the model edge' : ''}. Release to save, Esc to cancel.`}
+            {drag.snapped
+              ? t('crop3d.draggingSnapped', 'Crop box {{size}}, lined up with a level or the model edge. Release to save, Esc to cancel.', {
+                  ns: 'editor',
+                  size,
+                })
+              : t('crop3d.dragging', 'Crop box {{size}}. Release to save, Esc to cancel.', { ns: 'editor', size })}
           </div>
         </foreignObject>
       )}

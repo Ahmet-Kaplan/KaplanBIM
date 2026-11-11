@@ -550,20 +550,32 @@
     "worksIn3d": "3B'de çalışır: 3B modeli veya bir 3B görünümü açın.",
     "cropToSelectionWhy": "Seçime kırpma, kutuyu görünümde saklar. {{reason}}",
     "handle": {
-      "bottom": "alt kenar",
-      "bottomLeft": "sol alt köşe",
-      "bottomRight": "sağ alt köşe",
-      "left": "sol kenar",
-      "right": "sağ kenar",
-      "top": "üst kenar",
-      "topLeft": "sol üst köşe",
-      "topRight": "sağ üst köşe"
+      "top": "Üst kenarı",
+      "bottom": "Alt kenarı",
+      "left": "Sol kenarı",
+      "right": "Sağ kenarı",
+      "topLeft": "Sol üst köşeyi",
+      "topRight": "Sağ üst köşeyi",
+      "bottomLeft": "Sol alt köşeyi",
+      "bottomRight": "Sağ alt köşeyi"
     },
     "undo": {
       "cropToSelection": "3B görünümü seçime kırp",
       "reset": "3B kırpma kutusunu sıfırla",
-      "turnOn": "3B kırpma kutunuzu aç"
-    }
+      "turnOn": "3B kırpma kutunuzu aç",
+      "alignEdge": "3B kırpma kutusunu bir kenara hizala",
+      "alignWorkingAngle": "3B kırpma kutusunu çalışma açısına hizala",
+      "createWorking": "{{name}} oluştur",
+      "cropToBox": "3B kutuya kırp",
+      "hideBox": "3B kırpma kutusunu gizle",
+      "showBox": "3B kırpma kutusunu göster",
+      "stopCropping": "kırpmayı bırak"
+    },
+    "createdCropped": "{{name}} oluşturuldu, seçiminizin çevresindeki kat ve ızgara gözüne kırpıldı. Özelliklerinden yeniden adlandırın.",
+    "dragging": "Kırpma kutusu {{size}}. Kaydetmek için bırakın, iptal için Esc.",
+    "draggingSnapped": "Kırpma kutusu {{size}}, bir kata ya da model kenarına hizalandı. Kaydetmek için bırakın, iptal için Esc.",
+    "newViewName": "Seçimin 3B'si",
+    "newViewNameN": "Seçimin 3B'si {{n}}"
   },
   "orientation": {
     "aboveNorthEast": "Yukarıdan, kuzeydoğudan",
@@ -631,7 +643,9 @@
     "edgeRun": "bir hat",
     "edgeWall": "bir duvar",
     "theArchitectsModel": "mimarın modeli",
-    "theModel": "model"
+    "theModel": "model",
+    "dotDown": "Alt",
+    "dotUp": "Üst"
   },
   "projectInfo": {
     "cancel": "Vazgeç",
@@ -857,7 +871,7 @@
     },
     "annotationCropReach": "Açıklama kırpması: notalar, etiketler ve ölçüler buraya kadar taşabilir",
     "cropBoxDraggingMm": "Kâğıtta {{width}} × {{height}} mm. Kaydetmek için bırakın, iptal için Esc.",
-    "dragCropHandle": "Kırpma kutusunun {{handle}} sürükleyin"
+    "dragCropHandle": "{{handle}} sürükleyin"
   },
   "diagram": {
     "addFutureSpace": "Gelecek boşluk ekle",
@@ -1063,7 +1077,9 @@
     "place": "Detay balonunu yerleştir",
     "refersTo": "Başvurduğu",
     "targetDeleted": "Başvurduğu görünüm silinmiş. Başka bir tane seçin.",
-    "title": "Detay balonu"
+    "title": "Detay balonu",
+    "placedNowhere": "{{name}} (henüz bir paftada değil)",
+    "placedOn": "{{name}} ({{view}} görünümü {{sheet}} paftasında)"
   },
   "canvas": {
     "actualSize": "Gerçek boyut (%100)",
@@ -1183,7 +1199,11 @@
       "viewportScale": "görüntü alanı ölçeğini değiştir"
     },
     "viewTitleEdit": "{{name}}. Paftada düzenlemek için çift tıklayın.",
-    "viewTitleOpen": "{{name}}. Açmak için çift tıklayın; sütun kenarlarını sürüklemek için üzerine tıklayın."
+    "viewTitleOpen": "{{name}}. Açmak için çift tıklayın; sütun kenarlarını sürüklemek için üzerine tıklayın.",
+    "lockedByFinished": "{{name}}. Bu iş bitince düzenleyebilirsiniz.",
+    "noteNeedsText": "Bir notanın biraz metne ihtiyacı var. Bir şeyler yazın ya da notayı kapatıp Delete'e basarak kaldırın.",
+    "placedAt": "{{name}} {{scale}} ölçeğinde yerleştirildi. Görünümü paftada düzenlemek için çift tıklayın.",
+    "zoomAria": "Yakınlaştırma %{{percent}}"
   },
   "circuits": {
     "allUnits": "Tüm ünitelerde devreleme göster",
@@ -1260,7 +1280,17 @@
       "tick": "Çentik"
     },
     "textHeightOnPaper": "Metin, her görünüm ölçeğinde kâğıtta {{height}}″ yüksek.",
-    "textOverrideExample": "ör. EŞİT veya DOĞRULA"
+    "textOverrideExample": "ör. EŞİT veya DOĞRULA",
+    "anchor": {
+      "centre": "merkez",
+      "edge": "kenar",
+      "end": "uç",
+      "insertion": "ekleme noktası",
+      "middle": "orta"
+    },
+    "snapAnchor": "{{what}} {{where}}",
+    "snapCorner": "{{what}} köşesi",
+    "snapMiddle": "{{what}} ortası"
   },
   "draft": {
     "angleCCW": "Açı (°, saat yönünün tersine)",
@@ -1401,7 +1431,8 @@
       "twoLines": "Çizilmiş iki çizgiye tam üzerinden tıklayın.",
       "twoLinesToRound": "Köşeyi yuvarlatmak için iki çizgiye tıklayın.",
       "twoPartsToKeep": "Her birinde kalacak tarafa iki çizgiye tıklayın.",
-      "twoPoints": "En az iki noktaya tıklayın."
+      "twoPoints": "En az iki noktaya tıklayın.",
+      "atLeastPoints": "En az {{n}} noktaya tıklayın, sonra Enter'a basın."
     },
     "notOnModelYet": "{{name}} bugün çizilmiş çizgilerde ve notalarda çalışır. Bir pafta, detay görünümü veya planın çizimini açın ve değiştirilecek olanı seçin. Parçalar ve hatlar buradan taşınır, döner ve bölünür.",
     "noteGone": "O nota artık yok.",
@@ -1558,7 +1589,10 @@
     "selectUnavailable": "Bu çizimden seçim burada kullanılamıyor. Seçmek için planı veya kesiti açın.",
     "sheet": "Pafta",
     "viewStays": "Görünümün kendisi Görünümler ve paftalar bölümünde kalır.",
-    "zoomToFit": "Sığdırarak göster"
+    "zoomToFit": "Sığdırarak göster",
+    "undo": {
+      "hideInView": "{{what}} öğesini {{view}} içinde gizle"
+    }
   },
   "drawingSet": {
     "modelNotOpen": "Model henüz açılmayı bitirmedi. Yüklenmesini bekleyip yeniden deneyin.",
@@ -1577,7 +1611,15 @@
     "title": "Başlık",
     "titlePlaceholder": "Grafiğin kendi başlığı",
     "uploading": "Resim yükleniyor…",
-    "width": "Genişlik (\")"
+    "width": "Genişlik (\")",
+    "chartLower": "grafik",
+    "notAPicture": "{{name}} bir PNG veya JPEG resim değil; paftalar bunları yazdırır.",
+    "pictureLower": "resim",
+    "undo": {
+      "placeChart": "grafik yerleştir",
+      "placePicture": "resim yerleştir",
+      "resize": "{{what}} boyutlandır"
+    }
   },
   "issue": {
     "addRevisionRow": "Yayınlanan her paftaya revizyon satırı ekle",
@@ -1621,7 +1663,10 @@
     "orType": "veya yazın",
     "pickAKeynote": "Bir anahtar not seçin",
     "pickOrType": "Bir anahtar seçin veya yazın, sonra uygulandığı elemanlara tıklayın.",
-    "placeWhat": "anahtar not listesini yerleştir"
+    "placeWhat": "anahtar not listesini yerleştir",
+    "undo": {
+      "giveKey": "{{key}} anahtar notunu ver"
+    }
   },
   "note": {
     "alignLeft": "Sola hizala",
@@ -1650,16 +1695,20 @@
     "underline": "Altı çizili",
     "selectOrEdit": "Nota. Seçmek için tıklayın, metni düzenlemek için yeniden veya çift tıklayın. Taşımak için sürükleyin.",
     "dragEdge": "{{edge}} sürükleyin; metin sürüklerken yeniden sarılır",
-    "edgeBottom": "alt kenar (sabit yükseklik)",
-    "edgeLeft": "sol kenar (genişlik)",
-    "edgeRight": "sağ kenar (genişlik)",
+    "edgeBottom": "Alt kenarı",
+    "edgeLeft": "Sol kenarı",
+    "edgeRight": "Sağ kenarı",
     "textAria": "Nota metni",
     "undo": {
-      "addLeader": "kılavuz ekle"
+      "addLeader": "kılavuz ekle",
+      "changeLeaders": "kılavuzları değiştir",
+      "moveLeader": "kılavuzu taşı",
+      "removeLeaders": "kılavuzları kaldır"
     }
   },
   "parameter": {
-    "today": "Bugün"
+    "today": "Bugün",
+    "clearNamed": "{{name}} değerini temizle"
   },
   "print": {
     "allSaved": "Bu paftadaki her şey kaydedildi. Rev {{revision}} üzerinden yazdırılır.",
@@ -1691,7 +1740,8 @@
     "couldNotDraw": "Yazdırılan PDF çizilemedi: {{message}} Alttaki önizleme aynı çizimdir.",
     "rev": "Yazdırılan PDF, Rev {{revision}}",
     "updating": "Yazdırılan PDF güncelleniyor…",
-    "couldNotDrawShort": "PDF çizilemedi."
+    "couldNotDrawShort": "PDF çizilemedi.",
+    "stillDrawing": "{{n}} saniye sonra hâlâ çiziliyordu. Yeniden denemek için sayfayı yenileyin."
   },
   "revisions": {
     "addRevision": "Revizyon ekle",
@@ -1735,7 +1785,8 @@
     "newViewOfSelection": "Seçimin yeni 3B görünümü",
     "paste": "Yapıştır",
     "spreadTags": "Etiketleri dağıt",
-    "straightenLeader": "Kılavuzu düzelt"
+    "straightenLeader": "Kılavuzu düzelt",
+    "nothingSelected": "Hiçbir şey seçilmedi"
   },
   "set": {
     "sheetsLegend": "Paftalar ({{total}} paftadan {{picked}}, yazdırma sırasına göre)",
@@ -1926,7 +1977,8 @@
     "connectThroughToolServer": "Kendi yapay zekânızı bu modelin araç sunucusu üzerinden bağlayın, sonra onlardan yapmasını isteyin.",
     "connectYourOwn": "Kendi yapay zekânızı bu modele bağlayın, sonra onlardan yapmasını isteyin.",
     "howToConnect": "Yapay zekâ nasıl bağlanır",
-    "needsConnectedAi": "Paftaları, görünümleri ve çizelgeleri bir ajanla oluşturmak için bağlı bir yapay zekâ gerekir ve {{host}} içinde yerleşik bir tane yok."
+    "needsConnectedAi": "Paftaları, görünümleri ve çizelgeleri bir ajanla oluşturmak için bağlı bir yapay zekâ gerekir ve {{host}} içinde yerleşik bir tane yok.",
+    "draftedRequest": "Cmd+J yeni bir konu başlığında hazırlanmış bir istek açtı. Düzenleyip Gönder'e basın; onaylayana kadar hiçbir şey değişmez."
   },
   "copy": {
     "copiedMany": "{{n}} parça kopyalandı. Gidecekleri yeri gösterip Ctrl+V'ye (Mac'te ⌘V) basın; kopyalandıkları yükseklikte imlecin altına inerler.",
@@ -1937,7 +1989,12 @@
     "onePart": "1 parça",
     "pastedBesideOriginals": "{{what}} asılların yanına yapıştırıldı (oraya yapıştırmak için zeminde gidecekleri yeri işaret edin). Geri Al onları geri alır.",
     "pastedUnderPointer": "{{what}} imlecin altına yapıştırıldı. Geri Al onları geri alır.",
-    "someParts": "{{n}} parça"
+    "someParts": "{{n}} parça",
+    "nothingCopiedYet": "Henüz bir şey kopyalanmadı: cihazları veya ekipmanı seçip Ctrl+C'ye (Mac'te ⌘C) basın.",
+    "pointWhereCopiesGo": "Bir çizimde kopyaların gideceği yeri işaret edip Ctrl+V'ye (Mac'te ⌘V) basın.",
+    "undo": {
+      "paste": "{{what}} yapıştır"
+    }
   },
   "drawnScene": {
     "sheetGone": "Bu pafta artık yok.",
@@ -1953,13 +2010,17 @@
     "leaderElbow": "Kırığı sürükleyin",
     "leaderTip": "Oku, işaret ettiği şeye sürükleyin",
     "lineEnd": "Bu ucu sürükleyin; ona bağlı çizgiler izler",
-    "tagHead": "Etiketi taşımak için sürükleyin; sözleri elemanda kalır"
+    "tagHead": "Etiketi taşımak için sürükleyin; sözleri elemanda kalır",
+    "undo": {
+      "dragEnd": "ucu sürükle"
+    }
   },
   "sheetImages": {
     "addingPictures": "Projeye resim ekleme",
     "cannotAddFiles": "Bu projenin çalışma alanına dosya ekleyemezsiniz; bir proje yöneticisinden isteyin.",
     "pictureGone": "Resim artık çalışma alanında değil",
-    "picturesOnSheets": "Paftalardaki resimler"
+    "picturesOnSheets": "Paftalardaki resimler",
+    "uploadFailed": "Yükleme başarısız oldu (HTTP {{status}})"
   },
   "category": {
     "airTerminal": "Hava terminalleri",

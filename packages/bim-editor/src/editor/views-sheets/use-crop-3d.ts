@@ -142,7 +142,16 @@ export function useCrop3d(args: Args): Crop3d {
         void createWorking(null, change).then((refusal) => refusal && notify(refusal, 'error'))
         return
       }
-      const refusal = submit({ type: 'set_3d_crop_box', viewId: view.id, ...(change.enabled !== undefined ? { enabled: change.enabled } : {}), ...(change.show !== undefined ? { show: change.show } : {}) }, change.enabled === undefined ? (change.show ? 'show the 3D crop box' : 'hide the 3D crop box') : change.enabled ? 'crop to the 3D box' : 'stop cropping')
+      const refusal = submit(
+        { type: 'set_3d_crop_box', viewId: view.id, ...(change.enabled !== undefined ? { enabled: change.enabled } : {}), ...(change.show !== undefined ? { show: change.show } : {}) },
+        change.enabled === undefined
+          ? change.show
+            ? t('crop3d.undo.showBox', 'show the 3D crop box', { ns: 'editor' })
+            : t('crop3d.undo.hideBox', 'hide the 3D crop box', { ns: 'editor' })
+          : change.enabled
+            ? t('crop3d.undo.cropToBox', 'crop to the 3D box', { ns: 'editor' })
+            : t('crop3d.undo.stopCropping', 'stop cropping', { ns: 'editor' }),
+      )
       if (refusal) notify(refusal, 'error')
     },
     [active, canEdit, view, box, extent, localKey, on, shown, notify, blockedReason, createWorking, submit, model],
@@ -199,7 +208,7 @@ export function useCrop3d(args: Args): Crop3d {
       t('crop3d.undo.cropToSelection', 'crop the 3D view to the selection', { ns: 'editor' }),
     )
     if (refusal) notify(refusal, 'error')
-  }, [selectionBlocked, selectionTarget, canEdit, view, createWorking, submit, notify, blockedReason])
+  }, [selectionBlocked, selectionTarget, canEdit, view, createWorking, submit, notify, blockedReason, t])
 
   const reset = useCallback(async () => {
     if (!active) return
@@ -217,7 +226,7 @@ export function useCrop3d(args: Args): Crop3d {
       t('crop3d.undo.reset', 'reset the 3D crop box', { ns: 'editor' }),
     )
     if (refusal) notify(refusal, 'error')
-  }, [active, extent, canEdit, view, free3d, createWorking, submit, notify])
+  }, [active, extent, canEdit, view, free3d, createWorking, submit, notify, t])
 
   const newViewOfSelection = useCallback(async () => {
     if (selectionBlocked) return notify(selectionBlocked, 'info')
@@ -229,8 +238,9 @@ export function useCrop3d(args: Args): Crop3d {
         'error',
       )
     const taken = new Set(views.map((v) => v.name.toLowerCase()))
-    let name = '3D of selection'
-    for (let n = 2; taken.has(name.toLowerCase()); n++) name = `3D of selection ${n}`
+    // A new view's name is words a person reads and edits, so it is said in their language too.
+    let name = t('crop3d.newViewName', '3D of selection', { ns: 'editor' })
+    for (let n = 2; taken.has(name.toLowerCase()); n++) name = t('crop3d.newViewNameN', '3D of selection {{n}}', { ns: 'editor', n })
     const id = newId('view')
     const refusal = submit(
       {
@@ -239,12 +249,18 @@ export function useCrop3d(args: Args): Crop3d {
         name,
         fit: { ...(target.elementIds ? { elementIds: [...target.elementIds] } : {}), ...(target.region ? { region: target.region } : {}) },
       },
-      `create ${name}`,
+    t('crop3d.undo.createWorking', 'create {{name}}', { ns: 'editor', name }),
     )
     if (refusal) return notify(refusal, 'error')
     onOpenView(id)
-    notify(`${name} created, cropped to the storey and grid bay around your selection. Rename it from its properties.`, 'info')
-  }, [selectionBlocked, canEdit, blockedReason, selectionTarget, views, submit, onOpenView, notify])
+    notify(
+      t('crop3d.createdCropped', '{{name}} created, cropped to the storey and grid bay around your selection. Rename it from its properties.', {
+        ns: 'editor',
+        name,
+      }),
+      'info',
+    )
+  }, [selectionBlocked, canEdit, blockedReason, selectionTarget, views, submit, onOpenView, notify, t])
 
   const workingAngleDeg = model ? workingAngleOf(model, view) : 0
   const alignBlocked = !active
@@ -275,12 +291,15 @@ export function useCrop3d(args: Args): Crop3d {
     },
     [alignBlocked, box, canEdit, view, localKey, on, shown, notify, blockedReason, submit],
   )
-  const alignToWorkingAngle = useCallback(() => turnBox(workingAngleDeg, 'working_angle', 'align the 3D crop box to the working angle'), [turnBox, workingAngleDeg])
+  const alignToWorkingAngle = useCallback(
+    () => turnBox(workingAngleDeg, 'working_angle', t('crop3d.undo.alignWorkingAngle', 'align the 3D crop box to the working angle', { ns: 'editor' })),
+    [turnBox, workingAngleDeg, t],
+  )
   const alignToEdge = useCallback(
     (from: Vec2, to: Vec2) => {
       const angle = workingAngleFromEdge(from, to)
       if (angle === null) return t('orientation.samePoints', 'The two points are the same; pick a second point further along the edge.', { ns: 'editor' })
-      return turnBox(angle, { from, to }, 'align the 3D crop box to an edge')
+      return turnBox(angle, { from, to }, t('crop3d.undo.alignEdge', 'align the 3D crop box to an edge', { ns: 'editor' }))
     },
     [turnBox],
   )

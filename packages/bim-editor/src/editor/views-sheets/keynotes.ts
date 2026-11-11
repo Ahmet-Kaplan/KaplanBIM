@@ -64,10 +64,13 @@ export function cleanKey(text: string): string | null {
 }
 
 /** One click with the Keynote tool: the element takes the key and gets a keynote tag at `head` (one undo). */
-export function keynoteCommand(args: { readonly elementId: string; readonly key: string; readonly ownerId: string; readonly itemId: string; readonly head: Vec2; readonly leader: boolean }): Command {
+export function keynoteCommand(
+  args: { readonly elementId: string; readonly key: string; readonly ownerId: string; readonly itemId: string; readonly head: Vec2; readonly leader: boolean },
+  t: Translate = englishOnly,
+): Command {
   return {
     type: 'batch_edits',
-    label: `Keynote ${args.key}`,
+    label: t('keynote.undo.giveKey', 'give the keynote {key}', { ns: 'editor', key: args.key }),
     commands: [
       { type: 'set_element_values', elementIds: [args.elementId], values: { [KEYNOTE_FIELD]: args.key } },
       { type: 'add_drawing_item', itemId: args.itemId, ownerId: args.ownerId, shape: 'tag', points: [args.head], tag: { elementId: args.elementId, template: 'fields', fields: [KEYNOTE_FIELD], leader: args.leader } },

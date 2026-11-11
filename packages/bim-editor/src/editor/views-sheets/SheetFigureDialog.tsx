@@ -64,7 +64,10 @@ export function SheetFigureDialog({ mode, sheet, model, images, submit, onClose,
   const [error, setError] = useState<string | null>(null)
   const preview = useMemo(() => (mode === 'chart' && chart ? evaluateFigure(model, { kind: 'chart', chart }) : null), [mode, chart, model])
   const paper = sheetPaper(sheet)
-  const fileProblem = mode === 'picture' && file && !isMime(file.type) ? `${file.name} is not a PNG or JPEG picture; sheets print those two.` : null
+  const fileProblem =
+    mode === 'picture' && file && !isMime(file.type)
+      ? t('figure.notAPicture', '{{name}} is not a PNG or JPEG picture; sheets print those two.', { ns: 'editor', name: file.name })
+      : null
   const blocked =
     mode === 'chart'
       ? chart
@@ -95,7 +98,10 @@ export function SheetFigureDialog({ mode, sheet, model, images, submit, onClose,
       figure = { kind: 'image', image: { fileId: uploaded.fileId, name: file.name.slice(0, 200), mime: file.type } }
     }
     const itemId = newId('fig')
-    const refusal = submit({ type: 'add_drawing_item', itemId, ownerId: sheet.id, shape: 'figure', points: centredFrame(paper, size), figure }, mode === 'chart' ? 'place a chart' : 'place a picture')
+    const refusal = submit(
+      { type: 'add_drawing_item', itemId, ownerId: sheet.id, shape: 'figure', points: centredFrame(paper, size), figure },
+      mode === 'chart' ? t('figure.undo.placeChart', 'place a chart', { ns: 'editor' }) : t('figure.undo.placePicture', 'place a picture', { ns: 'editor' }),
+    )
     if (refusal) {
       setError(refusal)
       return

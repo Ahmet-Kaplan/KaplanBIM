@@ -88,7 +88,14 @@ export function ParameterInput({ def, id, value, onChange, fallback, disabled }:
           </PopoverContent>
         </Popover>
         {value && (
-          <Button type="button" variant="outline" size="icon" disabled={disabled} onClick={() => onChange('')} aria-label={`Clear ${def.label}`}>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            disabled={disabled}
+            onClick={() => onChange('')}
+            aria-label={t('parameter.clearNamed', 'Clear {{name}}', { ns: 'editor', name: def.label })}
+          >
             <X />
           </Button>
         )}

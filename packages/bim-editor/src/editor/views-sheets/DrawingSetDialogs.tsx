@@ -653,11 +653,11 @@ export function IssueSetDialog({ projectId, modelId, model, save, canIssue, bloc
             {addRow && (
               <div className="grid grid-cols-[5rem_8rem_1fr] gap-2">
                 <Field>
-                  <FieldLabel htmlFor="is-rev">Rev</FieldLabel>
+                  <FieldLabel htmlFor="is-rev">{t('revisions.rev', 'Rev', { ns: 'editor' })}</FieldLabel>
                   <Input id="is-rev" value={revNumber} maxLength={10} onChange={(e) => setRevNumber(e.target.value)} />
                 </Field>
                 <Field>
-                  <FieldLabel htmlFor="is-date">Date</FieldLabel>
+                  <FieldLabel htmlFor="is-date">{t('revisions.date', 'Date', { ns: 'editor' })}</FieldLabel>
                   <Input id="is-date" value={revDate} maxLength={20} onChange={(e) => setRevDate(e.target.value)} />
                 </Field>
                 <Field>

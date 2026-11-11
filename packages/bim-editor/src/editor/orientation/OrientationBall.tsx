@@ -32,15 +32,23 @@ interface Dot {
   readonly label: string
 }
 
-/** The six dots on the ball, one per side of the model. Each one turns the camera to look from that side; there is nothing else to pick. */
-export const BALL_DOTS: readonly Dot[] = [
-  { side: 'east', axis: 'x', sign: 1, label: 'E' },
-  { side: 'west', axis: 'x', sign: -1, label: 'W' },
-  { side: 'north', axis: 'y', sign: 1, label: 'N' },
-  { side: 'south', axis: 'y', sign: -1, label: 'S' },
-  { side: 'top', axis: 'z', sign: 1, label: 'Up' },
-  { side: 'bottom', axis: 'z', sign: -1, label: 'Dn' },
-]
+/**
+ * The six dots on the ball, one per side of the model. Each one turns the camera to
+ * look from that side; there is nothing else to pick.
+ *
+ * The letter on a dot is a word of the language: the compass letters stay as they
+ * are (§2.3 norths), and up/down are spelled out (`Up` / `Dn` in English).
+ */
+export function ballDots(t: Translate): readonly Dot[] {
+  return [
+    { side: 'east', axis: 'x', sign: 1, label: 'E' },
+    { side: 'west', axis: 'x', sign: -1, label: 'W' },
+    { side: 'north', axis: 'y', sign: 1, label: 'N' },
+    { side: 'south', axis: 'y', sign: -1, label: 'S' },
+    { side: 'top', axis: 'z', sign: 1, label: t('orientation.dotUp', 'Up', { ns: 'editor' }) },
+    { side: 'bottom', axis: 'z', sign: -1, label: t('orientation.dotDown', 'Dn', { ns: 'editor' }) },
+  ]
+}
 
 export const lookFromLabel = (side: Side, t: Translate): string =>
   side === 'top'
@@ -80,7 +88,7 @@ export function OrientationBall({ viewer }: Props) {
   const dragged = useRef(false)
 
   const place = useCallback((o: Orientation) => {
-    for (const dot of BALL_DOTS) {
+    for (const dot of ballDots(t)) {
       const p = projectAxis(o, dot.axis)
       const button = dotRefs.current[dot.side]
       if (!button) continue
@@ -211,7 +219,7 @@ export function OrientationBall({ viewer }: Props) {
           data-testid="orientation-ball-horizon"
         />
       </svg>
-      {BALL_DOTS.map((dot) => (
+      {ballDots(t).map((dot) => (
         <Tooltip key={dot.side}>
           <TooltipTrigger asChild>
             <Button

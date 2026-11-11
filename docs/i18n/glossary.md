@@ -411,7 +411,7 @@ Aşama 4 (Task 4.1–4.2) çizelgeleri, hesap sayfalarını, paftaları, görün
 | Fit crop to content / to the drawing | **kırpmayı içeriğe sığdır / çizime sığdır** | Plan vs detay görünümü |
 | Far clip depth | **uzak kırpma derinliği** | Kesitin kesit çizgisinin ötesini görme mesafesi |
 | View orientation / Home view | **görünüm yönü / ana görünüm** | Yönlendirme araç çubuğu |
-| Above, from the south-east | **yukarıdan, güneydoğudan** | Çeyrek açılı görünümler; yön adları §2.3 |
+| Above, from the south-east | **yukarıdan, güneydoğudan** | Dörtte üç görünümler; yön adları §2.3 |
 | Three-quarter views | **dörtte üç görünümler** | "three-quarter" = **dörtte üç**; *çeyrek* "a quarter" demektir — bu bir çeviri hatasıydı, düzeltildi (2026-11-10). |
 | Diagram / One-line / Riser / Isometric | **diyagram / tek hat / kolon şeması / izometrik** | §2.4 *Riser diagram* = kolon şeması |
 | Grid | **ızgara** | §2.3 |

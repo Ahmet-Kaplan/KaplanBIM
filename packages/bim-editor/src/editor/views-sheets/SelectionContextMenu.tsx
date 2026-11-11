@@ -38,7 +38,9 @@ export function SelectionContextMenu({ at, onClose, selectionLabel, blocked = nu
         <span aria-hidden className="pointer-events-none absolute size-0" style={{ left: at?.x ?? 0, top: at?.y ?? 0 }} />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" sideOffset={2} data-testid="selection-context-menu">
-        <DropdownMenuLabel className="max-w-64 truncate text-xs text-muted-foreground">{selectionLabel ?? 'Nothing selected'}</DropdownMenuLabel>
+        <DropdownMenuLabel className="max-w-64 truncate text-xs text-muted-foreground">
+          {selectionLabel ?? t('selection.nothingSelected', 'Nothing selected', { ns: 'editor' })}
+        </DropdownMenuLabel>
         {onCrop && onNewView && (
           <>
             <DropdownMenuGroup>

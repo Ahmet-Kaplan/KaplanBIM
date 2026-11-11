@@ -527,7 +527,7 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
   const linkedReference = useLinkedReferenceState()
   const snaps = useMemo<SnapPoint[]>(() => {
     if (!annotatedView || (tool !== 'dimension' && !dimSelected)) return []
-    const own = snapPoints(model, annotatedView, items, toPaperPoint)
+    const own = snapPoints(model, annotatedView, items, toPaperPoint, t)
     // A linked model's walls too: the dimension follows the wall by its GlobalId when the link updates.
     return linkedReference.status === 'ready' ? [...own, ...linkedDimensionAnchors(linkedReference.index, model, annotatedView, toPaperPoint)] : own
   }, [model, annotatedView, items, toPaperPoint, tool, dimSelected, linkedReference])
@@ -695,7 +695,9 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
       }
       const lock = locks.get(item.id)
       if (lock) {
-        toast(`${lockMessage(lock, selfActorId)}. You can edit it when that's finished.`)
+        toast(
+          t('canvas.lockedByFinished', '{{name}}. You can edit it when that’s finished.', { ns: 'editor', name: lockMessage(lock, selfActorId) }),
+        )
         return
       }
       const resolved = resolveNote(item)
@@ -742,7 +744,9 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
         return
       }
       if (empty) {
-        toast('A note needs some text. Type something, or press Delete after closing it to remove the note.')
+        toast(
+          t('canvas.noteNeedsText', 'A note needs some text. Type something, or press Delete after closing it to remove the note.', { ns: 'editor' }),
+        )
         return
       }
       const saved = model.elements[e.itemId]
@@ -1005,7 +1009,9 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
     }
     if (draftInput.active) {
       if (!canEdit) toast.error(blockedReason)
-      else if (active && !insideRect(active.rect, at)) toast(`Draw inside ${active.view.name}'s frame, or press Esc to finish editing the view.`)
+      else if (active && !insideRect(active.rect, at))
+        // The same sentence this function already keys below; one key, two sites.
+        toast(t('canvas.drawInsideFrame', 'Draw inside {{name}}’s frame, or press Esc to finish editing the view.', { ns: 'editor', name: active.view.name }))
       else {
         e.preventDefault()
         draftInput.down(at)
@@ -1060,7 +1066,13 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
       const away = Math.hypot(at.x - hit.at.x, at.y - hit.at.y) > 6
       const head = away ? at : { x: hit.at.x + 6, y: hit.at.y - 4 }
       const id = newId('tag')
-      if (send(keynoteCommand({ elementId: hit.elementId, key, ownerId, itemId: id, head: toStored(head), leader: true }), `keynote ${key}`)) setSelection({ kind: 'item', id })
+      if (
+        send(
+          keynoteCommand({ elementId: hit.elementId, key, ownerId, itemId: id, head: toStored(head), leader: true }, t),
+          t('keynote.undo.giveKey', 'give the keynote {key}', { ns: 'editor', key }),
+        )
+      )
+        setSelection({ kind: 'item', id })
       return
     }
     // A press with a drawing tool starts a drag on the drawing, never a text selection: text already selected on
@@ -1139,7 +1151,22 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
       if (!item) return
       const command = gripCommand({ model, view: annotatedView, item, grip: d.grip, to: d.to, snap: d.grip.kind === 'dim-point' ? nearestSnap(snaps, d.to, snapReach) : null, toPaper: toPaperPoint, toStored, items, ownerId, idPrefix: newId('grip'), t })
       if (typeof command === 'string') toast(command)
-      else if (command) send(command, d.grip.kind === 'frame-corner' ? `resize ${item.figure?.kind === 'image' ? 'picture' : 'chart'}` : d.grip.kind === 'tag-head' ? 'move the tag' : d.grip.kind.startsWith('leader') ? 'move the leader' : d.grip.kind === 'detail-end' ? 'drag the end' : 'change the dimension')
+      else if (command)
+        send(
+          command,
+          d.grip.kind === 'frame-corner'
+            ? t('figure.undo.resize', 'resize {{what}}', {
+                ns: 'editor',
+                what: item.figure?.kind === 'image' ? t('figure.pictureLower', 'picture', { ns: 'editor' }) : t('figure.chartLower', 'chart', { ns: 'editor' }),
+              })
+            : d.grip.kind === 'tag-head'
+              ? t('tag.moveTheTag', 'move the tag', { ns: 'editor' })
+              : d.grip.kind.startsWith('leader')
+                ? t('note.undo.moveLeader', 'move the leader', { ns: 'editor' })
+                : d.grip.kind === 'detail-end'
+                  ? t('grip.undo.dragEnd', 'drag the end', { ns: 'editor' })
+                  : t('canvas.undo.changeDimension', 'change the dimension', { ns: 'editor' }),
+        )
       return
     }
     if (d.kind === 'boundary-vertex') {
@@ -1273,7 +1300,13 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
     const id = newId('vp')
     if (send({ type: 'place_viewport', viewportId: id, sheetId: target.sheetId, viewId, center: at }, `place ${view.name}`)) {
       setSelection({ kind: 'viewport', id })
-      toast.success(`${view.name} placed at ${scaleLabel(view.props?.scale ?? 48)}. Double-click it to edit the view on the sheet.`)
+      toast.success(
+        t('canvas.placedAt', '{{name}} placed at {{scale}}. Double-click it to edit the view on the sheet.', {
+          ns: 'editor',
+          name: view.name,
+          scale: scaleLabel(view.props?.scale ?? 48),
+        }),
+      )
     }
   }
 
@@ -1489,7 +1522,12 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
             </Tooltip>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" aria-label={`Zoom ${zoomControl.percent}%`} data-testid="drawing-zoom">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label={t('canvas.zoomAria', 'Zoom {{percent}}%', { ns: 'editor', percent: zoomControl.percent })}
+                  data-testid="drawing-zoom"
+                >
                   {zoomControl.percent}%
                   <ChevronDown data-icon="inline-end" />
                 </Button>
@@ -2040,7 +2078,14 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
               setTool('select')
               draft.setPending({ kind: 'leader', noteId: selectedItem.id, elbow })
             }}
-            onLeaders={(leaders) => send({ type: 'move_text_note', itemId: selectedItem.id, leaders }, leaders.length === 0 ? 'remove the leaders' : 'change the leaders')}
+            onLeaders={(leaders) =>
+              send(
+                { type: 'move_text_note', itemId: selectedItem.id, leaders },
+                leaders.length === 0
+                  ? t('note.undo.removeLeaders', 'remove the leaders', { ns: 'editor' })
+                  : t('note.undo.changeLeaders', 'change the leaders', { ns: 'editor' }),
+              )
+            }
             onDelete={() => {
               if (send({ type: 'delete_drawing_item', itemId: selectedItem.id }, 'delete')) setSelection(null)
             }}

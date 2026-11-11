@@ -257,12 +257,12 @@ export function useDraftInput(ctx: DraftInputContext): DraftInput {
     // A double-click lands two clicks on the same spot; keep one.
     const pts = clicks.filter((c, i) => i === 0 || Math.hypot(c.at.x - (clicks[i - 1]?.at.x ?? 0), c.at.y - (clicks[i - 1]?.at.y ?? 0)) > 0.2)
     if (pts.length < need.min) {
-      ctx.onRefused(`Click at least ${need.min} points, then Enter.`)
+      ctx.onRefused(t('draft.need.atLeastPoints', 'Click at least {{n}} points, then Enter.', { ns: 'editor', n: need.min }))
       return true
     }
     commitShape(pts)
     return true
-  }, [shapeTool, settings, clicks, ctx, commitShape])
+  }, [shapeTool, settings, clicks, ctx, commitShape, t])
 
   const cancel = useCallback(() => {
     if (clicks.length > 0) {

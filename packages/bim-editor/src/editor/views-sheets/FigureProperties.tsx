@@ -46,11 +46,18 @@ export function FigureProperties({ item, canEdit, blockedReason, images, send, o
   if (!frame || !figure) return null
   const w = frame.max.x - frame.min.x
   const h = frame.max.y - frame.min.y
-  const resize = (nw: number, nh: number) => send({ type: 'update_drawing_item', itemId: item.id, points: [frame.min, { x: Math.round((frame.min.x + nw) * 10) / 10, y: Math.round((frame.min.y + nh) * 10) / 10 }] }, `resize ${figure.kind === 'image' ? 'picture' : 'chart'}`)
+  const resize = (nw: number, nh: number) =>
+    send(
+      { type: 'update_drawing_item', itemId: item.id, points: [frame.min, { x: Math.round((frame.min.x + nw) * 10) / 10, y: Math.round((frame.min.y + nh) * 10) / 10 }] },
+      t('figure.undo.resize', 'resize {{what}}', {
+        ns: 'editor',
+        what: figure.kind === 'image' ? t('figure.pictureLower', 'picture', { ns: 'editor' }) : t('figure.chartLower', 'chart', { ns: 'editor' }),
+      }),
+    )
   const replace = async (file: File | undefined) => {
     if (!file || !images) return
     if (!isMime(file.type)) {
-      setError(`${file.name} is not a PNG or JPEG picture; sheets print those two.`)
+      setError(t('figure.notAPicture', '{{name}} is not a PNG or JPEG picture; sheets print those two.', { ns: 'editor', name: file.name }))
       return
     }
     setBusy(true)

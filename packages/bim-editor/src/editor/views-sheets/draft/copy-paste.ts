@@ -112,7 +112,7 @@ export function pasteNear(
   const what = n === 1 ? t('copy.onePart', '1 part', { ns: 'editor' }) : t('copy.someParts', '{{n}} parts', { ns: 'editor', n })
   return {
     command,
-    label: `paste ${what}`,
+    label: t('copy.undo.paste', 'paste {{what}}', { ns: 'editor', what }),
     hint: at
       ? t('copy.pastedUnderPointer', 'Pasted {{what}} under the pointer. Undo takes them back.', { ns: 'editor', what })
       : t(
@@ -124,8 +124,11 @@ export function pasteNear(
 }
 
 /** Why Paste is off, or null when there is something to paste. */
-export function pasteBlocked(clip: PartClip | null, editBlocked: string | null): string | null {
-  return editBlocked ?? (clip ? null : 'Nothing copied yet: select devices or equipment and press Ctrl+C (⌘C on a Mac).')
+export function pasteBlocked(clip: PartClip | null, editBlocked: string | null, t: Translate = englishOnly): string | null {
+  return (
+    editBlocked ??
+    (clip ? null : t('copy.nothingCopiedYet', 'Nothing copied yet: select devices or equipment and press Ctrl+C (⌘C on a Mac).', { ns: 'editor' }))
+  )
 }
 
 /** True when a key press belongs to a text field, so Ctrl+C / Ctrl+V there copy text, not parts. */

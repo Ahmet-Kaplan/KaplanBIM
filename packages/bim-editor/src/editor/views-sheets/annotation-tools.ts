@@ -42,18 +42,47 @@ function anchorsFor(kind: string): readonly AnchorName[] {
   return ['insertion']
 }
 
-const ANCHOR_WORDS: Record<AnchorName, string> = { start: 'end', end: 'end', mid: 'middle', center: 'centre', insertion: 'insertion point', edge_left: 'edge', edge_right: 'edge' }
+/** What part of an element a dimension point holds on to, in the language on screen. */
+function anchorWord(anchor: AnchorName, t: Translate): string {
+  switch (anchor) {
+    case 'start':
+    case 'end':
+      return t('dimension.anchor.end', 'end', { ns: 'editor' })
+    case 'mid':
+      return t('dimension.anchor.middle', 'middle', { ns: 'editor' })
+    case 'center':
+      return t('dimension.anchor.centre', 'centre', { ns: 'editor' })
+    case 'insertion':
+      return t('dimension.anchor.insertion', 'insertion point', { ns: 'editor' })
+    case 'edge_left':
+    case 'edge_right':
+      return t('dimension.anchor.edge', 'edge', { ns: 'editor' })
+  }
+}
 
 /** Every point a dimension can follow in this drawing. */
-export function snapPoints(model: ModelState, view: ViewElement, items: readonly DrawingItem[], toPaper: (p: Vec2) => Vec2): SnapPoint[] {
+export function snapPoints(
+  model: ModelState,
+  view: ViewElement,
+  items: readonly DrawingItem[],
+  toPaper: (p: Vec2) => Vec2,
+  t: Translate = englishOnly,
+): SnapPoint[] {
   const out: SnapPoint[] = []
   if (view.viewType === 'detail') {
     for (const item of items) {
       if (item.deleted || item.dim || item.tag || item.shape === 'text') continue
-      item.points.forEach((p, index) => out.push({ ref: { elementId: item.id, anchor: 'start', index }, at: toPaper(p), label: `${item.shape} corner` }))
+      item.points.forEach((p, index) =>
+        out.push({
+          ref: { elementId: item.id, anchor: 'start', index },
+          at: toPaper(p),
+          label: t('dimension.snapCorner', '{{what}} corner', { ns: 'editor', what: item.shape }),
+        }),
+      )
       if (item.points.length === 2) {
         const mid = anchorInView(model, view, { elementId: item.id, anchor: 'mid' })
-        if (mid) out.push({ ref: { elementId: item.id, anchor: 'mid' }, at: toPaper(mid), label: `${item.shape} middle` })
+        if (mid)
+          out.push({ ref: { elementId: item.id, anchor: 'mid' }, at: toPaper(mid), label: t('dimension.snapMiddle', '{{what}} middle', { ns: 'editor', what: item.shape }) })
       }
     }
     return out
@@ -63,7 +92,12 @@ export function snapPoints(model: ModelState, view: ViewElement, items: readonly
     for (const anchor of anchorsFor(el.kind)) {
       if (anchor === 'insertion' && !TAGGABLE.has(el.kind) && el.kind !== 'column') continue
       const at = anchorInView(model, view, { elementId: el.id, anchor })
-      if (at) out.push({ ref: { elementId: el.id, anchor }, at: toPaper(at), label: `${el.kind.replace(/_/g, ' ')} ${ANCHOR_WORDS[anchor]}` })
+      if (at)
+        out.push({
+          ref: { elementId: el.id, anchor },
+          at: toPaper(at),
+          label: t('dimension.snapAnchor', '{{what}} {{where}}', { ns: 'editor', what: el.kind.replace(/_/g, ' '), where: anchorWord(anchor, t) }),
+        })
     }
   }
   return out

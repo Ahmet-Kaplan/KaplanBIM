@@ -129,7 +129,14 @@ export function PrintedPdfLayer({
       deadline = setTimeout(() => {
         if (cancelled || finished) return
         console.error('[PrintedPdfLayer] rendering the printed PDF timed out', { revision: scene.revision, timeoutMs: RENDER_TIMEOUT_MS })
-        setRendered({ kind: 'failed', scene, message: `It was still drawing after ${RENDER_TIMEOUT_MS / 1000} seconds. Reload the page to try again.` })
+        setRendered({
+          kind: 'failed',
+          scene,
+          message: t('printedPdf.stillDrawing', 'It was still drawing after {{n}} seconds. Reload the page to try again.', {
+            ns: 'editor',
+            n: RENDER_TIMEOUT_MS / 1000,
+          }),
+        })
       }, RENDER_TIMEOUT_MS)
       void (async () => {
         try {
