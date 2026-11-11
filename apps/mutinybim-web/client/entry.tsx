@@ -8,13 +8,14 @@ import { StrictMode, useCallback, useEffect, useRef, useState, type ReactNode } 
 import { createPortal } from 'react-dom'
 import { createRoot } from 'react-dom/client'
 import { Toaster } from 'sonner'
-import { Badge, Button, Card, CardDescription, CardTitle, MutinyThemeProvider, Spinner, Textarea, ThemeToggle, isMutinyColorScheme, useMutinyPortalContainer, type ColorSchemeAdapter, type MutinyColorScheme, type MutinyThemeOverrides } from '@permitzip/bim-ui'
+import { Badge, Button, Card, CardDescription, CardTitle, MutinyThemeProvider, Spinner, Textarea, ThemeToggle, isMutinyColorScheme, useMutinyPortalContainer, type ColorSchemeAdapter, type MutinyColorScheme, type MutinyLanguage, type MutinyThemeOverrides } from '@permitzip/bim-ui'
 import { EditorHostProvider } from '@permitzip/bim-editor/host'
 import { createLocalEditorHost, createLocalShellHost } from '@permitzip/bim-editor/host/local'
 import { PortalContainerProvider } from '@permitzip/bim-editor/ui/overlay-boundary'
 import { TooltipProvider } from '@permitzip/bim-editor/ui/tooltip'
 import { BuildingModelSurface, type BuildingModelView } from '@permitzip/bim-editor/editor/BuildingModelSurface'
 import { mutinyToShadcnVars } from '../../../packages/bim-editor/demo/theme'
+import { EditorLanguageProvider, editorPageLanguage } from './editor-language'
 import { AiError, ask, providerName, readAiSettings } from './ai'
 
 interface PageData {
@@ -28,6 +29,8 @@ interface PageData {
   /** Whose model it is, when it was shared with this person. */
   readonly owner: string | null
   readonly colorScheme: MutinyColorScheme
+  /** The language the server answered this page in (the cookie, then the account). */
+  readonly language: MutinyLanguage
 }
 
 function readPageData(): PageData {
@@ -51,6 +54,7 @@ function readPageData(): PageData {
     access,
     owner: typeof p.owner === 'string' ? p.owner : null,
     colorScheme: isMutinyColorScheme(p.colorScheme) ? p.colorScheme : 'system',
+    language: editorPageLanguage(p.language),
   }
 }
 
@@ -230,21 +234,47 @@ function Overlays({ children }: { children: ReactNode }) {
   return <PortalContainerProvider container={root}>{children}</PortalContainerProvider>
 }
 
+/**
+ * The editor page's tree, with the language in state.
+ *
+ * The page opens in the language the server answered in; a change made in the
+ * editor re-renders the whole tree in the new one and is saved in the account, so
+ * the next page (and the next browser) follows the person — the same shape the
+ * theme's `colorSchemeAdapter` has. Nothing here is translated yet beyond the
+ * editor's own words: the bar and its buttons are Stage 2's English.
+ */
+function HostedEditorPage() {
+  const [language, setLanguage] = useState<MutinyLanguage>(data.language)
+  const changeLanguage = useCallback((next: MutinyLanguage) => {
+    setLanguage(next)
+    void fetch('/settings/language', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ language: next }) })
+      .then((response) => {
+        if (!response.ok) console.error('[mutinybim-web] the language choice was not saved in the account', { status: response.status })
+      })
+      .catch((err: unknown) => console.error('[mutinybim-web] the language choice was not saved in the account', { err }))
+  }, [])
+  return (
+    <EditorLanguageProvider language={language} onLanguageChange={changeLanguage}>
+      <MutinyThemeProvider presentation="standalone" theme={THEME} hostVars={mutinyToShadcnVars} colorSchemeAdapter={schemeAdapter} initialColorScheme={data.colorScheme} applyToDocument className="flex h-dvh min-h-0 w-full flex-col overflow-hidden bg-(--mutiny-surface)" data-testid="mutiny-root">
+        <TooltipProvider>
+          <Overlays>
+            <HostedBar />
+            <EditorHostProvider host={host}>
+              <BuildingModelSurface projectId={data.modelId} projectName={data.modelName} projectNumber="" userId={data.userId} userName={data.displayName} initialView={initialView} />
+            </EditorHostProvider>
+          </Overlays>
+        </TooltipProvider>
+        <Toaster />
+      </MutinyThemeProvider>
+    </EditorLanguageProvider>
+  )
+}
+
 const mount = document.getElementById('app')
 if (!mount) throw new Error('[mutinybim-web] the page has no #app element')
 
 createRoot(mount).render(
   <StrictMode>
-    <MutinyThemeProvider presentation="standalone" theme={THEME} hostVars={mutinyToShadcnVars} colorSchemeAdapter={schemeAdapter} initialColorScheme={data.colorScheme} applyToDocument className="flex h-dvh min-h-0 w-full flex-col overflow-hidden bg-(--mutiny-surface)" data-testid="mutiny-root">
-      <TooltipProvider>
-        <Overlays>
-          <HostedBar />
-          <EditorHostProvider host={host}>
-            <BuildingModelSurface projectId={data.modelId} projectName={data.modelName} projectNumber="" userId={data.userId} userName={data.displayName} initialView={initialView} />
-          </EditorHostProvider>
-        </Overlays>
-      </TooltipProvider>
-      <Toaster />
-    </MutinyThemeProvider>
+    <HostedEditorPage />
   </StrictMode>,
 )

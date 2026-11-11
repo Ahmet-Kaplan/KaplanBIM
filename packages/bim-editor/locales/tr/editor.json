@@ -12,7 +12,9 @@
       "selection": "Seçim",
       "branch": "Dal",
       "route": "Güzergâh",
-      "quickAccess": "Hızlı erişim"
+      "quickAccess": "Hızlı erişim",
+      "ductRun": "Kanal hattı",
+      "pipeRun": "Boru hattı"
     },
     "group": {
       "select": "Seç",
@@ -49,7 +51,8 @@
       "edit": "Düzenle",
       "plan": "Plan",
       "schedules": "Çizelgeler",
-      "library": "Kitaplık"
+      "library": "Kitaplık",
+      "symbol": "Sembol"
     },
     "section": {
       "create": "Oluştur",
@@ -58,6 +61,10 @@
       "design": "Tasarım",
       "documents": "Belgeler"
     },
-    "moreTools": "{{name}} grubunda daha fazla araç"
+    "moreTools": "{{name}} grubunda daha fazla araç",
+    "command": {
+      "modelSettings": "Model ayarları"
+    },
+    "more": "Daha fazla"
   }
 }

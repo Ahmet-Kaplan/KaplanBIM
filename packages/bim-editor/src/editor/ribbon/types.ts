@@ -85,8 +85,18 @@ export function splitGroup(commands: readonly RibbonCommand[]): { visible: reado
  * reads "More build tools"), translated in the ribbon, where the translator is
  * (`Ribbon.tsx`, `ribbon.moreTools`).
  */
-export function groupOwnWord(groupLabel: string): string {
-  return (groupLabel.split(' · ').pop() ?? groupLabel).toLowerCase()
+export function groupOwnWord(groupLabel: string, language?: string): string {
+  return (groupLabel.split(' · ').pop() ?? groupLabel).toLocaleLowerCase(localeOf(language))
+}
+
+/**
+ * The locale to lowercase a caption in. Not hardcoded to `tr`: the same control
+ * draws English captions ("Issue") in an English editor, and Turkish casing rules
+ * would turn those into "ıssue". Turkish text is lowercased as Turkish (`İ` → `i`,
+ * `I` → `ı`), everything else as English, which is the editor's other language.
+ */
+function localeOf(language: string | undefined): string {
+  return language !== undefined && language.toLowerCase().startsWith('tr') ? 'tr' : 'en'
 }
 
 /** The English the ribbon used to build itself: `More build tools`. The ribbon now says it in the host's language (`ribbon.moreTools`); this stays for callers outside the package. */

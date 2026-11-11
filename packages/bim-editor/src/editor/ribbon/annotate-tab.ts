@@ -206,7 +206,7 @@ export function annotateTab(ctx: BuildingModelRibbonContext, leading: RibbonGrou
       ? [
           {
             id: 'symbol',
-            label: 'Symbol',
+            label: t('ribbon.group.symbol', 'Symbol', { ns: 'editor' }),
             commands: [
               component(ctx, draft),
               drawingCommand(ctx, 'repeat', 'Repeating detail', Repeat, 'A component repeated along a line (threaded rod, flex duct, brick)', ['repeat', 'array along']),

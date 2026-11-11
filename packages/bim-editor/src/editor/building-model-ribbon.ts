@@ -721,7 +721,7 @@ export function buildingModelRibbon(ctx: BuildingModelRibbonContext): RibbonTab[
           ? [
               {
                 id: 'model-settings',
-                label: 'Model settings',
+                label: t('ribbon.command.modelSettings', 'Model settings', { ns: 'editor' }),
                 commands: [
                   { id: 'model-addons', label: 'Add-ons', icon: PackagePlus, description: 'Switch Preview add-ons (Structural, Civil) on or off for this model', keywords: ['add-on', 'structural', 'civil', 'preview', 'pack'], run: ctx.organization.openAddons, testId: 'ribbon-model-addons' },
                   ...(ctx.organization.openCodes ? [{ id: 'model-codes', label: 'Codes', icon: BookOpenCheck, description: "The project's code of record for each discipline, and where the project is; approvals say which code they were checked against", keywords: ['code', 'code of record', 'ibc', 'edition', 'jurisdiction', 'adoption', 'checked against'], run: ctx.organization.openCodes, testId: 'ribbon-model-codes' }] : []),
@@ -792,7 +792,7 @@ export function buildingModelRibbon(ctx: BuildingModelRibbonContext): RibbonTab[
   } else if (sel?.kind === 'run') {
     tabs.push({
       id: 'selection',
-      label: sel.domain === 'pipe' ? 'Pipe run' : 'Duct run',
+      label: sel.domain === 'pipe' ? t('ribbon.tab.pipeRun', 'Pipe run', { ns: 'editor' }) : t('ribbon.tab.ductRun', 'Duct run', { ns: 'editor' }),
       contextual: true,
       groups: [
         select,

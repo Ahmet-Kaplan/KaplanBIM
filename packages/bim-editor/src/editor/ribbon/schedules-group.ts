@@ -128,8 +128,10 @@ export function withScheduleGroups(tabs: readonly RibbonTab[], s: RibbonSchedule
     const commands = scheduleCommands(tab.id, start, s)
     // A trade's tab keeps them in its Documents section, first.
     if (isTradeTab(tab)) return withTradeSectionCommands(tab, 'documents', commands, true, t)
-    // An add-on tab that already names its own Schedules group keeps it: the pack wrote that caption, in English.
-    const existing = tab.groups.findIndex((g) => g.label === 'Schedules')
+    // Idempotent by the id this builder gives its own group. Matching on the caption
+    // `'Schedules'` was a trap: the moment a pack's tab translates that word (Stage 4)
+    // this would stop finding the group and append a second one beside it.
+    const existing = tab.groups.findIndex((g) => g.id === `${tab.id}-schedules`)
     if (existing >= 0) {
       const groups = tab.groups.map((g, i): RibbonGroup => (i === existing ? { ...g, commands: [...commands, ...g.commands] } : g))
       return { ...tab, groups }

@@ -270,6 +270,12 @@ Yukarıdaki listeler bağlayıcıydı ama eksikti: ribbon'un bazı sekme ve grup
 | Figures · open a sheet first | **Şekiller · önce bir pafta açın** | Cümle → kibar çoğul emir (§0.7) |
 | Issue · open a sheet to print it | **Yayın · yazdırmak için bir pafta açın** | Cümle → kibar çoğul emir (§0.7) |
 | More {{name}} tools (erişilebilir ad) | **{{name}} grubunda daha fazla araç** | `{{name}}` grubun kendi sözcüğüdür, küçük harfle gelir; çoğul eki almaz ("daha fazla araç") |
+| More (düğme yazısı) | **Daha fazla** | Yukarıdaki erişilebilir adla aynı düğmenin görünen yazısı; ikisi aynı dilde olur |
+| Symbol (grup) | **Sembol** | §2.4 *Symbol* = sembol; çizim açıkken Açıklama sekmesinde görünür |
+| Model settings (grup) | **Model ayarları** | §2.2 *Model settings* = model ayarları |
+| Duct run / Pipe run (bağlamsal sekme) | **Kanal hattı** / **Boru hattı** | §9/Ç9 *Run* = **hat**; §9/Ç17 *Duct* = kanal, *Pipe* = boru. Seçili hattın sekmesi |
+
+> **Not — aynı sözcük hem sekme hem grup:** §4'te **Plan** ve **Çizelgeler** *sekme* olarak listeleniyor; kodda ikisi de **grup** adıdır (`Model` sekmesinin yanında ticari sekmelerde Plan grubu, `Views`/`Yönet` altında Çizelgeler grubu). Türkçeleri aynı olduğu için çeviri değişmez; yalnızca hangi yapıda durdukları okuyanı yanıltmasın.
 
 ---
 

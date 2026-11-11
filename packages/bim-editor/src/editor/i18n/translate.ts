@@ -21,6 +21,7 @@
  */
 import { useMemo } from "react";
 import { useT } from "@permitzip/bim-ui";
+import { useTranslation } from "react-i18next";
 
 /** The namespace this package's Turkish lives in (`locales/tr/editor.json`). */
 export const EDITOR_NAMESPACE = "editor";
@@ -45,17 +46,46 @@ export const englishOnly: Translate = (_key, english) => english;
 /**
  * The editor's translator, bound to its own namespace.
  *
- * A translation that comes back empty is treated as missing: i18next answers `''`
- * for a key when the instance it reaches has nothing loaded (a host with no
- * `<I18nProvider>`), and a blank caption is worse than the English one.
+ * Two things it repairs on the way out, both consequences of the editor taking
+ * its instance from the host:
+ *
+ * - **No instance at all.** Without a `<I18nProvider>`, react-i18next hands back
+ *   its `notReadyT`, which returns the English second argument verbatim. That is
+ *   the right text but *not* interpolated, so `More {{name}} tools` would reach a
+ *   screen reader with a raw placeholder. `withValues` fills the holes here.
+ * - **An empty answer.** A key the instance knows nothing about can come back
+ *   `''`; a blank caption is worse than the English one.
  */
 export function useEditorTranslate(): Translate {
   const t = useT(EDITOR_NAMESPACE);
   return useMemo<Translate>(
     () => (key, english, values) => {
       const translated = values === undefined ? t(key, english) : t(key, english, values);
-      return typeof translated === "string" && translated !== "" ? translated : english;
+      return withValues(typeof translated === "string" && translated !== "" ? translated : english, values);
     },
     [t],
   );
+}
+
+/**
+ * The language the editor is being drawn in (`tr`, `en`, or `undefined` when the
+ * host gave no instance), for the few words whose spelling depends on it — a
+ * caption lowercased into a sentence, where Turkish `İ`/`I` differ from English.
+ */
+export function useEditorLanguage(): string | undefined {
+  const { i18n } = useTranslation(EDITOR_NAMESPACE);
+  return i18n?.resolvedLanguage ?? i18n?.language;
+}
+
+/**
+ * `{{name}}` filled from `values`, for text that reached us un-interpolated.
+ * Anything we were not given a value for is left exactly as it is, so a broken
+ * placeholder is still visible in review rather than silently emptied.
+ */
+function withValues(text: string, values: TranslateValues | undefined): string {
+  if (values === undefined || !text.includes("{{")) return text;
+  return text.replace(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/gu, (placeholder: string, name: string) => {
+    const value = name === "ns" ? undefined : values[name];
+    return value === undefined ? placeholder : String(value);
+  });
 }
