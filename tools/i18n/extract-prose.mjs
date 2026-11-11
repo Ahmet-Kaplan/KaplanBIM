@@ -26,11 +26,17 @@
 //
 // **Two blind spots, measured, not fixed here** (task 3.4 report, round 4):
 //
-//   1. `refuse(code, message, ids)` is read; the per-file helpers are not. The kernel's
-//      `fail(message, ids, code)` (166 call sites; `annotation/text-note-commands.ts`,
-//      `commands/views.ts`, `commands/view3d.ts`) puts the sentence *first* and the code
-//      last, so none of them is in the catalogue — including both pinned-sheet-item
-//      refusals and the "has no free N-pole space left" one.
+//   1. **The per-file helpers are not read.** This tool knows the engine's
+//      `refuse(code, message, ids)`; a file that wraps it for itself is invisible. The shapes
+//      found so far, all with the sentence elsewhere in the argument list:
+//        • `fail(message, ids, code)` — `annotation/text-note-commands.ts`,
+//          `commands/views.ts:700`, `commands/view3d.ts` (166 call sites);
+//        • `refusal(message, ids, code)` — `commands/views.ts:1725`, used for `in_use` at
+//          `:1704`;
+//        • and whatever the next file invents, which is why this is a rule and not a list.
+//      Lost with them: both pinned-sheet-item refusals (`commands/views.ts:1518,1595`), the
+//      "has no free N-pole space left" one (`connections/commands.ts:253`), and every real
+//      sheet family (`commands/views.ts:1390,1704`).
 //   2. A template literal nested inside `${…}` ends the literal early: `` `${a} x ${b ? `c` : ""}` ``.
 //      Two `refuse("in_use", …)` sites are lost that way (`connections/commands.ts:253`,
 //      `catalog/commands.ts:145`).
@@ -39,6 +45,7 @@
 // **143 further templates, 89 of them matchable** — i.e. 89 sentences that would need Turkish
 // before the numbers could claim them. So the gap is a task of its own (report, deferral
 // list); until then the counts this tool prints are "measured", not "all".
+
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";

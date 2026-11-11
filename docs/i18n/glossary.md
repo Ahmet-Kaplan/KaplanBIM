@@ -523,11 +523,12 @@ cümlelerdir ve **gönderilen metindir** — sözlük gerçeğe uymak zorundadı
 >    sürebilir; aksi hâlde cümle **seçenek sunmak** zorundadır (`ya da` / `veya` /
 >    `or`).
 >
-> `in_use` bunun örneğidir: **ölçülen 19** cümlesi kilit, varsayılan grup/faz, "en az
-> bir faz filtresi" kuralı, paylaşılan devre, yük noktası, paftaya yerleşmiş öğe,
-> yayılmış parçalar ve bir görünümün faz/filtre kullanımı hakkındadır — nedeni tek
-> değildir, çaresi de. Bu yüzden gönderilen cümle nedeni **seçenek olarak** sayar ve
-> **hiçbir çare adı vermez**: ekranın yapamayacağı bir adım önermek, yanlış nedeni
+> `in_use` bunun örneğidir: **ölçülen 19** cümlesi üç kilit cümlesi, varsayılan grup,
+> varsayılan faz, iki "en az bir" kuralı (faz, faz filtresi), üç devre cümlesi, iki yük
+> noktası cümlesi, **başka bir bağlantı üzerinde** duran bir eleman, iki "yayılmış"
+> metraj cümlesi, üç "başka bir filtre/faz/stil verin" cümlesi ve bir "fazda oluşturuldu
+> veya yıkıldı" cümlesi hakkındadır — nedeni tek değildir, çaresi de. Bu yüzden
+> gönderilen cümle nedeni **seçenek olarak** sayar ve **hiçbir çare adı vermez**: ekranın yapamayacağı bir adım önermek, yanlış nedeni
 > söylemekten daha kötüdür. Tek nedenli bir kod (`locked`) tek nedenini söyleyebilir,
 > çünkü bütün cümleleri aynı nedenledir.
 >
@@ -540,13 +541,17 @@ cümlelerdir ve **gönderilen metindir** — sözlük gerçeğe uymak zorundadı
 > inceleyenin işidir.
 >
 > **Ölçüm sınırı.** "19" **ölçülen** sayıdır, cümlelerin tamamı değil:
-> `tools/i18n/extract-prose.mjs` şu iki şekli göremiyor — `fail(cümle, ids, kod)`
-> yardımcıları (`annotation/text-note-commands.ts`, `commands/views.ts`,
-> `commands/view3d.ts`) ve `${…}` içine yuvalanmış şablon dizeleri. Bu yüzden
-> sabitlenmiş pafta öğesi ve dolu pano aileleri `in_use` koduna ulaşır ama ölçülen
-> 19'un içinde **değildir**; gönderilen cümle onları **tasarım gereği** kapsar
-> ("sabitlenmiş" ve "başka bir yerde kullanımda" bu yüzden var). Aile listesine yeni bir
-> cümle eklerken önce bu boşluğu kapatın (rapor, erteleme listesi).
+> `tools/i18n/extract-prose.mjs` yalnızca motorun `refuse(kod, cümle, ids)` çağrısını
+> okuyor. Dosyaların kendi sarmalayıcıları görünmüyor — bugüne kadar bulunanlar
+> `fail(cümle, ids, kod)` (`annotation/text-note-commands.ts`, `commands/views.ts:700`,
+> `commands/view3d.ts`) ve `refusal(cümle, ids, kod)` (`commands/views.ts:1725`); bir
+> sonraki dosyanın uyduracağı şekil de aynı kurala girer. `${…}` içine yuvalanmış şablon
+> dizeleri de kayıp. Bu yüzden **üç aile** `in_use` koduna ulaşır ama ölçülen 19'un
+> içinde **değildir**: sabitlenmiş pafta öğesi (`commands/views.ts:1518,1595`), dolu pano
+> (`connections/commands.ts:253`) ve bütün gerçek pafta aileleri
+> (`commands/views.ts:1390,1704`). Gönderilen cümle onları **tasarım gereği** kapsar
+> ("kilitli, sabitlenmiş ya da başka bir yerde kullanımda" bu yüzden var). Aile listesine
+> yeni bir cümle eklerken önce bu boşluğu kapatın (rapor, erteleme listesi).
 >
 > **Bilinen sınır:** bu iki liste elle yazılmıştır; test, listede olmayan bir neden
 > kelimesini göremez. Bir koda yeni bir cümle ailesi eklenirse listeye o ailenin
