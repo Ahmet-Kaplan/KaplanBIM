@@ -743,6 +743,38 @@ ayarlar, parça listesi, IFC içe/dışa aktarma) çevrilirken bunlar gerekti. Y
 > ve `editorSourceCaptions()` onu göremez) ve `i18n-plumbing.test.tsx` bunu
 > tabloyla **karakter karakter** karşılaştırır.
 
+### 5.8 Aşama 4, Task 4.6: sorular ağacı sözcükleri (2026-11-10)
+
+`packages/bim-editor/src/editor/questions` çevrilirken bunlar gerekti. Yukarıda
+**zaten** karara bağlı olanlar tekrar yazılmadı (`Panel`, `Pafta`, `Kat`,
+`Mekan`, `Tip`, `İşaret`, `Açıklama`, `Dal`, `Pano`).
+
+| EN | TR | Not |
+|----|----|-----|
+| Question (the record) | **soru** | §6; panel başlığı `panel.questions` = **Sorular** |
+| Answer (the record) / to answer | **yanıt** / **yanıtla** | Yanıt bir kayıttır; *cevap* kullanılmaz |
+| Assumption / to go ahead on one | **varsayım** / **varsayım üzerinden devam et** | |
+| Open / Closed | **açık** / **kapalı** | §8 durum sözcüğü; *kapatıldı* bir eylem, durum *kapalı* |
+| Asked of / Asked by / Carried by | **kime soruldu / kim sordu / kim taşıyor** | *Soran* = asker, *taşıyan* = owner (§9/Ç20: *sahip* yalnız modelin sahibi) |
+| Ask again / Withdraw | **yeniden sor** / **geri çek** | Geri çekmek geçmişi korur, silmek korumaz |
+| Decline / Not in scope | **yanıtlamayı reddet** / **kapsam dışı** | İkisi de *decline_question* yazar; sözcükleri ayrı kalır |
+| Holds the issue | **işi durdurur** | Bir soru paftaların yayınını durdurur; *engeller* değil |
+| Needed by | **son tarih** | Tarih zorunlu değildir: "kimse yanıtlamak zorunda değil" |
+| Reply / Thread / Conversation | **yanıt yaz** / **konuşma** | *Konu* bir başlık; sorunun altındaki kayıtlar bir **konuşma** |
+| Take over / Forward | **devral** / **ilet** | Devralan kişi soruyu **taşır** |
+| Clarify / Record a decision / Revise the design | **açıklığa kavuştur / karar kaydet / tasarımı revize et** | §6 *decision* = karar; §3 *revise* = revize et |
+| Outcome: Clarification / Decision recorded / Design revision / Branch opened | **Açıklama / Karar kaydedildi / Tasarım revizyonu / Dal açıldı** | Kernel'in `QUESTION_OUTCOME_POINT` satırları; İngilizce etiket veridir |
+| Pin (on the plan) | **iğne** | *Sabitlenmiş* durumdur, *iğne* nesnedir (§8) |
+| Read-only reader / Stop sharing | **salt okunur okuyucu / paylaşmayı durdur** | §8 *Salt okunur* |
+| Link (record) / to link | **bağ** / **bağla** | *Bağlantı* bir oturumdur (§4.3); proje kaydına giden **bağ** |
+
+> **Kernel'in durum ve olay sözcükleri bu ağaçta erişimciyle okunur.** `STATUS_ACT`
+> ve `eventWords` (`src/contracts/bim/questions/thread-words.ts`) proje dışındaki
+> okuyucuya **saklanan** kopyanın sözcükleridir ve İngilizce kalır; ekranın sözcüğü
+> `thread-rows.ts` içindeki `statusAct`, `eventLine` ve `outcomeWord`
+> erişimcilerinden gelir. `i18n-questions.test.tsx` her erişimcinin İngilizcesini
+> kernel'in tablosuyla **karakter karakter** karşılaştırır.
+
 ---
 
 ## 6. Maliyet ve ticari terimler

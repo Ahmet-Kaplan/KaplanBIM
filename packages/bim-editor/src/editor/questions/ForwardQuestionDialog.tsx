@@ -11,6 +11,7 @@ import { useEditorHost } from '@permitzip/bim-editor/host'
 import { fetchForwardCandidatesFrom } from '../../contracts/bim/questions/readers'
 import type { ForwardCandidate } from '../../contracts/bim/questions/contract'
 import { ProjectPersonPicker, type PeopleState } from './ProjectPersonPicker'
+import { useEditorTranslate } from '../i18n/translate'
 
 /** Where the question goes: a person picked from the project, or a company outside it (by name, with their person's email to share the thread). */
 export type ForwardTarget = { readonly kind: 'person'; readonly person: ForwardCandidate } | { readonly kind: 'outside'; readonly company: string; readonly email: string | null }
@@ -42,6 +43,7 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
  * goes in a reply, where everyone reads it.
  */
 export function ForwardQuestionDialog({ open, onClose, number, askOfLabel, projectId, onForward }: ForwardQuestionDialogProps) {
+  const t = useEditorTranslate()
   const questions = useEditorHost().data.questions
   const [where, setWhere] = useState<'person' | 'outside'>(projectId ? 'person' : 'outside')
   const [people, setPeople] = useState<PeopleState>({ kind: 'loading' })
@@ -56,9 +58,9 @@ export function ForwardQuestionDialog({ open, onClose, number, askOfLabel, proje
       .then((list) => setPeople({ kind: 'ready', people: list }))
       .catch((err: unknown) => {
         console.error('[ForwardQuestionDialog] loading the project people failed', err)
-        setPeople({ kind: 'error', message: err instanceof Error ? err.message : "The project's people didn't load." })
+        setPeople({ kind: 'error', message: err instanceof Error ? err.message : t('questions.peopleDidntLoad', "The project's people didn't load.", { ns: 'editor' }) })
       })
-  }, [questions, projectId])
+  }, [questions, projectId, t])
 
   useEffect(() => {
     if (open) fetchPeople()
@@ -86,11 +88,11 @@ export function ForwardQuestionDialog({ open, onClose, number, askOfLabel, proje
     where === 'person'
       ? picked
         ? null
-        : 'Pick the person to ask first.'
+        : t('questions.pickPersonFirst', 'Pick the person to ask first.', { ns: 'editor' })
       : company.trim() === ''
-        ? 'Name the company first.'
+        ? t('questions.nameCompanyFirst', 'Name the company first.', { ns: 'editor' })
         : emailBad
-          ? 'That email doesn’t look right (name@company.com).'
+          ? t('questions.badEmail', 'That email doesn’t look right (name@company.com).', { ns: 'editor' })
           : null
 
   const send = () => {
@@ -108,16 +110,16 @@ export function ForwardQuestionDialog({ open, onClose, number, askOfLabel, proje
     <Dialog open={open} onOpenChange={(next) => !next && close()}>
       <DialogContent data-testid="question-forward-dialog">
         <DialogHeader>
-          <DialogTitle>Forward {number}</DialogTitle>
-          <DialogDescription>{askOfLabel} keeps the conversation and still hears about it.</DialogDescription>
+          <DialogTitle>{t('questions.forwardTitle', 'Forward {{number}}', { ns: 'editor', number })}</DialogTitle>
+          <DialogDescription>{t('questions.forwardDescription', '{{who}} keeps the conversation and still hears about it.', { ns: 'editor', who: askOfLabel })}</DialogDescription>
         </DialogHeader>
         {projectId ? (
-          <ToggleGroup type="single" variant="outline" value={where} onValueChange={(v) => (v === 'person' || v === 'outside') && setWhere(v)} aria-label="Who to ask" data-testid="question-forward-where">
+          <ToggleGroup type="single" variant="outline" value={where} onValueChange={(v) => (v === 'person' || v === 'outside') && setWhere(v)} aria-label={t('questions.whoToAsk', 'Who to ask', { ns: 'editor' })} data-testid="question-forward-where">
             <ToggleGroupItem value="person" data-testid="question-forward-person">
-              Someone on the project
+              {t('questions.someoneOnProject', 'Someone on the project', { ns: 'editor' })}
             </ToggleGroupItem>
             <ToggleGroupItem value="outside" data-testid="question-forward-outside">
-              A company outside it
+              {t('questions.companyOutside', 'A company outside it', { ns: 'editor' })}
             </ToggleGroupItem>
           </ToggleGroup>
         ) : null}
@@ -126,13 +128,13 @@ export function ForwardQuestionDialog({ open, onClose, number, askOfLabel, proje
         ) : (
           <div className="flex flex-col gap-3">
             <Field>
-              <FieldLabel htmlFor="forward-company">Company</FieldLabel>
-              <Input id="forward-company" value={company} onChange={(e) => setCompany(e.target.value)} maxLength={60} placeholder="Acme Steel" data-testid="question-forward-to" />
+              <FieldLabel htmlFor="forward-company">{t('questions.company', 'Company', { ns: 'editor' })}</FieldLabel>
+              <Input id="forward-company" value={company} onChange={(e) => setCompany(e.target.value)} maxLength={60} placeholder={t('questions.placeholderCompany', 'Acme Steel', { ns: 'editor' })} data-testid="question-forward-to" />
             </Field>
             <Field>
-              <FieldLabel htmlFor="forward-email">Their person&apos;s email (optional)</FieldLabel>
-              <Input id="forward-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={320} placeholder="name@acme-steel.com" aria-invalid={emailBad} data-testid="question-forward-email" />
-              <FieldDescription>They can read this one conversation, read-only, once they sign in as a guest. Nothing else in the model.</FieldDescription>
+              <FieldLabel htmlFor="forward-email">{t('questions.theirPersonEmail', "Their person's email (optional)", { ns: 'editor' })}</FieldLabel>
+              <Input id="forward-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={320} placeholder={t('questions.placeholderEmail', 'name@acme-steel.com', { ns: 'editor' })} aria-invalid={emailBad} data-testid="question-forward-email" />
+              <FieldDescription>{t('questions.outsideHint', 'They can read this one conversation, read-only, once they sign in as a guest. Nothing else in the model.', { ns: 'editor' })}</FieldDescription>
             </Field>
           </div>
         )}
@@ -143,11 +145,11 @@ export function ForwardQuestionDialog({ open, onClose, number, askOfLabel, proje
         ) : null}
         <DialogFooter>
           <Button variant="outline" onClick={close}>
-            Cancel
+            {t('questions.cancel', 'Cancel', { ns: 'editor' })}
           </Button>
           <Button onClick={send} disabled={why !== null} title={why ?? undefined} data-testid="question-forward-save">
             <Forward data-icon="inline-start" />
-            {where === 'person' && picked ? `Forward to ${picked.name}` : 'Forward'}
+            {where === 'person' && picked ? t('questions.forwardToName', 'Forward to {{name}}', { ns: 'editor', name: picked.name }) : t('questions.forward', 'Forward', { ns: 'editor' })}
           </Button>
         </DialogFooter>
         {why ? (

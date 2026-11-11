@@ -3,6 +3,7 @@
 import { useMemo } from 'react'
 import { modelToPaperPoint, viewModelLevel, type ElementId, type ModelState, type ViewOnPaper } from '@permitzip/bim-kernel'
 import { questionPinsOn, type QuestionPin } from '../../contracts/bim/questions/kernel'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
 
 /**
  * An open question pin wears the theme's provisional colour (the same one a
@@ -24,9 +25,20 @@ interface Props {
   readonly focusedQuestionId?: ElementId | null
 }
 
-function pinLabel(p: QuestionPin): string {
-  const state = p.status === 'open' ? (p.blocksIssue ? 'open, holds the issue' : 'open') : p.mayNoLongerHold ? 'answered, but the answer may no longer hold' : p.status
-  return `Question ${p.number}, ${state}. Open it in Coordination`
+/** What a pin says when it is hovered or read out: the number, and what stands of the question. */
+function pinLabel(p: QuestionPin, t: Translate): string {
+  const state = p.status === 'open'
+    ? p.blocksIssue
+      ? t('questions.pinOpenHoldsIssue', 'open, holds the issue', { ns: 'editor' })
+      : t('questions.pinOpen', 'open', { ns: 'editor' })
+    : p.mayNoLongerHold
+      ? t('questions.pinAnsweredMayNotHold', 'answered, but the answer may no longer hold', { ns: 'editor' })
+      : p.status === 'answered'
+        ? t('questions.pinAnswered', 'answered', { ns: 'editor' })
+        : p.status === 'assumed'
+          ? t('questions.pinAssumed', 'assumed', { ns: 'editor' })
+          : p.status
+  return t('questions.pinLabel', 'Question {{number}}, {{state}}. Open it in Coordination', { ns: 'editor', number: p.number, state })
 }
 
 /** Answered questions keep their pin with a tick, so the history stays where it happened. Declined, not in scope and withdrawn ones have no pin (they stay in the Questions list). */
@@ -38,6 +50,7 @@ const TICK_W = 1.8
  * open the question in Coordination › Questions.
  */
 export function QuestionPinsLayer({ model, view, onOpen, focusedQuestionId }: Props) {
+  const t = useEditorTranslate()
   const level = viewModelLevel(model, view.view.props?.level, view.view.props?.levelElevationMm)
   const pins = useMemo(() => (level ? questionPinsOn(model, level.id) : []), [model, level])
   if (!level || pins.length === 0) return null
@@ -55,7 +68,7 @@ export function QuestionPinsLayer({ model, view, onOpen, focusedQuestionId }: Pr
             key={p.questionId}
             role="button"
             tabIndex={0}
-            aria-label={pinLabel(p)}
+            aria-label={pinLabel(p, t)}
             className="cursor-pointer outline-none"
             onClick={(e) => {
               e.stopPropagation()
@@ -73,7 +86,7 @@ export function QuestionPinsLayer({ model, view, onOpen, focusedQuestionId }: Pr
             data-status={p.status}
             data-may-no-longer-hold={p.mayNoLongerHold ? 'true' : undefined}
           >
-            <title>{pinLabel(p)}</title>
+            <title>{pinLabel(p, t)}</title>
             <line x1={at.x} y1={at.y} x2={at.x + 2} y2={at.y - 3} stroke={colour} strokeWidth={0.25} />
             <rect x={at.x + 2} y={at.y - 5.2} width={w} height={3.2} rx={0.6} fill="var(--background)" stroke={colour} strokeWidth={focused ? 0.6 : 0.3} strokeDasharray={p.status === 'assumed' ? '0.8 0.4' : undefined} />
             {answered ? <path d={`M ${at.x + 2.6} ${at.y - 3.6} l 0.5 0.6 l 1 -1.3`} fill="none" stroke={p.mayNoLongerHold ? WARN : colour} strokeWidth={p.mayNoLongerHold ? 0.45 : 0.3} data-testid={p.mayNoLongerHold ? 'question-pin-warning' : 'question-pin-tick'} /> : null}

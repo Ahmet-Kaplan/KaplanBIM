@@ -12,7 +12,9 @@ import { Input } from '../../ui/input'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../ui/select'
 import { Textarea } from '../../ui/textarea'
 import { draftQuestionsEmail } from '../../contracts/bim/questions/draft-email'
-import { audienceLabel, audiencesWithQuestions } from './question-rows'
+import { audienceLabel } from './question-rows'
+import { audiencesWithQuestions } from './question-rows'
+import { useEditorTranslate } from '../i18n/translate'
 
 interface Props {
   readonly open: boolean
@@ -27,6 +29,7 @@ interface Props {
  * paste it; nothing is sent from here.
  */
 export function QuestionEmailDialog({ open, model, projectName, onClose }: Props) {
+  const t = useEditorTranslate()
   const parties = useMemo(() => audiencesWithQuestions(model), [model])
   const [picked, setPicked] = useState<string | null>(null)
   const [name, setName] = useState('')
@@ -37,10 +40,10 @@ export function QuestionEmailDialog({ open, model, projectName, onClose }: Props
     if (draft.status !== 'draft') return
     navigator.clipboard
       .writeText(`Subject: ${draft.subject}\n\n${draft.body}`)
-      .then(() => toast.success('Email copied. Paste it into a new message.'))
+      .then(() => toast.success(t('questions.emailCopied', 'Email copied. Paste it into a new message.', { ns: 'editor' })))
       .catch((err: unknown) => {
         console.error('[QuestionEmailDialog] copying the email failed', err)
-        toast.error('Couldn’t copy: your browser blocked the clipboard. Select the text and copy it instead.')
+        toast.error(t('questions.couldntCopy', 'Couldn’t copy: your browser blocked the clipboard. Select the text and copy it instead.', { ns: 'editor' }))
       })
   }
 
@@ -48,12 +51,12 @@ export function QuestionEmailDialog({ open, model, projectName, onClose }: Props
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="sm:max-w-xl" data-testid="questions-email-dialog">
         <DialogHeader>
-          <DialogTitle>Email the open questions</DialogTitle>
-          <DialogDescription>Only open questions and assumptions to confirm. Copy it into your email; nothing is sent from here.</DialogDescription>
+          <DialogTitle>{t('questions.emailTitle', 'Email the open questions', { ns: 'editor' })}</DialogTitle>
+          <DialogDescription>{t('questions.emailDescription', 'Only open questions and assumptions to confirm. Copy it into your email; nothing is sent from here.', { ns: 'editor' })}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-wrap gap-3">
           <Field className="min-w-40 flex-1">
-            <FieldLabel htmlFor="questions-email-to">To</FieldLabel>
+            <FieldLabel htmlFor="questions-email-to">{t('questions.emailTo', 'To', { ns: 'editor' })}</FieldLabel>
             <Select value={askOf} onValueChange={setPicked} disabled={parties.length === 0}>
               <SelectTrigger id="questions-email-to" data-testid="questions-email-to">
                 <SelectValue />
@@ -62,7 +65,7 @@ export function QuestionEmailDialog({ open, model, projectName, onClose }: Props
                 <SelectGroup>
                   {(parties.length > 0 ? parties : ['client']).map((p) => (
                     <SelectItem key={p} value={p}>
-                      {audienceLabel(p)}
+                      {audienceLabel(p, t)}
                     </SelectItem>
                   ))}
                 </SelectGroup>
@@ -70,15 +73,15 @@ export function QuestionEmailDialog({ open, model, projectName, onClose }: Props
             </Select>
           </Field>
           <Field className="min-w-40 flex-1">
-            <FieldLabel htmlFor="questions-email-name">Their name (optional)</FieldLabel>
-            <Input id="questions-email-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Dana" maxLength={80} />
+            <FieldLabel htmlFor="questions-email-name">{t('questions.theirName', 'Their name (optional)', { ns: 'editor' })}</FieldLabel>
+            <Input id="questions-email-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t('questions.placeholderName', 'Dana', { ns: 'editor' })} maxLength={80} />
           </Field>
         </div>
         {draft.status === 'draft' ? (
           <Field>
             <FieldLabel htmlFor="questions-email-body">{draft.subject}</FieldLabel>
             <Textarea id="questions-email-body" readOnly value={draft.body} className="min-h-64 font-mono text-xs" data-testid="questions-email-body" />
-            {draft.answeredByModel.length > 0 ? <FieldDescription>Left out because the model already answers them: {draft.answeredByModel.join('; ')}.</FieldDescription> : null}
+            {draft.answeredByModel.length > 0 ? <FieldDescription>{t('questions.leftOutModelAnswers', 'Left out because the model already answers them: {{answers}}.', { ns: 'editor', answers: draft.answeredByModel.join('; ') })}</FieldDescription> : null}
           </Field>
         ) : (
           <Alert data-testid="questions-email-empty">
@@ -87,11 +90,11 @@ export function QuestionEmailDialog({ open, model, projectName, onClose }: Props
         )}
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            Close
+            {t('questions.close', 'Close', { ns: 'editor' })}
           </Button>
           <Button onClick={copy} disabled={draft.status !== 'draft'} title={draft.status === 'draft' ? undefined : draft.message} data-testid="questions-email-copy">
             <Copy data-icon="inline-start" />
-            Copy email
+            {t('questions.copyEmail', 'Copy email', { ns: 'editor' })}
           </Button>
         </DialogFooter>
       </DialogContent>

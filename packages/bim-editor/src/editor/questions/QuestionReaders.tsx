@@ -10,10 +10,13 @@ import { useEditorHost } from '@permitzip/bim-editor/host'
 import { deleteThreadReaderFrom, fetchThreadReadersFrom, putSharedThreadCopyFrom } from '../../contracts/bim/questions/readers'
 import type { ThreadReader } from '../../contracts/bim/questions/contract'
 import { sharedThreadOf } from '../../contracts/bim/questions/shared-thread'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
 
 type State = { readonly kind: 'loading' } | { readonly kind: 'error'; readonly message: string } | { readonly kind: 'ready'; readonly readers: readonly ThreadReader[] }
 
-const REASON_WORDS: Readonly<Record<ThreadReader['reason'], string>> = { former_addressee: 'it was asked of them before', forwarded_outside: 'forwarded to their company' }
+/** Why a reader outside the project still reads this conversation, in words a person reads. */
+const reasonWords = (reason: ThreadReader['reason'], t: Translate): string =>
+  reason === 'former_addressee' ? t('questions.reasonFormerAddressee', 'it was asked of them before', { ns: 'editor' }) : t('questions.reasonForwardedOutside', 'forwarded to their company', { ns: 'editor' })
 
 /**
  * "Read-only for people outside the project": who keeps reading this one
@@ -22,6 +25,7 @@ const REASON_WORDS: Readonly<Record<ThreadReader['reason'], string>> = { former_
  * opened and whenever the conversation changes here. Nothing shows when it isn't shared.
  */
 export function QuestionReaders({ projectId, modelId, questionId, model, version, canEdit }: { readonly projectId: string; readonly modelId: string; readonly questionId: string; readonly model: ModelState; readonly version: number; readonly canEdit: boolean }) {
+  const t = useEditorTranslate()
   const questions = useEditorHost().data.questions
   const [state, setState] = useState<State>({ kind: 'loading' })
   const [stopping, setStopping] = useState<ThreadReader | null>(null)
@@ -32,9 +36,9 @@ export function QuestionReaders({ projectId, modelId, questionId, model, version
       .then((readers) => setState({ kind: 'ready', readers }))
       .catch((err: unknown) => {
         console.error('[QuestionReaders] loading who the conversation is shared with failed', err)
-        setState({ kind: 'error', message: err instanceof Error ? err.message : "Who this is shared with didn't load." })
+        setState({ kind: 'error', message: err instanceof Error ? err.message : t('questions.readersDidntLoad', "Who this is shared with didn't load.", { ns: 'editor' }) })
       })
-  }, [questions, projectId, modelId, questionId])
+  }, [questions, projectId, modelId, questionId, t])
 
   useEffect(() => {
     load()
@@ -52,9 +56,9 @@ export function QuestionReaders({ projectId, modelId, questionId, model, version
     sentKey.current = threadKey
     putSharedThreadCopyFrom(questions, projectId, { modelId, questionId, thread }).catch((err: unknown) => {
       console.error('[QuestionReaders] bringing the shared copy up to date failed', err)
-      setProblem(`Saved here, but the copy people outside the project read is behind: ${err instanceof Error ? err.message : 'try again later'}.`)
+      setProblem(t('questions.sharedCopyBehind', 'Saved here, but the copy people outside the project read is behind: {{error}}.', { ns: 'editor', error: err instanceof Error ? err.message : t('questions.tryAgainLater', 'try again later', { ns: 'editor' }) }))
     })
-  }, [questions, shared, thread, threadKey, canEdit, projectId, modelId, questionId])
+  }, [questions, shared, thread, threadKey, canEdit, projectId, modelId, questionId, t])
 
   if (state.kind === 'loading') return null
   if (state.kind === 'error')
@@ -63,15 +67,15 @@ export function QuestionReaders({ projectId, modelId, questionId, model, version
         {state.message}
         <Button size="sm" variant="ghost" onClick={load}>
           <RefreshCw data-icon="inline-start" />
-          Try again
+          {t('questions.tryAgain', 'Try again', { ns: 'editor' })}
         </Button>
       </p>
     )
   if (state.readers.length === 0) return null
 
   return (
-    <section className="flex flex-col gap-1" aria-label="Read-only for people outside the project" data-testid="question-readers">
-      <p className="text-xs font-medium text-muted-foreground">Read-only for people outside the project</p>
+    <section className="flex flex-col gap-1" aria-label={t('questions.readOnlyOutside', 'Read-only for people outside the project', { ns: 'editor' })} data-testid="question-readers">
+      <p className="text-xs font-medium text-muted-foreground">{t('questions.readOnlyOutside', 'Read-only for people outside the project', { ns: 'editor' })}</p>
       <ItemGroup className="gap-1">
         {state.readers.map((r) => (
           <Item key={r.id} size="xs" variant="muted" className="p-2" data-testid="question-reader">
@@ -81,12 +85,12 @@ export function QuestionReaders({ projectId, modelId, questionId, model, version
             <ItemContent className="min-w-0">
               <ItemTitle className="text-xs">{r.name}</ItemTitle>
               <ItemDescription className="text-xs">
-                This conversation only — {REASON_WORDS[r.reason]}. Shared by {r.sharedBy}.
+                {t('questions.thisConversationOnly', 'This conversation only — {{reason}}. Shared by {{who}}.', { ns: 'editor', reason: reasonWords(r.reason, t), who: r.sharedBy })}
               </ItemDescription>
             </ItemContent>
             <ItemActions>
-              <Button size="sm" variant="ghost" onClick={() => setStopping(r)} disabled={!canEdit} title={canEdit ? `${r.name} can no longer read it` : 'Only someone who works on this project’s questions can stop sharing.'} data-testid="question-reader-stop">
-                Stop sharing
+              <Button size="sm" variant="ghost" onClick={() => setStopping(r)} disabled={!canEdit} title={canEdit ? t('questions.canNoLongerRead', '{{who}} can no longer read it', { ns: 'editor', who: r.name }) : t('questions.onlyQuestionWorkers', 'Only someone who works on this project’s questions can stop sharing.', { ns: 'editor' })} data-testid="question-reader-stop">
+                {t('questions.stopSharing', 'Stop sharing', { ns: 'editor' })}
               </Button>
             </ItemActions>
           </Item>
@@ -100,11 +104,11 @@ export function QuestionReaders({ projectId, modelId, questionId, model, version
       <AlertDialog open={stopping !== null} onOpenChange={(next) => !next && setStopping(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Stop sharing with {stopping?.name}?</AlertDialogTitle>
-            <AlertDialogDescription>They will no longer be able to read this conversation. You can share it again by forwarding it to them.</AlertDialogDescription>
+            <AlertDialogTitle>{t('questions.stopSharingTitle', 'Stop sharing with {{who}}?', { ns: 'editor', who: stopping?.name ?? '' })}</AlertDialogTitle>
+            <AlertDialogDescription>{t('questions.stopSharingDescription', 'They will no longer be able to read this conversation. You can share it again by forwarding it to them.', { ns: 'editor' })}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep sharing</AlertDialogCancel>
+            <AlertDialogCancel>{t('questions.keepSharing', 'Keep sharing', { ns: 'editor' })}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 const r = stopping
@@ -114,12 +118,12 @@ export function QuestionReaders({ projectId, modelId, questionId, model, version
                   .then(load)
                   .catch((err: unknown) => {
                     console.error('[QuestionReaders] stopping sharing failed', err)
-                    setProblem(err instanceof Error ? err.message : "Sharing didn't stop. Try again.")
+                    setProblem(err instanceof Error ? err.message : t('questions.sharingDidntStop', "Sharing didn't stop. Try again.", { ns: 'editor' }))
                   })
               }}
               data-testid="question-reader-stop-confirm"
             >
-              Stop sharing
+              {t('questions.stopSharing', 'Stop sharing', { ns: 'editor' })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

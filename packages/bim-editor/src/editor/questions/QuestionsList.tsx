@@ -79,15 +79,15 @@ export function QuestionsList({ model, error, onRetry, projectName, canEdit, blo
   const [notice, setNotice] = useState<string | null>(null)
   const listRef = useRef<HTMLDivElement | null>(null)
 
-  const rows = useMemo(() => (model ? questionRows(model, filter) : []), [model, filter])
-  const openCount = useMemo(() => (model ? questionRows(model, 'open').filter((r) => r.status === 'open').length : 0), [model])
+  const rows = useMemo(() => (model ? questionRows(model, filter, t) : []), [model, filter, t])
+  const openCount = useMemo(() => (model ? questionRows(model, 'open', t).filter((r) => r.status === 'open').length : 0), [model, t])
 
   // A new pin click: open its row (showing all when it isn't open), adjusted during render rather than in an effect.
   const [seenFocus, setSeenFocus] = useState<QuestionsListProps['focusRequest']>(null)
   if (focusRequest && focusRequest !== seenFocus && model) {
     setSeenFocus(focusRequest)
     setOpenRow(focusRequest.questionId)
-    if (!questionRows(model, 'open').some((r) => r.id === focusRequest.questionId)) setFilter('all')
+    if (!questionRows(model, 'open', t).some((r) => r.id === focusRequest.questionId)) setFilter('all')
   }
 
   useEffect(() => {
@@ -109,7 +109,7 @@ export function QuestionsList({ model, error, onRetry, projectName, canEdit, blo
     const previousOwner = event === 'took_over' ? ownerOf(question) : undefined
     postQuestionNoticeFrom(questions, { projectId: notices.projectId, modelId: notices.modelId, question, event, excerpt, actorUserId: me.subject, hostProviderIds: hostProviderIds(hostIdentity), ...(previousOwner ? { previousOwner } : {}) }).catch((err: unknown) => {
       console.error('[QuestionsList] telling the asker failed (the act is saved)', err)
-      setNotice(`Saved, but the asker wasn't told: ${err instanceof Error ? err.message : 'try again later'}.`)
+      setNotice(t('questions.savedAskerNotTold', "Saved, but the asker wasn't told: {{error}}.", { ns: 'editor', error: err instanceof Error ? err.message : t('questions.tryAgainLater', 'try again later', { ns: 'editor' }) }))
     })
   }
 
@@ -136,22 +136,22 @@ export function QuestionsList({ model, error, onRetry, projectName, canEdit, blo
     }
     const failed = (what: string) => (err: unknown) => {
       console.error(`[QuestionsList] ${what} failed (the forward is saved)`, err)
-      setNotice(`Forwarded, but ${what}: ${err instanceof Error ? err.message : 'try again later'}.`)
+      setNotice(t('questions.forwardedBut', 'Forwarded, but {{what}}: {{error}}.', { ns: 'editor', what, error: err instanceof Error ? err.message : t('questions.tryAgainLater', 'try again later', { ns: 'editor' }) }))
     }
-    if (newUser) postQuestionNoticeFrom(questions, { projectId: notices.projectId, modelId: notices.modelId, question: after, event: 'forwarded_to_you', excerpt: '', actorUserId: me.subject, hostProviderIds: hostProviderIds(hostIdentity) }).catch(failed(`${label} wasn't told`))
-    postQuestionNoticeFrom(questions, { projectId: notices.projectId, modelId: notices.modelId, question: after, event: 'forwarded', excerpt: `Now asked of ${label}`, actorUserId: me.subject, hostProviderIds: hostProviderIds(hostIdentity) }).catch(failed('the others weren’t told'))
+    if (newUser) postQuestionNoticeFrom(questions, { projectId: notices.projectId, modelId: notices.modelId, question: after, event: 'forwarded_to_you', excerpt: '', actorUserId: me.subject, hostProviderIds: hostProviderIds(hostIdentity) }).catch(failed(t('questions.notTold', "{{who}} wasn't told", { ns: 'editor', who: label })))
+    postQuestionNoticeFrom(questions, { projectId: notices.projectId, modelId: notices.modelId, question: after, event: 'forwarded', excerpt: t('questions.nowAskedOf', 'Now asked of {{who}}', { ns: 'editor', who: label }), actorUserId: me.subject, hostProviderIds: hostProviderIds(hostIdentity) }).catch(failed(t('questions.othersNotTold', 'the others weren\u2019t told', { ns: 'editor' })))
     const thread = sharedThreadOf(model, questionId)
     if (!thread) return
     const shares: Promise<unknown>[] = []
     const formerUser = hostUserOf(question.askOfAuthor, hostProviderIds(hostIdentity))
     const formerOnProject = people ? people.some((p) => p.userId === formerUser) : false
     if (formerUser && formerUser !== me.subject && formerUser !== newUser && !formerOnProject)
-      shares.push(postThreadReaderFrom(questions, notices.projectId, { modelId: notices.modelId, questionId, reason: 'former_addressee', thread, readerUserId: formerUser }).catch(failed(`${question.askOf} couldn't keep reading it`)))
+      shares.push(postThreadReaderFrom(questions, notices.projectId, { modelId: notices.modelId, questionId, reason: 'former_addressee', thread, readerUserId: formerUser }).catch(failed(t('questions.couldntKeepReading', "{{who}} couldn't keep reading it", { ns: 'editor', who: question.askOf }))))
     if (target.kind === 'outside' && target.email)
       shares.push(
         postThreadReaderFrom(questions, notices.projectId, { modelId: notices.modelId, questionId, reason: 'forwarded_outside', thread, readerEmail: target.email })
-          .then((r) => setNotice(`Forwarded to ${target.company}. ${r.name} can read this conversation, read-only, once signed in as a guest.`))
-          .catch(failed(`it couldn't be shared with ${target.email}`)),
+          .then((r) => setNotice(t('questions.forwardedOutside', 'Forwarded to {{company}}. {{name}} can read this conversation, read-only, once signed in as a guest.', { ns: 'editor', company: target.company, name: r.name })))
+          .catch(failed(t('questions.couldntBeShared', "it couldn't be shared with {{email}}", { ns: 'editor', email: target.email }))),
       )
     if (shares.length > 0) void Promise.all(shares).then(() => setReadersVersion((v) => v + 1))
   }
@@ -162,19 +162,19 @@ export function QuestionsList({ model, error, onRetry, projectName, canEdit, blo
   }
 
   const editReason = canEdit ? null : blockedReason
-  const askReason = editReason ?? (selection.length === 0 ? 'Select what the question is about on the plan first.' : null)
+  const askReason = editReason ?? (selection.length === 0 ? t('questions.selectAboutFirst', 'Select what the question is about on the plan first.', { ns: 'editor' }) : null)
 
   if (error)
     return (
       <section className="flex flex-col gap-2" aria-label={t('panel.questions', 'Questions', { ns: 'editor' })} data-testid="questions-list">
         <Alert variant="destructive" data-testid="questions-error">
-          <AlertTitle>The questions didn’t load</AlertTitle>
+          <AlertTitle>{t('questions.didntLoad', 'The questions didn’t load', { ns: 'editor' })}</AlertTitle>
           <AlertDescription className="flex flex-col items-start gap-2">
             <span>{error}</span>
             {onRetry ? (
               <Button size="sm" variant="outline" onClick={onRetry}>
                 <RefreshCw data-icon="inline-start" />
-                Try again
+                {t('questions.tryAgain', 'Try again', { ns: 'editor' })}
               </Button>
             ) : null}
           </AlertDescription>
@@ -184,7 +184,7 @@ export function QuestionsList({ model, error, onRetry, projectName, canEdit, blo
   if (!model)
     return (
       <section className="flex flex-col gap-2" aria-label={t('panel.questions', 'Questions', { ns: 'editor' })} aria-busy="true" data-testid="questions-list">
-        <span className="sr-only">Loading the questions</span>
+        <span className="sr-only">{t('questions.loading', 'Loading the questions', { ns: 'editor' })}</span>
         <Skeleton className="h-8" />
         <Skeleton className="h-8" />
       </section>
@@ -195,25 +195,25 @@ export function QuestionsList({ model, error, onRetry, projectName, canEdit, blo
       <h3 className="flex items-center gap-2 text-sm font-medium">
         <CircleHelp className="size-4" /> {t('panel.questions', 'Questions', { ns: 'editor' })}
         <Badge variant={openCount > 0 ? 'default' : 'outline'} data-testid="questions-open-count">
-          {openCount} open
+          {t('questions.openCount', '{{n}} open', { ns: 'editor', n: openCount })}
         </Badge>
       </h3>
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" onClick={() => setAsking(true)} disabled={askReason !== null} title={askReason ?? `Ask about ${selectionLabel}`} data-testid="questions-ask">
+        <Button size="sm" onClick={() => setAsking(true)} disabled={askReason !== null} title={askReason ?? t('questions.askAbout', 'Ask about {{what}}', { ns: 'editor', what: selectionLabel })} data-testid="questions-ask">
           <MessageSquarePlus data-icon="inline-start" />
-          Ask about selection
+          {t('questions.askAboutSelection', 'Ask about selection', { ns: 'editor' })}
         </Button>
         <ToggleGroup type="single" size="sm" variant="outline" value={filter} onValueChange={(v) => (v === 'open' || v === 'all') && setFilter(v)} aria-label={t('panel.show', 'Show', { ns: 'editor' })}>
           <ToggleGroupItem value="open" data-testid="questions-filter-open">
-            Open
+            {t('questions.filterOpen', 'Open', { ns: 'editor' })}
           </ToggleGroupItem>
           <ToggleGroupItem value="all" data-testid="questions-filter-all">
-            All
+            {t('questions.filterAll', 'All', { ns: 'editor' })}
           </ToggleGroupItem>
         </ToggleGroup>
         <Button size="sm" variant="outline" className="ml-auto" onClick={() => setEmailing(true)} data-testid="questions-email">
           <Mail data-icon="inline-start" />
-          Draft email
+          {t('questions.draftEmail', 'Draft email', { ns: 'editor' })}
         </Button>
       </div>
       {editReason ? <p className="text-xs text-muted-foreground">{editReason}</p> : null}
@@ -229,8 +229,8 @@ export function QuestionsList({ model, error, onRetry, projectName, canEdit, blo
             <EmptyMedia variant="icon">
               <CircleHelp />
             </EmptyMedia>
-            <EmptyTitle>{filter === 'open' ? 'No open questions' : 'No questions yet'}</EmptyTitle>
-            <EmptyDescription>Select something on the plan, then Ask about selection. Questions marked to hold the issue stop the sheets that show them from going out until answered.</EmptyDescription>
+            <EmptyTitle>{filter === 'open' ? t('questions.noOpen', 'No open questions', { ns: 'editor' }) : t('questions.noQuestionsYet', 'No questions yet', { ns: 'editor' })}</EmptyTitle>
+            <EmptyDescription>{t('questions.emptyHint', 'Select something on the plan, then Ask about selection. Questions marked to hold the issue stop the sheets that show them from going out until answered.', { ns: 'editor' })}</EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (
@@ -243,31 +243,31 @@ export function QuestionsList({ model, error, onRetry, projectName, canEdit, blo
                   <ItemContent>
                     <ItemTitle className="flex flex-wrap items-center gap-2">
                       <span className="font-mono">{r.number}</span>
-                      <Badge variant={STATUS_VARIANT[r.status]}>{r.type === 'question' ? r.statusLabel : `${r.typeLabel}: ${r.statusLabel.toLowerCase()}`}</Badge>
-                      {r.blocksIssue && r.status === 'open' ? <Badge variant="destructive">Holds the issue</Badge> : null}
+                      <Badge variant={STATUS_VARIANT[r.status]}>{r.type === 'question' ? r.statusLabel : t('questions.typeStatus', '{{type}}: {{status}}', { ns: 'editor', type: r.typeLabel, status: r.statusLabel.toLowerCase() })}</Badge>
+                      {r.blocksIssue && r.status === 'open' ? <Badge variant="destructive">{t('questions.holdsTheIssue', 'Holds the issue', { ns: 'editor' })}</Badge> : null}
                     </ItemTitle>
                     <ItemDescription className="line-clamp-none text-foreground">{r.text}</ItemDescription>
                     <ItemDescription>
-                      For {r.askOfLabel}
-                      {r.about ? ` · ${r.about}` : ''}
-                      {r.closeBy ? ` · needed by ${r.closeBy}` : ''}
+                      {t('questions.for', 'For {{who}}', { ns: 'editor', who: r.askOfLabel })}
+                      {r.about ? t('questions.aboutDot', ' · {{what}}', { ns: 'editor', what: r.about }) : ''}
+                      {r.closeBy ? t('questions.neededByDot', ' · needed by {{when}}', { ns: 'editor', when: r.closeBy }) : ''}
                     </ItemDescription>
-                    {r.answer ? <ItemDescription>{r.status === 'assumed' ? 'Going ahead on: ' : 'Answer: '}{r.answer}</ItemDescription> : null}
-                    {r.modelAnswer ? <ItemDescription data-testid="questions-model-answer">The model already says: {r.modelAnswer}. It is left out of the email.</ItemDescription> : null}
-                    {r.anchorGone ? <ItemDescription className="text-danger-600">What it was pinned to was deleted.</ItemDescription> : null}
-                    {r.staleWords ? <ItemDescription className="text-warning-700" data-testid="questions-stale">{r.staleWords}. Nothing was reopened.</ItemDescription> : null}
+                    {r.answer ? <ItemDescription>{r.status === 'assumed' ? t('questions.goingAheadOn', 'Going ahead on: ', { ns: 'editor' }) : t('questions.answerPrefix', 'Answer: ', { ns: 'editor' })}{r.answer}</ItemDescription> : null}
+                    {r.modelAnswer ? <ItemDescription data-testid="questions-model-answer">{t('questions.modelAlreadySays', 'The model already says: {{answer}}. It is left out of the email.', { ns: 'editor', answer: r.modelAnswer })}</ItemDescription> : null}
+                    {r.anchorGone ? <ItemDescription className="text-danger-600">{t('questions.anchorGone', 'What it was pinned to was deleted.', { ns: 'editor' })}</ItemDescription> : null}
+                    {r.staleWords ? <ItemDescription className="text-warning-700" data-testid="questions-stale">{t('questions.staleNothingReopened', '{{words}}. Nothing was reopened.', { ns: 'editor', words: r.staleWords })}</ItemDescription> : null}
                   </ItemContent>
                   <ItemActions>
-                    <Button variant="ghost" size="icon-sm" aria-label={expanded ? `Hide actions for ${r.number}` : `Actions for ${r.number}`} aria-expanded={expanded} onClick={() => setOpenRow(expanded ? null : r.id)} data-testid="questions-row-toggle">
+                    <Button variant="ghost" size="icon-sm" aria-label={expanded ? t('questions.hideActions', 'Hide actions for {{number}}', { ns: 'editor', number: r.number }) : t('questions.actionsFor', 'Actions for {{number}}', { ns: 'editor', number: r.number })} aria-expanded={expanded} onClick={() => setOpenRow(expanded ? null : r.id)} data-testid="questions-row-toggle">
                       {expanded ? <ChevronUp /> : <ChevronDown />}
                     </Button>
                   </ItemActions>
                   {expanded ? (
                     <div className="flex w-full flex-wrap gap-2" data-testid="questions-row-actions">
-                      <Button size="sm" variant="outline" onClick={() => onSelect(r.elementIds)} disabled={r.elementIds.length === 0 || r.anchorGone} title={r.elementIds.length === 0 ? 'It is pinned to a spot, not to elements.' : r.anchorGone ? 'What it was pinned to was deleted.' : 'Select what it is about on the plan'}>
-                        Show on plan
+                      <Button size="sm" variant="outline" onClick={() => onSelect(r.elementIds)} disabled={r.elementIds.length === 0 || r.anchorGone} title={r.elementIds.length === 0 ? t('questions.pinnedToSpot', 'It is pinned to a spot, not to elements.', { ns: 'editor' }) : r.anchorGone ? t('questions.anchorGone', 'What it was pinned to was deleted.', { ns: 'editor' }) : t('questions.selectWhatAbout', 'Select what it is about on the plan', { ns: 'editor' })}>
+                        {t('questions.showOnPlan', 'Show on plan', { ns: 'editor' })}
                       </Button>
-                      <Button size="sm" variant="ghost" className="ml-auto" aria-label={`Delete ${r.number}`} onClick={() => setDeleting(r)} disabled={editReason !== null} title={editReason ?? undefined} data-testid="questions-delete">
+                      <Button size="sm" variant="ghost" className="ml-auto" aria-label={t('questions.deleteNumber', 'Delete {{number}}', { ns: 'editor', number: r.number })} onClick={() => setDeleting(r)} disabled={editReason !== null} title={editReason ?? undefined} data-testid="questions-delete">
                         <Trash2 />
                       </Button>
                       <QuestionThread
@@ -299,19 +299,19 @@ export function QuestionsList({ model, error, onRetry, projectName, canEdit, blo
       <AlertDialog open={deleting !== null} onOpenChange={(next) => !next && setDeleting(null)}>
         <AlertDialogContent data-testid="questions-delete-confirm">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {deleting?.number}?</AlertDialogTitle>
-            <AlertDialogDescription>It comes off the plan and out of the history. Withdraw keeps the history instead. Undo puts it back.</AlertDialogDescription>
+            <AlertDialogTitle>{t('questions.deleteTitle', 'Delete {{number}}?', { ns: 'editor', number: deleting?.number ?? '' })}</AlertDialogTitle>
+            <AlertDialogDescription>{t('questions.deleteDescription', 'It comes off the plan and out of the history. Withdraw keeps the history instead. Undo puts it back.', { ns: 'editor' })}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('questions.cancel', 'Cancel', { ns: 'editor' })}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (deleting) send({ type: 'delete_questions', questionIds: [deleting.id] }, 'Delete question')
+                if (deleting) send({ type: 'delete_questions', questionIds: [deleting.id] }, t('questions.deleteUndo', 'Delete question', { ns: 'editor' }))
                 setDeleting(null)
               }}
               data-testid="questions-delete-confirm-action"
             >
-              Delete
+              {t('questions.delete', 'Delete', { ns: 'editor' })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

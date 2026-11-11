@@ -44,6 +44,10 @@ const OWNED_DIRS = [
   // Stage 4 · Task 4.4 — the spaces panel: spaces, rooms, zones, fire areas and
   // the drawings placed under a plan.
   "spaces",
+  // Stage 4 · Task 4.6 — questions: the RFI list, the thread, the ask/answer/
+  // forward/email dialogs, the pins layer, the readers and the stale-answer
+  // notices a person sees in the questions tab.
+  "questions",
   // Stage 4 · Task 4.4 — project management, library, settings and IFC.
   "parts-list",
   "change-orders",
@@ -69,7 +73,7 @@ const OWNED_DIRS = [
  *   Task 4.4  questions (213), equipment-list (110), library (68),
  *             coordination (58)
  */
-export const NOT_YET_GUARDED = ["questions", "equipment-list", "library", "coordination"] as const;
+export const NOT_YET_GUARDED = ["equipment-list", "library", "coordination"] as const;
 
 /**
  * Every tree under `src/editor` that **Aşama 4 never covered**: a panel or a

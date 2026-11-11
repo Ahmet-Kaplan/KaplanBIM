@@ -13,12 +13,14 @@ import { Textarea } from '../../ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '../../ui/toggle-group'
 import { NAMED_AUDIENCES, QUESTION_TYPES, type QuestionCommand, type KnownQuestionType as QuestionType } from '../../contracts/bim/questions/kernel'
 import { newElementId } from '../placement'
-import { AUDIENCE_LABEL, TYPE_LABEL } from './question-rows'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
+import { audienceLabel, typeLabel } from './question-rows'
 
-const TYPE_HINT: Readonly<Record<QuestionType, string>> = {
-  question: 'Someone has to tell us. It stays open until answered.',
-  assumption: 'We go ahead on it now and ask them to confirm.',
-  field_verify: 'Someone checks it on site. It stays open until checked.',
+/** What each kind of question records, in the words the dialog shows under the picker. */
+const TYPE_HINT: Readonly<Record<QuestionType, (t: Translate) => string>> = {
+  question: (t) => t('questions.typeHintQuestion', 'Someone has to tell us. It stays open until answered.', { ns: 'editor' }),
+  assumption: (t) => t('questions.typeHintAssumption', 'We go ahead on it now and ask them to confirm.', { ns: 'editor' }),
+  field_verify: (t) => t('questions.typeHintVerify', 'Someone checks it on site. It stays open until checked.', { ns: 'editor' }),
 }
 
 function isQuestionType(v: string): v is QuestionType {
@@ -39,6 +41,7 @@ interface Props {
 
 /** Ask about what is selected: the question, who it is for, and whether it holds the issue. Esc or Cancel closes with nothing added. */
 export function AskQuestionDialog({ open, elementIds, aboutLabel, submit, onClose, askedBefore }: Props) {
+  const t = useEditorTranslate()
   const [text, setText] = useState('')
   const [type, setType] = useState<QuestionType>('question')
   const [askOf, setAskOf] = useState<string>('client')
@@ -46,7 +49,7 @@ export function AskQuestionDialog({ open, elementIds, aboutLabel, submit, onClos
   const [closeBy, setCloseBy] = useState('')
   const [refusal, setRefusal] = useState<string | null>(null)
 
-  const missing = text.trim() === '' ? 'Type the question first.' : elementIds.length === 0 ? 'Select what it is about on the plan first.' : null
+  const missing = text.trim() === '' ? t('questions.typeQuestionFirst', 'Type the question first.', { ns: 'editor' }) : elementIds.length === 0 ? t('questions.selectWhatItsAboutFirst', 'Select what it is about on the plan first.', { ns: 'editor' }) : null
 
   const reset = () => {
     setText('')
@@ -74,7 +77,7 @@ export function AskQuestionDialog({ open, elementIds, aboutLabel, submit, onClos
           },
         ],
       },
-      type === 'assumption' ? 'Add assumption' : 'Add question',
+      type === 'assumption' ? t('questions.addAssumption', 'Add assumption', { ns: 'editor' }) : t('questions.addQuestion', 'Add question', { ns: 'editor' }),
     )
     if (refused) {
       setRefusal(refused)
@@ -96,27 +99,27 @@ export function AskQuestionDialog({ open, elementIds, aboutLabel, submit, onClos
     >
       <DialogContent data-testid="questions-ask-dialog">
         <DialogHeader>
-          <DialogTitle>Ask about {aboutLabel || 'the selection'}</DialogTitle>
-          <DialogDescription>{askedBefore ? `A new question that links back to ${askedBefore.words}. It pins to the same things.` : 'It pins to what is selected and shows in Coordination › Questions.'}</DialogDescription>
+          <DialogTitle>{t('questions.askAboutTitle', 'Ask about {{what}}', { ns: 'editor', what: aboutLabel || t('questions.theSelection', 'the selection', { ns: 'editor' }) })}</DialogTitle>
+          <DialogDescription>{askedBefore ? t('questions.askedBeforeDescription', 'A new question that links back to {{words}}. It pins to the same things.', { ns: 'editor', words: askedBefore.words }) : t('questions.askDescription', 'It pins to what is selected and shows in Coordination › Questions.', { ns: 'editor' })}</DialogDescription>
         </DialogHeader>
         <FieldGroup>
           <Field>
-            <FieldLabel htmlFor="question-text">Question</FieldLabel>
-            <Textarea id="question-text" value={text} onChange={(e) => setText(e.target.value)} placeholder="Is there a beam here? Please confirm." maxLength={1000} data-testid="questions-ask-text" />
+            <FieldLabel htmlFor="question-text">{t('questions.fieldQuestion', 'Question', { ns: 'editor' })}</FieldLabel>
+            <Textarea id="question-text" value={text} onChange={(e) => setText(e.target.value)} placeholder={t('questions.placeholderQuestion', 'Is there a beam here? Please confirm.', { ns: 'editor' })} maxLength={1000} data-testid="questions-ask-text" />
           </Field>
           <Field>
-            <FieldLabel>Kind</FieldLabel>
-            <ToggleGroup type="single" variant="outline" value={type} onValueChange={(v) => isQuestionType(v) && setType(v)} aria-label="Kind">
-              {QUESTION_TYPES.map((t) => (
-                <ToggleGroupItem key={t} value={t} data-testid={`questions-ask-type-${t}`}>
-                  {TYPE_LABEL[t]}
+            <FieldLabel>{t('questions.fieldKind', 'Kind', { ns: 'editor' })}</FieldLabel>
+            <ToggleGroup type="single" variant="outline" value={type} onValueChange={(v) => isQuestionType(v) && setType(v)} aria-label={t('questions.fieldKind', 'Kind', { ns: 'editor' })}>
+              {QUESTION_TYPES.map((kind) => (
+                <ToggleGroupItem key={kind} value={kind} data-testid={`questions-ask-type-${kind}`}>
+                  {typeLabel(kind, t)}
                 </ToggleGroupItem>
               ))}
             </ToggleGroup>
-            <FieldDescription>{TYPE_HINT[type]}</FieldDescription>
+            <FieldDescription>{TYPE_HINT[type](t)}</FieldDescription>
           </Field>
           <Field>
-            <FieldLabel htmlFor="question-ask-of">For</FieldLabel>
+            <FieldLabel htmlFor="question-ask-of">{t('questions.fieldFor', 'For', { ns: 'editor' })}</FieldLabel>
             <Select value={askOf} onValueChange={setAskOf}>
               <SelectTrigger id="question-ask-of" data-testid="questions-ask-of">
                 <SelectValue />
@@ -125,7 +128,7 @@ export function AskQuestionDialog({ open, elementIds, aboutLabel, submit, onClos
                 <SelectGroup>
                   {NAMED_AUDIENCES.map((a) => (
                     <SelectItem key={a} value={a}>
-                      {AUDIENCE_LABEL[a]}
+                      {audienceLabel(a, t)}
                     </SelectItem>
                   ))}
                 </SelectGroup>
@@ -133,12 +136,12 @@ export function AskQuestionDialog({ open, elementIds, aboutLabel, submit, onClos
             </Select>
           </Field>
           <Field orientation="horizontal">
-            <Checkbox id="question-holds" checked={holds} onCheckedChange={(v) => setHolds(v === true)} disabled={type === 'assumption'} aria-label="Holds the issue" data-testid="questions-ask-holds" />
-            <FieldLabel htmlFor="question-holds">Holds the issue</FieldLabel>
-            <FieldDescription>{type === 'assumption' ? 'An assumption never holds an issue: the design goes ahead on it.' : 'Sheets showing this can’t be issued while it is open.'}</FieldDescription>
+            <Checkbox id="question-holds" checked={holds} onCheckedChange={(v) => setHolds(v === true)} disabled={type === 'assumption'} aria-label={t('questions.holdsTheIssue', 'Holds the issue', { ns: 'editor' })} data-testid="questions-ask-holds" />
+            <FieldLabel htmlFor="question-holds">{t('questions.holdsTheIssue', 'Holds the issue', { ns: 'editor' })}</FieldLabel>
+            <FieldDescription>{type === 'assumption' ? t('questions.assumptionNeverHolds', 'An assumption never holds an issue: the design goes ahead on it.', { ns: 'editor' }) : t('questions.holdsHint', 'Sheets showing this can’t be issued while it is open.', { ns: 'editor' })}</FieldDescription>
           </Field>
           <Field>
-            <FieldLabel htmlFor="question-close-by">Needed by (optional)</FieldLabel>
+            <FieldLabel htmlFor="question-close-by">{t('questions.neededByOptional', 'Needed by (optional)', { ns: 'editor' })}</FieldLabel>
             <Input id="question-close-by" value={closeBy} onChange={(e) => setCloseBy(e.target.value)} placeholder="DD" maxLength={40} />
           </Field>
         </FieldGroup>
@@ -155,10 +158,10 @@ export function AskQuestionDialog({ open, elementIds, aboutLabel, submit, onClos
               onClose()
             }}
           >
-            Cancel
+            {t('questions.cancel', 'Cancel', { ns: 'editor' })}
           </Button>
           <Button onClick={save} disabled={missing !== null} title={missing ?? undefined} data-testid="questions-ask-save">
-            {type === 'assumption' ? 'Add assumption' : 'Add question'}
+            {type === 'assumption' ? t('questions.addAssumption', 'Add assumption', { ns: 'editor' }) : t('questions.addQuestion', 'Add question', { ns: 'editor' })}
           </Button>
         </DialogFooter>
       </DialogContent>

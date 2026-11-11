@@ -12,6 +12,7 @@ import { Textarea } from '../../ui/textarea'
 import type { QuestionCommand } from '../../contracts/bim/questions/kernel'
 import type { QuestionRow } from './question-rows'
 import { ANSWER_CHOICES, type AnswerChoice } from './thread-rows'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
 
 interface Props {
   /** The question being answered; null keeps the dialog closed. */
@@ -24,7 +25,21 @@ interface Props {
   readonly revise?: { readonly create: (name: string) => Promise<string>; readonly open: (branchId: string) => void } | null
 }
 
-const LABEL: Readonly<Record<AnswerChoice, string>> = { clarification: 'Answer question', judgment_recorded: 'Record a decision', design_revision: 'Revise the design', not_in_scope: 'Not in scope', decline: 'Decline question' }
+/** The undo label each choice writes, in the screen's language. */
+const undoLabel = (choice: AnswerChoice, t: Translate): string => {
+  switch (choice) {
+    case 'clarification':
+      return t('questions.undoAnswerQuestion', 'Answer question', { ns: 'editor' })
+    case 'judgment_recorded':
+      return t('questions.undoRecordDecision', 'Record a decision', { ns: 'editor' })
+    case 'design_revision':
+      return t('questions.undoReviseDesign', 'Revise the design', { ns: 'editor' })
+    case 'not_in_scope':
+      return t('questions.undoNotInScope', 'Not in scope', { ns: 'editor' })
+    default:
+      return t('questions.undoDeclineQuestion', 'Decline question', { ns: 'editor' })
+  }
+}
 
 function commandFor(row: QuestionRow, choice: AnswerChoice, text: string, keep: string | null, branchId: string | null): QuestionCommand {
   const kept = keep ? { keep_closed: keep } : {}
@@ -42,6 +57,7 @@ function commandFor(row: QuestionRow, choice: AnswerChoice, text: string, keep: 
  * Esc or Cancel closes with nothing changed.
  */
 export function AnswerQuestionDialog({ row, submit, onClose, onSaved, revise }: Props) {
+  const t = useEditorTranslate()
   const [answer, setAnswer] = useState('')
   const [keepClosed, setKeepClosed] = useState(false)
   const [keepReason, setKeepReason] = useState('')
@@ -61,11 +77,11 @@ export function AnswerQuestionDialog({ row, submit, onClose, onSaved, revise }: 
   const noteOnly = choice === 'decline' || choice === 'not_in_scope'
   const branching = choice === 'design_revision' && revise
   const missing = !noteOnly && answer.trim() === ''
-    ? 'Type what they said first.'
+    ? t('questions.typeWhatTheySaidFirst', 'Type what they said first.', { ns: 'editor' })
     : noteOnly && keepClosed && keepReason.trim() === ''
-      ? 'Say why it stays closed.'
+      ? t('questions.sayWhyStaysClosed', 'Say why it stays closed.', { ns: 'editor' })
       : branching && branchName.trim() === ''
-        ? 'Name the branch the revision is worked on.'
+        ? t('questions.nameTheBranch', 'Name the branch the revision is worked on.', { ns: 'editor' })
         : null
 
   const save = async (as: AnswerChoice | 'assumed') => {
@@ -78,7 +94,7 @@ export function AnswerQuestionDialog({ row, submit, onClose, onSaved, revise }: 
         branchId = await revise.create(branchName.trim())
       } catch (err) {
         console.error('[AnswerQuestionDialog] opening the revision branch failed', err)
-        setRefusal(err instanceof Error ? err.message : "The branch couldn't be opened.")
+        setRefusal(err instanceof Error ? err.message : t('questions.branchCouldntOpen', "The branch couldn't be opened.", { ns: 'editor' }))
         setSaving(false)
         return
       }
@@ -86,9 +102,9 @@ export function AnswerQuestionDialog({ row, submit, onClose, onSaved, revise }: 
     }
     const keep = noteOnly && keepClosed ? keepReason.trim() : null
     const command: QuestionCommand = as === 'assumed' ? { type: 'answer_question', questionId: row.id, answer: text, status: 'assumed' } : commandFor(row, as, text, keep, branchId)
-    const refused = submit(command, as === 'assumed' ? 'Go ahead on assumption' : LABEL[as])
+    const refused = submit(command, as === 'assumed' ? t('questions.undoGoAheadOnAssumption', 'Go ahead on assumption', { ns: 'editor' }) : undoLabel(as, t))
     if (refused) {
-      setRefusal(branchId ? `${refused} The branch was opened; it stays open.` : refused)
+      setRefusal(branchId ? t('questions.refusedBranchStaysOpen', '{{refusal}} The branch was opened; it stays open.', { ns: 'editor', refusal: refused }) : refused)
       return
     }
     onSaved?.(keep ? 'kept_closed' : as, keep ?? text)
@@ -101,45 +117,45 @@ export function AnswerQuestionDialog({ row, submit, onClose, onSaved, revise }: 
     <Dialog open={row !== null} onOpenChange={(next) => !next && close()}>
       <DialogContent data-testid="questions-answer-dialog">
         <DialogHeader>
-          <DialogTitle>Answer {row?.number}</DialogTitle>
+          <DialogTitle>{t('questions.answerTitle', 'Answer {{number}}', { ns: 'editor', number: row?.number ?? '' })}</DialogTitle>
           <DialogDescription>{row?.text}</DialogDescription>
         </DialogHeader>
         <FieldSet>
-          <FieldLegend variant="label">What you do with it</FieldLegend>
+          <FieldLegend variant="label">{t('questions.whatYouDoWithIt', 'What you do with it', { ns: 'editor' })}</FieldLegend>
           <RadioGroup value={choice} onValueChange={(v) => { const c = ANSWER_CHOICES.find((x) => x.id === v); if (c) setChoice(c.id) }} data-testid="questions-answer-choice">
             {ANSWER_CHOICES.map((c) => (
               <Field key={c.id} orientation="horizontal">
                 <RadioGroupItem value={c.id} id={`answer-choice-${c.id}`} data-testid={`questions-answer-choice-${c.id}`} />
                 <FieldContent>
-                  <FieldLabel htmlFor={`answer-choice-${c.id}`}>{c.label}</FieldLabel>
+                  <FieldLabel htmlFor={`answer-choice-${c.id}`}>{c.label(t)}</FieldLabel>
                 </FieldContent>
               </Field>
             ))}
           </RadioGroup>
-          {picked ? <FieldDescription>{picked.hint}</FieldDescription> : null}
+          {picked ? <FieldDescription>{picked.hint(t)}</FieldDescription> : null}
         </FieldSet>
         <Field>
-          <FieldLabel htmlFor="question-answer">{noteOnly ? 'Note for the asker (optional)' : 'What they said'}</FieldLabel>
-          <Textarea id="question-answer" value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder={noteOnly ? 'Not ours; ask the architect.' : 'No beam; joists at 16 in. on centre.'} maxLength={2000} data-testid="questions-answer-text" />
-          <FieldDescription>{noteOnly ? 'The question stays in the list. Only the person who carries it can ask it again.' : 'Answered questions drop off the next issue and out of the client email. The answer remembers what it relied on and says so if that changes.'}</FieldDescription>
+          <FieldLabel htmlFor="question-answer">{noteOnly ? t('questions.noteForAsker', 'Note for the asker (optional)', { ns: 'editor' }) : t('questions.whatTheySaid', 'What they said', { ns: 'editor' })}</FieldLabel>
+          <Textarea id="question-answer" value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder={noteOnly ? t('questions.placeholderNote', 'Not ours; ask the architect.', { ns: 'editor' }) : t('questions.placeholderAnswer', 'No beam; joists at 16 in. on centre.', { ns: 'editor' })} maxLength={2000} data-testid="questions-answer-text" />
+          <FieldDescription>{noteOnly ? t('questions.noteHint', 'The question stays in the list. Only the person who carries it can ask it again.', { ns: 'editor' }) : t('questions.answerHint', 'Answered questions drop off the next issue and out of the client email. The answer remembers what it relied on and says so if that changes.', { ns: 'editor' })}</FieldDescription>
         </Field>
         {noteOnly ? (
           <Field orientation="horizontal">
             <Checkbox id="question-keep-closed" checked={keepClosed} onCheckedChange={(v) => setKeepClosed(v === true)} data-testid="questions-keep-closed" />
-            <FieldLabel htmlFor="question-keep-closed">Keep it closed (Ask again is refused; a new question can link back)</FieldLabel>
+            <FieldLabel htmlFor="question-keep-closed">{t('questions.keepItClosed', 'Keep it closed (Ask again is refused; a new question can link back)', { ns: 'editor' })}</FieldLabel>
           </Field>
         ) : null}
         {noteOnly && keepClosed ? (
           <Field>
-            <FieldLabel htmlFor="question-keep-reason">Why it stays closed</FieldLabel>
-            <Input id="question-keep-reason" value={keepReason} onChange={(e) => setKeepReason(e.target.value)} maxLength={500} placeholder="Settled in the 10/12 coordination meeting" data-testid="questions-keep-reason" />
+            <FieldLabel htmlFor="question-keep-reason">{t('questions.whyStaysClosed', 'Why it stays closed', { ns: 'editor' })}</FieldLabel>
+            <Input id="question-keep-reason" value={keepReason} onChange={(e) => setKeepReason(e.target.value)} maxLength={500} placeholder={t('questions.placeholderKeepReason', 'Settled in the 10/12 coordination meeting', { ns: 'editor' })} data-testid="questions-keep-reason" />
           </Field>
         ) : null}
         {branching ? (
           <Field>
-            <FieldLabel htmlFor="question-branch-name">Branch to work the revision on</FieldLabel>
-            <Input id="question-branch-name" value={branchName} onChange={(e) => setBranchName(e.target.value)} maxLength={80} placeholder={`Revise for ${row?.number ?? 'the question'}`} data-testid="questions-branch-name" />
-            <FieldDescription>Opened from Main now and linked to this answer. Main is not changed until the branch is merged.</FieldDescription>
+            <FieldLabel htmlFor="question-branch-name">{t('questions.branchToWorkOn', 'Branch to work the revision on', { ns: 'editor' })}</FieldLabel>
+            <Input id="question-branch-name" value={branchName} onChange={(e) => setBranchName(e.target.value)} maxLength={80} placeholder={t('questions.placeholderBranchName', 'Revise for {{number}}', { ns: 'editor', number: row?.number ?? t('questions.theQuestion', 'the question', { ns: 'editor' }) })} data-testid="questions-branch-name" />
+            <FieldDescription>{t('questions.branchDescription', 'Opened from Main now and linked to this answer. Main is not changed until the branch is merged.', { ns: 'editor' })}</FieldDescription>
           </Field>
         ) : null}
         {refusal ? (
@@ -149,15 +165,15 @@ export function AnswerQuestionDialog({ row, submit, onClose, onSaved, revise }: 
         ) : null}
         <DialogFooter>
           <Button variant="outline" onClick={close}>
-            Cancel
+            {t('questions.cancel', 'Cancel', { ns: 'editor' })}
           </Button>
           {!noteOnly ? (
-            <Button variant="secondary" onClick={() => void save('assumed')} disabled={missing !== null} title={missing ?? 'No answer yet: the design goes ahead on what you typed, and the client is asked to confirm it'} data-testid="questions-answer-assume">
-              Go ahead on this
+            <Button variant="secondary" onClick={() => void save('assumed')} disabled={missing !== null} title={missing ?? t('questions.assumeReason', 'No answer yet: the design goes ahead on what you typed, and the client is asked to confirm it', { ns: 'editor' })} data-testid="questions-answer-assume">
+              {t('questions.goAheadOnThis', 'Go ahead on this', { ns: 'editor' })}
             </Button>
           ) : null}
           <Button onClick={() => void save(choice)} disabled={missing !== null || saving} title={missing ?? undefined} data-testid="questions-answer-save">
-            {noteOnly ? picked?.label : 'Save answer'}
+            {noteOnly ? picked?.label(t) : t('questions.saveAnswer', 'Save answer', { ns: 'editor' })}
           </Button>
         </DialogFooter>
       </DialogContent>
