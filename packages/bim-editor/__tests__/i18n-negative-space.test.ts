@@ -80,8 +80,13 @@ const OWNED_DIRS = [
  * report and hides the half nobody has looked at. Each joins `OWNED_DIRS` when
  * its task closes (`docs/superpowers/plans/2026-11-10-bilingual-ui.md`, Stage 4).
  *
- *   Task 4.4  questions (213), equipment-list (110), library (68),
- *             coordination (58)
+ * **Empty since Task 4.6.** The last four trees closed in one round —
+ * `questions` (213), `equipment-list` (110), `library` (68) and `coordination`
+ * (58) — so the discovery below now covers every Stage-4 tree: a tree added
+ * under `src/editor` tomorrow is unguarded and unexplained until someone puts it
+ * here or in `OUTSIDE_STAGE_4`, and a tree that regresses fails with its file
+ * and line. The list stays because that is the point of it, not because a tree
+ * is owed.
  */
 export const NOT_YET_GUARDED = [] as const;
 
