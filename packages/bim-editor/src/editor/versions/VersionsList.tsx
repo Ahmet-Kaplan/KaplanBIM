@@ -12,6 +12,7 @@ import { Spinner } from '../../ui/spinner'
 import type { VersionEntry } from '../../contracts/building-model/branch-versions'
 import { VersionRow } from './VersionRow'
 import type { VersionsState } from './useVersions'
+import { useEditorTranslate } from '../i18n/translate'
 
 export interface VersionsListProps {
   readonly state: VersionsState
@@ -27,6 +28,7 @@ export interface VersionsListProps {
 
 /** Building Model › Manage › Versions: the versions you can start a branch from. */
 export function VersionsList({ state, onRetry, cantEditReason, onNewBranchFrom, onSaveVersion, renderExtra }: VersionsListProps) {
+  const t = useEditorTranslate()
   const [name, setName] = useState('')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -53,7 +55,7 @@ export function VersionsList({ state, onRetry, cantEditReason, onNewBranchFrom, 
   const saveBlocked = cantEditReason ?? (name.trim().length === 0 ? 'Name the version first.' : null)
 
   return (
-    <section aria-label="Versions" className="flex flex-col gap-3">
+    <section aria-label={t('panel.versions', 'Versions', { ns: 'editor' })} className="flex flex-col gap-3">
       <form
         className="flex items-start gap-2"
         onSubmit={(e) => {

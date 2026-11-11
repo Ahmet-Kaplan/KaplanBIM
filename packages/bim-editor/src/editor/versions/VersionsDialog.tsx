@@ -7,6 +7,7 @@ import type { ModelStore } from '../model-store'
 import { useChangeKindSlot } from './ChangeKind'
 import type { VersionsState } from './useVersions'
 import { VersionsList } from './VersionsList'
+import { useEditorTranslate } from '../i18n/translate'
 
 export interface VersionsDialogProps {
   readonly onOpenChange: (open: boolean) => void
@@ -23,13 +24,14 @@ export interface VersionsDialogProps {
 
 /** Building Model › Manage › Versions, with what kind of change each version was. */
 export function VersionsDialog({ onOpenChange, projectId, modelId, state, onRetry, onSaveVersion, cantEditReason, onNewBranchFrom, channel, store }: VersionsDialogProps) {
+  const t = useEditorTranslate()
   const entries = state.status === 'ready' ? state.entries : null
   const changeKind = useChangeKindSlot({ projectId, modelId, entries, channel, model: null, store })
   return (
     <Dialog open onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl" data-testid="versions-dialog">
         <DialogHeader>
-          <DialogTitle>Versions</DialogTitle>
+          <DialogTitle>{t('panel.versions', 'Versions', { ns: 'editor' })}</DialogTitle>
           <DialogDescription>Saved versions and issued sets of this model. Start a branch from one, or say what kind of change it was.</DialogDescription>
         </DialogHeader>
         <VersionsList state={state} onRetry={onRetry} cantEditReason={cantEditReason} onSaveVersion={onSaveVersion} onNewBranchFrom={onNewBranchFrom} renderExtra={changeKind} />

@@ -14,6 +14,7 @@ import { useEditorHost } from '@permitzip/bim-editor/host'
 import { priceBooksApiFrom } from '../../contracts/bim/cost-source/client'
 import { priceWithBook } from '../../contracts/bim/cost-source/cost-source'
 import { PRICE_BOOK_BASIS_LABELS, type PriceBookSummary, type ReadablePriceBook } from '../../contracts/bim/cost-source/types'
+import { useEditorTranslate } from '../i18n/translate'
 
 /** True for a schedule laid out as the takeoff (grouped by cost code), the one Price with applies to. */
 export function isTakeoffSchedule(definition: ScheduleDefinitionV2 | null): boolean {
@@ -46,6 +47,7 @@ function bookLabel(b: PriceBookSummary): string {
  * says "No price", never $0.
  */
 export function PriceWith({ projectId, model }: { readonly projectId: string; readonly model: ModelState | null }) {
+  const t = useEditorTranslate()
   const costSource = useEditorHost().data.costSource
   const priceBooksApi = useMemo(() => priceBooksApiFrom(costSource), [costSource])
   const [books, setBooks] = useState<Books>({ kind: 'loading' })
@@ -123,7 +125,7 @@ export function PriceWith({ projectId, model }: { readonly projectId: string; re
         )}
         {books.kind === 'ready' && books.books.length > 0 && (
           <Select value={pickedId} onValueChange={pick}>
-            <SelectTrigger className="w-80" aria-label="Price book" data-testid="price-with-select">
+            <SelectTrigger className="w-80" aria-label={t('panel.priceBook', 'Price book', { ns: 'editor' })} data-testid="price-with-select">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

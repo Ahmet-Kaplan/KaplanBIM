@@ -14,6 +14,7 @@ import { Input } from '../../../ui/input'
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '../../../ui/input-group'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select'
 import type { SubmitCommand } from '../../views-sheets/types'
+import { useEditorTranslate } from '../../i18n/translate'
 
 type Align = (typeof FORM_ALIGNS)[number]
 const ALIGN_LABEL: Record<Align, string> = { left: 'Left', center: 'Centre', right: 'Right' }
@@ -156,6 +157,7 @@ export function ScheduleTemplateEditor({
   readonly submit: SubmitCommand
   readonly onClose: () => void
 }) {
+  const t = useEditorTranslate()
   const [draft, setDraft] = useState<FormTemplate>(def.template)
   const [refusal, setRefusal] = useState<string | null>(null)
   const set = (patch: Partial<FormTemplate>) => {
@@ -264,7 +266,7 @@ export function ScheduleTemplateEditor({
                 Add column
               </Button>
             </Section>
-            <Section title="Notes legend" count={draft.notes.length}>
+            <Section title={t('panel.notesLegend', 'Notes legend', { ns: 'editor' })} count={draft.notes.length}>
               <FieldDescription className="text-xs">A mark prints in brackets ([G]) beside each circuit it applies to. “Applies when” is a part setting that is on (gfci) or field=value (load_class=Motor); leave it empty for a general note.</FieldDescription>
               {draft.notes.map((n, i) => (
                 <div key={i} className="grid grid-cols-[4rem_1fr_9rem_auto] items-start gap-2" data-testid={`ste-note-${i}`}>

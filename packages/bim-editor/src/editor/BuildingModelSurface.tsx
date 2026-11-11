@@ -2787,9 +2787,10 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
     }
   }, [tool, spacesDrawing, ceilingTool.active, drawingTool, stopSpacesTool, stopCeilingTool, openKey])
   // The ribbon's words come out in the host's language (`<I18nProvider>`); with none it is English.
-  const translate = useEditorTranslate()
+  // Named `t` so `npm run i18n:review` reads the captions drawn here; the ribbon's builder gets the same function.
+  const t = useEditorTranslate()
   const ribbonInput: Parameters<typeof buildingModelRibbon>[0] = {
-    t: translate,
+    t,
     addons,
     ceiling: ceilingTool.ribbon,
     clipboard: { copyBlocked, copy: copyParts, pasteBlocked: partPasteBlocked, paste: pasteParts },
@@ -3765,7 +3766,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
               ref={propertiesRef}
               side="right"
               surface={PROPERTIES_SURFACE}
-              title="Properties"
+              title={t('panel.properties', 'Properties', { ns: 'editor' })}
               defaultWidthPx={PROPERTIES_DEFAULT_WIDTH_PX}
               onWidthChange={setPropertiesWidth}
               className={`absolute inset-y-0 right-0 border-l shadow-sm ${propertiesSurfaceClass(showDrawing, scheduleGridOpen)}`}
@@ -3774,8 +3775,8 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
               {selection ? (
                 <>
                   <div className="flex items-start justify-between gap-2">
-                    <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Properties</span>
-                    <Button variant="ghost" size="icon-sm" aria-label="Close properties" onClick={() => void sessionRef.current?.clearSelection()}>
+                    <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{t('panel.properties', 'Properties', { ns: 'editor' })}</span>
+                    <Button variant="ghost" size="icon-sm" aria-label={t('panel.closeProperties', 'Close properties', { ns: 'editor' })} onClick={() => void sessionRef.current?.clearSelection()}>
                       <X />
                     </Button>
                   </div>

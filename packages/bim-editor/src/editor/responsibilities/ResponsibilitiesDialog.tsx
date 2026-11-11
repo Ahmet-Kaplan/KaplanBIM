@@ -28,6 +28,7 @@ import { AssuranceButton } from '../signing/AssuranceButton'
 import { SignoffSignatureLine } from '../signing/SignoffSignatureLine'
 import { useAssuranceOffer, type AssuranceOffer } from '../signing/useAssuranceOffer'
 import { secureLatestEntryFrom, secureOutcomeWords, type Assurance } from '../../contracts/bim/signing/client'
+import { useEditorTranslate } from '../i18n/translate'
 
 /**
  * Building Model › Manage › Responsibilities. The project lead names who is
@@ -379,6 +380,7 @@ function Row({
 }
 
 export function ResponsibilitiesDialog({ open, onOpenChange, projectId, model }: ResponsibilitiesDialogProps) {
+  const t = useEditorTranslate()
   const host = useEditorHost().data
   const { load, reload } = useResponsibilities(projectId, open)
   const [mode, setMode] = useState<FormMode | null>(null)
@@ -415,7 +417,7 @@ export function ResponsibilitiesDialog({ open, onOpenChange, projectId, model }:
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl" data-testid="responsibilities-dialog">
         <DialogHeader>
-          <DialogTitle>Responsibilities</DialogTitle>
+          <DialogTitle>{t('panel.responsibilities', 'Responsibilities', { ns: 'editor' })}</DialogTitle>
           <DialogDescription>Who is responsible for each discipline, and which part of it. A merge into Main needs each covering person’s approval.</DialogDescription>
         </DialogHeader>
         {load.state === 'loading' ? (

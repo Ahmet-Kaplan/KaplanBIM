@@ -277,6 +277,47 @@ Yukarıdaki listeler bağlayıcıydı ama eksikti: ribbon'un bazı sekme ve grup
 
 > **Not — aynı sözcük hem sekme hem grup:** §4'te **Plan** ve **Çizelgeler** *sekme* olarak listeleniyor; kodda ikisi de **grup** adıdır (`Model` sekmesinin yanında ticari sekmelerde Plan grubu, `Views`/`Yönet` altında Çizelgeler grubu). Türkçeleri aynı olduğu için çeviri değişmez; yalnızca hangi yapıda durdukları okuyanı yanıltmasın.
 
+### 4.2 Aşama 3'te eklenen panel ve durum sözcükleri (2026-11-10)
+
+§4'ün yan/dock paneli listesi bağlayıcıydı ama kodda karşılığı olan bazı yüzeyleri adlandırmıyordu. Aşama 3 (Task 3.2) yan panelleri ve durum çubuğunu çevirirken bunları ekledi. Yukarıdaki listelerde **zaten** karara bağlı olanlar tekrar yazılmadı (`Özellikler`, `Parçalar`, `Mekanlar`, `Çizelgeler`, `Sorular`, `Bağlı modeller`, `Kontrol listesi`, `Kopyalar`, `Antetler`, `Not açıklamaları`, `Pano görünümü`, `Fiyat kitabı`, `Geçmiş`, `Eklentiler`, `Tasarım limitleri`, `Sürümler`, `Sorumluluklar`, `Koordinasyon bulguları`, `Değişiklik emirleri`, `Onay belgeleri`, `Henüz yerleştirilmedi`, `Görünümler ve paftalar`).
+
+| EN (panel / durum çubuğu) | TR | Not |
+|----|----|-----|
+| Revisions (panel) | **Revizyonlar** | §2.4 *Revision* = **revizyon**; panel başlığı çoğul |
+| Revisions on {{number}} | **{{number}} paftasının revizyonları** | §2.4 *Sheet* = pafta; §8 gereği çoğul eki sayıdan **sonra gelmez** |
+| Show / Show in {{view}} | **Göster** / **{{view}} içinde göster** | Yan panelin görünürlük bölümü; görünüm adı yer tutucu |
+| Views, sheets and model filters (rail erişilebilir adı) | **Görünümler, paftalar ve model filtreleri** | `aside` bölgesinin adı |
+| Coordination (pane) | **Koordinasyon** | §4'te grup adı olarak da var; aynı sözcük |
+| Close {{name}} (Esc) | **{{name}} penceresini kapat (Esc)** | Pane kapatma düğmesi; ad **küçük harfe çevrilmez** (Türkçe İ/I sorunu). İngilizcede ad cümle içinde küçük harfe indirilir ("Close checklist (Esc)"), Türkçede inmez |
+| Close properties / Close Spaces / Close panel view | **Özellikler penceresini kapat** / **Mekanlar penceresini kapat** / **Pano görünümünü kapat** | Panellerin kendi kapatma düğmeleri; İngilizce metinleri ayrı ayrı korunur (birebir aynı kalsın diye tek anahtara indirilmedi) |
+| Close Not placed yet | **Henüz yerleştirilmedi penceresini kapat** | Kendi cümlesi olan kapatma düğmesi |
+| Floor plan / Ceiling plan | **Kat planları** / **Tavan planları** | Görünümler ve paftalar listesinin başlıkları (tekil: *kat planı*, *tavan planı*) |
+| Section / 3D view / Detail view (liste başlıkları) | **Kesitler** / **3B görünümler** / **Detay görünümleri** | §9/Ç11 *Section* = kesit; §2.4 *View* = görünüm; tekil: *kesit*, *3B görünüm*, *detay görünümü* |
+| Connected. All changes saved | **Bağlandı. Tüm değişiklikler kaydedildi** | §8 durum sözlüğü |
+| View only — live editing not connected | **Yalnızca görüntüleme — canlı düzenleme bağlı değil** | §8 *View only* = **Yalnızca görüntüleme**; tire işareti korunur |
+| View only — live editing isn't set up yet | **Yalnızca görüntüleme — canlı düzenleme henüz kurulmadı** | §8 |
+| No access to edit this model | **Bu modeli düzenleme yetkiniz yok** | §8 |
+| Not connected | **Bağlantı kurulamadı** | §8'deki *Bağlantı kurulamıyor* sürmekte olan denemedir; bu bir **durum** |
+| Reconnecting… / Connecting… / Saving… | **Yeniden bağlanıyor…** / **Bağlanıyor…** / **Kaydediliyor…** | §8 |
+| Checking the connection… | **Bağlantı kontrol ediliyor…** | §8 |
+| Catching up with others' changes… | **Başkalarının değişiklikleri alınıyor…** | §8 |
+| Not saved yet — retrying / Not saved yet ({{n}}) — retrying | **Kaydedilmedi — yeniden deniyor** / **Kaydedilmedi ({{n}}) — yeniden deniyor** | §8 *Kaydedilmedi* |
+| Offline: changes kept on this computer / Offline: {{edits}} kept on this computer | **Çevrimdışı: değişiklikler bu bilgisayarda tutuluyor** / **Çevrimdışı: {{edits}} bu bilgisayarda tutuluyor** | §8 *Bu bilgisayar çevrimdışı* + düzenlemelerin kaybolmadığı söylenir |
+| Reconnecting… {{edits}} kept on this computer | **Yeniden bağlanıyor… {{edits}} bu bilgisayarda tutuluyor** | Aynı gerekçe |
+| 1 edit / {{n}} edits | **1 düzenleme** / **{{n}} düzenleme** | §8: Türkçede sayıdan sonra çoğul eki yok |
+| Live editing: {{label}}. Show details | **Canlı düzenleme: {{label}}. Ayrıntıları göster** | Durum rozetinin erişilebilir adı; etiket zaten çevrilidir |
+| Try now | **Şimdi dene** | Rozetin «yeniden bağlan» düğmesi |
+| The model server has every edit you made. Others see them live. | **Yaptığınız her düzenleme model sunucusunda; başkaları canlı görüyor.** | Rozet açıklaması |
+| Your latest edit is on its way to the model server. | **Son düzenlemeniz model sunucusuna gidiyor.** | Rozet açıklaması |
+| Opening the live connection to the model server. | **Model sunucusuna canlı bağlantı açılıyor.** | Rozet açıklaması |
+| The model server is up but can't save right now. Your edits are kept and sent again. | **Model sunucusu çalışıyor ama şu anda kaydedemiyor. Düzenlemeleriniz tutuluyor ve yeniden gönderilecek.** | Rozet açıklaması |
+| New work goes in / built in | **Yeni iş şu gruba girer:** / **şu fazda inşa edilir:** | Alt durum çubuğu: seçimden önce gelen etiketler; iki nokta üst üste ile biter |
+| Active group and phase / Active group / Active phase | **Etkin grup ve faz** / **Etkin grup** / **Etkin faz** | §4 *Groups and phases* = **Gruplar ve fazlar** |
+| (locked) | **(kilitli)** | §8 *kilitli*; grup seçicide ada eklenir |
+| New ducts, pipes and parts go in this group. Edit groups in {{path}}. | **Yeni kanallar, borular ve parçalar bu gruba girer. Grupları {{path}} bölümünden düzenleyin.** | §9/Ç17 kanal/boru; yol (`{{path}}`) kodda `Manage › Groups & phases` |
+| New elements are created in this phase; Demolish removes them in it. | **Yeni elemanlar bu fazda oluşturulur; Yıkım onları bu fazda kaldırır.** | §2.1 *Element* = eleman |
+
+
 ---
 
 ## 5. Çizelgeler ve metraj

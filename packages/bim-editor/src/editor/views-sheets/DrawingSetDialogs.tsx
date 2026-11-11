@@ -19,6 +19,7 @@ import { fetchSetStatusFrom, issueSetFrom, printSetFrom, type SetStatus } from '
 import type { SubmitCommand } from './types'
 import { useEditorHost, useOptionalEditorHost } from '@permitzip/bim-editor/host'
 import { IssueBlockedNotice } from '../code-change/IssueBlockedNotice'
+import { useEditorTranslate } from '../i18n/translate'
 
 /**
  * A person's drawing-set workflow in Views & Sheets: arrange a sheet's views,
@@ -123,6 +124,7 @@ export function ArrangeSheetDialog({ model, sheet, onCancel, submit }: { model: 
 // ── Revision table ───────────────────────────────────────────────────────────
 
 export function RevisionsDialog({ sheet, allSheets, onCancel, submit }: { sheet: Sheet; allSheets: readonly Sheet[]; onCancel: () => void; submit: Submit }) {
+  const t = useEditorTranslate()
   const [rows, setRows] = useState<SheetRevision[]>(() => [...(sheet.props?.revisions ?? [])])
   const [error, setError] = useState<string | null>(null)
   const set = (i: number, key: keyof SheetRevision, value: string) => setRows((prev) => prev.map((r, j) => (j === i ? { ...r, [key]: value } : r)))
@@ -142,7 +144,7 @@ export function RevisionsDialog({ sheet, allSheets, onCancel, submit }: { sheet:
     <Dialog open onOpenChange={(open) => !open && onCancel()}>
       <DialogContent className="max-w-2xl" data-testid="revisions-dialog">
         <DialogHeader>
-          <DialogTitle>Revisions on {sheet.number}</DialogTitle>
+          <DialogTitle>{t('panel.revisionsOnSheet', 'Revisions on {{number}}', { number: sheet.number, ns: 'editor' })}</DialogTitle>
           <DialogDescription>The revision table printed in the title block, oldest first. Issue set adds one row to every issued sheet for you.</DialogDescription>
         </DialogHeader>
         <Table>

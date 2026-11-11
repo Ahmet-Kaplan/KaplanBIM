@@ -14,6 +14,7 @@ import { MergesWaiting } from './MergesWaiting'
 import { SensitivityHeader } from './SensitivityHeader'
 import { ReopenedAgainstMain } from '../branches/ReopenedAgainstMain'
 import type { BranchChannel } from '../branches/useBranches'
+import { useEditorTranslate } from '../i18n/translate'
 
 /**
  * The Building Model's Checklist (replaces Coordination; rail › Checklist,
@@ -71,6 +72,7 @@ export function useCanVerify(projectId: string): boolean | null {
 }
 
 export function ChecklistPane({ projectId, modelId, model, canEdit, blockedReason, actorName, submit, onSelect, onClose, questions, submittals, branchChannel = null }: ChecklistPaneProps) {
+  const t = useEditorTranslate()
   const [attempt, setAttempt] = useState(0)
   const { requirements, problem } = useModelRequirements(model, attempt)
   const canVerify = useCanVerify(projectId)
@@ -84,7 +86,7 @@ export function ChecklistPane({ projectId, modelId, model, canEdit, blockedReaso
       onClose={onClose}
       {...(questions ? { questions } : {})}
       {...(submittals ? { submittals } : {})}
-      title="Checklist"
+      title={t('panel.checklist', 'Checklist', { ns: 'editor' })}
       needs={{
         count: needsCount(requirements),
         node: (

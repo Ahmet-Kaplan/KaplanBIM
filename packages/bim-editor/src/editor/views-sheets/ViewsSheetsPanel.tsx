@@ -19,6 +19,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '../../ui/empty
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '../../ui/item'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip'
 import { VIEW_DRAG_TYPE, VIEW_TYPE_LABEL, sameOpen, type CreatableViewType, type OpenItem } from './types'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
 
 export type PanelRequest =
   | { readonly kind: 'new_view'; readonly viewType: CreatableViewType }
@@ -76,14 +77,24 @@ export function NewViewOrSheetMenu({ onRequest, canEdit, blockedReason }: { onRe
   )
 }
 
-const GROUPS: ReadonlyArray<{ type: ViewElement['viewType']; title: string }> = [
-  { type: 'floor_plan', title: 'Floor plans' },
-  { type: 'ceiling_plan', title: 'Ceiling plans' },
-  { type: 'section', title: 'Sections' },
-  { type: 'three_d', title: '3D views' },
-  { type: 'detail', title: 'Detail views' },
-  { type: 'schedule', title: 'Schedules' },
-]
+/**
+ * The list's headings, in the language the panel is drawn in — one per kind of
+ * view, in the order they appear under 3D model and Top-down plan.
+ *
+ * A builder rather than a constant because a heading is a caption like any
+ * other: `Schedules` is the one the brief names (`Çizelgeler`), and a heading
+ * left in the constant would be the one caption nobody could translate.
+ */
+export function viewGroups(t: Translate): ReadonlyArray<{ type: ViewElement['viewType']; title: string }> {
+  return [
+    { type: 'floor_plan', title: t('panel.group.floorPlans', 'Floor plans', { ns: 'editor' }) },
+    { type: 'ceiling_plan', title: t('panel.group.ceilingPlans', 'Ceiling plans', { ns: 'editor' }) },
+    { type: 'section', title: t('panel.group.sections', 'Sections', { ns: 'editor' }) },
+    { type: 'three_d', title: t('panel.group.threeD', '3D views', { ns: 'editor' }) },
+    { type: 'detail', title: t('panel.group.detailViews', 'Detail views', { ns: 'editor' }) },
+    { type: 'schedule', title: t('panel.group.schedules', 'Schedules', { ns: 'editor' }) },
+  ];
+}
 
 /** The New menu, shared by the toolbar and the list's header. */
 export function NewMenuItems({ onRequest, disabled }: { onRequest: (request: PanelRequest) => void; disabled: boolean }) {
@@ -151,6 +162,8 @@ export function NewMenuItems({ onRequest, disabled }: { onRequest: (request: Pan
 }
 
 export function ViewsSheetsPanel({ model, canEdit, blockedReason, open, onOpen, onRequest, userId, headerless = false }: Props) {
+  const t = useEditorTranslate()
+  const groups = useMemo(() => viewGroups(t), [t])
   const index = useMemo(() => (model ? documentIndex(model) : null), [model])
   const sheetNumberOf = useMemo(() => {
     const map = new Map<string, string>()
@@ -162,10 +175,10 @@ export function ViewsSheetsPanel({ model, canEdit, blockedReason, open, onOpen, 
   const sheets = useMemo(() => [...(index?.sheets ?? [])].sort((a, b) => a.number.localeCompare(b.number, undefined, { numeric: true })), [index])
 
   return (
-    <section className="flex flex-col gap-2" aria-label="Views and sheets" data-testid={headerless ? undefined : 'views-sheets-panel'}>
+    <section className="flex flex-col gap-2" aria-label={t('panel.viewsAndSheets', 'Views and sheets', { ns: 'editor' })} data-testid={headerless ? undefined : 'views-sheets-panel'}>
       {!headerless && (
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-sm font-medium">Views and sheets</h2>
+          <h2 className="text-sm font-medium">{t('panel.viewsAndSheets', 'Views and sheets', { ns: 'editor' })}</h2>
           <NewViewOrSheetMenu onRequest={onRequest} canEdit={canEdit} blockedReason={blockedReason} />
         </div>
       )}
@@ -184,7 +197,7 @@ export function ViewsSheetsPanel({ model, canEdit, blockedReason, open, onOpen, 
         </Empty>
       ) : (
         <>
-          {GROUPS.map((group) => {
+          {groups.map((group) => {
             const views = (index?.views ?? []).filter((v) => v.viewType === group.type && (!v.props?.workingFor || v.props.workingFor === userId)).sort(byLevelThenName(model))
             if (views.length === 0) return null
             return (
@@ -205,7 +218,7 @@ export function ViewsSheetsPanel({ model, canEdit, blockedReason, open, onOpen, 
               </Group>
             )
           })}
-          <Group title="Sheets" count={sheets.length}>
+          <Group title={t('panel.group.sheets', 'Sheets', { ns: 'editor' })} count={sheets.length}>
             {sheets.length === 0 ? (
               <p className="px-2 py-1 text-xs text-muted-foreground">No sheets yet. Use + to make one, then drag views onto it, or have the agent make the set.</p>
             ) : (

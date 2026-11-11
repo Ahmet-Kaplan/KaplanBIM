@@ -27,6 +27,7 @@ import type { SubmitCommand } from '../views-sheets/types'
 import { PREVIEW_NOTE } from './AddonsPreviewNote'
 import { useEditorHost } from '@permitzip/bim-editor/host'
 import { DisciplinesSectionFrom, type DisciplineRows } from '../library/DisciplinesSection'
+import { useEditorTranslate } from '../i18n/translate'
 
 
 interface Props {
@@ -49,6 +50,7 @@ interface Props {
  * Switching off asks first: its rows are hidden, nothing is deleted.
  */
 export function AddonsPreview({ model, canEdit, blockedReason, submit, onClose, packs = installedPacks(), previewIds = PREVIEW_PACK_IDS, loadDisciplineRows }: Props) {
+  const t = useEditorTranslate()
   const firmLibrary = useEditorHost().data.firmLibrary
   const [error, setError] = useState<string | null>(null)
   const [confirmOff, setConfirmOff] = useState<Pack | null>(null)
@@ -66,7 +68,7 @@ export function AddonsPreview({ model, canEdit, blockedReason, submit, onClose, 
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl" data-testid="addons-preview-dialog">
         <DialogHeader>
-          <DialogTitle>Add-ons</DialogTitle>
+          <DialogTitle>{t('panel.addOns', 'Add-ons', { ns: 'editor' })}</DialogTitle>
           <DialogDescription>Add-ons this server has, beyond the built-in trades. Each is off until you switch it on for this model; a switch is an edit you can undo.</DialogDescription>
         </DialogHeader>
         {!canEdit && (

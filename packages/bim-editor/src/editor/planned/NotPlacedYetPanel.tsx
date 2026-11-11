@@ -26,6 +26,7 @@ import { DISCIPLINE_WORDS, type PlaceSurface } from './place-surface'
 import { planPlannedRemoval, type PlannedRemoval } from './remove-planned'
 import type { CircuitRules } from './CircuitPlannedDialog'
 import { useWindowedRows, windowBoxStyle, windowSlice } from '../use-windowed-rows'
+import { useEditorTranslate } from '../i18n/translate'
 
 // Round 11 R11-pre: loads when first opened (`ui.first_chunk.kb`).
 const LoadsPlannedDialog = dynamic(() => import('./CircuitPlannedDialog').then((m) => m.CircuitPlannedDialog), { ssr: false })
@@ -73,6 +74,7 @@ type FlatEntry = { readonly kind: 'group'; readonly key: string; readonly label:
 const NOT_PLACED_ROW_PX = 60
 
 export function NotPlacedYetPanel({ model, error, onRetry, disciplines, surface, canEdit, blockedReason, placingId, onPlace, onStopPlacing, submit, onClose, circuitRules }: Props) {
+  const t = useEditorTranslate()
   const groups = useMemo(() => (model ? plannedPartGroups(model.elements, disciplines) : []), [model, disciplines])
   const total = groups.reduce((n, g) => n + g.rows.length, 0)
   const flat = useMemo<readonly FlatEntry[]>(
@@ -186,10 +188,11 @@ export function NotPlacedYetPanel({ model, error, onRetry, disciplines, surface,
   }
 
   return (
-    <section className="flex min-h-0 flex-col gap-3" aria-label="Not placed yet" data-testid="not-placed-yet-panel">
+    <section className="flex min-h-0 flex-col gap-3" aria-label={t('panel.notPlacedYet', 'Not placed yet', { ns: 'editor' })} data-testid="not-placed-yet-panel">
       <header className="flex items-center gap-2">
         <h2 className="text-sm font-semibold">
-          Not placed yet{model && !error ? `: ${total}` : ''}
+          {t('panel.notPlacedYet', 'Not placed yet', { ns: 'editor' })}
+          {model && !error ? `: ${total}` : ''}
         </h2>
         {uncircuited.length > 1 && (
           <Button size="sm" variant="outline" className="ml-auto" disabled={!canEdit} title={circuitHint(`the ${uncircuited.length} items`) ?? `Put the ${uncircuited.length} items with an electrical load on a panel, one circuit each`} onClick={() => setCircuiting(uncircuited)} data-testid="not-placed-yet-circuit-all">
@@ -197,7 +200,7 @@ export function NotPlacedYetPanel({ model, error, onRetry, disciplines, surface,
             Circuit all {uncircuited.length}
           </Button>
         )}
-        <Button variant="ghost" size="icon-sm" className={uncircuited.length > 1 ? undefined : 'ml-auto'} aria-label="Close Not placed yet" onClick={onClose}>
+        <Button variant="ghost" size="icon-sm" className={uncircuited.length > 1 ? undefined : 'ml-auto'} aria-label={t('panel.closeNotPlacedYet', 'Close Not placed yet', { ns: 'editor' })} onClick={onClose}>
           <X />
         </Button>
       </header>

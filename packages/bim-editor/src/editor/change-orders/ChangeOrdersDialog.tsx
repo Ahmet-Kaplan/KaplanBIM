@@ -25,6 +25,7 @@ import { NewChangeOrderDialog } from './NewChangeOrderDialog'
 import { PriceDeltaWith } from './PriceDeltaWith'
 import { QuantityDeltaList } from './QuantityDeltaList'
 import { useQuantityDelta } from './useQuantityDelta'
+import { useEditorTranslate } from '../i18n/translate'
 
 type Load<T> = { readonly state: 'loading' } | { readonly state: 'error'; readonly message: string } | { readonly state: 'ready'; readonly data: T }
 
@@ -65,6 +66,7 @@ export interface ChangeOrdersDialogProps {
  * change with their own book, privately.
  */
 export function ChangeOrdersDialog({ open, onOpenChange, projectId, model, channel, versions }: ChangeOrdersDialogProps) {
+  const t = useEditorTranslate()
   const changeOrders = useEditorHost().data.changeOrders
   const listFetcher = useCallback((signal: AbortSignal) => fetchChangeOrdersFrom(changeOrders, projectId, signal), [changeOrders, projectId])
   const { load, reload } = useLoad<ChangeOrdersResponse>(open ? listFetcher : null, 'Change orders')
@@ -80,7 +82,7 @@ export function ChangeOrdersDialog({ open, onOpenChange, projectId, model, chann
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Change orders</DialogTitle>
+          <DialogTitle>{t('panel.changeOrders', 'Change orders', { ns: 'editor' })}</DialogTitle>
           <DialogDescription>{CHANGE_WORDS.notAChangeOrder} A change order exists only when someone opens one and addresses it to the party it is for.</DialogDescription>
         </DialogHeader>
 
@@ -132,7 +134,7 @@ export function ChangeOrdersDialog({ open, onOpenChange, projectId, model, chann
                 </EmptyHeader>
               </Empty>
             ) : (
-              <ItemGroup aria-label="Change orders" className="max-h-[50vh] overflow-y-auto">
+              <ItemGroup aria-label={t('panel.changeOrders', 'Change orders', { ns: 'editor' })} className="max-h-[50vh] overflow-y-auto">
                 {load.data.orders.map((o) => (
                   <ChangeOrderRow key={o.id} order={o} onOpen={() => setSelected(o.id)} />
                 ))}
@@ -186,6 +188,7 @@ function ChangeOrderRow({ order, onOpen }: { readonly order: ChangeOrderView; re
 }
 
 function ChangeOrderDetail({ projectId, id, model, channel, canInvite, onBack, onChanged }: { readonly projectId: string; readonly id: string; readonly model: ModelState | null; readonly channel: BranchChannel | null; readonly canInvite: boolean; readonly onBack: () => void; readonly onChanged: () => void }) {
+  const t = useEditorTranslate()
   const host = useEditorHost().data
   const fetcher = useCallback((signal: AbortSignal) => fetchChangeOrderFrom(host.changeOrders, projectId, id, signal), [host.changeOrders, projectId, id])
   const { load, reload } = useLoad<ChangeOrderDetailResponse>(fetcher, 'The change order')
@@ -330,7 +333,7 @@ function ChangeOrderDetail({ projectId, id, model, channel, canInvite, onBack, o
       {actionError ? <p className="text-sm text-destructive">{actionError}</p> : null}
 
       {load.data.events.length > 0 ? (
-        <ol aria-label="History" className="flex flex-col gap-0.5 border-t pt-2 text-xs text-muted-foreground">
+        <ol aria-label={t('panel.history', 'History', { ns: 'editor' })} className="flex flex-col gap-0.5 border-t pt-2 text-xs text-muted-foreground">
           {load.data.events.map((e, i) => (
             <li key={`${e.at}|${i}`}>
               {new Date(e.at).toLocaleString()}: {statusWords(e.to)}

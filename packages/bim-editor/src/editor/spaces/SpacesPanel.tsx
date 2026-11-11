@@ -29,6 +29,7 @@ import type { FireAreaControls } from './use-fire-areas'
 import { SpaceBoundaryProperties } from './SpaceBoundaryProperties'
 import type { ProposeControls } from './use-spaces-tool'
 import { useWindowedRows, windowBoxStyle, windowSlice } from '../use-windowed-rows'
+import { useEditorTranslate } from '../i18n/translate'
 import { figuresLine, formatLoadAmount, LOAD_QUANTITIES, scopeFigures, type LoadScope } from './space-loads'
 import { formatFt2, nextSpaceNumber, setUseCommand, SPACE_USES, spaceRows, spaceUsesIn, zoneFitHeading, zoneRows, zoneServers, type SpaceLoadsReader, type SpaceRow } from './space-rows'
 
@@ -104,6 +105,7 @@ function loadText(row: SpaceRow): string | null {
 const SPACE_ROW_PX = 45
 
 export function SpacesPanel(props: Props) {
+  const t = useEditorTranslate()
   const { model, error, onRetry, levelId, levelName, canEdit, blockedReason, submit, drawing, onDrawSpace, onRedrawSpace, onStopDrawing, onAddUnderlay, onCalibrate, onSelectSpace, onRoomFromWalls, onSeparationLine, onSelectElements, onUndo, loads, propose, fireAreas, onClose } = props
   const [detailFor, setDetailFor] = useState<ElementId | null>(null)
   const rows = useMemo(() => (model ? spaceRows(model, loads) : []), [model, loads])
@@ -167,8 +169,11 @@ export function SpacesPanel(props: Props) {
 
   const header = (
     <header className="flex items-center gap-2">
-      <h2 className="text-sm font-semibold">Spaces{model && !error ? `: ${rows.length}` : ''}</h2>
-      <Button variant="ghost" size="icon-sm" className="ml-auto" aria-label="Close Spaces" onClick={onClose}>
+      <h2 className="text-sm font-semibold">
+        {t('panel.spaces', 'Spaces', { ns: 'editor' })}
+        {model && !error ? `: ${rows.length}` : ''}
+      </h2>
+      <Button variant="ghost" size="icon-sm" className="ml-auto" aria-label={t('panel.closeSpaces', 'Close Spaces', { ns: 'editor' })} onClick={onClose}>
         <X />
       </Button>
     </header>
@@ -176,7 +181,7 @@ export function SpacesPanel(props: Props) {
 
   if (error)
     return (
-      <section className="flex min-h-0 flex-col gap-3" aria-label="Spaces" data-testid="spaces-panel">
+      <section className="flex min-h-0 flex-col gap-3" aria-label={t('panel.spaces', 'Spaces', { ns: 'editor' })} data-testid="spaces-panel">
         {header}
         <Alert variant="destructive" data-testid="spaces-error">
           <AlertTitle>The spaces didn’t load</AlertTitle>
@@ -193,7 +198,7 @@ export function SpacesPanel(props: Props) {
     )
   if (!model)
     return (
-      <section className="flex min-h-0 flex-col gap-3" aria-label="Spaces" data-testid="spaces-panel" aria-busy="true">
+      <section className="flex min-h-0 flex-col gap-3" aria-label={t('panel.spaces', 'Spaces', { ns: 'editor' })} data-testid="spaces-panel" aria-busy="true">
         {header}
         <span className="sr-only">Loading the spaces</span>
         <Skeleton className="h-8" />
@@ -203,7 +208,7 @@ export function SpacesPanel(props: Props) {
     )
 
   return (
-    <section className="flex min-h-0 flex-col gap-3" aria-label="Spaces" data-testid="spaces-panel">
+    <section className="flex min-h-0 flex-col gap-3" aria-label={t('panel.spaces', 'Spaces', { ns: 'editor' })} data-testid="spaces-panel">
       {header}
       <div className="flex flex-wrap gap-2">
         {drawing ? (

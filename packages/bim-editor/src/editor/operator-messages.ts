@@ -1,5 +1,6 @@
 import type { ConnectionStatus, SaveState } from '@permitzip/bim-sync'
 import type { CommandError } from '@permitzip/bim-kernel'
+import { englishOnly, type Translate } from './i18n/translate'
 
 /** What a person sees when the model refuses an edit: what stopped it, in drawing terms, not element ids. */
 const MESSAGES: Record<CommandError['code'], string> = {
@@ -68,8 +69,16 @@ export function problemForDenied(reason: string): ConnectionProblem {
   return connectionProblem('no_access', reason)
 }
 
-function edits(n: number): string {
-  return n === 1 ? '1 edit' : `${n} edits`
+/**
+ * "1 edit" / "3 edits", in the language the status bar is drawn in.
+ *
+ * Turkish has one form after a number (§8): both are `{{n}} düzenleme`, so the
+ * pair of keys is not a plural rule but two English sentences, each keyed.
+ * `editsPausedMessage` still passes no translator and reads English: it is a
+ * pointer-edit operator message, Task 3.3's.
+ */
+function edits(n: number, t: Translate = englishOnly): string {
+  return n === 1 ? t('status.editOne', '1 edit', { ns: 'editor' }) : t('status.editsMany', '{{n}} edits', { n, ns: 'editor' })
 }
 
 /**
@@ -85,40 +94,55 @@ export function editsPausedMessage(queued: number, deviceOffline: boolean): stri
 
 export type BadgeTone = 'ok' | 'busy' | 'warn' | 'muted'
 
-function offlineLabel(pending: number): string {
-  return pending > 0 ? `Offline: ${edits(pending)} kept on this computer` : 'Offline: changes kept on this computer'
+function offlineLabel(pending: number, t: Translate): string {
+  return pending > 0
+    ? t('status.offlineEdits', 'Offline: {{edits}} kept on this computer', { edits: edits(pending, t), ns: 'editor' })
+    : t('status.offline', 'Offline: changes kept on this computer', { ns: 'editor' })
 }
 
 /**
  * The header's one-line connection and save state. "All changes saved" shows
  * only when the line is live, nothing is waiting, no problem is known and
  * edits aren't paused: it never claims saved over a dead or doubtful line.
+ *
+ * Every word it owns is `t('<key>', '<English>')` (§8's status vocabulary), so a
+ * Turkish editor says `Bağlandı. Tüm değişiklikler kaydedildi` where an English
+ * one says `Connected. All changes saved`. The title of a *known connection
+ * problem* is the exception: it arrives on the `problem` this function is
+ * handed, which `connectionProblem()` words (Task 3.3).
  */
 export function statusBadge(
   status: ConnectionStatus | 'read_only',
   save: SaveState,
   problem: ConnectionProblem | null,
   editPaused: string | null = null,
+  t: Translate = englishOnly,
 ): { label: string; tone: BadgeTone } {
-  if (status === 'read_only') return { label: 'View only — live editing not connected', tone: 'muted' }
-  if (problem?.kind === 'no_model') return { label: "View only — live editing isn't set up yet", tone: 'muted' }
-  if (status === 'denied' || (problem?.kind === 'no_access' && status !== 'live')) return { label: 'No access to edit this model', tone: 'warn' }
+  if (status === 'read_only') return { label: t('status.readOnly', 'View only — live editing not connected', { ns: 'editor' }), tone: 'muted' }
+  if (problem?.kind === 'no_model') return { label: t('status.readOnlyNotSetUp', "View only — live editing isn't set up yet", { ns: 'editor' }), tone: 'muted' }
+  if (status === 'denied' || (problem?.kind === 'no_access' && status !== 'live')) return { label: t('status.noAccess', 'No access to edit this model', { ns: 'editor' }), tone: 'warn' }
   // Had the model and lost the line (offline), or got the line back and is replaying (catching_up).
   const lostLine = status === 'offline' || (status === 'catching_up' && problem !== null)
   if (lostLine) {
     const pastGrace = problem?.kind === 'unreachable' || problem?.kind === 'device_offline'
-    if (pastGrace) return { label: offlineLabel(save.pending), tone: 'warn' }
-    return { label: save.pending > 0 ? `Reconnecting… ${edits(save.pending)} kept on this computer` : 'Reconnecting…', tone: 'busy' }
+    if (pastGrace) return { label: offlineLabel(save.pending, t), tone: 'warn' }
+    return {
+      label:
+        save.pending > 0
+          ? t('status.reconnectingKept', 'Reconnecting… {{edits}} kept on this computer', { edits: edits(save.pending, t), ns: 'editor' })
+          : t('status.reconnecting', 'Reconnecting…', { ns: 'editor' }),
+      tone: 'busy',
+    }
   }
-  if (problem?.kind === 'device_offline') return { label: offlineLabel(save.pending), tone: 'warn' }
-  if (problem?.kind === 'quiet') return { label: 'Checking the connection…', tone: 'busy' }
-  if (problem && status !== 'live') return { label: 'Not connected', tone: 'warn' }
+  if (problem?.kind === 'device_offline') return { label: offlineLabel(save.pending, t), tone: 'warn' }
+  if (problem?.kind === 'quiet') return { label: t('status.checking', 'Checking the connection…', { ns: 'editor' }), tone: 'busy' }
+  if (problem && status !== 'live') return { label: t('status.notConnected', 'Not connected', { ns: 'editor' }), tone: 'warn' }
   if (problem) return { label: problem.title, tone: 'warn' }
-  if (editPaused) return { label: 'Reconnecting…', tone: 'busy' }
-  if (status === 'degraded') return { label: save.message ?? 'Not saved yet — retrying', tone: 'warn' }
-  if (save.retrying > 0) return { label: `Not saved yet (${save.retrying}) — retrying`, tone: 'warn' }
-  if (save.pending > 0) return { label: 'Saving…', tone: 'busy' }
-  if (status === 'catching_up') return { label: "Catching up with others' changes…", tone: 'busy' }
-  if (status !== 'live') return { label: 'Connecting…', tone: 'busy' }
-  return { label: 'Connected. All changes saved', tone: 'ok' }
+  if (editPaused) return { label: t('status.reconnecting', 'Reconnecting…', { ns: 'editor' }), tone: 'busy' }
+  if (status === 'degraded') return { label: save.message ?? t('status.notSavedRetrying', 'Not saved yet — retrying', { ns: 'editor' }), tone: 'warn' }
+  if (save.retrying > 0) return { label: t('status.notSavedRetryingCount', 'Not saved yet ({{n}}) — retrying', { n: save.retrying, ns: 'editor' }), tone: 'warn' }
+  if (save.pending > 0) return { label: t('status.saving', 'Saving…', { ns: 'editor' }), tone: 'busy' }
+  if (status === 'catching_up') return { label: t('status.catchingUp', "Catching up with others' changes…", { ns: 'editor' }), tone: 'busy' }
+  if (status !== 'live') return { label: t('status.connecting', 'Connecting…', { ns: 'editor' }), tone: 'busy' }
+  return { label: t('status.live', 'Connected. All changes saved', { ns: 'editor' }), tone: 'ok' }
 }

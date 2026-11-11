@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Skeleton } from '../../ui/skeleton'
 import { Textarea } from '../../ui/textarea'
 import { submittalRows, type SubmittalItemRow, type SubmittalRow } from './submittal-rows'
+import { useEditorTranslate } from '../i18n/translate'
 
 export interface SubmittalsPanelProps {
   readonly model: ModelState | null
@@ -42,6 +43,7 @@ function newId(prefix: string): string {
  * offers "Update design to match"). No dates, no prices.
  */
 export function SubmittalsPanel({ model, error, onRetry, canEdit, blockedReason, submit, selection, selectionLabel }: SubmittalsPanelProps) {
+  const t = useEditorTranslate()
   const rows = useMemo(() => (model ? submittalRows(model) : []), [model])
   const [creating, setCreating] = useState(false)
   const [title, setTitle] = useState('')
@@ -116,16 +118,16 @@ export function SubmittalsPanel({ model, error, onRetry, canEdit, blockedReason,
     )
   if (!model)
     return (
-      <section aria-label="Submittals" aria-busy="true" className="flex flex-col gap-2" data-testid="submittals-panel">
+      <section aria-label={t('panel.submittals', 'Submittals', { ns: 'editor' })} aria-busy="true" className="flex flex-col gap-2" data-testid="submittals-panel">
         <span className="sr-only">Loading the submittals</span>
         <Skeleton className="h-8" />
       </section>
     )
 
   return (
-    <section aria-label="Submittals" className="flex min-w-0 flex-col gap-2" data-testid="submittals-panel">
+    <section aria-label={t('panel.submittals', 'Submittals', { ns: 'editor' })} className="flex min-w-0 flex-col gap-2" data-testid="submittals-panel">
       <h3 className="flex items-center gap-2 text-sm font-medium">
-        <FileStack className="size-4" /> Submittals
+        <FileStack className="size-4" /> {t('panel.submittals', 'Submittals', { ns: 'editor' })}
       </h3>
       <Button size="sm" className="self-start" onClick={() => setCreating(true)} disabled={newReason !== null} title={newReason ?? `New submittal for ${selectionLabel}`} data-testid="submittals-new">
         <FilePlus2 data-icon="inline-start" />

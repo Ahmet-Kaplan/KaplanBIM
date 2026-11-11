@@ -3,6 +3,7 @@
 import { organizationOf, type ModelState } from '@permitzip/bim-kernel'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../ui/select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip'
+import { useEditorTranslate } from '../i18n/translate'
 import type { SubmitCommand } from '../views-sheets/types'
 import { MANAGE_PATH } from './labels'
 
@@ -16,6 +17,7 @@ interface Props {
 
 /** Bottom strip: which group new work goes in and which phase it is built in, switchable in one click. */
 export function OrganizationStatusBar({ model, canEdit, blockedReason, submit, onRefused }: Props) {
+  const t = useEditorTranslate()
   if (!model) return null
   const org = organizationOf(model)
   const group = org.groupById.get(org.activeGroupId)
@@ -24,17 +26,17 @@ export function OrganizationStatusBar({ model, canEdit, blockedReason, submit, o
     if (refusal) onRefused(refusal)
   }
   return (
-    <div className="flex h-9 shrink-0 items-center gap-4 border-t bg-background px-3 text-xs" role="status" aria-label="Active group and phase" data-testid="organization-status-bar">
+    <div className="flex h-9 shrink-0 items-center gap-4 border-t bg-background px-3 text-xs" role="status" aria-label={t('status.activeGroupAndPhase', 'Active group and phase', { ns: 'editor' })} data-testid="organization-status-bar">
       <Tooltip>
         <TooltipTrigger asChild>
           <div className="flex items-center gap-1.5">
-            <span className="text-muted-foreground">New work goes in</span>
+            <span className="text-muted-foreground">{t('status.newWorkGoesIn', 'New work goes in', { ns: 'editor' })}</span>
             <Select
               value={org.activeGroupId}
               disabled={!canEdit}
               onValueChange={(id) => send(submit({ type: 'set_active_group', groupId: id }, `make ${org.groupById.get(id)?.entry.name ?? 'that group'} active`))}
             >
-              <SelectTrigger size="sm" className="h-7 gap-1.5 text-xs" aria-label="Active group" data-testid="active-group">
+              <SelectTrigger size="sm" className="h-7 gap-1.5 text-xs" aria-label={t('status.activeGroup', 'Active group', { ns: 'editor' })} data-testid="active-group">
                 <span aria-hidden className="size-2.5 rounded-full border" style={{ backgroundColor: group?.entry.color }} />
                 <SelectValue />
               </SelectTrigger>
@@ -43,7 +45,7 @@ export function OrganizationStatusBar({ model, canEdit, blockedReason, submit, o
                   {org.groups.map((g) => (
                     <SelectItem key={g.id} value={g.id} disabled={g.entry.locked}>
                       {g.entry.name}
-                      {g.entry.locked ? ' (locked)' : ''}
+                      {g.entry.locked ? ` ${t('status.locked', '(locked)', { ns: 'editor' })}` : ''}
                     </SelectItem>
                   ))}
                 </SelectGroup>
@@ -51,18 +53,18 @@ export function OrganizationStatusBar({ model, canEdit, blockedReason, submit, o
             </Select>
           </div>
         </TooltipTrigger>
-        <TooltipContent>{canEdit ? `New ducts, pipes and parts go in this group. Edit groups in ${MANAGE_PATH}.` : blockedReason}</TooltipContent>
+        <TooltipContent>{canEdit ? t('status.groupTooltip', 'New ducts, pipes and parts go in this group. Edit groups in {{path}}.', { path: MANAGE_PATH, ns: 'editor' }) : blockedReason}</TooltipContent>
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
           <div className="flex items-center gap-1.5">
-            <span className="text-muted-foreground">built in</span>
+            <span className="text-muted-foreground">{t('status.builtIn', 'built in', { ns: 'editor' })}</span>
             <Select
               value={org.activePhaseId}
               disabled={!canEdit}
               onValueChange={(id) => send(submit({ type: 'set_active_phase', phaseId: id }, `work in ${org.phases.find((p) => p.id === id)?.entry.name ?? 'that phase'}`))}
             >
-              <SelectTrigger size="sm" className="h-7 text-xs" aria-label="Active phase" data-testid="active-phase">
+              <SelectTrigger size="sm" className="h-7 text-xs" aria-label={t('status.activePhase', 'Active phase', { ns: 'editor' })} data-testid="active-phase">
                 <SelectValue placeholder={phase?.entry.name} />
               </SelectTrigger>
               <SelectContent>
@@ -77,7 +79,7 @@ export function OrganizationStatusBar({ model, canEdit, blockedReason, submit, o
             </Select>
           </div>
         </TooltipTrigger>
-        <TooltipContent>{canEdit ? 'New elements are created in this phase; Demolish removes them in it.' : blockedReason}</TooltipContent>
+        <TooltipContent>{canEdit ? t('status.phaseTooltip', 'New elements are created in this phase; Demolish removes them in it.', { ns: 'editor' }) : blockedReason}</TooltipContent>
       </Tooltip>
     </div>
   )

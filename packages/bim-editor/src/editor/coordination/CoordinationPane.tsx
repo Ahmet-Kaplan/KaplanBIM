@@ -25,6 +25,7 @@ import { groupFindings, type ElementCluster } from './group-findings'
 import { useWindowedRows, windowSlice } from '../use-windowed-rows'
 import { useEditorHost } from '@permitzip/bim-editor/host'
 import { ruleTitle, useCoordinationFrom, type Acceptance } from './use-coordination'
+import { useEditorLanguage, useEditorTranslate } from '../i18n/translate'
 
 /**
  * Manage › Coordination: every clash and coordination finding on the open
@@ -265,7 +266,13 @@ function UnmatchedRow({ acceptance, blocked, onRetract }: { acceptance: Acceptan
 /** Estimated height of one finding cluster in the list, px. */
 const FINDING_ROW_PX = 96
 
-export function CoordinationPane({ projectId, modelId, model, acceptBlocked, onSelect, onClose, questions, submittals, title = 'Coordination', needs }: Props) {
+export function CoordinationPane({ projectId, modelId, model, acceptBlocked, onSelect, onClose, questions, submittals, title, needs }: Props) {
+  const t = useEditorTranslate()
+  const language = useEditorLanguage()
+  const paneTitle = title ?? t('panel.coordination', 'Coordination', { ns: 'editor' })
+  // The close button reads as a sentence, so the pane's word is lower-cased in it —
+  // in English only: Turkish `İ`/`I` are not the English pair (see `useEditorLanguage`).
+  const paneWords = language === 'tr' ? paneTitle : paneTitle.toLocaleLowerCase('en')
   const { state, config, setConfig, accept, retract, saveSettings, retry } = useCoordinationFrom(useEditorHost().data.coordination, projectId, modelId, model)
   const [view, setView] = useState<PaneView>('needs')
   const showChecks = needs === undefined || view === 'checks'
@@ -290,10 +297,10 @@ export function CoordinationPane({ projectId, modelId, model, acceptBlocked, onS
   const warnings = state.status === 'ready' ? state.open.length - errors : 0
 
   return (
-    <Card className="pointer-events-auto absolute top-3 left-3 z-30 flex max-h-[calc(100%-1.5rem)] w-[26rem] max-w-[calc(100%-1.5rem)] min-w-0 flex-col gap-3 overflow-hidden py-4 shadow-lg" data-testid="coordination-panel" role="region" aria-label={title}>
+    <Card className="pointer-events-auto absolute top-3 left-3 z-30 flex max-h-[calc(100%-1.5rem)] w-[26rem] max-w-[calc(100%-1.5rem)] min-w-0 flex-col gap-3 overflow-hidden py-4 shadow-lg" data-testid="coordination-panel" role="region" aria-label={paneTitle}>
       <CardHeader className="px-4">
         <CardTitle className="flex items-center gap-2">
-          {title}
+          {paneTitle}
           {state.status === 'ready' && (
             <Badge variant={errors > 0 ? 'destructive' : 'secondary'} data-testid="coordination-count">
               {state.open.length}
@@ -304,7 +311,7 @@ export function CoordinationPane({ projectId, modelId, model, acceptBlocked, onS
           {state.status === 'ready' ? `${errors} error${errors === 1 ? '' : 's'}, ${warnings} warning${warnings === 1 ? '' : 's'} at Rev ${state.revision}: ${scopeText(state.settings, state.linkedCount)}` : 'Clashes with our work and linked models, equipment placement, systems and sheets.'}
         </CardDescription>
         <CardAction>
-          <Button variant="ghost" size="icon" aria-label={`Close ${title.toLowerCase()} (Esc)`} onClick={onClose} data-testid="coordination-close">
+          <Button variant="ghost" size="icon" aria-label={t('panel.closePane', 'Close {{name}} (Esc)', { name: paneWords, ns: 'editor' })} onClick={onClose} data-testid="coordination-close">
             <X />
           </Button>
         </CardAction>
@@ -420,7 +427,7 @@ export function CoordinationPane({ projectId, modelId, model, acceptBlocked, onS
           </Empty>
         )}
         {showChecks && state.status === 'ready' && (state.open.length > 0 || state.accepted.length > 0 || state.unmatched.length > 0) && (
-          <div ref={windowRows.scrollRef} className="-mr-2 min-h-48 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain pr-2" data-testid="coordination-list" tabIndex={0} aria-label="Coordination findings">
+          <div ref={windowRows.scrollRef} className="-mr-2 min-h-48 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain pr-2" data-testid="coordination-list" tabIndex={0} aria-label={t('panel.coordinationFindings', 'Coordination findings', { ns: 'editor' })}>
             <div className="flex min-w-0 flex-col gap-4">
               {windowRows.windowed && (
                 <div className="flex min-w-0 flex-col" data-testid="coordination-windowed">

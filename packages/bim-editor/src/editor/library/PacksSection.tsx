@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { SettingsCard, SettingsLoadError, SettingsLoading } from '../../ui/settings-page'
 import { addonContents } from '../contributions/registry'
 import { PREVIEW_NOTE } from '../settings/AddonsPreviewNote'
+import { useEditorTranslate } from '../i18n/translate'
 
 /** The catalogue plus which add-ons are Preview (results not yet for issued drawings). */
 export interface PackCatalogue {
@@ -40,6 +41,7 @@ function loadPackCatalogue(): Promise<PackCatalogue> {
  * Model settings › Add-ons.
  */
 export function PacksSection({ loadCatalogue = loadPackCatalogue }: { readonly loadCatalogue?: () => Promise<PackCatalogue> }) {
+  const t = useEditorTranslate()
   const [state, setState] = useState<LoadState>({ kind: 'loading' })
 
   const fetchRows = useCallback(() => {
@@ -65,7 +67,7 @@ export function PacksSection({ loadCatalogue = loadPackCatalogue }: { readonly l
 
   const others = state.rows.filter((r) => !r.firstParty)
   return (
-    <SettingsCard id="add-ons" title="Add-ons" description="The trades and add-ons models on this server can use. Built-in trades come with MutinyBIM; other add-ons are installed per server and switched on per model in Building Model › Manage › Model settings › Add-ons.">
+    <SettingsCard id="add-ons" title={t('panel.addOns', 'Add-ons', { ns: 'editor' })} description="The trades and add-ons models on this server can use. Built-in trades come with MutinyBIM; other add-ons are installed per server and switched on per model in Building Model › Manage › Model settings › Add-ons.">
       <Table>
         <TableHeader>
           <TableRow>

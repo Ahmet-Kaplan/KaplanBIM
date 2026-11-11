@@ -24,6 +24,7 @@ import { SettingsCard, SettingsLoadError, SettingsLoading } from '../../ui/setti
 import { DesignLimitEditor } from './DesignLimitEditor'
 import { useEditorHost } from '@permitzip/bim-editor/host'
 import { appliesToWords, loadDesignLimitRowsFrom, publishDesignLimitFrom, type DesignLimitRows, type LibraryLimit } from './design-limits-client'
+import { useEditorTranslate } from '../i18n/translate'
 
 type LoadState = { readonly kind: 'loading' } | { readonly kind: 'ready'; readonly rows: DesignLimitRows } | { readonly kind: 'error'; readonly message: string }
 
@@ -45,6 +46,7 @@ function whoSetIt(row: DesignLimitRow): string {
  * 8 ft/s (set by the product owner)".
  */
 export function DesignLimitsSection({ scope = 'firm', canEdit, editBlockedReason, loadRows: loadRowsOverride }: { readonly scope?: string; readonly canEdit: boolean; readonly editBlockedReason?: string; readonly loadRows?: (scope: string) => Promise<DesignLimitRows> }) {
+  const t = useEditorTranslate()
   const [state, setState] = useState<LoadState>({ kind: 'loading' })
   const [editing, setEditing] = useState<{ readonly row: DesignLimitRow | null } | null>(null)
   const [resetting, setResetting] = useState<DesignLimitRow | null>(null)
@@ -112,7 +114,7 @@ export function DesignLimitsSection({ scope = 'firm', canEdit, editBlockedReason
   return (
     <SettingsCard
       id="design-limits"
-      title="Design limits"
+      title={t('panel.designLimits', 'Design limits', { ns: 'editor' })}
       description="The firm's rules of thumb (velocity, pressure loss, spare capacity, margins…), one per discipline and system, each with its source. Checks and calculation sheets design to these; a project can change any of them for itself."
       actions={
         blocked ? (

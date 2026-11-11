@@ -75,6 +75,7 @@ import { LinkModelDialog } from './LinkModelDialog'
 import { LinkedIdentityDialog } from './linked-display/LinkedIdentityDialog'
 import { ProposeChangesDialog } from './ifc-import/ProposeChangesDialog'
 import { PROPOSE_WORDS } from '../contracts/building-model/ifc-import/contract'
+import { useEditorTranslate } from './i18n/translate'
 
 const POLL_MS = 4000
 
@@ -105,6 +106,7 @@ function viewSignature(data: LinkedModelsResponse): string {
 }
 
 export function LinkedModelsPanel({ projectId, linkOpen, onLinkOpenChange, onViewChange, onCanEditChange, fixtureReferences, displayControl, disciplineSet, headerless = false }: Props) {
+  const t = useEditorTranslate()
   const linked = useEditorHost().data.linkedModels
   const disciplines = disciplineSet?.() ?? undefined
   const [data, setData] = useState<LinkedModelsResponse | null>(null)
@@ -253,7 +255,7 @@ export function LinkedModelsPanel({ projectId, linkOpen, onLinkOpenChange, onVie
   return (
     <div className="flex flex-col gap-2" data-testid="linked-models-panel" data-busy={busy ? 'true' : 'false'}>
       <div className={headerless ? 'flex items-center justify-end gap-2' : 'flex items-center justify-between gap-2'}>
-        {!headerless && <span className="text-sm font-medium">Linked models</span>}
+        {!headerless && <span className="text-sm font-medium">{t('panel.linkedModels', 'Linked models', { ns: 'editor' })}</span>}
         <div className="flex flex-wrap items-center justify-end gap-1">
         <Tooltip>
           <TooltipTrigger asChild>

@@ -24,6 +24,7 @@ import { AnswerQuestionDialog } from './AnswerQuestionDialog'
 import { AskQuestionDialog } from './AskQuestionDialog'
 import { QuestionEmailDialog } from './QuestionEmailDialog'
 import { questionRows, type QuestionFilter, type QuestionRow } from './question-rows'
+import { useEditorTranslate } from '../i18n/translate'
 import { QuestionThread } from './QuestionThread'
 import type { AnswerChoice } from './thread-rows'
 
@@ -63,6 +64,7 @@ const STATUS_VARIANT: Readonly<Record<QuestionRow['status'], 'destructive' | 'se
  * Four controls always visible; a row's own actions show when it is opened.
  */
 export function QuestionsList({ model, error, onRetry, projectName, canEdit, blockedReason, submit, selection, selectionLabel, focusRequest, onSelect, me, notices, revise }: QuestionsListProps) {
+  const t = useEditorTranslate()
   const host = useEditorHost()
   const questions = host.data.questions
   const hostIdentity = host.identity.provider ?? DEFAULT_HOST_IDENTITY
@@ -164,7 +166,7 @@ export function QuestionsList({ model, error, onRetry, projectName, canEdit, blo
 
   if (error)
     return (
-      <section className="flex flex-col gap-2" aria-label="Questions" data-testid="questions-list">
+      <section className="flex flex-col gap-2" aria-label={t('panel.questions', 'Questions', { ns: 'editor' })} data-testid="questions-list">
         <Alert variant="destructive" data-testid="questions-error">
           <AlertTitle>The questions didn’t load</AlertTitle>
           <AlertDescription className="flex flex-col items-start gap-2">
@@ -181,7 +183,7 @@ export function QuestionsList({ model, error, onRetry, projectName, canEdit, blo
     )
   if (!model)
     return (
-      <section className="flex flex-col gap-2" aria-label="Questions" aria-busy="true" data-testid="questions-list">
+      <section className="flex flex-col gap-2" aria-label={t('panel.questions', 'Questions', { ns: 'editor' })} aria-busy="true" data-testid="questions-list">
         <span className="sr-only">Loading the questions</span>
         <Skeleton className="h-8" />
         <Skeleton className="h-8" />
@@ -189,9 +191,9 @@ export function QuestionsList({ model, error, onRetry, projectName, canEdit, blo
     )
 
   return (
-    <section className="flex min-w-0 flex-col gap-2" aria-label="Questions" data-testid="questions-list">
+    <section className="flex min-w-0 flex-col gap-2" aria-label={t('panel.questions', 'Questions', { ns: 'editor' })} data-testid="questions-list">
       <h3 className="flex items-center gap-2 text-sm font-medium">
-        <CircleHelp className="size-4" /> Questions
+        <CircleHelp className="size-4" /> {t('panel.questions', 'Questions', { ns: 'editor' })}
         <Badge variant={openCount > 0 ? 'default' : 'outline'} data-testid="questions-open-count">
           {openCount} open
         </Badge>

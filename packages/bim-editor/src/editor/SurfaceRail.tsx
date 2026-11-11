@@ -29,6 +29,7 @@ import { RAIL_SECTION } from './contributions/slots'
 import type { RailSectionProps } from './contributions/types'
 import { NewViewOrSheetMenu, ViewsSheetsPanel } from './views-sheets/ViewsSheetsPanel'
 import { ChecklistRailButton } from './checklist/ChecklistRailButton'
+import { useEditorTranslate } from './i18n/translate'
 
 // Off the page's first download (`ui.first_chunk.kb`): the linked-models list (and its link, import and IFC dialogs) and the rooms list load on demand.
 const LinkedModels = dynamic(() => import('./LinkedModelsPanel').then((m) => m.LinkedModelsPanel), { ssr: false, loading: () => <LoadingLine label="Loading linked models…" /> })
@@ -107,6 +108,7 @@ export const SurfaceRail = memo<(props: SurfaceRailProps) => ReactNode>(function
   const { store, canEdit, blockedReason, loadError, openView, showDrawing, displayContext, linkedDisplay } = props
   const liveNeeded = props.spaces !== null || props.addonRail !== null || props.notPlaced !== null
   const live = useModelSelector(store, liveNeeded ? selectModel : selectNothing)
+  const t = useEditorTranslate()
   // One selector per rail: each remembers the last snapshot version it saw. The surface creates its store once and never replaces it.
   const [documentsSelector] = useState(() => selectModelForZones(DOCUMENT_ZONES))
   const [organizationSelector] = useState(() => selectModelForZones(ORGANIZATION_ZONES))
@@ -120,7 +122,7 @@ export const SurfaceRail = memo<(props: SurfaceRailProps) => ReactNode>(function
     <aside
       className="relative flex shrink-0 flex-col border-r"
       style={{ width }}
-      aria-label="Views, sheets and model filters"
+      aria-label={t('panel.railAria', 'Views, sheets and model filters', { ns: 'editor' })}
       data-testid="building-model-rail"
       data-layout={prefs.status}
     >
@@ -165,14 +167,18 @@ export const SurfaceRail = memo<(props: SurfaceRailProps) => ReactNode>(function
         <LayoutSection
           surface={RAIL_SURFACE}
           id={RAIL_SECTIONS.viewsSheets}
-          title="Views and sheets"
+          title={t('panel.viewsAndSheets', 'Views and sheets', { ns: 'editor' })}
           testId="views-sheets-panel"
           action={<NewViewOrSheetMenu onRequest={props.onRequest} canEdit={canEdit} blockedReason={blockedReason} />}
         >
           <ViewsSheetsPanel headerless model={documents} canEdit={canEdit} blockedReason={blockedReason} open={props.open} onOpen={props.onOpen} onRequest={props.onRequest} userId={props.userId} />
         </LayoutSection>
         <Separator />
-        <LayoutSection surface={RAIL_SURFACE} id={RAIL_SECTIONS.show} title={`Show${openView ? ` in ${openView.name}` : ''}`}>
+        <LayoutSection
+          surface={RAIL_SURFACE}
+          id={RAIL_SECTIONS.show}
+          title={openView ? t('panel.showIn', 'Show in {{view}}', { view: openView.name, ns: 'editor' }) : t('panel.show', 'Show', { ns: 'editor' })}
+        >
           <Field>
             <FieldLabel htmlFor="bm-level">Level (3D model)</FieldLabel>
             <Select value={props.level} onValueChange={props.onLevel} disabled={props.referenceLevels.length === 0}>
@@ -218,7 +224,7 @@ export const SurfaceRail = memo<(props: SurfaceRailProps) => ReactNode>(function
           </FieldSet>
           <FieldSet>
             {/* The Linked models section manages the links; this set only shows or hides them. */}
-            <FieldLegend variant="label">Linked models</FieldLegend>
+            <FieldLegend variant="label">{t('panel.linkedModels', 'Linked models', { ns: 'editor' })}</FieldLegend>
             <FieldGroup className="gap-2">
               {props.references.length === 0 && <p className="text-xs text-muted-foreground" data-testid="references-empty-hint">None linked yet. You can model without one; Manage › Link a model brings in the architect&apos;s model when you have it.</p>}
               {props.references.map((ref) => (
@@ -240,7 +246,7 @@ export const SurfaceRail = memo<(props: SurfaceRailProps) => ReactNode>(function
           </FieldSet>
         </LayoutSection>
         <Separator />
-        <LayoutSection surface={RAIL_SURFACE} id={RAIL_SECTIONS.linkedModels} title="Linked models" meta={props.references.length > 0 ? props.references.length : undefined}>
+        <LayoutSection surface={RAIL_SURFACE} id={RAIL_SECTIONS.linkedModels} title={t('panel.linkedModels', 'Linked models', { ns: 'editor' })} meta={props.references.length > 0 ? props.references.length : undefined}>
           <LinkedModels
             headerless
             projectId={props.projectId}

@@ -10,6 +10,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip'
 import { SettingsCard, SettingsLoadError, SettingsLoading } from '../../ui/settings-page'
 import { useEditorHost } from '@permitzip/bim-editor/host'
 import { loadTitleBlocksFrom, makeDefaultTitleBlockFrom, type TitleBlockList } from './title-blocks-client'
+import { useEditorTranslate } from '../i18n/translate'
 
 type LoadState = { readonly kind: 'loading' } | { readonly kind: 'ready'; readonly list: TitleBlockList } | { readonly kind: 'error'; readonly message: string }
 
@@ -22,6 +23,7 @@ const inches = (mm: number) => Math.round(mm / 25.4)
  * an issued sheet; Sheets › Title block switches one sheet.
  */
 export function TitleBlocksSection({ load: loadOverride, makeDefault: makeDefaultOverride }: { readonly load?: () => Promise<TitleBlockList>; readonly makeDefault?: (id: string) => Promise<void> }) {
+  const t = useEditorTranslate()
   const titleBlocks = useEditorHost().data.titleBlocks
   const load = useCallback(() => (loadOverride ? loadOverride() : loadTitleBlocksFrom(titleBlocks)), [loadOverride, titleBlocks])
   const makeDefault = (id: string) => (makeDefaultOverride ? makeDefaultOverride(id) : makeDefaultTitleBlockFrom(titleBlocks, id))
@@ -74,7 +76,7 @@ export function TitleBlocksSection({ load: loadOverride, makeDefault: makeDefaul
   return (
     <SettingsCard
       id="title-blocks"
-      title="Title blocks"
+      title={t('panel.titleBlocks', 'Title blocks', { ns: 'editor' })}
       description="The title blocks sheets can use, with the paper each is drawn for. New sheets start with the default; a sheet keeps its own title block until you change it in Sheets › Title block."
     >
       {choices.length === 0 ? (
@@ -85,7 +87,7 @@ export function TitleBlocksSection({ load: loadOverride, makeDefault: makeDefaul
           </EmptyHeader>
         </Empty>
       ) : (
-        <Table aria-label="Title blocks">
+        <Table aria-label={t('panel.titleBlocks', 'Title blocks', { ns: 'editor' })}>
           <TableHeader>
             <TableRow>
               <TableHead>Title block</TableHead>

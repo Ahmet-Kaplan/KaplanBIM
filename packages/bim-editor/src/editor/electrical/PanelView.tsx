@@ -17,6 +17,7 @@ import { CapacityTargetLine } from './CapacityTargetLine'
 import { FaultCurrentStrip } from './FaultCurrentStrip'
 import type { CapacityTargets } from './use-capacity-targets'
 import { NEC_EDITIONS, type NecRules } from './use-nec-rules'
+import { useEditorTranslate } from '../i18n/translate'
 
 const kva = (va: number) => (va / 1000).toFixed(1)
 
@@ -170,6 +171,7 @@ export function PanelView({
   /** The firm's and project's design limits for the spare-capacity line; absent: the defaults, with no way to change them here. */
   readonly capacityTargets?: CapacityTargets
 }) {
+  const t = useEditorTranslate()
   const els = model.elements
   const s = panelSchedule(els, panelId)
   const all = distributionEquipment(els)
@@ -179,7 +181,7 @@ export function PanelView({
   const [countError, setCountError] = useState<string | null>(null)
   if (!s) {
     return (
-      <section className="flex flex-col gap-2 p-3" aria-label="Panel view" data-testid="panel-view">
+      <section className="flex flex-col gap-2 p-3" aria-label={t('panel.panelView', 'Panel view', { ns: 'editor' })} data-testid="panel-view">
         <p className="text-sm">That panel is gone (deleted, or undo took it back).</p>
         <Button variant="outline" size="sm" onClick={onClose}>
           Close
@@ -233,7 +235,7 @@ export function PanelView({
             Feed {s.name}
           </Button>
         )}
-        <Button variant="ghost" size="icon-sm" className="ml-auto" aria-label="Close panel view" onClick={onClose}>
+        <Button variant="ghost" size="icon-sm" className="ml-auto" aria-label={t('panel.closePanelView', 'Close panel view', { ns: 'editor' })} onClick={onClose}>
           <X />
         </Button>
       </header>

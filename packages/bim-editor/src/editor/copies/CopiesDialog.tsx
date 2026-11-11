@@ -20,6 +20,7 @@ import { Spinner } from '../../ui/spinner'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs'
 import { Textarea } from '../../ui/textarea'
 import { CAPABILITY_WORDS, readCopyPeople, type CopyPeople } from './copy-people'
+import { useEditorTranslate } from '../i18n/translate'
 
 /**
  * Manage › Copies: contractor and shop-drawing copies of this model. Pick a
@@ -54,6 +55,7 @@ function errorText(err: unknown, fallback: string): string {
 }
 
 export function CopiesDialog({ open, onOpenChange, projectId, ask }: CopiesDialogProps) {
+  const t = useEditorTranslate()
   const [copies, setCopies] = useState<{ readonly state: 'loading' } | { readonly state: 'error'; readonly text: string } | { readonly state: 'ready'; readonly list: readonly Lineage[]; readonly all: readonly Lineage[] }>({ state: 'loading' })
   const [chosen, setChosen] = useState<string | null>(null)
   const [listAttempt, setListAttempt] = useState(0)
@@ -85,7 +87,7 @@ export function CopiesDialog({ open, onOpenChange, projectId, ask }: CopiesDialo
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-3xl" data-testid="copies-dialog">
         <DialogHeader>
-          <DialogTitle>Copies</DialogTitle>
+          <DialogTitle>{t('panel.copies', 'Copies', { ns: 'editor' })}</DialogTitle>
           <DialogDescription>Contractors and shops work in their own copy of the model. Name who works in each, review what they changed, and accept chosen records back.</DialogDescription>
         </DialogHeader>
         {copies.state === 'loading' && (
@@ -130,7 +132,7 @@ export function CopiesDialog({ open, onOpenChange, projectId, ask }: CopiesDialo
         )}
         {copies.state === 'ready' && copies.list.length > 0 && (
           <div className="grid gap-4 sm:grid-cols-[14rem_1fr]">
-            <ul className="flex flex-col gap-1" aria-label="Copies">
+            <ul className="flex flex-col gap-1" aria-label={t('panel.copies', 'Copies', { ns: 'editor' })}>
               {copies.list.map((l) => (
                 <li key={l.id}>
                   <Button variant={l.id === chosen ? 'secondary' : 'ghost'} className="h-auto w-full justify-start py-2 text-left" onClick={() => setChosen(l.id)} data-testid="copies-item">
