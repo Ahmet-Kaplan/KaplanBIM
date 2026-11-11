@@ -54,6 +54,10 @@ Kodda aynı nesne için 4 İngilizce eşanlamlı dolaşıyor: `element`, `part`,
 | Item (maliyet/metraj kalemi) | **kalem** | "N kalem", "metraj kalemi" |
 
 > **Kural:** Kullanıcıya görünen metinde `piece` kelimesi **hiç** kullanılmaz → *eleman*.
+>
+> **Kural — `öğe` yasak.** *Öğe*, §0.1'in yasakladığı üçüncü eşanlamlıydı: aynı şey için *eleman*, *parça* ve *kalem* zaten var, `öğe` hiçbirisinin yerine geçmez ve hangi kavramı kastettiğini okuyana bırakır. 2026-11-10'un son düzeltme turunda tr dosyalarındaki **39** kullanımın tamamı kaldırıldı: modelde ve çizimde duran şey *eleman* (`{{n}} eleman`, *çizilmiş elemanlar*, *Çizilmiş elemanlar* sekmesi), çizelge/metraj satırı *kalem* (`{{column}} kalemi`, *kullanımdan kaldırılmış kalemler*). Çeviri yaparken `öğe` yazmayın; *eleman* ya da *kalem* seçin. Bkz. §8.1 `in_use` satırı (bu satır bir zamanlar `öğe` diyordu).
+>
+> **Kural — `Editor` tek sözcük.** Bir kavram, tek Türkçe terim (§0.1): `Editor` = **düzenleyici**. *Editör* yalnız `web.json`'ın `message.editorOffTitle` / `message.editorOffWords` satırlarında geçiyordu; 2026-11-10'un son düzeltme turunda *düzenleyici*ye çevrildi, böylece `settings.languageLede` (“… ve düzenleyicinin dili”) ile aynı sözcüğü kullanıyor. *Editör* çeviri değil, alıntı bir sözcüktür; kullanılmaz.
 
 ### 2.2 Model ve proje
 
@@ -73,6 +77,7 @@ Kodda aynı nesne için 4 İngilizce eşanlamlı dolaşıyor: `element`, `part`,
 | Class / Classification | **sınıf** / **sınıflandırma** | |
 | Discipline | **disiplin** | |
 | Responsible role | **sorumlu rol** | |
+| Editor (uygulamanın kendisi, 3B düzenleme yüzeyi) | **düzenleyici** | ⚠️ *editör* DEĞİL — bkz. §2.1 notu |
 | Version | **sürüm** | |
 
 ### 2.3 Geometri, konum, organizasyon
@@ -281,7 +286,7 @@ Yukarıdaki listeler bağlayıcıydı ama eksikti: ribbon'un bazı sekme ve grup
 | Tag | **Etiket** | §2.4 |
 | Edit (grup) | **Düzenle** | §3 *Edit* = Düzenle |
 | Versions & sign-off | **Sürümler ve imza onayı** | §2.2 *Version* = sürüm + §3 *Sign-off* = imza onayı |
-| Drawn items | **Çizilmiş öğeler** | `Modify · Drawn items` sekmesi → **Değiştir · Çizilmiş öğeler** |
+| Drawn items | **Çizilmiş elemanlar** | `Modify · Drawn items` sekmesi → **Değiştir · Çizilmiş elemanlar** (§2.1: `öğe` değil) |
 | Quick access | **Hızlı erişim** | Araç arama listesinin "Hızlı" grubu |
 | Figures · open a sheet first | **Şekiller · önce bir pafta açın** | Cümle → kibar çoğul emir (§0.7) |
 | Issue · open a sheet to print it | **Yayın · yazdırmak için bir pafta açın** | Cümle → kibar çoğul emir (§0.7) |
@@ -440,7 +445,7 @@ Aşama 4 (Task 4.1–4.2) çizelgeleri, hesap sayfalarını, paftaları, görün
 | Print set / Print the set again / Issue set / Verify pages / Issued drawings | **seti yazdır / seti yeniden yazdır / set yayınla / doğrulama sayfaları / yayınlanmış çizimler** | |
 | Revision row / add revision | **revizyon satırı** / **revizyon ekle** | §2.3 *Revision* = revizyon |
 | Layout / plan north / true north up | **yerleşim** / *plan kuzeyi* / *gerçek kuzey yukarı* | §2.3 |
-| Snap to (verb) | **yakalanmak** ("… öğesine yakalandı") | |
+| Snap to (verb) | **yakalanmak** ("… elemanına yakalandı") | §2.1: `öğe` değil |
 
 ### 5.3 Aşama 4 ikinci düzeltme turunda eklenen sözcükler (2026-11-10)
 
@@ -591,7 +596,7 @@ ayarlar, parça listesi, IFC içe/dışa aktarma) çevrilirken bunlar gerekti. Y
 | Quantity / Quantity change | **miktar** / **miktar değişimi** | |
 | Total / Totals | **toplam** / **toplamlar** | |
 | Change order | **değişiklik emri** | |
-| Submittal | **imalat onayı** | ⚠️ bkz. §9/Ç19 |
+| Submittal | **imalat onayı** | ⚠️ bkz. §9/Ç19. Panel başlığı da aynı sözcüğü kullanır: `panel.submittals` = **İmalat onayları** (*Onay belgeleri* değil — 2026-11-10 son tur) |
 | RFI | **bilgi talebi (RFI)** | |
 | Approval / Approved | **onay** / **onaylandı** | |
 | Approved product | **onaylı ürün** | |
@@ -690,7 +695,7 @@ cümlelerdir ve **gönderilen metindir** — sözlük gerçeğe uymak zorundadı
 | `disconnected` | Uçlar birleştirilemedi. Birbirine baktıklarını kontrol edin. |
 | `invalid_value` | Bu değer geçerli değil. Kontrol edip tekrar deneyin. |
 | `already_exists` | Bu zaten var ya da başka bir şeyle çakışıyor. Başka birini seçin. |
-| `in_use` | Bu işlem yapılamadı. Öğe kilitli, sabitlenmiş ya da başka bir yerde kullanımda olabilir. |
+| `in_use` | Bu işlem yapılamadı. Eleman kilitli, sabitlenmiş ya da başka bir yerde kullanımda olabilir. |
 | `stale_base` | Aynı anda başka biri bunu değiştirdi. Tekrar denemeden önce yenileyin. |
 | `conflict` | Aynı anda başka biri bunu değiştirdi, bu yüzden hiçbir şey kaydedilmedi. Kontrol edip tekrar deneyin. |
 | `forbidden` | Bu modeli düzenleme yetkiniz yok. |
@@ -734,7 +739,7 @@ cümlelerdir ve **gönderilen metindir** — sözlük gerçeğe uymak zorundadı
 > `commands/view3d.ts`) ve `refusal(cümle, ids, kod)` (`commands/views.ts:1725`); bir
 > sonraki dosyanın uyduracağı şekil de aynı kurala girer. `${…}` içine yuvalanmış şablon
 > dizeleri de kayıp. Bu yüzden **üç aile** `in_use` koduna ulaşır ama ölçülen 19'un
-> içinde **değildir**: sabitlenmiş pafta öğesi (`commands/views.ts:1518,1595`), dolu pano
+> içinde **değildir**: sabitlenmiş pafta elemanı (`commands/views.ts:1518,1595`), dolu pano
 > (`connections/commands.ts:253`) ve bütün gerçek pafta aileleri
 > (`commands/views.ts:1390,1704`). Gönderilen cümle onları **tasarım gereği** kapsar
 > ("kilitli, sabitlenmiş ya da başka bir yerde kullanımda" bu yüzden var). Aile listesine

@@ -13,10 +13,17 @@
  */
 import type { ViewCategory } from "@permitzip/bim-kernel";
 import { VIEW_CATEGORY_LABELS } from "@permitzip/bim-kernel";
-import { englishOnly, type Translate } from "../i18n/translate";
+import { type Translate } from "../i18n/translate";
 
-/** "Duct" → "Kanal", "Doors and windows" → "Kapı ve pencereler", in the host's language. */
-export function viewCategoryWord(category: ViewCategory, t: Translate = englishOnly): string {
+/**
+ * "Duct" → "Kanal", "Doors and windows" → "Kapı ve pencereler", in the host's language.
+ *
+ * `t` is required, not defaulted to `englishOnly`: a default here is invisible at the
+ * call site and silently ships the English noun inside a Turkish sentence — the trap
+ * `model-session.ts` and the operator messages closed twice already. A caller that
+ * truly has no translator has to say so at the call.
+ */
+export function viewCategoryWord(category: ViewCategory, t: Translate): string {
   switch (category) {
     case "duct":
       return t("category.duct", "Duct", { ns: "editor" });

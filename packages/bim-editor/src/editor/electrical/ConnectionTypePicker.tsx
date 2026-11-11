@@ -52,7 +52,7 @@ export function ConnectionTypePicker({ model, ids, submit, editBlocked, onManage
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
-              <SelectItem value={NONE}>{t('electrical.noneThePartAposSOwnValues', 'None (the part&apos;s own values)', { ns: 'editor' })}</SelectItem>
+              <SelectItem value={NONE}>{t('electrical.noneThePartAposSOwnValues', "None (the part's own values)", { ns: 'editor' })}</SelectItem>
               {current === MIXED && <SelectItem value={MIXED}>{t('electrical.differentOnEach', 'Different on each', { ns: 'editor' })}</SelectItem>}
               {current !== NONE && current !== MIXED && !known && <SelectItem value={current}>{current} (not in the project&apos;s types)</SelectItem>}
               {records.map((r) => (

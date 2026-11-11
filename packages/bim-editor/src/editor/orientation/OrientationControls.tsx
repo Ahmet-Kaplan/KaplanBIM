@@ -7,7 +7,6 @@ import {
   isElevationSide,
   orientationFor,
   PROJECTIONS,
-  SIDE_LABEL,
   squareOnSide,
   type ElevationSide,
   type Projection,
@@ -31,6 +30,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip'
 import { PROJECTION_SHORTCUT } from '../building-model-ribbon'
 
 import { OrientationBall } from './OrientationBall'
+import { sideLabel } from './words'
 import { useEditorTranslate, type Translate } from '../i18n/translate'
 
 
@@ -60,25 +60,7 @@ function threeQuarterLabel(view: { readonly key: string }, t: Translate): string
   }
 }
 
-/** A side of the model, in the language on screen: the viewer's own label is English. */
-export function sideLabel(side: Side, t: Translate): string {
-  switch (side) {
-    case 'top':
-      return t('orientation.side.top', 'Top', { ns: 'editor' })
-    case 'bottom':
-      return t('orientation.side.bottom', 'Bottom', { ns: 'editor' })
-    case 'north':
-      return t('orientation.side.north', 'North', { ns: 'editor' })
-    case 'south':
-      return t('orientation.side.south', 'South', { ns: 'editor' })
-    case 'east':
-      return t('orientation.side.east', 'East', { ns: 'editor' })
-    case 'west':
-      return t('orientation.side.west', 'West', { ns: 'editor' })
-    default:
-      return SIDE_LABEL[side]
-  }
-}
+export { sideLabel }
 
 function projectionLabel(projection: Projection, t: Translate): string {
   return projection === 'orthographic'

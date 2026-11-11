@@ -1069,7 +1069,7 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
       if (
         send(
           keynoteCommand({ elementId: hit.elementId, key, ownerId, itemId: id, head: toStored(head), leader: true }, t),
-          t('keynote.undo.giveKey', 'give the keynote {key}', { ns: 'editor', key }),
+          t('keynote.undo.giveKey', 'give the keynote {{key}}', { ns: 'editor', key }),
         )
       )
         setSelection({ kind: 'item', id })

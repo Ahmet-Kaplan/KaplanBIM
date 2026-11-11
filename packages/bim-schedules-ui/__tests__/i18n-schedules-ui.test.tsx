@@ -159,7 +159,7 @@ const CAPTIONS: readonly Caption[] = [
   { key: "columns.listsItemsNoTotal", english: "This column lists items, so it has no total.", turkish: "Bu sütun eleman listeler, toplamı olmaz." },
   { key: "columns.onlyNumbersAdd", english: "Only numbers add up.", turkish: "Yalnızca sayılar toplanır." },
   { key: "library.newField", english: "New field", turkish: "Yeni alan" },
-  { key: "library.includeRetired", english: "Include retired items", turkish: "Kullanımdan kaldırılmış öğeleri dahil et" },
+  { key: "library.includeRetired", english: "Include retired items", turkish: "Kullanımdan kaldırılmış kalemleri de dahil et" },
   { key: "newField.addTo", english: "Add to {{scope}}", turkish: "{{scope}} içine ekle" },
   { key: "save.title", english: "Save to firm library", turkish: "Firma kitaplığına kaydet" },
   { key: "save.publish", english: "Publish", turkish: "Yayınla" },

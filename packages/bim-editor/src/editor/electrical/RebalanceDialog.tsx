@@ -46,8 +46,8 @@ export function RebalanceDialog({ model, initialPanelId, submit, onClose, onDone
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-2xl" data-testid="rebalance-dialog">
         <DialogHeader>
-          <DialogTitle>{t('electrical.balanceAPanelAposSPhases', 'Balance a panel&apos;s phases', { ns: 'editor' })}</DialogTitle>
-          <DialogDescription>{t('electrical.movesCircuitsBetweenSlotsSoABAndCCarryMoreEv', 'Moves circuits between slots so A, B and C carry more even load. What is on each circuit doesn&apos;t change, and three-pole breakers and existing circuits (on a renovation) stay put. You can undo this.', { ns: 'editor' })}</DialogDescription>
+          <DialogTitle>{t('electrical.balanceAPanelAposSPhases', "Balance a panel's phases", { ns: 'editor' })}</DialogTitle>
+          <DialogDescription>{t('electrical.movesCircuitsBetweenSlotsSoABAndCCarryMoreEv', "Moves circuits between slots so A, B and C carry more even load. What is on each circuit doesn't change, and three-pole breakers and existing circuits (on a renovation) stay put. You can undo this.", { ns: 'editor' })}</DialogDescription>
         </DialogHeader>
         <Field>
           <FieldLabel htmlFor="bm-rebalance-panel">{t('electrical.panel', 'Panel', { ns: 'editor' })}</FieldLabel>

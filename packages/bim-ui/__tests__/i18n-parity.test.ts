@@ -11,7 +11,18 @@
  *   2. a key left as its own value (`"label": "label"`), which renders a key name
  *      in the interface,
  *   3. a value carrying an artifact of the tooling that wrote it (`undefined`,
- *      `null`, an unbalanced placeholder brace).
+ *      `null`, a placeholder that is not i18next's `{{ }}`).
+ *
+ * Two more defects are the same rules on the **English defaults**, which is what a
+ * person reads whenever the Turkish is missing: `'give the keynote {key}'` (single
+ * braces, which i18next does not interpolate, so English users read the
+ * placeholder) and `'Check each row&apos;s load class'` (JSX text moved into a JS
+ * string keeps its HTML entity, which React decodes in JSX and not in a string).
+ * Their half of the guard runs in `tools/i18n/__tests__/english-defaults.test.mjs`,
+ * beside the scanner that reads the English out of the source: a package may not
+ * import from `tools/` (`permitzip-mutinybim-oss/no-closed-or-copyleft-import`), and
+ * a second scanner here would be a second thing to keep honest. This file is the
+ * `tr` half; that one is the English half.
  *
  * It runs on every translation task, so it must fail on a real defect and must
  * not pass because it found nothing to check: the first test pins the corpus,

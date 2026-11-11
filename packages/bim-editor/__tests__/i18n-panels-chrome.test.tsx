@@ -88,7 +88,7 @@ const PANEL_CAPTIONS: readonly Caption[] = [
   { key: "panel.stopPlacing", english: "Stop placing", turkish: "Yerleştirmeyi durdur" },
   { key: "panel.spaces", english: "Spaces", turkish: "Mekanlar" },
   { key: "panel.questions", english: "Questions", turkish: "Sorular" },
-  { key: "panel.submittals", english: "Submittals", turkish: "Onay belgeleri" },
+  { key: "panel.submittals", english: "Submittals", turkish: "İmalat onayları" },
   { key: "panel.coordination", english: "Coordination", turkish: "Koordinasyon" },
   { key: "panel.coordinationFindings", english: "Coordination findings", turkish: "Koordinasyon bulguları" },
   { key: "panel.closePane", english: "Close {{name}} (Esc)", turkish: "{{name}} penceresini kapat (Esc)" },

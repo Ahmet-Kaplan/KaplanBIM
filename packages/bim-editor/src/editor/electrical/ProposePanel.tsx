@@ -335,7 +335,7 @@ export function ProposePanel({ model, nec, levelId, editBlocked, submit, onPrevi
               <Alert data-testid="propose-summary">
                 {proposal.passes ? <CircleCheck /> : <CircleAlert />}
                 <AlertTitle>{proposal.summary}</AlertTitle>
-                <AlertDescription>{t('electrical.untickAnyYouDonAposTWantNothingIsPutOnACircu', 'Untick any you don&apos;t want. Nothing is put on a circuit: use Add to circuit or a room template afterwards.', { ns: 'editor' })}</AlertDescription>
+                <AlertDescription>{t('electrical.untickAnyYouDonAposTWantNothingIsPutOnACircu', "Untick any you don't want. Nothing is put on a circuit: use Add to circuit or a room template afterwards.", { ns: 'editor' })}</AlertDescription>
               </Alert>
               <ItemGroup className="gap-1" data-testid="propose-preview">
                 {proposal.rooms.map((r) => (

@@ -118,7 +118,7 @@ export function ServiceSizeDialog({ nec, model, onClose, onStartLayout, capacity
       <DialogContent className="sm:max-w-4xl" data-testid="service-size-dialog">
         <DialogHeader>
           <DialogTitle>Service size from an equipment list</DialogTitle>
-          <DialogDescription>{t('electrical.pasteTheKitchenAndMechanicalSchedulesFromASp', 'Paste the kitchen and mechanical schedules (from a spreadsheet, a CSV, or text copied out of a PDF). Check each row&apos;s load class; the size follows NEC Article 220. Nothing in the model changes.', { ns: 'editor' })}</DialogDescription>
+          <DialogDescription>{t('electrical.pasteTheKitchenAndMechanicalSchedulesFromASp', "Paste the kitchen and mechanical schedules (from a spreadsheet, a CSV, or text copied out of a PDF). Check each row's load class; the size follows NEC Article 220. Nothing in the model changes.", { ns: 'editor' })}</DialogDescription>
         </DialogHeader>
         {!nec.necEdition && (
           <Alert>

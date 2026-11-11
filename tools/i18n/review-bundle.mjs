@@ -71,15 +71,33 @@ const compare = (left, right) => (left < right ? -1 : left > right ? 1 : 0);
 // Reading the source text
 // ---------------------------------------------------------------------------
 
-const STRING_LITERAL = String.raw`(['"])((?:\\.|(?!\1)[^\\])*)\1`;
+/**
+ * A quoted string, single, double or backtick.
+ *
+ * Backticks are read like the other two because a caption may be written as a
+ * template literal with nothing to interpolate: `t('dimension.unit.ftIn',
+ * `Feet and inches (1'-6")`)`. Without them the `'` inside the text opened a
+ * literal, the call's arguments ended early, and the review printed
+ * `-6")`, { ns: ` as that key's English.
+ */
+const STRING_LITERAL = String.raw`(['"\`])((?:\\.|(?!\1)[^\\])*)\1`;
 
 /**
  * Where a `t(...)` call starts. `tr(...)` too: a component that takes its
  * translator as a prop and falls back to the hook names it `tr`, and that alias
  * hid four captions from this tool entirely (they were reported as translated
  * nowhere and missing nowhere).
+ *
+ * `translate(...)` too: `views-sheets/draft/draft-input.ts` binds its translator
+ * once as `const translate = input.t ?? englishOnly` and writes every refusal
+ * through it, so `draft.need.dimensionPoints` reached a Turkish screen in
+ * English while this tool called the bundle complete ("0 eksik").
+ *
+ * A CSS `translate(` inside a style string matches too, and is dropped by the
+ * key test below (`translate(0, 0)` has no positional string literal); a
+ * sentence carrying a space is not a key either.
  */
-const CALL_START = /\b(?:t|tr)\s*\(/g;
+const CALL_START = /\b(?:t|tr|translate)\s*\(/g;
 
 /** `useT('editor')` / `useTranslation('editor')`: what a component's `t` resolves to. */
 const NAMESPACE_DECLARATION = /\b(?:useTranslation|useT)\s*\(/g;

@@ -65,7 +65,7 @@
   "Give diameter_in, or width_in and height_in.": "diameter_in ya da width_in ve height_in verin.",
   "Give either a height or the level the top runs up to, not both": "Ya bir yükseklik ya da üstün çıktığı katı verin; ikisini birden değil",
   "Give either a height or the surface the top runs to, not both": "Ya bir yükseklik ya da üstün gittiği yüzeyi verin; ikisini birden değil",
-  "Give exactly one segment with parent null (the point of delivery); found {0}.": "Bir üst öğesi olmayan (parent boş) tam bir segment verin (teslim noktası); bulunan: {0}.",
+  "Give exactly one segment with parent null (the point of delivery); found {0}.": "Bir üst elemanı olmayan (parent boş) tam bir segment verin (teslim noktası); bulunan: {0}.",
   "Give level_id for scope level.": "Kat kapsamı için level_id verin.",
   "Give one new id per part copied ({0} parts, {1} ids)": "Kopyalanan her parça için bir yeni kimlik verin ({0} parça, {1} kimlik)",
   "Give the angle from plan north to true north, or pick two points": "Açıyı plan kuzeyinden gerçek kuzeye verin ya da iki nokta seçin",

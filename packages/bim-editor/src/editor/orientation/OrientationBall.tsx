@@ -8,7 +8,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip'
 import { cn } from '../../ui/cn'
 import { useEditorTranslate } from '../i18n/translate'
 import type { Translate } from '../i18n/translate'
-import { sideLabel } from './OrientationControls'
+import { sideLabel } from './words'
 
 const SIZE = 72
 const CENTRE = SIZE / 2

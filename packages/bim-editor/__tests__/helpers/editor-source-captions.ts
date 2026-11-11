@@ -30,11 +30,16 @@ export const EDITOR_SRC = path.join(__dirname, "..", "..", "src", "editor");
  * binds a key by the same shape. Four keys shipped in English that way; matching
  * both names is what keeps the alias from coming back.
  *
+ * `translate` is the third name, for the same reason: `views-sheets/draft/draft-input.ts`
+ * binds its translator once (`const translate = input.t ?? englishOnly`) and writes
+ * its refusals through it, so `draft.need.dimensionPoints` was invisible here and
+ * in the review, and shipped in English to a Turkish screen.
+ *
  * The key may be single- or double-quoted: the editor writes single quotes, the
  * schedule surfaces (`@permitzip/bim-schedules-ui`) double, and the scan has to
  * read both or their guard would pass over a literal it never saw.
  */
-const CAPTION_CALL = /\b(?:t|tr)\(\s*(['"])([A-Za-z][\w.]*)\1,\s*(['"])((?:\\.|(?!\3)[^\\])*)\3/g;
+const CAPTION_CALL = /\b(?:t|tr|translate)\(\s*(['"])([A-Za-z][\w.]*)\1,\s*(['"])((?:\\.|(?!\3)[^\\])*)\3/g;
 
 /** One caption as the source writes it: the English the call sites hold, and how many call sites hold it. */
 export interface SourceCaption {

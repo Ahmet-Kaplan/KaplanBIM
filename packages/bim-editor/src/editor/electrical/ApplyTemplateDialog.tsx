@@ -109,7 +109,7 @@ export function ApplyTemplateDialog({ model, initialTemplate, selectedIds, submi
                         </SelectTrigger>
                         <SelectContent>
                           <SelectGroup>
-                            <SelectItem value={NO_PANEL}>{t('electrical.chooseTheUnitAposSPanel', 'Choose the unit&apos;s panel', { ns: 'editor' })}</SelectItem>
+                            <SelectItem value={NO_PANEL}>{t('electrical.chooseTheUnitAposSPanel', "Choose the unit's panel", { ns: 'editor' })}</SelectItem>
                             {panels.map((p) => (
                               <SelectItem key={p.id} value={p.id}>
                                 {p.name}

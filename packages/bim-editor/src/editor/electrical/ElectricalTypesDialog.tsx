@@ -403,7 +403,7 @@ function TemplatesTab({ model, canEdit, editBlocked, submit, onApply }: CommonPr
   const saveBlocked = editBlocked ?? (name.trim() === '' ? t('electrical.giveTheTemplateAName', 'Give the template a name.', { ns: 'editor' }) : entry.rules.length === 0 ? t('electrical.addAtLeastOneRoomRule', 'Add at least one room rule.', { ns: 'editor' }) : null)
   return (
     <div className="flex flex-col gap-3">
-      <FieldDescription>{t('electrical.yourFirmAposSConventionTheFirstRuleThatMatch', 'Your firm&apos;s convention: the first rule that matches a room&apos;s name wins, top to bottom. Applying it circuits the devices inside the rooms you choose, on the panel you name for each unit.', { ns: 'editor' })}</FieldDescription>
+      <FieldDescription>{t('electrical.yourFirmAposSConventionTheFirstRuleThatMatch', "Your firm's convention: the first rule that matches a room's name wins, top to bottom. Applying it circuits the devices inside the rooms you choose, on the panel you name for each unit.", { ns: 'editor' })}</FieldDescription>
       {records.length > 0 && (
         <div className="flex flex-wrap gap-2" data-testid="templates-list">
           {records.map(({ entry: e }) => (

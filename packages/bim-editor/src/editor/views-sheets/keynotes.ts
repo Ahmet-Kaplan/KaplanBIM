@@ -70,7 +70,7 @@ export function keynoteCommand(
 ): Command {
   return {
     type: 'batch_edits',
-    label: t('keynote.undo.giveKey', 'give the keynote {key}', { ns: 'editor', key: args.key }),
+    label: t('keynote.undo.giveKey', 'give the keynote {{key}}', { ns: 'editor', key: args.key }),
     commands: [
       { type: 'set_element_values', elementIds: [args.elementId], values: { [KEYNOTE_FIELD]: args.key } },
       { type: 'add_drawing_item', itemId: args.itemId, ownerId: args.ownerId, shape: 'tag', points: [args.head], tag: { elementId: args.elementId, template: 'fields', fields: [KEYNOTE_FIELD], leader: args.leader } },

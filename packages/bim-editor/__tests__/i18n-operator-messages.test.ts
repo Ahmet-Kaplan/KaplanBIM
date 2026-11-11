@@ -113,7 +113,7 @@ const REFUSALS: Readonly<Record<(typeof CODES)[number], { readonly english: stri
   already_exists: { english: "That is already there or clashes with something else. Choose another.", turkish: "Bu zaten var ya da başka bir şeyle çakışıyor. Başka birini seçin." },
   in_use: {
     english: "That couldn't be done. It may be locked, pinned or still in use somewhere else.",
-    turkish: "Bu işlem yapılamadı. Öğe kilitli, sabitlenmiş ya da başka bir yerde kullanımda olabilir.",
+    turkish: "Bu işlem yapılamadı. Eleman kilitli, sabitlenmiş ya da başka bir yerde kullanımda olabilir.",
   },
   stale_base: { english: "Someone else changed this at the same time. Reload before trying again.", turkish: "Aynı anda başka biri bunu değiştirdi. Tekrar denemeden önce yenileyin." },
   conflict: { english: "Someone else changed this at the same time, so nothing was saved. Check it and try again.", turkish: "Aynı anda başka biri bunu değiştirdi, bu yüzden hiçbir şey kaydedilmedi. Kontrol edip tekrar deneyin." },
