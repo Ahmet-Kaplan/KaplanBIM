@@ -7,6 +7,7 @@ import type { EditorDataAnswer, EditorDataHost } from '@permitzip/bim-editor-hos
 import { useOptionalEditorHost } from '@permitzip/bim-editor/host'
 import { EditorServiceUnavailableError, unavailableWords } from '@permitzip/bim-editor/host/unavailable'
 import { requireAddOns } from '../../contracts/building-model/add-ons'
+import { englishOnly, useEditorTranslate, type Translate } from '../i18n/translate'
 
 /**
  * Manage › Coordination's data: the person's lint settings, accepted
@@ -52,24 +53,24 @@ export function ruleTitle(rule: string): string {
   return activeLintRules().find((r) => r.id === rule)?.title ?? rule
 }
 
-async function readJson<T>(res: EditorDataAnswer, what: string): Promise<T> {
+async function readJson<T>(res: EditorDataAnswer, what: string, t: Translate = englishOnly): Promise<T> {
   const body: unknown = await res.json().catch((err: unknown) => {
     console.error(`[coordination] ${what}: the answer wasn't JSON`, err)
     return null
   })
   if (!res.ok) {
-    const message = typeof body === 'object' && body !== null && 'error' in body && typeof (body as { error: unknown }).error === 'string' ? (body as { error: string }).error : `${what} failed (${res.status})`
+    const message = typeof body === 'object' && body !== null && 'error' in body && typeof (body as { error: unknown }).error === 'string' ? (body as { error: string }).error : t('coordination.whatFailed', '{{what}} failed ({{status}})', { ns: 'editor', what, status: res.status })
     throw new Error(message)
   }
   return body as T
 }
 
-const COORDINATION = 'Coordination (lint settings, accepted findings and linked models)'
-
 export function useCoordinationFrom(port: EditorDataHost['coordination'], projectId: string, modelId: string, model: ModelState | null) {
+  const t = useEditorTranslate()
+  const COORDINATION = t('coordination.service', 'Coordination (lint settings, accepted findings and linked models)', { ns: 'editor' })
   const capabilities = useOptionalEditorHost()?.capabilities ?? null
   const [server, setServer] = useState<ServerState | null>(null)
-  const [state, setState] = useState<CoordinationState>({ status: 'loading', message: 'Loading coordination settings and linked models (the first time a linked model is read takes a few seconds)…' })
+  const [state, setState] = useState<CoordinationState>({ status: 'loading', message: t('coordination.loading', 'Loading coordination settings and linked models (the first time a linked model is read takes a few seconds)…', { ns: 'editor' }) })
   const [config, setConfig] = useState<LintConfig | null>(null)
   const engineRef = useRef<{ engine: LintEngine; linked: readonly LinkedModelIndex[] } | null>(null)
   const [reload, setReload] = useState(0)
@@ -79,7 +80,7 @@ export function useCoordinationFrom(port: EditorDataHost['coordination'], projec
     let cancelled = false
     port
       .read({ projectId, modelId })
-      .then((res) => readJson<ServerState>(res, 'Loading coordination'))
+      .then((res) => readJson<ServerState>(res, t('coordination.loadingCoordination', 'Loading coordination', { ns: 'editor' }), t))
       .then((s) => {
         if (cancelled) return
         setServer(s)
@@ -87,12 +88,12 @@ export function useCoordinationFrom(port: EditorDataHost['coordination'], projec
       })
       .catch((err: unknown) => {
         console.error('[coordination] loading failed', err)
-        if (!cancelled) setState({ status: 'error', message: err instanceof Error ? err.message : 'Loading coordination failed' })
+        if (!cancelled) setState({ status: 'error', message: err instanceof Error ? err.message : t('coordination.loadingFailed', 'Loading coordination failed', { ns: 'editor' }) })
       })
     return () => {
       cancelled = true
     }
-  }, [port, projectId, modelId, reload])
+  }, [port, projectId, modelId, reload, t])
 
   useEffect(() => {
     if (!server || !model || !config) return
@@ -135,22 +136,22 @@ export function useCoordinationFrom(port: EditorDataHost['coordination'], projec
         })
       } catch (err) {
         console.error('[coordination] the check failed', err)
-        setState({ status: 'error', message: err instanceof Error ? `The check failed: ${err.message}` : 'The check failed' })
+        setState({ status: 'error', message: err instanceof Error ? t('coordination.checkFailedReason', 'The check failed: {{error}}', { ns: 'editor', error: err.message }) : t('coordination.checkFailed', 'The check failed', { ns: 'editor' }) })
       }
     }, 30)
     return () => {
       cancelled = true
       clearTimeout(timer)
     }
-  }, [server, model, config])
+  }, [server, model, config, t])
 
   const post = useCallback(
     async (body: Record<string, unknown>) => {
       if (!port) throw new EditorServiceUnavailableError(COORDINATION, capabilities)
       const res = await port.save({ projectId, modelId, body })
-      return readJson<{ acceptances?: Acceptance[]; settings?: LintConfig }>(res, 'Saving')
+      return readJson<{ acceptances?: Acceptance[]; settings?: LintConfig }>(res, t('coordination.saving', 'Saving', { ns: 'editor' }), t)
     },
-    [port, capabilities, projectId, modelId],
+    [port, capabilities, projectId, modelId, t, COORDINATION],
   )
 
   const accept = useCallback(
@@ -178,9 +179,9 @@ export function useCoordinationFrom(port: EditorDataHost['coordination'], projec
   )
 
   const retry = useCallback(() => {
-    setState({ status: 'loading', message: 'Loading coordination settings and linked models…' })
+    setState({ status: 'loading', message: t('coordination.loadingShort', 'Loading coordination settings and linked models…', { ns: 'editor' }) })
     setReload((n) => n + 1)
-  }, [])
+  }, [t])
 
   const shown: CoordinationState = port ? state : { status: 'error', message: unavailableWords(COORDINATION, capabilities) }
   return { state: shown, config: config ?? DEFAULT_LINT_CONFIG, setConfig, accept, retract, saveSettings, retry }

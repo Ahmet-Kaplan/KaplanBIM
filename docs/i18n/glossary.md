@@ -823,6 +823,28 @@ Yukarıda **zaten** karara bağlı olanlar tekrar yazılmadı (`Ekipman`, `Armat
 | Firm / project scope | **firma / proje kapsamı** | Kitaplık katmanları |
 | Save to firm library | **firma kitaplığına kaydet** | Yönelme hâli: *kitaplığına* |
 
+### 5.11 Aşama 4, Task 4.6: koordinasyon ağacı sözcükleri (2026-11-10)
+
+`packages/bim-editor/src/editor/coordination` çevrilirken bunlar gerekti. Yukarıda
+**zaten** karara bağlı olanlar tekrar yazılmadı (`Çakışma`, `Girişim`, `Bulgu`,
+`Birleşik model`, `İnceleme`, `Panel`, `Pafta`, `Rev`, `Kat`).
+
+| EN | TR | Not |
+|----|----|-----|
+| Finding (a lint result) | **bulgu** | §2.4; *tespit* kullanılmaz |
+| Clash / Interference | **çakışma / girişim** | §2.4: çakışma bir çarpışmadır, girişim bir örtüşmedir |
+| Check (the ruleset being run) | **denetim** | *Kontrol* değil; §4.2 *çizelge denetimi* ile aynı kök |
+| Everything / Clashes and placement / Drawings and sheets / Before issuing a set | **Her şey / Çakışmalar ve yerleşim / Çizimler ve paftalar / Set yayınlanmadan önce** | Dört hazır kural kümesi |
+| Accept / Retract (an acceptance) | **kabul et / geri al** | §8 *kabul*; geri alma gerekçesiyle saklanır |
+| Accepted / Accepted, not in this check | **Kabul edilenler / Kabul edildi, bu denetimde yok** | |
+| Tolerance | **tolerans** | `in.` sembolü çevrilmez (§7) |
+| Save default | **varsayılanı kaydet** | Model başına bir varsayılan |
+| Linked model | **bağlı model** | §4.2 ile aynı karar |
+| Severity | **önem düzeyi** | Bir bulgunun `error` / `warning` / `info` derecesi |
+| Error / Warning (counts) | **hata / uyarı** | §8 durum sözcükleri |
+| Needs / Checks / Questions / Submittals (chips) | **Gereken / Denetimler / Sorular / İmalat onayları** | Kontrol listesinin dört çipi |
+| Select / Select all | **seç / tümünü seç** | §0.7: tekil emir |
+
 ---
 
 ## 6. Maliyet ve ticari terimler

@@ -25,7 +25,7 @@ import { groupFindings, type ElementCluster } from './group-findings'
 import { useWindowedRows, windowSlice } from '../use-windowed-rows'
 import { useEditorHost } from '@permitzip/bim-editor/host'
 import { ruleTitle, useCoordinationFrom, type Acceptance } from './use-coordination'
-import { useEditorLanguage, useEditorTranslate } from '../i18n/translate'
+import { useEditorLanguage, useEditorTranslate, type Translate } from '../i18n/translate'
 
 /**
  * Manage › Coordination: every clash and coordination finding on the open
@@ -35,11 +35,18 @@ import { useEditorLanguage, useEditorTranslate } from '../i18n/translate'
  * acceptance with a reason, including ones that match no finding here.
  */
 
-const RULESET_LABEL: Readonly<Record<(typeof RULESETS)[number], string>> = {
-  default: 'Everything',
-  coordination: 'Clashes and placement',
-  documents: 'Drawings and sheets',
-  issue: 'Before issuing a set',
+/** What each check looks at, in the screen's language. A function, not a table of English strings. */
+const rulesetLabel = (ruleset: (typeof RULESETS)[number], t: Translate): string => {
+  switch (ruleset) {
+    case 'coordination':
+      return t('coordination.rulesetCoordination', 'Clashes and placement', { ns: 'editor' })
+    case 'documents':
+      return t('coordination.rulesetDocuments', 'Drawings and sheets', { ns: 'editor' })
+    case 'issue':
+      return t('coordination.rulesetIssue', 'Before issuing a set', { ns: 'editor' })
+    default:
+      return t('coordination.rulesetEverything', 'Everything', { ns: 'editor' })
+  }
 }
 
 const SEVERITY_VARIANT = { error: 'destructive', warning: 'secondary', info: 'outline' } as const
@@ -67,12 +74,20 @@ interface Props {
 
 type PaneView = 'needs' | 'checks' | 'questions' | 'submittals'
 
-function scopeText(c: LintConfig, linkedCount: number): string {
-  const linked = c.include_linked ? (linkedCount > 0 ? `with ${linkedCount} linked model${linkedCount === 1 ? '' : 's'}` : 'no linked models loaded') : 'linked models excluded'
-  return `${c.tolerance_in} in. tolerance, ${linked}`
+/** "0.5 in. tolerance, with 2 linked models": what the check looked at. §7 keeps `in.` as it is. */
+function scopeText(c: LintConfig, linkedCount: number, t: Translate): string {
+  const linked = !c.include_linked
+    ? t('coordination.linkedExcluded', 'linked models excluded', { ns: 'editor' })
+    : linkedCount === 0
+      ? t('coordination.noLinkedModels', 'no linked models loaded', { ns: 'editor' })
+      : linkedCount === 1
+        ? t('coordination.withOneLinkedModel', 'with 1 linked model', { ns: 'editor' })
+        : t('coordination.withLinkedModels', 'with {{count}} linked models', { ns: 'editor', count: linkedCount })
+  return t('coordination.scope', '{{tolerance}} in. tolerance, {{linked}}', { ns: 'editor', tolerance: c.tolerance_in, linked })
 }
 
 function FindingRow({ finding, onSelect, acceptBlocked, onAccept }: { finding: Finding; onSelect: (ids: readonly string[]) => void; acceptBlocked: string | null; onAccept: (reason: string) => Promise<void> }) {
+  const t = useEditorTranslate()
   const [accepting, setAccepting] = useState(false)
   const [reason, setReason] = useState('')
   const [saving, setSaving] = useState(false)
@@ -82,15 +97,15 @@ function FindingRow({ finding, onSelect, acceptBlocked, onAccept }: { finding: F
       <ItemHeader className="min-w-0 flex-wrap">
         <span className="flex min-w-0 items-center gap-2">
           <Badge variant={SEVERITY_VARIANT[finding.severity]}>{finding.severity}</Badge>
-          <span className="truncate text-xs text-muted-foreground">{finding.at.level || 'No level'}</span>
+          <span className="truncate text-xs text-muted-foreground">{finding.at.level || t('coordination.noLevel', 'No level', { ns: 'editor' })}</span>
         </span>
         <ItemActions className="ml-auto">
-          <Button size="sm" variant="outline" data-testid="coordination-select" onClick={() => onSelect(finding.elementIds)} disabled={finding.elementIds.length === 0} title={finding.elementIds.length === 0 ? 'It names only linked-model elements, which you can’t select' : 'Select what it names'}>
-            Select
+          <Button size="sm" variant="outline" data-testid="coordination-select" onClick={() => onSelect(finding.elementIds)} disabled={finding.elementIds.length === 0} title={finding.elementIds.length === 0 ? t('coordination.linkedOnly', 'It names only linked-model elements, which you can’t select', { ns: 'editor' }) : t('coordination.selectWhatItNames', 'Select what it names', { ns: 'editor' })}>
+            {t('coordination.select', 'Select', { ns: 'editor' })}
           </Button>
           {!accepting && (
-            <Button size="sm" variant="ghost" data-testid="coordination-accept" disabled={acceptBlocked !== null} title={acceptBlocked ?? 'Accept it with a reason'} onClick={() => setAccepting(true)}>
-              Accept…
+            <Button size="sm" variant="ghost" data-testid="coordination-accept" disabled={acceptBlocked !== null} title={acceptBlocked ?? t('coordination.acceptHint', 'Accept it with a reason', { ns: 'editor' })} onClick={() => setAccepting(true)}>
+              {t('coordination.acceptEllipsis', 'Accept…', { ns: 'editor' })}
             </Button>
           )}
         </ItemActions>
@@ -102,34 +117,34 @@ function FindingRow({ finding, onSelect, acceptBlocked, onAccept }: { finding: F
         {accepting && (
           <div className="mt-2 flex flex-col gap-2">
             <Field>
-              <FieldLabel htmlFor={`accept-${finding.id}`}>Why is this acceptable?</FieldLabel>
-              <Textarea id={`accept-${finding.id}`} data-testid="coordination-accept-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Field-verified, the duct drops under the beam here" rows={2} maxLength={500} />
+              <FieldLabel htmlFor={`accept-${finding.id}`}>{t('coordination.whyAcceptable', 'Why is this acceptable?', { ns: 'editor' })}</FieldLabel>
+              <Textarea id={`accept-${finding.id}`} data-testid="coordination-accept-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t('coordination.acceptPlaceholder', 'Field-verified, the duct drops under the beam here', { ns: 'editor' })} rows={2} maxLength={500} />
             </Field>
             <div className="flex gap-2">
               <Button
                 size="sm"
                 data-testid="coordination-accept-confirm"
                 disabled={tooShort || saving}
-                title={tooShort ? 'Say why in a few words first' : undefined}
+                title={tooShort ? t('coordination.sayWhyFirst', 'Say why in a few words first', { ns: 'editor' }) : undefined}
                 onClick={async () => {
                   setSaving(true)
                   try {
                     await onAccept(reason.trim())
-                    toast.success('Finding accepted')
+                    toast.success(t('coordination.findingAccepted', 'Finding accepted', { ns: 'editor' }))
                     setAccepting(false)
                   } catch (err) {
                     console.error('[coordination] accepting failed', err)
-                    toast.error(err instanceof Error ? err.message : 'Accepting failed')
+                    toast.error(err instanceof Error ? err.message : t('coordination.acceptingFailed', 'Accepting failed', { ns: 'editor' }))
                   } finally {
                     setSaving(false)
                   }
                 }}
               >
                 {saving ? <Spinner /> : null}
-                Accept
+                {t('coordination.accept', 'Accept', { ns: 'editor' })}
               </Button>
               <Button size="sm" variant="ghost" onClick={() => setAccepting(false)}>
-                Cancel
+                {t('coordination.cancel', 'Cancel', { ns: 'editor' })}
               </Button>
             </div>
           </div>
@@ -141,6 +156,7 @@ function FindingRow({ finding, onSelect, acceptBlocked, onAccept }: { finding: F
 
 /** Findings about one element under one rule: a header with the count and Select all, the findings under it (folded when there are several). */
 function ClusterBlock({ cluster, onSelect, acceptBlocked, onAccept }: { cluster: ElementCluster; onSelect: (ids: readonly string[]) => void; acceptBlocked: string | null; onAccept: (finding: Finding, reason: string) => Promise<void> }) {
+  const t = useEditorTranslate()
   const [open, setOpen] = useState(cluster.findings.length <= 2)
   const rows = (
     <ItemGroup className="gap-2">
@@ -155,17 +171,17 @@ function ClusterBlock({ cluster, onSelect, acceptBlocked, onAccept }: { cluster:
     <Collapsible open={open} onOpenChange={setOpen} className="flex min-w-0 flex-col gap-2 rounded-lg border border-dashed p-2" data-testid="coordination-cluster" data-element={cluster.key}>
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         <CollapsibleTrigger asChild>
-          <Button variant="ghost" size="sm" className="min-w-0 max-w-full justify-start" aria-label={`${open ? 'Hide' : 'Show'} the ${cluster.findings.length} findings about ${cluster.label}`} data-testid="coordination-cluster-toggle">
+          <Button variant="ghost" size="sm" className="min-w-0 max-w-full justify-start" aria-label={open ? t('coordination.hideFindingsAbout', 'Hide the {{count}} findings about {{what}}', { ns: 'editor', count: cluster.findings.length, what: cluster.label }) : t('coordination.showFindingsAbout', 'Show the {{count}} findings about {{what}}', { ns: 'editor', count: cluster.findings.length, what: cluster.label })} data-testid="coordination-cluster-toggle">
             <ChevronRight data-icon="inline-start" className={open ? 'rotate-90 transition-transform' : 'transition-transform'} />
             <span className="truncate">{cluster.label}</span>
           </Button>
         </CollapsibleTrigger>
         <Badge variant={errors > 0 ? 'destructive' : 'secondary'} data-testid="coordination-cluster-count">
           {cluster.findings.length}
-          {errors > 0 && errors < cluster.findings.length ? ` (${errors} error${errors === 1 ? '' : 's'})` : ''}
+          {errors > 0 && errors < cluster.findings.length ? (errors === 1 ? t('coordination.errorCountOne', ' (1 error)', { ns: 'editor' }) : t('coordination.errorCount', ' ({{count}} errors)', { ns: 'editor', count: errors })) : ''}
         </Badge>
-        <Button size="sm" variant="outline" className="ml-auto" data-testid="coordination-cluster-select" onClick={() => onSelect(cluster.elementIds)} title={`Select ${cluster.label} and the rest of what these findings name`}>
-          Select all
+        <Button size="sm" variant="outline" className="ml-auto" data-testid="coordination-cluster-select" onClick={() => onSelect(cluster.elementIds)} title={t('coordination.selectAllTitle', 'Select {{what}} and the rest of what these findings name', { ns: 'editor', what: cluster.label })}>
+          {t('coordination.selectAll', 'Select all', { ns: 'editor' })}
         </Button>
       </div>
       <CollapsibleContent>{rows}</CollapsibleContent>
@@ -175,6 +191,7 @@ function ClusterBlock({ cluster, onSelect, acceptBlocked, onAccept }: { cluster:
 
 /** Retract… → a confirm asking why; the acceptance is kept with who retracted it and why, and the finding shows again. */
 function RetractButton({ what, acceptance, blocked, onRetract }: { what: string; acceptance: Acceptance; blocked: string | null; onRetract: (reason: string) => Promise<void> }) {
+  const t = useEditorTranslate()
   const [open, setOpen] = useState(false)
   const [reason, setReason] = useState('')
   const [saving, setSaving] = useState(false)
@@ -189,45 +206,45 @@ function RetractButton({ what, acceptance, blocked, onRetract }: { what: string;
       }}
     >
       <AlertDialogTrigger asChild>
-        <Button size="sm" variant="ghost" data-testid="coordination-retract" disabled={blocked !== null} title={blocked ?? 'Undo this acceptance; the finding shows again'}>
-          Retract…
+        <Button size="sm" variant="ghost" data-testid="coordination-retract" disabled={blocked !== null} title={blocked ?? t('coordination.retractHint', 'Undo this acceptance; the finding shows again', { ns: 'editor' })}>
+          {t('coordination.retractEllipsis', 'Retract…', { ns: 'editor' })}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent onEscapeKeyDown={(e) => e.stopPropagation()}>
         <AlertDialogHeader>
-          <AlertDialogTitle>Retract this acceptance?</AlertDialogTitle>
+          <AlertDialogTitle>{t('coordination.retractTitle', 'Retract this acceptance?', { ns: 'editor' })}</AlertDialogTitle>
           <AlertDialogDescription>
-            {what} was accepted {new Date(acceptance.acceptedAt).toLocaleString()} because &ldquo;{acceptance.reason}&rdquo;. Retracting shows it again for everyone, people and agents. Who accepted it, who retracted it, and why are kept.
+            {t('coordination.retractDescription', '{{what}} was accepted {{when}} because “{{reason}}”. Retracting shows it again for everyone, people and agents. Who accepted it, who retracted it, and why are kept.', { ns: 'editor', what, when: new Date(acceptance.acceptedAt).toLocaleString(), reason: acceptance.reason })}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <Field>
-          <FieldLabel htmlFor={`retract-${acceptance.findingId}`}>Why retract it?</FieldLabel>
-          <Textarea id={`retract-${acceptance.findingId}`} data-testid="coordination-retract-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Accepted by mistake; this isn't a real finding" rows={2} maxLength={500} />
+          <FieldLabel htmlFor={`retract-${acceptance.findingId}`}>{t('coordination.whyRetract', 'Why retract it?', { ns: 'editor' })}</FieldLabel>
+          <Textarea id={`retract-${acceptance.findingId}`} data-testid="coordination-retract-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t('coordination.retractPlaceholder', "Accepted by mistake; this isn't a real finding", { ns: 'editor' })} rows={2} maxLength={500} />
         </Field>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={saving}>{t('coordination.cancel', 'Cancel', { ns: 'editor' })}</AlertDialogCancel>
           <Button
             variant="destructive"
             data-testid="coordination-retract-confirm"
             disabled={tooShort || saving}
-            title={tooShort ? 'Say why in a few words first' : undefined}
+            title={tooShort ? t('coordination.sayWhyFirst', 'Say why in a few words first', { ns: 'editor' }) : undefined}
             onClick={async () => {
               setSaving(true)
               try {
                 await onRetract(reason.trim())
-                toast.success('Acceptance retracted; the finding shows again')
+                toast.success(t('coordination.acceptanceRetracted', 'Acceptance retracted; the finding shows again', { ns: 'editor' }))
                 setOpen(false)
                 setReason('')
               } catch (err) {
                 console.error('[coordination] retracting failed', err)
-                toast.error(err instanceof Error ? err.message : 'Retracting failed')
+                toast.error(err instanceof Error ? err.message : t('coordination.retractingFailed', 'Retracting failed', { ns: 'editor' }))
               } finally {
                 setSaving(false)
               }
             }}
           >
             {saving ? <Spinner /> : null}
-            Retract
+            {t('coordination.retract', 'Retract', { ns: 'editor' })}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -236,25 +253,27 @@ function RetractButton({ what, acceptance, blocked, onRetract }: { what: string;
 }
 
 function AcceptedRow({ finding, acceptance, blocked, onRetract }: { finding: Finding; acceptance: Acceptance; blocked: string | null; onRetract: (reason: string) => Promise<void> }) {
+  const t = useEditorTranslate()
   return (
     <Item variant="muted" size="sm" data-testid="coordination-accepted" data-finding-id={finding.id}>
       <ItemContent>
         <ItemTitle className="line-clamp-none text-xs [overflow-wrap:anywhere]">{finding.message}</ItemTitle>
-        <ItemDescription>Accepted: {acceptance.reason}</ItemDescription>
+        <ItemDescription>{t('coordination.acceptedPrefix', 'Accepted: {{reason}}', { ns: 'editor', reason: acceptance.reason })}</ItemDescription>
       </ItemContent>
       <ItemActions>
-        <RetractButton what="This finding" acceptance={acceptance} blocked={blocked} onRetract={onRetract} />
+        <RetractButton what={t('coordination.thisFinding', 'This finding', { ns: 'editor' })} acceptance={acceptance} blocked={blocked} onRetract={onRetract} />
       </ItemActions>
     </Item>
   )
 }
 
 function UnmatchedRow({ acceptance, blocked, onRetract }: { acceptance: Acceptance; blocked: string | null; onRetract: (reason: string) => Promise<void> }) {
+  const t = useEditorTranslate()
   return (
     <Item variant="muted" size="sm" data-testid="coordination-unmatched" data-finding-id={acceptance.findingId}>
       <ItemContent>
         <ItemTitle className="font-mono text-xs break-all">{acceptance.findingId}</ItemTitle>
-        <ItemDescription>Accepted: {acceptance.reason}</ItemDescription>
+        <ItemDescription>{t('coordination.acceptedPrefix', 'Accepted: {{reason}}', { ns: 'editor', reason: acceptance.reason })}</ItemDescription>
       </ItemContent>
       <ItemActions>
         <RetractButton what={`"${acceptance.findingId}"`} acceptance={acceptance} blocked={blocked} onRetract={onRetract} />
@@ -308,7 +327,15 @@ export function CoordinationPane({ projectId, modelId, model, acceptBlocked, onS
           )}
         </CardTitle>
         <CardDescription>
-          {state.status === 'ready' ? `${errors} error${errors === 1 ? '' : 's'}, ${warnings} warning${warnings === 1 ? '' : 's'} at Rev ${state.revision}: ${scopeText(state.settings, state.linkedCount)}` : 'Clashes with our work and linked models, equipment placement, systems and sheets.'}
+          {state.status === 'ready'
+            ? t('coordination.summary', '{{errors}} errors, {{warnings}} warnings at Rev {{revision}}: {{scope}}', {
+                ns: 'editor',
+                errors: errors === 1 ? t('coordination.oneError', '1 error', { ns: 'editor' }) : t('coordination.errorCountPlain', '{{count}} errors', { ns: 'editor', count: errors }),
+                warnings: warnings === 1 ? t('coordination.oneWarning', '1 warning', { ns: 'editor' }) : t('coordination.warningCount', '{{count}} warnings', { ns: 'editor', count: warnings }),
+                revision: state.revision,
+                scope: scopeText(state.settings, state.linkedCount, t),
+              })
+            : t('coordination.idleDescription', 'Clashes with our work and linked models, equipment placement, systems and sheets.', { ns: 'editor' })}
         </CardDescription>
         <CardAction>
           <Button variant="ghost" size="icon" aria-label={t('panel.closePane', 'Close {{name}} (Esc)', { name: paneWords, ns: 'editor' })} onClick={onClose} data-testid="coordination-close">
@@ -321,17 +348,17 @@ export function CoordinationPane({ projectId, modelId, model, acceptBlocked, onS
         {needs && (
           <ToggleGroup type="single" variant="outline" size="sm" value={view} onValueChange={(v) => v && setView(v as PaneView)} aria-label={t('panel.show', 'Show', { ns: 'editor' })} className="max-w-full flex-wrap justify-start" data-testid="checklist-filters">
             <ToggleGroupItem value="needs" data-testid="checklist-filter-needs">
-              Needs {needs.count}
+              {t('coordination.chipNeeds', 'Needs {{count}}', { ns: 'editor', count: needs.count })}
             </ToggleGroupItem>
             <ToggleGroupItem value="checks" data-testid="checklist-filter-checks">
-              Checks{state.status === 'ready' ? ` ${state.open.length}` : ''}
+              {state.status === 'ready' ? t('coordination.chipChecksCount', 'Checks {{count}}', { ns: 'editor', count: state.open.length }) : t('coordination.chipChecks', 'Checks', { ns: 'editor' })}
             </ToggleGroupItem>
             <ToggleGroupItem value="questions" data-testid="checklist-filter-questions">
-              Questions
+              {t('coordination.chipQuestions', 'Questions', { ns: 'editor' })}
             </ToggleGroupItem>
             {submittals ? (
               <ToggleGroupItem value="submittals" data-testid="checklist-filter-submittals">
-                Submittals
+                {t('coordination.chipSubmittals', 'Submittals', { ns: 'editor' })}
               </ToggleGroupItem>
             ) : null}
           </ToggleGroup>
@@ -341,7 +368,7 @@ export function CoordinationPane({ projectId, modelId, model, acceptBlocked, onS
         {showChecks && (
         <div className="flex flex-wrap items-end gap-2">
           <Field className="min-w-40 flex-1">
-            <FieldLabel htmlFor="coordination-ruleset">Check</FieldLabel>
+            <FieldLabel htmlFor="coordination-ruleset">{t('coordination.check', 'Check', { ns: 'editor' })}</FieldLabel>
             <Select value={config.ruleset} onValueChange={(v) => setConfig({ ...config, ruleset: v as LintConfig['ruleset'] })}>
               <SelectTrigger id="coordination-ruleset" data-testid="coordination-ruleset">
                 <SelectValue />
@@ -349,14 +376,14 @@ export function CoordinationPane({ projectId, modelId, model, acceptBlocked, onS
               <SelectContent>
                 {RULESETS.map((r) => (
                   <SelectItem key={r} value={r}>
-                    {RULESET_LABEL[r]}
+                    {rulesetLabel(r, t)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </Field>
           <Field className="w-24">
-            <FieldLabel htmlFor="coordination-tolerance">Tolerance (in.)</FieldLabel>
+            <FieldLabel htmlFor="coordination-tolerance">{t('coordination.tolerance', 'Tolerance (in.)', { ns: 'editor' })}</FieldLabel>
             <Input
               id="coordination-tolerance"
               inputMode="decimal"
@@ -365,7 +392,7 @@ export function CoordinationPane({ projectId, modelId, model, acceptBlocked, onS
               onBlur={() => {
                 const v = Number(tolerance)
                 if (Number.isFinite(v) && v >= 0 && v <= 12) setConfig({ ...config, tolerance_in: v })
-                else toast.error('Tolerance is inches, 0 to 12')
+                else toast.error(t('coordination.toleranceInvalid', 'Tolerance is inches, 0 to 12', { ns: 'editor' }))
                 setToleranceDraft(null)
               }}
             />
@@ -373,17 +400,17 @@ export function CoordinationPane({ projectId, modelId, model, acceptBlocked, onS
           <Button
             variant="outline"
             size="sm"
-            title="Save this check and tolerance as your default on this model"
+            title={t('coordination.saveDefaultHint', 'Save this check and tolerance as your default on this model', { ns: 'editor' })}
             onClick={() =>
               saveSettings(config)
-                .then(() => toast.success('Saved as your default for this model'))
+                .then(() => toast.success(t('coordination.savedDefault', 'Saved as your default for this model', { ns: 'editor' })))
                 .catch((err: unknown) => {
                   console.error('[coordination] saving settings failed', err)
-                  toast.error(err instanceof Error ? err.message : 'Saving failed')
+                  toast.error(err instanceof Error ? err.message : t('coordination.savingFailed', 'Saving failed', { ns: 'editor' }))
                 })
             }
           >
-            Save default
+            {t('coordination.saveDefault', 'Save default', { ns: 'editor' })}
           </Button>
         </div>
         )}
@@ -398,11 +425,11 @@ export function CoordinationPane({ projectId, modelId, model, acceptBlocked, onS
         {showChecks && state.status === 'error' && (
           <Alert variant="destructive" data-testid="coordination-error">
             <TriangleAlert />
-            <AlertTitle>Coordination couldn&apos;t run</AlertTitle>
+            <AlertTitle>{t('coordination.couldntRun', "Coordination couldn't run", { ns: 'editor' })}</AlertTitle>
             <AlertDescription>
               {state.message}
               <Button variant="outline" size="sm" className="mt-2" onClick={retry}>
-                <RefreshCw /> Try again
+                <RefreshCw /> {t('coordination.tryAgain', 'Try again', { ns: 'editor' })}
               </Button>
             </AlertDescription>
           </Alert>
@@ -418,10 +445,10 @@ export function CoordinationPane({ projectId, modelId, model, acceptBlocked, onS
               <EmptyMedia variant="icon">
                 <ShieldCheck />
               </EmptyMedia>
-              <EmptyTitle>Nothing to coordinate</EmptyTitle>
+              <EmptyTitle>{t('coordination.nothingToCoordinate', 'Nothing to coordinate', { ns: 'editor' })}</EmptyTitle>
               <EmptyDescription>
-                No findings ({RULESET_LABEL[state.settings.ruleset].toLowerCase()}) at {scopeText(state.settings, state.linkedCount)}.
-                {state.notAvailable.length > 0 ? ` Not checked yet: ${state.notAvailable.map((r) => ruleTitle(r.rule)).join('; ')}.` : ''}
+                {t('coordination.noFindings', 'No findings ({{check}}) at {{scope}}.', { ns: 'editor', check: rulesetLabel(state.settings.ruleset, t).toLocaleLowerCase(language === 'tr' ? 'tr' : 'en'), scope: scopeText(state.settings, state.linkedCount, t) })}
+                {state.notAvailable.length > 0 ? t('coordination.notCheckedYet', ' Not checked yet: {{rules}}.', { ns: 'editor', rules: state.notAvailable.map((r) => ruleTitle(r.rule)).join('; ') }) : ''}
               </EmptyDescription>
             </EmptyHeader>
           </Empty>
@@ -467,7 +494,7 @@ export function CoordinationPane({ projectId, modelId, model, acceptBlocked, onS
               {state.accepted.length > 0 && (
                 <section className="flex flex-col gap-2" data-testid="coordination-accepted-group">
                   <h3 className="flex items-center gap-2 text-sm font-medium">
-                    <CheckCircle2 className="size-4" /> Accepted
+                    <CheckCircle2 className="size-4" /> {t('coordination.acceptedHeading', 'Accepted', { ns: 'editor' })}
                     <Badge variant="outline">{state.accepted.length}</Badge>
                   </h3>
                   <ItemGroup className="gap-2">
@@ -480,11 +507,11 @@ export function CoordinationPane({ projectId, modelId, model, acceptBlocked, onS
               {state.unmatched.length > 0 && (
                 <section className="flex flex-col gap-2" data-testid="coordination-unmatched-group">
                   <h3 className="flex items-center gap-2 text-sm font-medium">
-                    <CircleHelp className="size-4" /> Accepted, not in this check
+                    <CircleHelp className="size-4" /> {t('coordination.acceptedNotInCheck', 'Accepted, not in this check', { ns: 'editor' })}
                     <Badge variant="outline">{state.unmatched.length}</Badge>
                   </h3>
                   <p className="text-xs text-muted-foreground">
-                    No finding has these ids in this check ({RULESET_LABEL[state.settings.ruleset].toLowerCase()}). They may belong to another check, their elements changed, or they were never real findings. Retract any that shouldn&apos;t be there.
+                    {t('coordination.unmatchedDescription', 'No finding has these ids in this check ({{check}}). They may belong to another check, their elements changed, or they were never real findings. Retract any that shouldn’t be there.', { ns: 'editor', check: rulesetLabel(state.settings.ruleset, t).toLocaleLowerCase(language === 'tr' ? 'tr' : 'en') })}
                   </p>
                   <ItemGroup className="gap-2">
                     {state.unmatched.map((acceptance) => (

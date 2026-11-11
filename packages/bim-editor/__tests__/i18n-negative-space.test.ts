@@ -55,6 +55,9 @@ const OWNED_DIRS = [
   // Stage 4 · Task 4.6 — the library panel: the disciplines, the packs a firm
   // installs and the part import a person brings in from a file.
   "library",
+  // Stage 4 · Task 4.6 — coordination: the federated-model review, its clash
+  // groups, the findings and the refusal vocabulary §8 already fixed.
+  "coordination",
   // Stage 4 · Task 4.4 — project management, library, settings and IFC.
   "parts-list",
   "change-orders",
@@ -80,7 +83,7 @@ const OWNED_DIRS = [
  *   Task 4.4  questions (213), equipment-list (110), library (68),
  *             coordination (58)
  */
-export const NOT_YET_GUARDED = ["coordination"] as const;
+export const NOT_YET_GUARDED = [] as const;
 
 /**
  * Every tree under `src/editor` that **Aşama 4 never covered**: a panel or a
