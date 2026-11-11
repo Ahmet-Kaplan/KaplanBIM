@@ -13,6 +13,7 @@ import { SettingsCard } from '../../ui/settings-page'
 import { ConnectorReport } from '../part-editor/ConnectorReport'
 import type { EditorDataHost } from '@permitzip/bim-editor-host'
 import { unavailableWords } from '@permitzip/bim-editor/host/unavailable'
+import { englishOnly, useEditorTranslate, type Translate } from '../i18n/translate'
 
 type Converted = Extract<ConvertResult, { ok: true }>
 type Failed = Extract<ConvertResult, { ok: false }>
@@ -31,8 +32,8 @@ function isParametersExport(value: unknown): value is RevitParametersExport {
 type LibraryPort = EditorDataHost['firmLibrary']
 
 /** Save one imported part type to the firm library; null when saved, else the refusal in words. */
-export async function saveImportedPartTypeFrom(port: LibraryPort, definition: Converted['definition']): Promise<string | null> {
-  if (!port) return unavailableWords('Saving to the firm library')
+export async function saveImportedPartTypeFrom(port: LibraryPort, definition: Converted['definition'], t: Translate = englishOnly): Promise<string | null> {
+  if (!port) return unavailableWords(t('library.savingToFirmLibrary', 'Saving to the firm library', { ns: 'editor' }))
   const res = await port.importPartType({ definition })
   if (res.ok) return null
   const body: unknown = await res.json().catch((err: unknown) => {
@@ -50,7 +51,8 @@ export async function saveImportedPartTypeFrom(port: LibraryPort, definition: Co
  * saves; the problems show as issues wherever it is placed.
  */
 export function PartImportSectionFrom({ port, canSave, save: given }: { readonly port: LibraryPort; readonly canSave: boolean; readonly save?: (definition: Converted['definition']) => Promise<string | null> }) {
-  const save = given ?? ((definition: Converted['definition']) => saveImportedPartTypeFrom(port, definition))
+  const t = useEditorTranslate()
+  const save = given ?? ((definition: Converted['definition']) => saveImportedPartTypeFrom(port, definition, t))
   const input = useRef<HTMLInputElement>(null)
   const [read, setRead] = useState<ReadState>({ kind: 'empty' })
   const [saves, setSaves] = useState<Readonly<Record<string, SaveState>>>({})
@@ -60,12 +62,12 @@ export function PartImportSectionFrom({ port, canSave, save: given }: { readonly
     setSaves({})
     try {
       const parsed: unknown = JSON.parse(await file.text())
-      if (!isParametersExport(parsed)) throw new Error('it is not a Revit parameter export (no "schema" field)')
+      if (!isParametersExport(parsed)) throw new Error(t('library.notARevitExport', 'it is not a Revit parameter export (no "schema" field)', { ns: 'editor' }))
       const results = convertParametersExport(parsed, { origin: file.name })
       setRead({ kind: 'read', fileName: file.name, converted: results.filter((r): r is Converted => r.ok), failed: results.filter((r): r is Failed => !r.ok) })
     } catch (err) {
       console.error('[PartImportSection] the export could not be read', err)
-      setRead({ kind: 'error', fileName: file.name, message: err instanceof Error ? err.message : 'the file could not be read' })
+      setRead({ kind: 'error', fileName: file.name, message: err instanceof Error ? err.message : t('library.fileCouldNotBeRead', 'the file could not be read', { ns: 'editor' }) })
     }
   }
 
@@ -76,7 +78,7 @@ export function PartImportSectionFrom({ port, canSave, save: given }: { readonly
       setSaves((s) => ({ ...s, [r.id]: refused ? { kind: 'error', message: refused } : { kind: 'saved' } }))
     } catch (err) {
       console.error('[PartImportSection] save failed', err)
-      setSaves((s) => ({ ...s, [r.id]: { kind: 'error', message: err instanceof Error ? err.message : 'the save failed' } }))
+      setSaves((s) => ({ ...s, [r.id]: { kind: 'error', message: err instanceof Error ? err.message : t('library.saveFailed', 'the save failed', { ns: 'editor' }) } }))
     }
   }
 
@@ -99,12 +101,12 @@ export function PartImportSectionFrom({ port, canSave, save: given }: { readonly
   return (
     <SettingsCard
       id="part-import"
-      title="Import part types"
-      description="Bring in part types from a Revit parameter export. Each type's connector report shows before you save it, so a bad connector is fixed once in the library instead of on every project."
+      title={t('library.importTitle', 'Import part types', { ns: 'editor' })}
+      description={t('library.importDescription', "Bring in part types from a Revit parameter export. Each type's connector report shows before you save it, so a bad connector is fixed once in the library instead of on every project.", { ns: 'editor' })}
       actions={
         <Button variant="outline" onClick={choose} disabled={read.kind === 'reading'} data-testid="part-import-choose">
           <FileUp data-icon="inline-start" />
-          {read.kind === 'empty' ? 'Choose an export' : 'Choose another export'}
+          {read.kind === 'empty' ? t('library.chooseAnExport', 'Choose an export', { ns: 'editor' }) : t('library.chooseAnotherExport', 'Choose another export', { ns: 'editor' })}
         </Button>
       }
     >
@@ -115,34 +117,37 @@ export function PartImportSectionFrom({ port, canSave, save: given }: { readonly
             <EmptyMedia variant="icon">
               <FileUp />
             </EmptyMedia>
-            <EmptyTitle>No export read yet</EmptyTitle>
-            <EmptyDescription>Choose the JSON file the Revit parameter export wrote. Nothing is saved until you save a type.</EmptyDescription>
+            <EmptyTitle>{t('library.noExportRead', 'No export read yet', { ns: 'editor' })}</EmptyTitle>
+            <EmptyDescription>{t('library.noExportReadHint', 'Choose the JSON file the Revit parameter export wrote. Nothing is saved until you save a type.', { ns: 'editor' })}</EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
-            <Button onClick={choose}>Choose an export</Button>
+            <Button onClick={choose}>{t('library.chooseAnExport', 'Choose an export', { ns: 'editor' })}</Button>
           </EmptyContent>
         </Empty>
       ) : null}
-      {read.kind === 'reading' ? <p className="text-muted-foreground text-sm" aria-busy="true">Reading {read.fileName}…</p> : null}
+      {read.kind === 'reading' ? <p className="text-muted-foreground text-sm" aria-busy="true">{t('library.readingFile', 'Reading {{file}}…', { ns: 'editor', file: read.fileName })}</p> : null}
       {read.kind === 'error' ? (
         <Alert variant="destructive">
-          <AlertTitle>{read.fileName} couldn&apos;t be read</AlertTitle>
+          <AlertTitle>{t('library.fileCouldntBeRead', "{{file}} couldn't be read", { ns: 'editor', file: read.fileName })}</AlertTitle>
           <AlertDescription>
-            Nothing was imported: {read.message}. Export the types again from Revit and choose that file.
+            {t('library.nothingImported', 'Nothing was imported: {{error}}. Export the types again from Revit and choose that file.', { ns: 'editor', error: read.message })}
           </AlertDescription>
         </Alert>
       ) : null}
       {read.kind === 'read' ? (
         <div className="flex flex-col gap-4">
           <p className="text-sm">
-            {read.fileName}: {read.converted.length} part type{read.converted.length === 1 ? '' : 's'} ready to review
-            {read.failed.length > 0 ? `, ${read.failed.length} that can't be imported` : ''}.
+            {[
+              read.converted.length === 1 ? t('library.summaryOneType', '{{file}}: 1 part type ready to review', { ns: 'editor', file: read.fileName }) : t('library.summaryTypes', '{{file}}: {{count}} part types ready to review', { ns: 'editor', file: read.fileName, count: read.converted.length }),
+              read.failed.length === 0 ? '' : read.failed.length === 1 ? t('library.summaryOneFailed', ", 1 that can't be imported", { ns: 'editor' }) : t('library.summaryFailed', ", {{count}} that can't be imported", { ns: 'editor', count: read.failed.length }),
+            ].join('')}
+            {'.'}
           </p>
           {read.converted.length === 0 && read.failed.length === 0 ? (
             <Empty className="border">
               <EmptyHeader>
-                <EmptyTitle>No part types in this export</EmptyTitle>
-                <EmptyDescription>The file has no family types to bring in. Check that the export included the families you want.</EmptyDescription>
+                <EmptyTitle>{t('library.noPartTypes', 'No part types in this export', { ns: 'editor' })}</EmptyTitle>
+                <EmptyDescription>{t('library.noPartTypesHint', 'The file has no family types to bring in. Check that the export included the families you want.', { ns: 'editor' })}</EmptyDescription>
               </EmptyHeader>
             </Empty>
           ) : null}
@@ -155,33 +160,33 @@ export function PartImportSectionFrom({ port, canSave, save: given }: { readonly
                     {r.definition.familyName} · {r.definition.typeName}
                   </div>
                   <div className="flex items-center gap-2">
-                    {s.kind === 'saved' ? <Badge variant="secondary">Saved to the firm library</Badge> : null}
+                    {s.kind === 'saved' ? <Badge variant="secondary">{t('library.savedToFirm', 'Saved to the firm library', { ns: 'editor' })}</Badge> : null}
                     <Button
                       size="sm"
                       onClick={() => void saveOne(r)}
                       disabled={!canSave || s.kind === 'saving' || s.kind === 'saved'}
-                      title={!canSave ? 'Only people who can edit the firm library can save part types' : s.kind === 'saved' ? 'Already saved' : undefined}
+                      title={!canSave ? t('library.onlyLibraryEditors', 'Only people who can edit the firm library can save part types.', { ns: 'editor' }) : s.kind === 'saved' ? t('library.alreadySaved', 'Already saved', { ns: 'editor' }) : undefined}
                       data-testid={`part-import-save-${r.id}`}
                     >
-                      {s.kind === 'saving' ? 'Saving…' : r.report.problems.length > 0 ? 'Save with these problems' : 'Save to firm library'}
+                      {s.kind === 'saving' ? t('library.saving', 'Saving…', { ns: 'editor' }) : r.report.problems.length > 0 ? t('library.saveWithProblems', 'Save with these problems', { ns: 'editor' }) : t('library.saveToFirmLibrary', 'Save to firm library', { ns: 'editor' })}
                     </Button>
                   </div>
                 </div>
-                {!canSave ? <p className="text-muted-foreground text-xs">Only people who can edit the firm library can save part types.</p> : null}
-                {s.kind === 'error' ? <p className="text-destructive text-sm">Not saved: {s.message}. Try again.</p> : null}
+                {!canSave ? <p className="text-muted-foreground text-xs">{t('library.onlyLibraryEditors', 'Only people who can edit the firm library can save part types.', { ns: 'editor' })}</p> : null}
+                {s.kind === 'error' ? <p className="text-destructive text-sm">{t('library.notSaved', 'Not saved: {{error}}. Try again.', { ns: 'editor', error: s.message })}</p> : null}
                 <ConnectorReport report={r.report} />
               </section>
             )
           })}
           {read.failed.length > 0 ? (
-            <ItemGroup className="gap-1" aria-label="Types that can't be imported">
+            <ItemGroup className="gap-1" aria-label={t('library.failedTypes', "Types that can't be imported", { ns: 'editor' })}>
               {read.failed.map((f, i) => (
                 <Item key={`${f.family}-${f.typeName}-${i}`} variant="muted" size="sm">
                   <ItemContent>
                     <ItemTitle>
                       {f.family} · {f.typeName}
                     </ItemTitle>
-                    <ItemDescription>Can&apos;t be imported: {f.reason}</ItemDescription>
+                    <ItemDescription>{t('library.cantBeImported', "Can't be imported: {{reason}}", { ns: 'editor', reason: f.reason })}</ItemDescription>
                   </ItemContent>
                 </Item>
               ))}

@@ -22,6 +22,7 @@ import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, Tabl
 import { SettingsCard, SettingsLoadError, SettingsLoading } from '../../ui/settings-page'
 import type { EditorDataHost } from '@permitzip/bim-editor-host'
 import { EditorServiceUnavailableError } from '@permitzip/bim-editor/host/unavailable'
+import { useEditorTranslate, englishOnly, type Translate } from '../i18n/translate'
 
 /** A firm discipline as the library lists it (`GET /api/bim/library?scope=firm&type=discipline`). */
 export interface FirmDisciplineSummary {
@@ -68,8 +69,8 @@ function isFirmSummary(value: unknown): value is FirmDisciplineSummary {
 
 type LibraryPort = EditorDataHost['firmLibrary']
 
-async function loadFirmDisciplines(port: LibraryPort): Promise<readonly FirmDisciplineSummary[]> {
-  if (!port) throw new EditorServiceUnavailableError("The firm's disciplines")
+async function loadFirmDisciplines(port: LibraryPort, t: Translate): Promise<readonly FirmDisciplineSummary[]> {
+  if (!port) throw new EditorServiceUnavailableError(t('library.firmDisciplinesService', "The firm's disciplines", { ns: 'editor' }))
   const res = await port.listOfType({ scope: 'firm', type: 'discipline' })
   if (!res.ok) throw new Error(`the firm library answered ${res.status}`)
   const body: unknown = await res.json()
@@ -79,28 +80,29 @@ async function loadFirmDisciplines(port: LibraryPort): Promise<readonly FirmDisc
 }
 
 /** Built-in and add-on rows from the kernel (loaded on their own, like the add-on list), and the firm's from its library. */
-export async function loadDisciplineRowsFrom(port: LibraryPort): Promise<DisciplineRows> {
-  const [kernel, firm] = await Promise.all([import('@permitzip/bim-kernel'), loadFirmDisciplines(port)])
+export async function loadDisciplineRowsFrom(port: LibraryPort, t: Translate = englishOnly): Promise<DisciplineRows> {
+  const [kernel, firm] = await Promise.all([import('@permitzip/bim-kernel'), loadFirmDisciplines(port, t)])
   return { registered: kernel.listDisciplinesWithSource(), firm }
 }
 
-function sourceBadge(listed: ListedDiscipline) {
+function sourceBadge(listed: ListedDiscipline, t: Translate) {
   const s = listed.source
-  if (s.kind === 'builtin') return <Badge variant="secondary">Built in</Badge>
-  if (s.kind === 'firm') return <Badge variant="outline">Firm library</Badge>
+  if (s.kind === 'builtin') return <Badge variant="secondary">{t('library.builtIn', 'Built in', { ns: 'editor' })}</Badge>
+  if (s.kind === 'firm') return <Badge variant="outline">{t('library.firmLibrary', 'Firm library', { ns: 'editor' })}</Badge>
   return <Badge variant={s.firstParty ? 'secondary' : 'outline'}>{s.packName}</Badge>
 }
 
 /** Pin or unpin one firm discipline on the model `pinTo` names; disabled says why. */
 function PinCell({ firm, pinTo, pinned, onPin, onUnpin }: { readonly firm: FirmDisciplineSummary; readonly pinTo: DisciplinePinTarget; readonly pinned: boolean; readonly onPin: (row: DisciplineDef) => void; readonly onUnpin: () => void }) {
-  const reason = !pinTo.canEdit ? pinTo.blockedReason : !firm.row ? "This library item has no discipline row to pin yet; open it in the library above and publish it again." : null
+  const t = useEditorTranslate()
+  const reason = !pinTo.canEdit ? pinTo.blockedReason : !firm.row ? t('library.noDisciplineRow', 'This library item has no discipline row to pin yet; open it in the library above and publish it again.', { ns: 'editor' }) : null
   const button = pinned ? (
     <Button size="sm" variant="outline" disabled={!pinTo.canEdit} onClick={onUnpin} data-testid={`discipline-unpin-${firm.key}`}>
-      Unpin
+      {t('library.unpin', 'Unpin', { ns: 'editor' })}
     </Button>
   ) : (
     <Button size="sm" variant="outline" disabled={reason !== null} onClick={() => firm.row && onPin(firm.row)} data-testid={`discipline-pin-${firm.key}`}>
-      Pin to this model
+      {t('library.pinToThisModel', 'Pin to this model', { ns: 'editor' })}
     </Button>
   )
   if (reason === null || (pinned && pinTo.canEdit)) return button
@@ -128,7 +130,8 @@ function PinCell({ firm, pinTo, pinned, onPin, onUnpin }: { readonly firm: FirmD
  * row into the model, so work there can be filed under it.
  */
 export function DisciplinesSectionFrom({ port, loadRows: given, pinTo }: { readonly port: LibraryPort; readonly loadRows?: () => Promise<DisciplineRows>; readonly pinTo?: DisciplinePinTarget }) {
-  const fromPort = useCallback(() => loadDisciplineRowsFrom(port), [port])
+  const t = useEditorTranslate()
+  const fromPort = useCallback(() => loadDisciplineRowsFrom(port, t), [port, t])
   const loadRows = given ?? fromPort
   const [state, setState] = useState<LoadState>({ kind: 'loading' })
   const [pinError, setPinError] = useState<string | null>(null)
@@ -139,9 +142,9 @@ export function DisciplinesSectionFrom({ port, loadRows: given, pinTo }: { reado
       .then((rows) => setState({ kind: 'ready', rows }))
       .catch((err: unknown) => {
         console.error('[DisciplinesSection] the discipline list failed to load', err)
-        setState({ kind: 'error', message: `The discipline list couldn't be read (${err instanceof Error ? err.message : 'unknown error'}). Models still open and keep every discipline they store.` })
+        setState({ kind: 'error', message: t('library.listCouldntBeRead', "The discipline list couldn't be read ({{error}}). Models still open and keep every discipline they store.", { ns: 'editor', error: err instanceof Error ? err.message : t('library.unknownError', 'unknown error', { ns: 'editor' }) }) })
       })
-  }, [loadRows])
+  }, [loadRows, t])
 
   useEffect(() => {
     fetchRows()
@@ -152,8 +155,8 @@ export function DisciplinesSectionFrom({ port, loadRows: given, pinTo }: { reado
     fetchRows()
   }
 
-  if (state.kind === 'loading') return <SettingsLoading rows={4} label="Loading disciplines" />
-  if (state.kind === 'error') return <SettingsLoadError title="Disciplines didn't load" message={state.message} onRetry={retry} />
+  if (state.kind === 'loading') return <SettingsLoading rows={4} label={t('library.loadingDisciplines', 'Loading disciplines', { ns: 'editor' })} />
+  if (state.kind === 'error') return <SettingsLoadError title={t('library.disciplinesDidntLoad', "Disciplines didn't load", { ns: 'editor' })} message={state.message} onRetry={retry} />
 
   const { registered, firm } = state.rows
   const labelOf = new Map(registered.map((l) => [l.row.id, l.row.label] as const))
@@ -168,16 +171,16 @@ export function DisciplinesSectionFrom({ port, loadRows: given, pinTo }: { reado
     if (refusal) console.error('[DisciplinesSection] the discipline pin was refused', { command: command.type, refusal })
     setPinError(refusal)
   }
-  const pin = (row: DisciplineDef) => send({ type: 'pin_firm_discipline', discipline: row }, `pin ${row.label} to this model`)
+  const pin = (row: DisciplineDef) => send({ type: 'pin_firm_discipline', discipline: row }, t('library.undoPin', 'pin {{name}} to this model', { ns: 'editor', name: row.label }))
 
   return (
     <SettingsCard
       id="disciplines"
-      title={pinTo ? 'Firm disciplines' : 'Disciplines'}
+      title={pinTo ? t('library.firmDisciplinesTitle', 'Firm disciplines', { ns: 'editor' }) : t('library.disciplinesTitle', 'Disciplines', { ns: 'editor' })}
       description={
         pinTo
-          ? "Your firm's own disciplines (interiors, security…). Pin one to this model and work here can be filed under it; unpinning keeps what is already filed."
-          : 'What work is filed under in every model: filters, view graphics, linked-model colours and, per model, who is responsible. A suggested role is only a starting point; the project lead names the responsible people in each model. A firm discipline reaches a model once it is pinned there: Building Model › Manage › Model settings › Add-ons.'
+          ? t('library.firmDisciplinesDescription', "Your firm's own disciplines (interiors, security…). Pin one to this model and work here can be filed under it; unpinning keeps what is already filed.", { ns: 'editor' })
+          : t('library.disciplinesDescription', 'What work is filed under in every model: filters, view graphics, linked-model colours and, per model, who is responsible. A suggested role is only a starting point; the project lead names the responsible people in each model. A firm discipline reaches a model once it is pinned there: Building Model › Manage › Model settings › Add-ons.', { ns: 'editor' })
       }
     >
       {pinError && (
@@ -186,13 +189,13 @@ export function DisciplinesSectionFrom({ port, loadRows: given, pinTo }: { reado
         </Alert>
       )}
       <Table>
-        <TableCaption className="sr-only">{pinTo ? 'Firm disciplines and whether each is pinned to this model' : 'Disciplines, what each is part of, where it comes from and its suggested responsible role'}</TableCaption>
+        <TableCaption className="sr-only">{pinTo ? t('library.firmDisciplinesCaption', 'Firm disciplines and whether each is pinned to this model', { ns: 'editor' }) : t('library.disciplinesCaption', 'Disciplines, what each is part of, where it comes from and its suggested responsible role', { ns: 'editor' })}</TableCaption>
         <TableHeader>
           <TableRow>
-            <TableHead>Discipline</TableHead>
-            <TableHead>Part of</TableHead>
-            <TableHead>Comes from</TableHead>
-            {pinTo ? <TableHead>On this model</TableHead> : <TableHead>Suggested responsible role</TableHead>}
+            <TableHead>{t('library.columnDiscipline', 'Discipline', { ns: 'editor' })}</TableHead>
+            <TableHead>{t('library.columnPartOf', 'Part of', { ns: 'editor' })}</TableHead>
+            <TableHead>{t('library.columnComesFrom', 'Comes from', { ns: 'editor' })}</TableHead>
+            {pinTo ? <TableHead>{t('library.columnOnThisModel', 'On this model', { ns: 'editor' })}</TableHead> : <TableHead>{t('library.columnResponsibleRole', 'Suggested responsible role', { ns: 'editor' })}</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -205,7 +208,7 @@ export function DisciplinesSectionFrom({ port, loadRows: given, pinTo }: { reado
                 </div>
               </TableCell>
               <TableCell className="text-muted-foreground text-sm">{listed.row.parent ? (labelOf.get(listed.row.parent) ?? listed.row.parent) : listed.row.group?.label ?? '—'}</TableCell>
-              <TableCell>{sourceBadge(listed)}</TableCell>
+              <TableCell>{sourceBadge(listed, t)}</TableCell>
               <TableCell className="text-muted-foreground text-sm">{listed.row.defaultResponsibleRole ?? '—'}</TableCell>
             </TableRow>
           ))}
@@ -217,12 +220,12 @@ export function DisciplinesSectionFrom({ port, loadRows: given, pinTo }: { reado
                 <TableCell className="font-medium">{f.name}</TableCell>
                 <TableCell className="text-muted-foreground text-sm">{parent ? (labelOf.get(parent) ?? parent) : '—'}</TableCell>
                 <TableCell>
-                  <Badge variant="outline">Firm library</Badge>
+                  <Badge variant="outline">{t('library.firmLibrary', 'Firm library', { ns: 'editor' })}</Badge>
                 </TableCell>
                 <TableCell className="text-muted-foreground text-sm">
                   {pinTo ? (
                     <div className="flex items-center gap-2">
-                      {pinned && <Badge variant="secondary">Pinned</Badge>}
+                      {pinned && <Badge variant="secondary">{t('library.pinned', 'Pinned', { ns: 'editor' })}</Badge>}
                       <PinCell firm={f} pinTo={pinTo} pinned={pinned} onPin={pin} onUnpin={() => setConfirmUnpin(f)} />
                     </div>
                   ) : (
@@ -240,27 +243,27 @@ export function DisciplinesSectionFrom({ port, loadRows: given, pinTo }: { reado
             <EmptyMedia variant="icon">
               <Layers />
             </EmptyMedia>
-            <EmptyTitle>No firm disciplines yet</EmptyTitle>
-            <EmptyDescription>To add your own (interiors, security…), publish a discipline item in Settings › MutinyBIM library, for example firm:security under a built-in discipline.</EmptyDescription>
+            <EmptyTitle>{t('library.noFirmDisciplines', 'No firm disciplines yet', { ns: 'editor' })}</EmptyTitle>
+            <EmptyDescription>{t('library.noFirmDisciplinesHint', 'To add your own (interiors, security…), publish a discipline item in Settings › MutinyBIM library, for example firm:security under a built-in discipline.', { ns: 'editor' })}</EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : null}
       <AlertDialog open={confirmUnpin !== null} onOpenChange={(open) => !open && setConfirmUnpin(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Unpin {confirmUnpin?.name} from this model?</AlertDialogTitle>
-            <AlertDialogDescription>Work already filed under it keeps it; new work here can&apos;t be filed under it. Pin it again, or undo, to bring it back.</AlertDialogDescription>
+            <AlertDialogTitle>{t('library.unpinTitle', 'Unpin {{name}} from this model?', { ns: 'editor', name: confirmUnpin?.name ?? '' })}</AlertDialogTitle>
+            <AlertDialogDescription>{t('library.unpinDescription', "Work already filed under it keeps it; new work here can't be filed under it. Pin it again, or undo, to bring it back.", { ns: 'editor' })}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep it pinned</AlertDialogCancel>
+            <AlertDialogCancel>{t('library.keepItPinned', 'Keep it pinned', { ns: 'editor' })}</AlertDialogCancel>
             <AlertDialogAction
               data-testid="discipline-unpin-confirm"
               onClick={() => {
-                if (confirmUnpin) send({ type: 'unpin_firm_discipline', disciplineId: confirmUnpin.key }, `unpin ${confirmUnpin.name} from this model`)
+                if (confirmUnpin) send({ type: 'unpin_firm_discipline', disciplineId: confirmUnpin.key }, t('library.undoUnpin', 'unpin {{name}} from this model', { ns: 'editor', name: confirmUnpin.name }))
                 setConfirmUnpin(null)
               }}
             >
-              Unpin
+              {t('library.unpin', 'Unpin', { ns: 'editor' })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

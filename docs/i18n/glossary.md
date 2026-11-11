@@ -802,6 +802,27 @@ Yukarıda **zaten** karara bağlı olanlar tekrar yazılmadı (`Ekipman`, `Armat
 | Gas input (MBH) | **gaz girdisi (MBH)** | `MBH` sembolü çevrilmez (§7) |
 | Horsepower | **beygir gücü** | §7 açık yazım; `hp` sembolü kalır |
 
+### 5.10 Aşama 4, Task 4.6: kitaplık ağacı sözcükleri (2026-11-10)
+
+`packages/bim-editor/src/editor/library` çevrilirken bunlar gerekti. Yukarıda
+**zaten** karara bağlı olanlar tekrar yazılmadı (`Kitaplık`, `Tip`, `Aile`,
+`Kategori`, `Disiplin`, `Eklenti`, `Panel`, `Parametre`, `Parça`).
+
+| EN | TR | Not |
+|----|----|-----|
+| Firm library | **firma kitaplığı** | `save.theLibrary` = *kitaplığa* ile aynı ad; *kütüphane* kullanılmaz |
+| Built in | **yerleşik** | *dahili* değil |
+| Pin to this model / Unpin | **bu modele sabitle / sabitlemeyi kaldır** | Sabitleme sıradan bir düzenlemedir, geri alınabilir |
+| Pinned | **sabitlemeyi kaldır** karşıtı olarak **sabitlendi** | §8 durum sözcüğü |
+| Suggested responsible role | **önerilen sorumlu rol** | §9/Ç20: sorumlu kişiyi proje yöneticisi belirler |
+| Part of / Comes from | **parçası olduğu / nereden geliyor** | Disiplinin üst disiplini ve kaynağı |
+| Add-on / Not installed / Preview | **eklenti / kurulu değil / önizleme** | `panel.addOns` = **Eklentiler** (§4.2) |
+| What it adds | **ne ekliyor** | Bir eklentinin kattığı hizmetler ve ekranlar |
+| Import part types | **parça tiplerini içe aktar** | *İçe aktar* ≠ *yükle* (§3) |
+| Connector report | **bağlantı raporu** | §5.5 ile aynı karar |
+| Firm / project scope | **firma / proje kapsamı** | Kitaplık katmanları |
+| Save to firm library | **firma kitaplığına kaydet** | Yönelme hâli: *kitaplığına* |
+
 ---
 
 ## 6. Maliyet ve ticari terimler
