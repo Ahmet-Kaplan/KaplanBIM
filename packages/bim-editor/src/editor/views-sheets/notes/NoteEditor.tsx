@@ -14,6 +14,7 @@ import { Separator } from '../../../ui/separator'
 import { ToggleGroup, ToggleGroupItem } from '../../../ui/toggle-group'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip'
 import { NOTE_SIZE_ATTR, docToParagraphs, paragraphsToDoc } from './note-doc'
+import { useEditorTranslate } from '../../i18n/translate'
 
 /**
  * Edit a note in place. The visible text while you type is the layout
@@ -72,6 +73,7 @@ export interface NoteEditorProps {
 const SIZE_LABEL = (mm: number) => NOTE_SIZE_CHOICES.find((c) => Math.abs(c.mm - mm) < 0.01)?.label ?? `${mm.toFixed(2)} mm`
 
 export function NoteEditor({ origin, rotation, width, height, paper, pxPerMm, size, lineSpacing, initial, overflow, onDraft, onCommit, onDiscard }: NoteEditorProps) {
+  const t = useEditorTranslate()
   const latest = useRef({ onDraft, onCommit, onDiscard })
   useLayoutEffect(() => {
     latest.current = { onDraft, onCommit, onDiscard }
@@ -165,26 +167,26 @@ export function NoteEditor({ origin, rotation, width, height, paper, pxPerMm, si
           if (!(e.target instanceof HTMLElement && e.target.closest('[role="combobox"]'))) e.preventDefault()
         }}
         role="toolbar"
-        aria-label="Note formatting"
+        aria-label={t('note.formatting', 'Note formatting', { ns: 'editor' })}
         data-testid="note-format-bar"
       >
-        <ToggleGroup type="multiple" size="sm" value={[state?.bold ? 'bold' : '', state?.italic ? 'italic' : '', state?.underline ? 'underline' : ''].filter(Boolean)} aria-label="Text style">
-          <FormatButton value="bold" label="Bold" keys="⌘B" onClick={() => editor?.chain().focus().toggleBold().run()}>
+        <ToggleGroup type="multiple" size="sm" value={[state?.bold ? 'bold' : '', state?.italic ? 'italic' : '', state?.underline ? 'underline' : ''].filter(Boolean)} aria-label={t('note.textStyle', 'Text style', { ns: 'editor' })}>
+          <FormatButton value="bold" label={t('note.bold', 'Bold', { ns: 'editor' })} keys="⌘B" onClick={() => editor?.chain().focus().toggleBold().run()}>
             <Bold />
           </FormatButton>
-          <FormatButton value="italic" label="Italic" keys="⌘I" onClick={() => editor?.chain().focus().toggleItalic().run()}>
+          <FormatButton value="italic" label={t('note.italic', 'Italic', { ns: 'editor' })} keys="⌘I" onClick={() => editor?.chain().focus().toggleItalic().run()}>
             <Italic />
           </FormatButton>
-          <FormatButton value="underline" label="Underline" keys="⌘U" onClick={() => editor?.chain().focus().toggleUnderline().run()}>
+          <FormatButton value="underline" label={t('note.underline', 'Underline', { ns: 'editor' })} keys="⌘U" onClick={() => editor?.chain().focus().toggleUnderline().run()}>
             <Underline />
           </FormatButton>
         </ToggleGroup>
         <Separator orientation="vertical" className="h-5" />
-        <ToggleGroup type="single" size="sm" value={state?.bullet ? 'bullet' : state?.numbered ? 'numbered' : ''} aria-label="List">
-          <FormatButton value="bullet" label="Bullets" keys="⌘⇧8" onClick={() => editor?.chain().focus().toggleBulletList().run()}>
+        <ToggleGroup type="single" size="sm" value={state?.bullet ? 'bullet' : state?.numbered ? 'numbered' : ''} aria-label={t('note.list', 'List', { ns: 'editor' })}>
+          <FormatButton value="bullet" label={t('note.bullets', 'Bullets', { ns: 'editor' })} keys="⌘⇧8" onClick={() => editor?.chain().focus().toggleBulletList().run()}>
             <List />
           </FormatButton>
-          <FormatButton value="numbered" label="Numbered list" keys="⌘⇧7" onClick={() => editor?.chain().focus().toggleOrderedList().run()}>
+          <FormatButton value="numbered" label={t('note.numberedList', 'Numbered list', { ns: 'editor' })} keys="⌘⇧7" onClick={() => editor?.chain().focus().toggleOrderedList().run()}>
             <ListOrdered />
           </FormatButton>
         </ToggleGroup>
@@ -198,7 +200,7 @@ export function NoteEditor({ origin, rotation, width, height, paper, pxPerMm, si
             else editor.chain().focus().setMark('textStyle', { [NOTE_SIZE_ATTR]: mm }).run()
           }}
         >
-          <SelectTrigger size="sm" className="w-[6.75rem]" aria-label="Text height" data-testid="note-size">
+          <SelectTrigger size="sm" className="w-[6.75rem]" aria-label={t('note.textHeight', 'Text height', { ns: 'editor' })} data-testid="note-size">
             <SelectValue placeholder={SIZE_LABEL(state?.size ?? size)} />
           </SelectTrigger>
           <SelectContent onPointerDown={(e) => e.stopPropagation()}>
@@ -206,7 +208,7 @@ export function NoteEditor({ origin, rotation, width, height, paper, pxPerMm, si
               {NOTE_SIZE_CHOICES.map((c) => (
                 <SelectItem key={c.mm} value={String(c.mm)}>
                   {c.label}
-                  {Math.abs(c.mm - size) < 1e-6 ? ' (note)' : ''}
+                  {Math.abs(c.mm - size) < 1e-6 ? ` ${t('note.isNoteSize', '(note)', { ns: 'editor' })}` : ''}
                 </SelectItem>
               ))}
               {!NOTE_SIZE_CHOICES.some((c) => Math.abs(c.mm - (state?.size ?? size)) < 1e-6) && <SelectItem value={String(state?.size ?? size)}>{SIZE_LABEL(state?.size ?? size)}</SelectItem>}
@@ -214,17 +216,17 @@ export function NoteEditor({ origin, rotation, width, height, paper, pxPerMm, si
           </SelectContent>
         </Select>
         <Separator orientation="vertical" className="h-5" />
-        <ToggleGroup type="single" size="sm" value={state?.align ?? 'left'} aria-label="Alignment">
-          <FormatButton value="left" label="Align left" onClick={() => editor?.chain().focus().setTextAlign('left').run()}>
+        <ToggleGroup type="single" size="sm" value={state?.align ?? 'left'} aria-label={t('note.alignment', 'Alignment', { ns: 'editor' })}>
+          <FormatButton value="left" label={t('note.alignLeft', 'Align left', { ns: 'editor' })} onClick={() => editor?.chain().focus().setTextAlign('left').run()}>
             <AlignLeft />
           </FormatButton>
-          <FormatButton value="center" label="Center" onClick={() => editor?.chain().focus().setTextAlign('center').run()}>
+          <FormatButton value="center" label={t('note.center', 'Center', { ns: 'editor' })} onClick={() => editor?.chain().focus().setTextAlign('center').run()}>
             <AlignCenter />
           </FormatButton>
-          <FormatButton value="right" label="Align right" onClick={() => editor?.chain().focus().setTextAlign('right').run()}>
+          <FormatButton value="right" label={t('note.alignRight', 'Align right', { ns: 'editor' })} onClick={() => editor?.chain().focus().setTextAlign('right').run()}>
             <AlignRight />
           </FormatButton>
-          <FormatButton value="justify" label="Justify" onClick={() => editor?.chain().focus().setTextAlign('justify').run()}>
+          <FormatButton value="justify" label={t('note.justify', 'Justify', { ns: 'editor' })} onClick={() => editor?.chain().focus().setTextAlign('justify').run()}>
             <AlignJustify />
           </FormatButton>
         </ToggleGroup>
@@ -233,19 +235,21 @@ export function NoteEditor({ origin, rotation, width, height, paper, pxPerMm, si
           <TooltipTrigger asChild>
             <Button variant="ghost" size="sm" onClick={() => latest.current.onDiscard()} data-testid="note-discard">
               <Undo2 data-icon="inline-start" />
-              Discard
+              {t('note.discard', 'Discard', { ns: 'editor' })}
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Throw away what you typed since opening the note. Nothing is saved.</TooltipContent>
+          <TooltipContent>
+            {t('note.discardWhy', 'Throw away what you typed since opening the note. Nothing is saved.', { ns: 'editor' })}
+          </TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button size="sm" onClick={() => editor && latest.current.onCommit(docToParagraphs(editor.getJSON()))} data-testid="note-done">
               <Check data-icon="inline-start" />
-              Done
+              {t('note.done', 'Done', { ns: 'editor' })}
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Save the note (Esc, or click outside it)</TooltipContent>
+          <TooltipContent>{t('note.doneWhy', 'Save the note (Esc, or click outside it)', { ns: 'editor' })}</TooltipContent>
         </Tooltip>
       </div>
       {overflow && (
@@ -255,7 +259,7 @@ export function NoteEditor({ origin, rotation, width, height, paper, pxPerMm, si
           role="status"
           data-testid="note-overflow"
         >
-          Text runs past the box and won&apos;t print. Drag the bottom edge down, or set the height to fit.
+          {t('note.overflow', 'Text runs past the box and won’t print. Drag the bottom edge down, or set the height to fit.', { ns: 'editor' })}
         </div>
       )}
     </>

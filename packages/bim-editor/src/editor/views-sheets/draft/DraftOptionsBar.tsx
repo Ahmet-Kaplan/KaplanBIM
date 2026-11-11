@@ -12,6 +12,7 @@ import { Toggle } from '../../../ui/toggle'
 import { ToggleGroup, ToggleGroupItem } from '../../../ui/toggle-group'
 import { componentGroups, isDraftShape, type DraftPending, type DraftSettings, type ModifyParams } from './draft-input'
 import { CLOSES_AT_ONCE, handKeyboardToDrawing } from '../../menu-close'
+import { useEditorTranslate, type Translate } from '../../i18n/translate'
 
 /**
  * The Draft options bar: the prompt for the next click, and the values the
@@ -26,23 +27,57 @@ import { CLOSES_AT_ONCE, handKeyboardToDrawing } from '../../menu-close'
  * indicator).
  */
 
-const SNAP_LABEL: Record<SnapKind, string> = { endpoint: 'Endpoints', midpoint: 'Midpoints', center: 'Centres', intersection: 'Intersections', perpendicular: 'Perpendicular', nearest: 'Nearest point on a line' }
+/** What each snap catches, in the language on screen. */
+function snapLabel(kind: SnapKind, t: Translate): string {
+  switch (kind) {
+    case 'endpoint':
+      return t('draft.snap.endpoint', 'Endpoints', { ns: 'editor' })
+    case 'midpoint':
+      return t('draft.snap.midpoint', 'Midpoints', { ns: 'editor' })
+    case 'center':
+      return t('draft.snap.center', 'Centres', { ns: 'editor' })
+    case 'intersection':
+      return t('draft.snap.intersection', 'Intersections', { ns: 'editor' })
+    case 'perpendicular':
+      return t('draft.snap.perpendicular', 'Perpendicular', { ns: 'editor' })
+    case 'nearest':
+      return t('draft.snap.nearest', 'Nearest point on a line', { ns: 'editor' })
+  }
+}
 const POLAR_STEPS = [15, 30, 45, 90] as const
 
 /** Snaps, Ortho and polar tracking: beside the drawing whichever drawing tool is in hand. */
 function DrawingAids({ settings, set }: { settings: DraftSettings; set: (patch: Partial<DraftSettings>) => void }) {
+  const t = useEditorTranslate()
   return (
-    <div className="flex items-center gap-1" role="group" aria-label="Drawing aids" data-testid="draft-aids">
+    <div
+      className="flex items-center gap-1"
+      role="group"
+      aria-label={t('draft.drawingAids', 'Drawing aids', { ns: 'editor' })}
+      data-testid="draft-aids"
+    >
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="h-7" title={`Clicks snap to: ${settings.snaps.length > 0 ? settings.snaps.map((k) => SNAP_LABEL[k].toLowerCase()).join(', ') : 'nothing (turn some on)'}`} data-testid="draft-snaps">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7"
+            title={
+              settings.snaps.length > 0
+                ? t('draft.snapsTitle', 'Clicks snap to: {{list}}', { ns: 'editor', list: settings.snaps.map((k) => snapLabel(k, t).toLowerCase()).join(', ') })
+                : t('draft.snapsTitleNone', 'Clicks snap to: nothing (turn some on)', { ns: 'editor' })
+            }
+            data-testid="draft-snaps"
+          >
             <Magnet data-icon="inline-start" />
-            Snaps
+            {t('draft.snaps', 'Snaps', { ns: 'editor' })}
             <ChevronDown data-icon="inline-end" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className={CLOSES_AT_ONCE} onCloseAutoFocus={handKeyboardToDrawing}>
-          <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Clicks snap to</DropdownMenuLabel>
+          <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+            {t('draft.clicksSnapTo', 'Clicks snap to', { ns: 'editor' })}
+          </DropdownMenuLabel>
           <DropdownMenuGroup>
             {SNAP_KINDS.map((k) => (
               <DropdownMenuCheckboxItem
@@ -52,32 +87,52 @@ function DrawingAids({ settings, set }: { settings: DraftSettings; set: (patch: 
                 onSelect={(e) => e.preventDefault()}
                 data-testid={`draft-snap-${k}`}
               >
-                {SNAP_LABEL[k]}
+                {snapLabel(k, t)}
               </DropdownMenuCheckboxItem>
             ))}
           </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
-      <Toggle size="sm" className="h-7" pressed={settings.ortho} onPressedChange={(ortho) => set({ ortho, ...(ortho ? { polarDeg: null } : {}) })} aria-label="Ortho (F8)" title="Keep lines square to the paper (F8)" data-testid="draft-ortho">
+      <Toggle
+        size="sm"
+        className="h-7"
+        pressed={settings.ortho}
+        onPressedChange={(ortho) => set({ ortho, ...(ortho ? { polarDeg: null } : {}) })}
+        aria-label={t('draft.orthoLabel', 'Ortho (F8)', { ns: 'editor' })}
+        title={t('draft.orthoWhy', 'Keep lines square to the paper (F8)', { ns: 'editor' })}
+        data-testid="draft-ortho"
+      >
         <Crosshair data-icon="inline-start" />
-        Ortho
+        {t('draft.ortho', 'Ortho', { ns: 'editor' })}
       </Toggle>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="h-7" title={settings.polarDeg ? `Tracking every ${settings.polarDeg}° from the last point` : 'Track to set angles from the last point'} data-testid="draft-polar">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7"
+            title={
+              settings.polarDeg
+                ? t('draft.polarTitleTrack', 'Tracking every {{deg}}° from the last point', { ns: 'editor', deg: settings.polarDeg })
+                : t('draft.polarTitleOff', 'Track to set angles from the last point', { ns: 'editor' })
+            }
+            data-testid="draft-polar"
+          >
             <RotateCw data-icon="inline-start" />
-            {settings.polarDeg ? `Polar ${settings.polarDeg}°` : 'Polar'}
+            {settings.polarDeg
+              ? t('draft.polarWithDeg', 'Polar {{deg}}°', { ns: 'editor', deg: settings.polarDeg })
+              : t('draft.polar', 'Polar', { ns: 'editor' })}
             <ChevronDown data-icon="inline-end" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className={CLOSES_AT_ONCE} onCloseAutoFocus={handKeyboardToDrawing}>
           <DropdownMenuRadioGroup value={settings.polarDeg ? String(settings.polarDeg) : 'off'} onValueChange={(v) => { const deg = POLAR_STEPS.find((d) => String(d) === v) ?? null; set({ polarDeg: deg, ...(deg ? { ortho: false } : {}) }) }}>
             <DropdownMenuRadioItem value="off" data-testid="draft-polar-off">
-              Off
+              {t('draft.off', 'Off', { ns: 'editor' })}
             </DropdownMenuRadioItem>
             {POLAR_STEPS.map((deg) => (
               <DropdownMenuRadioItem key={deg} value={String(deg)} data-testid={`draft-polar-${deg}`}>
-                Every {deg}°
+                {t('draft.everyDeg', 'Every {{deg}}°', { ns: 'editor', deg })}
               </DropdownMenuRadioItem>
             ))}
           </DropdownMenuRadioGroup>
@@ -87,29 +142,65 @@ function DrawingAids({ settings, set }: { settings: DraftSettings; set: (patch: 
   )
 }
 
-const HATCH_LABEL: Record<HatchPattern, string> = {
-  solid: 'Solid fill',
-  diagonal: 'Diagonal',
-  diagonal_reverse: 'Diagonal (reverse)',
-  crosshatch: 'Crosshatch',
-  horizontal: 'Horizontal',
-  vertical: 'Vertical',
-  dots: 'Dots',
-  concrete: 'Concrete',
-  earth: 'Earth',
-  insulation_rigid: 'Rigid insulation',
-  masonry: 'Masonry',
+/** Each hatch pattern, in the language on screen. */
+function hatchLabel(pattern: HatchPattern, t: Translate): string {
+  switch (pattern) {
+    case 'solid':
+      return t('draft.pattern.solid', 'Solid fill', { ns: 'editor' })
+    case 'diagonal':
+      return t('draft.pattern.diagonal', 'Diagonal', { ns: 'editor' })
+    case 'diagonal_reverse':
+      return t('draft.pattern.diagonalReverse', 'Diagonal (reverse)', { ns: 'editor' })
+    case 'crosshatch':
+      return t('draft.pattern.crosshatch', 'Crosshatch', { ns: 'editor' })
+    case 'horizontal':
+      return t('draft.pattern.horizontal', 'Horizontal', { ns: 'editor' })
+    case 'vertical':
+      return t('draft.pattern.vertical', 'Vertical', { ns: 'editor' })
+    case 'dots':
+      return t('draft.pattern.dots', 'Dots', { ns: 'editor' })
+    case 'concrete':
+      return t('draft.pattern.concrete', 'Concrete', { ns: 'editor' })
+    case 'earth':
+      return t('draft.pattern.earth', 'Earth', { ns: 'editor' })
+    case 'insulation_rigid':
+      return t('draft.pattern.insulationRigid', 'Rigid insulation', { ns: 'editor' })
+    case 'masonry':
+      return t('draft.pattern.masonry', 'Masonry', { ns: 'editor' })
+  }
 }
-const CATEGORY_LABEL: Record<string, string> = { insulation: 'Insulation', duct: 'Duct', pipe: 'Pipe', supports: 'Hangers and supports', valves: 'Valves', anchors: 'Anchors', structure: 'Structure' }
+
+/** The component groups a detail symbol is picked from (one vocabulary with §1's disciplines). */
+function categoryLabel(category: string, t: Translate): string {
+  switch (category) {
+    case 'insulation':
+      return t('draft.category.insulation', 'Insulation', { ns: 'editor' })
+    case 'duct':
+      return t('draft.category.duct', 'Duct', { ns: 'editor' })
+    case 'pipe':
+      return t('draft.category.pipe', 'Pipe', { ns: 'editor' })
+    case 'supports':
+      return t('draft.category.supports', 'Hangers and supports', { ns: 'editor' })
+    case 'valves':
+      return t('draft.category.valves', 'Valves', { ns: 'editor' })
+    case 'anchors':
+      return t('draft.category.anchors', 'Anchors', { ns: 'editor' })
+    case 'structure':
+      return t('draft.category.structure', 'Structure', { ns: 'editor' })
+    default:
+      return category
+  }
+}
 const LINEWORK = new Set(['line', 'rect', 'arc', 'circle', 'polyline', 'polygon', 'spline', 'region'])
 
 /** One line style per line, the way BIM drafting views pick linework. */
 function LineStylePicker({ settings, set }: { settings: DraftSettings; set: (patch: Partial<DraftSettings>) => void }) {
+  const t = useEditorTranslate()
   const current = detailLineStyleOf({ weight: settings.weight, pattern: settings.pattern }) ?? 'medium'
   return (
     <div className="flex items-center gap-1.5">
       <Label htmlFor="draft-line-style" className="whitespace-nowrap text-xs text-muted-foreground">
-        Line style
+        {t('draft.lineStyle', 'Line style', { ns: 'editor' })}
       </Label>
       <Select
         value={current}
@@ -212,6 +303,7 @@ export function DraftOptionsBar({
   /** Placement over the drawing (the bar is absolutely positioned by its parent). */
   className?: string
 }) {
+  const t = useEditorTranslate()
   const set = (patch: Partial<DraftSettings>) => onSettings({ ...settings, ...patch })
   const setP = (patch: Partial<ModifyParams>) => onParams({ ...params, ...patch })
   const op = pending?.kind === 'modify' ? pending.op : null
@@ -226,11 +318,11 @@ export function DraftOptionsBar({
         </span>
         <Button size="sm" onClick={sketch.onFinish} data-testid="boundary-finish">
           <Check data-icon="inline-start" />
-          Finish edit (Enter)
+          {t('draft.finishEdit', 'Finish edit (Enter)', { ns: 'editor' })}
         </Button>
         <Button size="sm" variant="ghost" onClick={sketch.onCancel} data-testid="boundary-cancel">
           <X data-icon="inline-start" />
-          Cancel (Esc)
+          {t('draft.cancelEsc', 'Cancel (Esc)', { ns: 'editor' })}
         </Button>
       </div>
     )
@@ -250,13 +342,19 @@ export function DraftOptionsBar({
       )}
       {drawing && tool === 'polygon' && (
         <>
-          <Typed id="draft-polygon-sides" label="Sides" value={settings.polygonSides} width="w-14" onChange={(polygonSides) => set({ polygonSides })} />
-          <ToggleGroup type="single" size="sm" variant="outline" value={settings.polygonInscribed ? 'inscribed' : 'circumscribed'} onValueChange={(v) => v && set({ polygonInscribed: v === 'inscribed' })} aria-label="Polygon fit" data-testid="draft-polygon-fit">
-            <ToggleGroupItem value="inscribed" className="h-7 px-2 text-xs" title="The click is a corner">
-              Inscribed
+          <Typed
+            id="draft-polygon-sides"
+            label={t('draft.sides', 'Sides', { ns: 'editor' })}
+            value={settings.polygonSides}
+            width="w-14"
+            onChange={(polygonSides) => set({ polygonSides })}
+          />
+          <ToggleGroup type="single" size="sm" variant="outline" value={settings.polygonInscribed ? 'inscribed' : 'circumscribed'} onValueChange={(v) => v && set({ polygonInscribed: v === 'inscribed' })} aria-label={t('draft.polygonFit', 'Polygon fit', { ns: 'editor' })} data-testid="draft-polygon-fit">
+            <ToggleGroupItem value="inscribed" className="h-7 px-2 text-xs" title={t('draft.inscribedWhy', 'The click is a corner', { ns: 'editor' })}>
+              {t('draft.inscribed', 'Inscribed', { ns: 'editor' })}
             </ToggleGroupItem>
-            <ToggleGroupItem value="circumscribed" className="h-7 px-2 text-xs" title="The click is the middle of a side">
-              Circumscribed
+            <ToggleGroupItem value="circumscribed" className="h-7 px-2 text-xs" title={t('draft.circumscribedWhy', 'The click is the middle of a side', { ns: 'editor' })}>
+              {t('draft.circumscribed', 'Circumscribed', { ns: 'editor' })}
             </ToggleGroupItem>
           </ToggleGroup>
         </>
@@ -266,16 +364,25 @@ export function DraftOptionsBar({
           <div className="flex items-center gap-1.5">
             <Switch id="draft-masking" checked={settings.masking} onCheckedChange={(masking) => set({ masking })} data-testid="draft-masking" />
             <Label htmlFor="draft-masking" className="text-xs">
-              Masking (hides what&apos;s under it)
+              {t('draft.masking', 'Masking (hides what’s under it)', { ns: 'editor' })}
             </Label>
           </div>
-          {!settings.masking && <Choice id="draft-hatch" label="Hatch" value={settings.hatch} options={HATCH_PATTERNS} labels={HATCH_LABEL} onChange={(hatch) => set({ hatch })} />}
+          {!settings.masking && (
+            <Choice
+              id="draft-hatch"
+              label={t('draft.hatch', 'Hatch', { ns: 'editor' })}
+              value={settings.hatch}
+              options={HATCH_PATTERNS}
+              labels={Object.fromEntries(HATCH_PATTERNS.map((h) => [h, hatchLabel(h, t)])) as Record<HatchPattern, string>}
+              onChange={(hatch) => set({ hatch })}
+            />
+          )}
         </>
       )}
       {drawing && (tool === 'component' || tool === 'repeat') && (
         <div className="flex items-center gap-1.5">
           <Label htmlFor="draft-symbol" className="whitespace-nowrap text-xs text-muted-foreground">
-            Component
+            {t('draft.component', 'Component', { ns: 'editor' })}
           </Label>
           <Select value={settings.symbolId} onValueChange={(symbolId) => set({ symbolId })}>
             <SelectTrigger id="draft-symbol" size="sm" className="h-7 min-w-40" data-testid="draft-symbol">
@@ -284,7 +391,7 @@ export function DraftOptionsBar({
             <SelectContent className={CLOSES_AT_ONCE} onCloseAutoFocus={handKeyboardToDrawing}>
               {componentGroups().map((g) => (
                 <SelectGroup key={g.category}>
-                  <SelectLabel>{CATEGORY_LABEL[g.category] ?? g.category}</SelectLabel>
+                  <SelectLabel>{categoryLabel(g.category, t)}</SelectLabel>
                   {g.items.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name}
@@ -296,32 +403,61 @@ export function DraftOptionsBar({
           </Select>
         </div>
       )}
-      {drawing && tool === 'batt' && <Typed id="draft-batt" label="Thickness" value={settings.battThickness} onChange={(battThickness) => set({ battThickness })} />}
-      {(op === 'rotate' || op === 'polar_array') && <Typed id="draft-angle" label={op === 'rotate' ? 'Angle (°, counter-clockwise)' : 'Spans (°)'} value={params.angle} width="w-16" onChange={(angle) => setP({ angle })} />}
-      {(op === 'array' || op === 'polar_array') && <Typed id="draft-count" label="Copies, counting the original" value={params.count} width="w-14" onChange={(count) => setP({ count })} />}
-      {op === 'scale' && <Typed id="draft-factor" label="Factor" value={params.factor} width="w-14" onChange={(factor) => setP({ factor })} />}
+      {drawing && tool === 'batt' && (
+        <Typed id="draft-batt" label={t('draft.thickness', 'Thickness', { ns: 'editor' })} value={settings.battThickness} onChange={(battThickness) => set({ battThickness })} />
+      )}
+      {(op === 'rotate' || op === 'polar_array') && (
+        <Typed
+          id="draft-angle"
+          label={op === 'rotate' ? t('draft.angleCCW', 'Angle (°, counter-clockwise)', { ns: 'editor' }) : t('draft.spansDeg', 'Spans (°)', { ns: 'editor' })}
+          value={params.angle}
+          width="w-16"
+          onChange={(angle) => setP({ angle })}
+        />
+      )}
+      {(op === 'array' || op === 'polar_array') && (
+        <Typed
+          id="draft-count"
+          label={t('draft.copiesCountingOriginal', 'Copies, counting the original', { ns: 'editor' })}
+          value={params.count}
+          width="w-14"
+          onChange={(count) => setP({ count })}
+        />
+      )}
+      {op === 'scale' && <Typed id="draft-factor" label={t('draft.factor', 'Factor', { ns: 'editor' })} value={params.factor} width="w-14" onChange={(factor) => setP({ factor })} />}
       {op === 'offset' && (
         <>
-          <ToggleGroup type="single" size="sm" variant="outline" value={params.offsetMode} onValueChange={(v) => v && setP({ offsetMode: v === 'graphical' ? 'graphical' : 'numerical' })} aria-label="Offset by" data-testid="draft-offset-mode">
-            <ToggleGroupItem value="numerical" className="h-7 px-2 text-xs" title="Type the distance, then click the side">
-              Numerical
+          <ToggleGroup type="single" size="sm" variant="outline" value={params.offsetMode} onValueChange={(v) => v && setP({ offsetMode: v === 'graphical' ? 'graphical' : 'numerical' })} aria-label={t('draft.offsetBy', 'Offset by', { ns: 'editor' })} data-testid="draft-offset-mode">
+            <ToggleGroupItem value="numerical" className="h-7 px-2 text-xs" title={t('draft.numericalWhy', 'Type the distance, then click the side', { ns: 'editor' })}>
+              {t('draft.numerical', 'Numerical', { ns: 'editor' })}
             </ToggleGroupItem>
-            <ToggleGroupItem value="graphical" className="h-7 px-2 text-xs" title="Click two points to show the distance">
-              Graphical
+            <ToggleGroupItem value="graphical" className="h-7 px-2 text-xs" title={t('draft.graphicalWhy', 'Click two points to show the distance', { ns: 'editor' })}>
+              {t('draft.graphical', 'Graphical', { ns: 'editor' })}
             </ToggleGroupItem>
           </ToggleGroup>
-          {params.offsetMode === 'numerical' && <Typed id="draft-distance" label="Distance" value={params.distance} onChange={(distance) => setP({ distance })} />}
-          <Check2 id="draft-offset-copy" label="Copy" checked={params.offsetCopy} onChange={(offsetCopy) => setP({ offsetCopy })} />
+          {params.offsetMode === 'numerical' && (
+            <Typed id="draft-distance" label={t('draft.distance', 'Distance', { ns: 'editor' })} value={params.distance} onChange={(distance) => setP({ distance })} />
+          )}
+          <Check2 id="draft-offset-copy" label={t('draft.copy', 'Copy', { ns: 'editor' })} checked={params.offsetCopy} onChange={(offsetCopy) => setP({ offsetCopy })} />
         </>
       )}
-      {op === 'split' && <Check2 id="draft-delete-inner" label="Delete inner segment" checked={params.deleteInner} onChange={(deleteInner) => setP({ deleteInner })} />}
-      {op === 'split_gap' && <Typed id="draft-gap" label="Gap" value={params.gap} width="w-16" onChange={(gap) => setP({ gap })} />}
-      {op === 'fillet_arc' && <Typed id="draft-arc-radius" label="Radius" value={params.arcRadius} width="w-16" onChange={(arcRadius) => setP({ arcRadius })} />}
+      {op === 'split' && (
+        <Check2
+          id="draft-delete-inner"
+          label={t('draft.deleteInnerSegment', 'Delete inner segment', { ns: 'editor' })}
+          checked={params.deleteInner}
+          onChange={(deleteInner) => setP({ deleteInner })}
+        />
+      )}
+      {op === 'split_gap' && <Typed id="draft-gap" label={t('draft.gap', 'Gap', { ns: 'editor' })} value={params.gap} width="w-16" onChange={(gap) => setP({ gap })} />}
+      {op === 'fillet_arc' && (
+        <Typed id="draft-arc-radius" label={t('draft.radius', 'Radius', { ns: 'editor' })} value={params.arcRadius} width="w-16" onChange={(arcRadius) => setP({ arcRadius })} />
+      )}
       {(op === 'rotate' || op === 'mirror') && (
         <div className="flex items-center gap-1.5">
           <Switch id="draft-copy" checked={params.copy} onCheckedChange={(copy) => setP({ copy })} />
           <Label htmlFor="draft-copy" className="text-xs">
-            Keep the original
+            {t('draft.keepTheOriginal', 'Keep the original', { ns: 'editor' })}
           </Label>
         </div>
       )}

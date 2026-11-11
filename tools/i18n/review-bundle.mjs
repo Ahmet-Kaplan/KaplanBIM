@@ -73,8 +73,13 @@ const compare = (left, right) => (left < right ? -1 : left > right ? 1 : 0);
 
 const STRING_LITERAL = String.raw`(['"])((?:\\.|(?!\1)[^\\])*)\1`;
 
-/** Where a `t(...)` call starts. */
-const CALL_START = /\bt\s*\(/g;
+/**
+ * Where a `t(...)` call starts. `tr(...)` too: a component that takes its
+ * translator as a prop and falls back to the hook names it `tr`, and that alias
+ * hid four captions from this tool entirely (they were reported as translated
+ * nowhere and missing nowhere).
+ */
+const CALL_START = /\b(?:t|tr)\s*\(/g;
 
 /** `useT('editor')` / `useTranslation('editor')`: what a component's `t` resolves to. */
 const NAMESPACE_DECLARATION = /\b(?:useTranslation|useT)\s*\(/g;

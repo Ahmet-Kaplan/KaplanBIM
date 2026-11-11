@@ -4,8 +4,12 @@ import { Check } from 'lucide-react'
 import { Badge } from '../../ui/badge'
 import { Button } from '../../ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
 
-export const FINISH_EDITING_HINT = 'Esc or double-click outside to finish'
+/** How editing in place ends, in the language on screen. */
+function finishEditingHint(t: Translate): string {
+  return t('view.finishEditingHint', 'Esc or double-click outside to finish', { ns: 'editor' })
+}
 
 /**
  * Floats over the drawing while a placed view is edited in place. It must never
@@ -14,6 +18,7 @@ export const FINISH_EDITING_HINT = 'Esc or double-click outside to finish'
  * the canvas under it still gets clicks and drags.
  */
 export function EditingViewIndicator({ viewName, onDone }: { viewName: string; onDone: () => void }) {
+  const t = useEditorTranslate()
   return (
     <Badge
       variant="outline"
@@ -23,17 +28,17 @@ export function EditingViewIndicator({ viewName, onDone }: { viewName: string; o
       data-testid="editing-view-banner"
     >
       <span className="truncate">
-        Editing <span className="font-medium">{viewName}</span>
+        {t('view.editingNamed', 'Editing {{name}}', { ns: 'editor', name: '' })}<span className="font-medium">{viewName}</span>
       </span>
-      <span className="sr-only">. {FINISH_EDITING_HINT}.</span>
+      <span className="sr-only">. {finishEditingHint(t)}.</span>
       <Tooltip>
         <TooltipTrigger asChild>
           <Button variant="ghost" size="xs" className="pointer-events-auto rounded-full" onClick={onDone} data-testid="finish-editing-view">
             <Check data-icon="inline-start" />
-            Done
+            {t('view.done', 'Done', { ns: 'editor' })}
           </Button>
         </TooltipTrigger>
-        <TooltipContent>{FINISH_EDITING_HINT}</TooltipContent>
+        <TooltipContent>{finishEditingHint(t)}</TooltipContent>
       </Tooltip>
     </Badge>
   )

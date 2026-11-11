@@ -2,6 +2,7 @@
 
 import { Box, ClipboardCopy, ClipboardPaste, Focus, PencilRuler, Spline, Tags } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from '../../ui/dropdown-menu'
+import { useEditorTranslate } from '../i18n/translate'
 
 interface Props {
   /** Canvas pixels from its top-left where the right-click landed; null when closed. */
@@ -29,6 +30,7 @@ interface Props {
 
 /** Right-click (without dragging) on the 3D canvas or a drawing: what you can do with the selection. Esc or a click away closes it. */
 export function SelectionContextMenu({ at, onClose, selectionLabel, blocked = null, onCrop, onNewView, editDefinition, copy, paste, tags }: Props) {
+  const t = useEditorTranslate()
   const clipboardWhy = copy?.blocked ?? paste?.blocked ?? null
   return (
     <DropdownMenu open={at !== null} onOpenChange={(open) => !open && onClose()} modal={false}>
@@ -42,11 +44,11 @@ export function SelectionContextMenu({ at, onClose, selectionLabel, blocked = nu
             <DropdownMenuGroup>
               <DropdownMenuItem disabled={blocked !== null} onSelect={onCrop} data-testid="context-crop-3d-to-selection">
                 <Focus />
-                Crop 3D view to selection
+                {t('selection.cropToSelection', 'Crop 3D view to selection', { ns: 'editor' })}
               </DropdownMenuItem>
               <DropdownMenuItem disabled={blocked !== null} onSelect={onNewView} data-testid="context-new-3d-view-of-selection">
                 <Box />
-                New 3D view of selection
+                {t('selection.newViewOfSelection', 'New 3D view of selection', { ns: 'editor' })}
               </DropdownMenuItem>
             </DropdownMenuGroup>
             {blocked && <DropdownMenuLabel className="max-w-64 text-xs font-normal text-muted-foreground">{blocked}</DropdownMenuLabel>}
@@ -58,12 +60,12 @@ export function SelectionContextMenu({ at, onClose, selectionLabel, blocked = nu
             <DropdownMenuGroup>
               <DropdownMenuItem disabled={tags.spread.blocked !== null} onSelect={tags.spread.run} title={tags.spread.blocked ?? undefined} data-testid="context-spread-tags">
                 <Tags />
-                Spread tags
+                {t('selection.spreadTags', 'Spread tags', { ns: 'editor' })}
               </DropdownMenuItem>
               {tags.straighten && (
                 <DropdownMenuItem disabled={tags.straighten.blocked !== null} onSelect={tags.straighten.run} title={tags.straighten.blocked ?? undefined} data-testid="context-straighten-leader">
                   <Spline />
-                  Straighten leader
+                  {t('selection.straightenLeader', 'Straighten leader', { ns: 'editor' })}
                 </DropdownMenuItem>
               )}
             </DropdownMenuGroup>
@@ -80,7 +82,7 @@ export function SelectionContextMenu({ at, onClose, selectionLabel, blocked = nu
             <DropdownMenuGroup>
               <DropdownMenuItem disabled={editDefinition.blocked !== null} onSelect={editDefinition.run} data-testid="context-edit-part-definition">
                 <PencilRuler />
-                Edit definition
+                {t('selection.editDefinition', 'Edit definition', { ns: 'editor' })}
               </DropdownMenuItem>
             </DropdownMenuGroup>
             {editDefinition.blocked && <DropdownMenuLabel className="max-w-64 text-xs font-normal text-muted-foreground">{editDefinition.blocked}</DropdownMenuLabel>}
@@ -93,14 +95,14 @@ export function SelectionContextMenu({ at, onClose, selectionLabel, blocked = nu
               {copy && (
                 <DropdownMenuItem disabled={copy.blocked !== null} onSelect={copy.run} data-testid="context-copy-parts">
                   <ClipboardCopy />
-                  Copy
+                  {t('selection.copy', 'Copy', { ns: 'editor' })}
                   <DropdownMenuShortcut>⌘C</DropdownMenuShortcut>
                 </DropdownMenuItem>
               )}
               {paste && (
                 <DropdownMenuItem disabled={paste.blocked !== null} onSelect={paste.run} data-testid="context-paste-parts">
                   <ClipboardPaste />
-                  Paste
+                  {t('selection.paste', 'Paste', { ns: 'editor' })}
                   <DropdownMenuShortcut>⌘V</DropdownMenuShortcut>
                 </DropdownMenuItem>
               )}

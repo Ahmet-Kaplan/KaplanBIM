@@ -61,6 +61,7 @@ import { doubleClickOpensView } from './placed-view-actions'
 import { keyTakenByModelTool, planPointerFor, type PlanPointer } from '../view-input/plan-pointer'
 import { annotationGrips, gripCommand, type Grip } from './draft/grips'
 import { dragGhost, dragMoveCommand, dragStarted, dragTo } from './draft/drag-move'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
 
 const NoteEditor = dynamic(() => import('./notes/NoteEditor').then((m) => m.NoteEditor), { ssr: false })
 const CalcBlockProperties = dynamic(() => import('../calc-sheets/CalcBlockProperties').then((m) => m.CalcBlockProperties), { ssr: false })
@@ -263,6 +264,7 @@ interface PlacedFrame {
 
 /** Sheet editor and detail-view drafting canvas: the printed drawing underneath, interaction on top. */
 export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReason, submit, onOpenView, onEditSheet, viewProperties, tool: controlledTool, onToolChange, onToolsAvailable, backgrounds, printedPreview = false, people, selfActorId, onActivity, draft: sharedDraft, modelEdit, onActiveViewChange, onOpenTagStyles, viewportProperties, sheetImages = null, focusItem = null, placing = null, onPlaced, onPlacingCancel, spaces = null, ceilings = null, questions = null, blockFreshness, onCreateSimilar, onAddView, onPlanPointer }: Props) {
+  const t = useEditorTranslate()
   const overlayRef = useRef<SVGSVGElement | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const paperRef = useRef<HTMLDivElement | null>(null)
@@ -1250,7 +1252,13 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
         }
         if (entry.view.viewType === 'three_d' && entry.view.props?.camera3d) {
           e.stopPropagation()
-          toast.info(`${entry.view.name}'s frame is its 3D crop box seen from its camera. Double-click it to open the view, then drag the box's grips or type its size.`)
+          toast.info(
+            t(
+              'canvas.frameIsCropBox',
+              '{{name}}’s frame is its 3D crop box seen from its camera. Double-click it to open the view, then drag the box’s grips or type its size.',
+              { ns: 'editor', name: entry.view.name },
+            ),
+          )
           return
         }
         const at = paperOf(e)
@@ -1264,7 +1272,7 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
       <div className="relative flex min-w-0 flex-1 flex-col">
         <div className="flex flex-wrap items-center gap-2 border-b bg-background/95 px-2 py-1.5">
           {!onToolChange && (
-          <ToggleGroup type="single" size="sm" variant="outline" value={tool} onValueChange={(v) => v && setTool(tools.find((t) => t.tool === v)?.tool ?? 'select')} aria-label="Drawing tools">
+          <ToggleGroup type="single" size="sm" variant="outline" value={tool} onValueChange={(v) => v && setTool(tools.find((t) => t.tool === v)?.tool ?? 'select')} aria-label={t('canvas.drawingTools', 'Drawing tools', { ns: 'editor' })}>
             {tools.map((t) => (
               <Tooltip key={t.tool}>
                 <TooltipTrigger asChild>
@@ -1280,11 +1288,11 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
           <div className="ml-auto flex items-center gap-1">
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon-sm" aria-label="Zoom out" onClick={zoomControl.zoomOut}>
+                <Button variant="ghost" size="icon-sm" aria-label={t('canvas.zoomOut', 'Zoom out', { ns: 'editor' })} onClick={zoomControl.zoomOut}>
                   <ZoomOut />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Zoom out (−). Scroll or pinch zooms at the pointer, as in 3D.</TooltipContent>
+              <TooltipContent>{t('canvas.zoomOutWhy', 'Zoom out (−). Scroll or pinch zooms at the pointer, as in 3D.', { ns: 'editor' })}</TooltipContent>
             </Tooltip>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -1296,16 +1304,16 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
               <DropdownMenuContent align="end" className={CLOSES_AT_ONCE}>
                 <DropdownMenuGroup>
                   <DropdownMenuItem onSelect={zoomControl.fit}>
-                    Zoom to fit
+                    {t('canvas.zoomToFit', 'Zoom to fit', { ns: 'editor' })}
                     <span className="ml-auto pl-4 text-xs text-muted-foreground">F</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={zoomControl.actualSize}>Actual size (100%)</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={zoomControl.actualSize}>{t('canvas.actualSize', 'Actual size (100%)', { ns: 'editor' })}</DropdownMenuItem>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
                   {[2, 4].map((f) => (
                     <DropdownMenuItem key={f} onSelect={() => zoomControl.setZoom(f)}>
-                      {f}× fit
+                      {t('canvas.timesFit', '{{factor}}× fit', { ns: 'editor', factor: f })}
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuGroup>
@@ -1313,11 +1321,13 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
             </DropdownMenu>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon-sm" aria-label="Zoom in" onClick={zoomControl.zoomIn}>
+                <Button variant="ghost" size="icon-sm" aria-label={t('canvas.zoomIn', 'Zoom in', { ns: 'editor' })} onClick={zoomControl.zoomIn}>
                   <ZoomIn />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Zoom in (+). Pan: middle-drag, Space + drag, or drag empty paper. Fit: F or double-click the middle button.</TooltipContent>
+              <TooltipContent>
+                {t('canvas.zoomInWhy', 'Zoom in (+). Pan: middle-drag, Space + drag, or drag empty paper. Fit: F or double-click the middle button.', { ns: 'editor' })}
+              </TooltipContent>
             </Tooltip>
           </div>
         </div>
@@ -1395,7 +1405,13 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
                 if (id && id !== active?.viewport.id) openPlaced(id)
               }}
               role="application"
-              aria-label={active ? `Editing ${active.view.name} on the sheet` : target.kind === 'sheet' ? 'Sheet. Drop views here.' : 'Detail view drawing area'}
+              aria-label={
+                active
+                  ? t('canvas.editingOnSheetAria', 'Editing {{name}} on the sheet', { ns: 'editor', name: active.view.name })
+                  : target.kind === 'sheet'
+                    ? t('canvas.sheetAria', 'Sheet. Drop views here.', { ns: 'editor' })
+                    : t('canvas.detailAreaAria', 'Detail view drawing area', { ns: 'editor' })
+              }
             >
               {placed.filter((entry) => entry.viewport.id !== active?.viewport.id).map(renderFrame)}
               {active && (
@@ -1408,7 +1424,7 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
                   onPointerDown={(e) => e.stopPropagation()}
                   onDoubleClick={finishEditing}
                 >
-                  <title>Double-click outside the view to finish editing it</title>
+                  <title>{t('canvas.finishEditingHint', 'Double-click outside the view to finish editing it', { ns: 'editor' })}</title>
                 </path>
               )}
               {active && renderFrame(active)}
@@ -1554,7 +1570,15 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
                         pressItem(e, item.id)
                       }}
                     >
-                      <title>{item.shape === 'text' ? item.text : item.tag ? 'Tag' : item.dim ? 'Dimension' : item.shape}</title>
+                      <title>
+                        {item.shape === 'text'
+                          ? item.text
+                          : item.tag
+                            ? t('canvas.tag', 'Tag', { ns: 'editor' })
+                            : item.dim
+                              ? t('canvas.dimension', 'Dimension', { ns: 'editor' })
+                              : item.shape}
+                      </title>
                     </rect>
                   )
                 })}
@@ -1579,7 +1603,7 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
                             }}>
                               <circle cx={mid.x} cy={mid.y} r={r} fill="var(--mutiny-panel)" stroke={PRIMARY} strokeWidth={0.3 / z} />
                               <path d={`M ${mid.x - r * 0.6} ${mid.y} H ${mid.x + r * 0.6} M ${mid.x} ${mid.y - r * 0.6} V ${mid.y + r * 0.6}`} stroke={PRIMARY} strokeWidth={0.3 / z} />
-                              <title>Drag to add a corner here</title>
+                              <title>{t('canvas.dragToAddCorner', 'Drag to add a corner here', { ns: 'editor' })}</title>
                             </g>
                           )
                         })}
@@ -1702,7 +1726,7 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
         )}
       </div>
 
-      <aside className="flex w-72 shrink-0 flex-col gap-3 overflow-y-auto border-l p-3" aria-label="Properties">
+      <aside className="flex w-72 shrink-0 flex-col gap-3 overflow-y-auto border-l p-3" aria-label={t('panel.properties', 'Properties', { ns: 'editor' })}>
         {selectedViewport ? (
           <>
           <ViewportProperties
@@ -1816,30 +1840,42 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
           />
         ) : active ? (
           <div className="flex flex-col gap-2">
-            <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Editing on the sheet</span>
+            <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+              {t('canvas.editingOnSheet', 'Editing on the sheet', { ns: 'editor' })}
+            </span>
             <span className="text-sm font-medium">{active.view.name}</span>
             <span className="text-xs text-muted-foreground">
-              {activeDrafting ? 'Lines, text and dimensions you draw here belong to the view and move with it.' : 'Select, move, box select, Split, Route and, in a plan, an add-on’s drawing tools here. The other model tools open the view by itself, with a button back to this sheet.'}
+              {activeDrafting
+                ? t('canvas.draftingBelongsToView', 'Lines, text and dimensions you draw here belong to the view and move with it.', { ns: 'editor' })
+                : t(
+                    'canvas.otherToolsOpenIt',
+                    'Select, move, box select, Split, Route and, in a plan, an add-on’s drawing tools here. The other model tools open the view by itself, with a button back to this sheet.',
+                    { ns: 'editor' },
+                  )}
             </span>
             <Button variant="outline" size="sm" onClick={() => onOpenView(active.view.id)}>
-              Open the view by itself
+              {t('canvas.openViewByItself', 'Open the view by itself', { ns: 'editor' })}
             </Button>
           </div>
         ) : target.kind === 'sheet' && sheet?.kind === 'sheet' ? (
           <div className="flex flex-col gap-2">
-            <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Sheet</span>
+            <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{t('canvas.sheet', 'Sheet', { ns: 'editor' })}</span>
             <span className="text-sm font-medium">
               {sheet.number} · {sheet.title}
             </span>
             <span className="text-xs text-muted-foreground">
-              {placed.length === 0 ? 'No views placed yet. Drag a view from the panel onto the sheet.' : `${placed.length} view${placed.length === 1 ? '' : 's'} placed. Select one to change its scale; double-click to edit it.`}
+              {placed.length === 0
+                ? t('canvas.noViewsPlaced', 'No views placed yet. Drag a view from the panel onto the sheet.', { ns: 'editor' })
+                : placed.length === 1
+                  ? t('canvas.oneViewPlaced', '1 view placed. Select it to change its scale; double-click to edit it.', { ns: 'editor' })
+                  : t('canvas.someViewsPlaced', '{{n}} views placed. Select one to change its scale; double-click to edit it.', { ns: 'editor', n: placed.length })}
             </span>
             {onEditSheet && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span>
                     <Button variant="outline" size="sm" className="w-full" disabled={!canEdit} onClick={onEditSheet}>
-                      Edit title block
+                      {t('canvas.editTitleBlock', 'Edit title block', { ns: 'editor' })}
                     </Button>
                   </span>
                 </TooltipTrigger>
@@ -2095,23 +2131,28 @@ function ViewportProperties({
   onScale: (scale: number) => void
   onRemove: () => void
 }) {
+  const t = useEditorTranslate()
   return (
     <div className="flex flex-col gap-3">
-      <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Viewport</span>
+      <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{t('canvas.viewport', 'Viewport', { ns: 'editor' })}</span>
       <span className="text-sm font-medium">{name}</span>
       <span className="text-xs text-muted-foreground">
-        {(size.x / 25.4).toFixed(2)}&quot; × {(size.y / 25.4).toFixed(2)}&quot; on paper: the view&apos;s crop box at this scale.
+        {t('canvas.viewportSize', '{{width}}″ × {{height}}″ on paper: the view’s crop box at this scale.', {
+          ns: 'editor',
+          width: (size.x / 25.4).toFixed(2),
+          height: (size.y / 25.4).toFixed(2),
+        })}
       </span>
       <div className="flex gap-2">
         <Button variant="outline" size="sm" className="flex-1" onClick={onEditHere} disabled={editing} data-testid="open-view-on-sheet">
-          Open view on sheet
+          {t('canvas.openViewOnSheet', 'Open view on sheet', { ns: 'editor' })}
         </Button>
         <Button variant="outline" size="sm" className="flex-1" onClick={onOpen}>
-          Open by itself
+          {t('canvas.openByItself', 'Open by itself', { ns: 'editor' })}
         </Button>
       </div>
       <Field>
-        <FieldLabel htmlFor="vp-scale">Scale on this sheet</FieldLabel>
+        <FieldLabel htmlFor="vp-scale">{t('canvas.scaleOnThisSheet', 'Scale on this sheet', { ns: 'editor' })}</FieldLabel>
         <Select value={String(scale)} onValueChange={(v) => onScale(Number(v))} disabled={!canEdit}>
           <SelectTrigger id="vp-scale" size="sm">
             <SelectValue placeholder={scaleLabel(scale)} />
@@ -2126,17 +2167,25 @@ function ViewportProperties({
             </SelectGroup>
           </SelectContent>
         </Select>
-        <FieldDescription>{isometric ? '3D views print from their own camera, cropped to their 3D box; scale sets their size.' : canEdit ? 'The crop box stays; the frame grows or shrinks on paper.' : blockedReason}</FieldDescription>
+        <FieldDescription>
+          {isometric
+            ? t('canvas.scaleIsometricWhy', '3D views print from their own camera, cropped to their 3D box; scale sets their size.', { ns: 'editor' })
+            : canEdit
+              ? t('canvas.scaleWhy', 'The crop box stays; the frame grows or shrinks on paper.', { ns: 'editor' })
+              : blockedReason}
+        </FieldDescription>
       </Field>
       <Tooltip>
         <TooltipTrigger asChild>
           <span>
             <Button variant="outline" size="sm" className="w-full text-danger-600" disabled={!canEdit} onClick={onRemove}>
-              Take off this sheet
+              {t('canvas.takeOffThisSheet', 'Take off this sheet', { ns: 'editor' })}
             </Button>
           </span>
         </TooltipTrigger>
-        <TooltipContent>{canEdit ? 'The view itself stays in the panel. Ctrl+Z puts it back.' : blockedReason}</TooltipContent>
+        <TooltipContent>
+          {canEdit ? t('canvas.takeOffWhy', 'The view itself stays in the panel. Ctrl+Z puts it back.', { ns: 'editor' }) : blockedReason}
+        </TooltipContent>
       </Tooltip>
     </div>
   )
@@ -2171,6 +2220,7 @@ function ItemProperties({
   onRotate: (rotation: number) => void
   onDelete: () => void
 }) {
+  const t = useEditorTranslate()
   const label = item.shape === 'text' ? 'Note' : item.shape === 'cloud' ? 'Revision cloud' : item.shape === 'rect' ? 'Rectangle' : item.shape === 'dimension' ? 'Dimension' : 'Line'
   const resolved = item.shape === 'text' ? resolveNote(item) : null
   return (
@@ -2179,11 +2229,11 @@ function ItemProperties({
       {resolved && (
         <>
           <span className="line-clamp-3 text-sm" data-testid="note-summary">
-            {noteLabel(resolved.note.paragraphs, 140) || 'Empty note'}
+            {noteLabel(resolved.note.paragraphs, 140) || t('canvas.emptyNote', 'Empty note', { ns: 'editor' })}
           </span>
           {lockedBy && (
             <span className="rounded-md bg-warning-50 px-2 py-1 text-xs text-warning-800 ring-1 ring-warning-300" role="status" data-testid="note-locked">
-              {lockedBy}. You can edit it when they finish.
+              {t('canvas.lockedBy', '{{name}}. You can edit it when they finish.', { ns: 'editor', name: lockedBy })}
             </span>
           )}
           <Tooltip>
@@ -2191,22 +2241,37 @@ function ItemProperties({
               <span>
                 <Button variant="outline" size="sm" className="w-full" disabled={!canEdit || Boolean(lockedBy) || editing} onClick={onEditText} data-testid="note-edit-text">
                   <Type data-icon="inline-start" />
-                  {editing ? 'Editing on the sheet' : 'Edit text'}
+                  {editing ? t('canvas.editingOnSheet', 'Editing on the sheet', { ns: 'editor' }) : t('canvas.editText', 'Edit text', { ns: 'editor' })}
                 </Button>
               </span>
             </TooltipTrigger>
-            <TooltipContent>{!canEdit ? blockedReason : lockedBy ? `${lockedBy}.` : 'Edit the text in place (or double-click the note, or press Enter).'}</TooltipContent>
+            <TooltipContent>
+              {!canEdit
+                ? blockedReason
+                : lockedBy
+                  ? `${lockedBy}.`
+                  : t('canvas.editTextWhy', 'Edit the text in place (or double-click the note, or press Enter).', { ns: 'editor' })}
+            </TooltipContent>
           </Tooltip>
           <span className="text-xs text-muted-foreground">
-            {(resolved.note.box.width / 25.4).toFixed(2)}&quot; wide, {resolved.note.box.height === null ? 'height grows with the text' : `${(resolved.note.box.height / 25.4).toFixed(2)}" tall (fixed)`}. Drag the side grips to re-wrap.
+            {(resolved.note.box.height === null
+              ? t('canvas.noteSizeGrows', '{{width}}″ wide, height grows with the text. Drag the side grips to re-wrap.', {
+                  ns: 'editor',
+                  width: (resolved.note.box.width / 25.4).toFixed(2),
+                })
+              : t('canvas.noteSizeFixed', '{{width}}″ wide, {{height}}″ tall (fixed). Drag the side grips to re-wrap.', {
+                  ns: 'editor',
+                  width: (resolved.note.box.width / 25.4).toFixed(2),
+                  height: (resolved.note.box.height / 25.4).toFixed(2),
+                }))}
           </span>
           {resolved.note.box.height !== null && (
             <Button variant="outline" size="sm" disabled={!canEdit} onClick={onAutoHeight}>
-              Fit height to text
+              {t('canvas.fitHeightToText', 'Fit height to text', { ns: 'editor' })}
             </Button>
           )}
           <Field>
-            <FieldLabel htmlFor="note-rotation">Rotation</FieldLabel>
+            <FieldLabel htmlFor="note-rotation">{t('canvas.rotation', 'Rotation', { ns: 'editor' })}</FieldLabel>
             <Select value={String(resolved.note.box.rotation)} onValueChange={(v) => onRotate(Number(v))} disabled={!canEdit}>
               <SelectTrigger id="note-rotation" size="sm">
                 <SelectValue placeholder={`${resolved.note.box.rotation}°`} />
@@ -2221,57 +2286,84 @@ function ItemProperties({
                 </SelectGroup>
               </SelectContent>
             </Select>
-            <FieldDescription>Turns the note about its top-left corner, clockwise.</FieldDescription>
+            <FieldDescription>{t('canvas.rotationWhy', 'Turns the note about its top-left corner, clockwise.', { ns: 'editor' })}</FieldDescription>
           </Field>
           <NoteLeaders item={item} canEdit={canEdit} onAdd={onAddLeader} onChange={onLeaders} />
-          {fonts === 'fallback' && <span className="text-xs text-warning-800">The note font didn&apos;t load, so the screen uses a look-alike with the same widths. The PDF embeds the real font.</span>}
+          {fonts === 'fallback' && (
+            <span className="text-xs text-warning-800">
+              {t('canvas.fontFallback', 'The note font didn’t load, so the screen uses a look-alike with the same widths. The PDF embeds the real font.', {
+                ns: 'editor',
+              })}
+            </span>
+          )}
         </>
       )}
       <Button variant="outline" size="sm" className="text-danger-600" disabled={!canEdit} onClick={onDelete}>
-        Delete
+        {t('canvas.delete', 'Delete', { ns: 'editor' })}
       </Button>
-      <span className="text-xs text-muted-foreground">Delete key also removes it. Ctrl+Z brings it back.</span>
+      <span className="text-xs text-muted-foreground">
+        {t('canvas.deleteHint', 'Delete key also removes it. Ctrl+Z brings it back.', { ns: 'editor' })}
+      </span>
     </div>
   )
 }
 
-const ARROW_LABEL: Record<(typeof LEADER_ARROWS)[number], string> = { arrow: 'Arrow', dot: 'Dot', tick: 'Tick', none: 'No arrowhead' }
+/** What an arrowhead looks like, in the language on screen. */
+function arrowLabel(arrow: (typeof LEADER_ARROWS)[number], t: Translate): string {
+  switch (arrow) {
+    case 'arrow':
+      return t('note.arrow', 'Arrow', { ns: 'editor' })
+    case 'dot':
+      return t('note.dot', 'Dot', { ns: 'editor' })
+    case 'tick':
+      return t('note.tick', 'Tick', { ns: 'editor' })
+    case 'none':
+      return t('note.noArrowhead', 'No arrowhead', { ns: 'editor' })
+  }
+}
 
 /** A note's leaders: add one (straight or with a bend) by clicking on the drawing, change each arrowhead, remove. Drag their grips to move them. */
 function NoteLeaders({ item, canEdit, onAdd, onChange }: { item: DrawingItem; canEdit: boolean; onAdd: (elbow: boolean) => void; onChange: (leaders: NoteLeader[]) => void }) {
+  const t = useEditorTranslate()
   const leaders = [...(item.note?.leader ? [item.note.leader] : []), ...(item.note?.leaders ?? [])]
   return (
     <Field>
-      <FieldLabel>Leaders</FieldLabel>
-      {leaders.length === 0 && <span className="text-xs text-muted-foreground">None yet.</span>}
+      <FieldLabel>{t('canvas.leaders', 'Leaders', { ns: 'editor' })}</FieldLabel>
+      {leaders.length === 0 && <span className="text-xs text-muted-foreground">{t('canvas.leadersNone', 'None yet.', { ns: 'editor' })}</span>}
       {leaders.map((l, i) => (
         <div key={i} className="flex items-center gap-2" data-testid={`note-leader-${i}`}>
           <span className="w-16 text-xs text-muted-foreground">{l.elbow ? `${i + 1}, bent` : `${i + 1}`}</span>
           <Select value={l.arrow ?? 'arrow'} disabled={!canEdit} onValueChange={(v) => onChange(leaders.map((x, j) => (j === i ? { ...x, arrow: LEADER_ARROWS.find((a) => a === v) ?? 'arrow' } : x)))}>
-            <SelectTrigger size="sm" className="h-7 flex-1" aria-label={`Leader ${i + 1} arrowhead`}>
+            <SelectTrigger size="sm" className="h-7 flex-1" aria-label={t('canvas.leaderArrowAria', 'Leader {{n}} arrowhead', { ns: 'editor', n: i + 1 })}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent className={CLOSES_AT_ONCE}>
               <SelectGroup>
                 {LEADER_ARROWS.map((a) => (
                   <SelectItem key={a} value={a}>
-                    {ARROW_LABEL[a]}
+                    {arrowLabel(a, t)}
                   </SelectItem>
                 ))}
               </SelectGroup>
             </SelectContent>
           </Select>
-          <Button variant="ghost" size="sm" disabled={!canEdit} onClick={() => onChange(leaders.filter((_, j) => j !== i))} aria-label={`Remove leader ${i + 1}`}>
-            Remove
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={!canEdit}
+            onClick={() => onChange(leaders.filter((_, j) => j !== i))}
+            aria-label={t('canvas.removeLeaderAria', 'Remove leader {{n}}', { ns: 'editor', n: i + 1 })}
+          >
+            {t('canvas.remove', 'Remove', { ns: 'editor' })}
           </Button>
         </div>
       ))}
       <div className="flex gap-2">
         <Button variant="outline" size="sm" className="flex-1" disabled={!canEdit || leaders.length >= 9} onClick={() => onAdd(false)} data-testid="note-add-leader">
-          Add leader
+          {t('canvas.addLeader', 'Add leader', { ns: 'editor' })}
         </Button>
         <Button variant="outline" size="sm" className="flex-1" disabled={!canEdit || leaders.length >= 9} onClick={() => onAdd(true)} data-testid="note-add-elbow-leader">
-          With a bend
+          {t('canvas.withABend', 'With a bend', { ns: 'editor' })}
         </Button>
       </div>
       <FieldDescription>{leaders.length >= 9 ? 'A note takes up to 9 leaders.' : 'Then click on the drawing. Drag a leader’s grips to move it.'}</FieldDescription>

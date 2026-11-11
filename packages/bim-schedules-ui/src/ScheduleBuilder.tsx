@@ -145,9 +145,11 @@ export function ScheduleBuilder({ open, onOpenChange, catalog, formulaEngine, li
     if (c.heading) return scheduleFieldLabel(c.heading, t);
     if (c.kind === "field" || c.kind === "parameter") return scheduleFieldLabel(fieldByPath.get(c.path)?.label ?? c.path, t);
     if (c.kind === "formula") return c.calculation ?? c.expression;
-    // A related-item column reads "pipes · total": both halves are words, so neither is glued on in English.
+    // A related-item column reads "total of pipes": the English keeps its word order, and a
+    // language that orders it the other way says so in its own value (`tr` reads
+    // "{{relationship}} · {{fn}}"). Both halves are words, so neither is glued on.
     if (c.kind === "aggregate")
-      return t("builder.aggregateHeading", "{{relationship}} · {{fn}}", { ns: "schedules", relationship: c.relationship, fn: rollUpLabel(c.fn, t).toLowerCase() });
+      return t("builder.aggregateHeading", "{{fn}} of {{relationship}}", { ns: "schedules", relationship: c.relationship, fn: rollUpLabel(c.fn, t).toLowerCase() });
     return c.relationship;
   };
 
@@ -336,7 +338,7 @@ export function ScheduleBuilder({ open, onOpenChange, catalog, formulaEngine, li
             <Input
               id={`${ids}-fieldq`}
               type="search"
-             
+
               placeholder={classes.length ? t("builder.searchFields", "Search fields", { ns: "schedules" }) : t("builder.chooseWhatFirst", "Choose what to list first", { ns: "schedules" })}
               disabled={classes.length === 0}
               value={fieldQuery}
@@ -407,7 +409,7 @@ export function ScheduleBuilder({ open, onOpenChange, catalog, formulaEngine, li
             <label htmlFor={`${ids}-expr`}>{t("builder.formula", "Formula", { ns: "schedules" })}</label>
             <Textarea
               id={`${ids}-expr`}
-             
+
               value={expression}
               placeholder="{own.mbh} * 1000"
               spellCheck={false}
@@ -530,7 +532,7 @@ export function ScheduleBuilder({ open, onOpenChange, catalog, formulaEngine, li
               <label htmlFor={`${ids}-sort`}>{t("builder.sortBy", "Sort by", { ns: "schedules" })}</label>
               <NativeSelect
                 id={`${ids}-sort`}
-               
+
                 value={draft.sort[0]?.path ?? ""}
                 onChange={(e) => update({ sort: e.target.value ? [{ path: e.target.value, direction: draft.sort[0]?.direction ?? "asc" }] : [] })}
               >
@@ -546,7 +548,7 @@ export function ScheduleBuilder({ open, onOpenChange, catalog, formulaEngine, li
               <label htmlFor={`${ids}-dir`}>{t("builder.order", "Order", { ns: "schedules" })}</label>
               <NativeSelect
                 id={`${ids}-dir`}
-               
+
                 disabled={!draft.sort[0]}
                 value={draft.sort[0]?.direction ?? "asc"}
                 onChange={(e) => {
@@ -562,7 +564,7 @@ export function ScheduleBuilder({ open, onOpenChange, catalog, formulaEngine, li
               <label htmlFor={`${ids}-group`}>{t("builder.groupBy", "Group by", { ns: "schedules" })}</label>
               <NativeSelect
                 id={`${ids}-group`}
-               
+
                 value={draft.groups[0]?.path ?? ""}
                 onChange={(e) => update({ groups: e.target.value ? [{ path: e.target.value, header: true, footer: true, totals: draft.groups[0]?.totals ?? true }] : [] })}
               >
@@ -599,7 +601,7 @@ export function ScheduleBuilder({ open, onOpenChange, catalog, formulaEngine, li
               <label htmlFor={`${ids}-paper-expand`}>{t("builder.onTheSheet", "{{name}} on the sheet", { ns: "schedules", name: headingOf(expandCol) })}</label>
               <NativeSelect
                 id={`${ids}-paper-expand`}
-               
+
                 value={expandCol.paper}
                 onChange={(e) => {
                   const paper: ExpandPaper = e.target.value === "summary" ? "summary" : e.target.value === "hidden" ? "hidden" : "nested";
@@ -621,7 +623,7 @@ export function ScheduleBuilder({ open, onOpenChange, catalog, formulaEngine, li
                 min={1.5}
                 max={6}
                 step={0.5}
-               
+
                 value={draft.display.textSizeMm}
                 onChange={(e) => update({ display: { ...draft.display, textSizeMm: Number(e.target.value) || 2.5 } })}
               />

@@ -4,12 +4,29 @@ import { useEffect, useReducer, useRef, useState } from 'react'
 import type { GripOnScreen, ModelViewer3D } from '@permitzip/bim-viewer-3d'
 import { faceSnapOffsets, pushFace, snapOffset, type Aabb3, type CropBox3d, type CropFace, type ModelState } from '@permitzip/bim-kernel'
 import { feet } from './crop-geometry'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
 
 const FT = 304.8
 /** Arrow keys on a focused grip move its face this far (Shift: both faces). */
 const NUDGE_MM = FT
 
-export const FACE_LABEL: Readonly<Record<CropFace, string>> = { 'x+': 'east side', 'x-': 'west side', 'y+': 'north side', 'y-': 'south side', 'z+': 'top', 'z-': 'bottom' }
+/** Which side of the box a grip is on, in the language on screen. */
+export function faceLabel(face: CropFace, t: Translate): string {
+  switch (face) {
+    case 'x+':
+      return t('crop3d.face.east', 'east side', { ns: 'editor' })
+    case 'x-':
+      return t('crop3d.face.west', 'west side', { ns: 'editor' })
+    case 'y+':
+      return t('crop3d.face.north', 'north side', { ns: 'editor' })
+    case 'y-':
+      return t('crop3d.face.south', 'south side', { ns: 'editor' })
+    case 'z+':
+      return t('crop3d.face.top', 'top', { ns: 'editor' })
+    case 'z-':
+      return t('crop3d.face.bottom', 'bottom', { ns: 'editor' })
+  }
+}
 
 interface Props {
   readonly viewer: ModelViewer3D
@@ -42,6 +59,7 @@ interface Drag {
  * reverses; Esc cancels. Dragging never moves the camera.
  */
 export function CropBox3dOverlay({ viewer, model, box, cropOn, extent, canEdit, blockedReason, onCommit }: Props) {
+  const t = useEditorTranslate()
   const svgRef = useRef<SVGSVGElement | null>(null)
   const [, redraw] = useReducer((n: number) => n + 1, 0)
   const [drag, setDragState] = useState<Drag | null>(null)
@@ -96,7 +114,12 @@ export function CropBox3dOverlay({ viewer, model, box, cropOn, extent, canEdit, 
     }
     const offset = viewer.cropFaceOffsetAt(face, e.clientX, e.clientY)
     if (offset === null) {
-      setError(`You're looking straight at the ${FACE_LABEL[face]}. Turn the view a little to drag it, or type its size in the properties.`)
+      setError(
+        t('crop3d.straightAt', 'You’re looking straight at the {{face}}. Turn the view a little to drag it, or type its size in the properties.', {
+          ns: 'editor',
+          face: faceLabel(face, t),
+        }),
+      )
       return
     }
     svgRef.current?.setPointerCapture(e.pointerId)
@@ -131,7 +154,10 @@ export function CropBox3dOverlay({ viewer, model, box, cropOn, extent, canEdit, 
       preview(null)
       return
     }
-    const refusal = onCommit(d.box, `move the 3D crop box's ${FACE_LABEL[d.face]}`)
+    const refusal = onCommit(
+      d.box,
+      t('crop3d.moveGripWhat', 'move the 3D crop box’s {{face}}', { ns: 'editor', face: faceLabel(d.face, t) }),
+    )
     setError(refusal)
     if (refusal) preview(null)
   }
@@ -145,7 +171,12 @@ export function CropBox3dOverlay({ viewer, model, box, cropOn, extent, canEdit, 
       setError(blockedReason)
       return
     }
-    setError(onCommit(pushFace(box, face, out ? NUDGE_MM : -NUDGE_MM, e.shiftKey), `move the 3D crop box's ${FACE_LABEL[face]}`))
+    setError(
+      onCommit(
+        pushFace(box, face, out ? NUDGE_MM : -NUDGE_MM, e.shiftKey),
+        t('crop3d.moveGripWhat', 'move the 3D crop box’s {{face}}', { ns: 'editor', face: faceLabel(face, t) }),
+      ),
+    )
   }
 
   const grips: readonly GripOnScreen[] = viewer.cropGrips() ?? []
@@ -175,14 +206,21 @@ export function CropBox3dOverlay({ viewer, model, box, cropOn, extent, canEdit, 
           opacity={g.facing ? 0.95 : 0.6}
           tabIndex={0}
           role="slider"
-          aria-label={`Crop box ${FACE_LABEL[g.face]}. Drag, or press the arrow keys, to move it. Shift moves the opposite side too.`}
+          aria-label={t('crop3d.gripAria', 'Crop box {{face}}. Drag, or press the arrow keys, to move it. Shift moves the opposite side too.', {
+            ns: 'editor',
+            face: faceLabel(g.face, t),
+          })}
           aria-valuetext={size}
           className={`pointer-events-auto ${canEdit ? 'cursor-grab' : 'cursor-not-allowed'} outline-none focus-visible:stroke-[3]`}
           onPointerDown={grab(g.face)}
           onKeyDown={nudge(g.face)}
           data-testid={`crop-3d-grip-${g.face}`}
         >
-          <title>{canEdit ? `Drag to move the ${FACE_LABEL[g.face]} (Shift: both sides, Alt: no snapping)` : blockedReason}</title>
+          <title>
+            {canEdit
+              ? t('crop3d.gripTitle', 'Drag to move the {{face}} (Shift: both sides, Alt: no snapping)', { ns: 'editor', face: faceLabel(g.face, t) })
+              : blockedReason}
+          </title>
         </circle>
       ))}
       {drag && (

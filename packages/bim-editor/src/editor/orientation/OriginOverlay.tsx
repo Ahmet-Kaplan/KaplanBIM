@@ -18,6 +18,7 @@ import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator,
 import { cn } from '../../ui/cn'
 import { moveOriginCommand, moveOriginLabel, originLabel, originSnapCandidates, resetOriginCommand, type OriginMoveMode } from '../coordinates'
 import { MoveModeChoice } from './MoveModeChoice'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
 
 const AXIS_STROKE: Readonly<Record<GizmoAxis, string>> = { x: 'stroke-danger-600', y: 'stroke-success-600', z: 'stroke-info-600' }
 /** Room the label needs to the right of the marker before it flips to the left, px. */
@@ -29,7 +30,10 @@ const CHOICE_H_PX = 190
 const CLICK_SLOP_PX = 5
 const HUB_PX = 22
 
-export const ORIGIN_HOVER_HINT = 'Right-click for origin options'
+/** What the marker's own hint says, in the language on screen. */
+function originHoverHint(t: Translate): string {
+  return t('coordinates.hoverHint', 'Right-click for origin options', { ns: 'editor' })
+}
 
 interface Props {
   readonly viewer: ModelViewer3D
@@ -76,6 +80,7 @@ interface Preview {
  * marker back, then leaves dragging.
  */
 export function OriginOverlay({ viewer, model, site, which, editing, toolArmed = false, editBlocked, mode, onModeChange, pickingNorth, onCommit, onStartMove, onOpenDialog, onHide, onSetTrueNorth, onExit, onHint }: Props) {
+  const t = useEditorTranslate()
   const [screen, setScreen] = useState<GizmoScreen | null>(null)
   const [preview, setPreview] = useState<Preview | null>(null)
   /** Placed, waiting for the one question. */
@@ -254,14 +259,14 @@ export function OriginOverlay({ viewer, model, site, which, editing, toolArmed =
     if (!at) return
     if (!northStart) {
       setNorthStart(at)
-      onHint('Now click a second point in the direction of true north. Esc cancels.')
+      onHint(t('coordinates.pickNorthSecond', 'Now click a second point in the direction of true north. Esc cancels.', { ns: 'editor' }))
       return
     }
     if (bearingDeg(northStart, at) === null) {
-      onHint('That is the same point. Click a second point toward true north.')
+      onHint(t('coordinates.pickNorthSame', 'That is the same point. Click a second point toward true north.', { ns: 'editor' }))
       return
     }
-    const refusal = onCommit({ type: 'set_true_north', from: northStart, to: at }, 'set true north')
+    const refusal = onCommit({ type: 'set_true_north', from: northStart, to: at }, t('coordinates.setTrueNorthWhat', 'set true north', { ns: 'editor' }))
     setNorthStart(null)
     setNorthCursor(null)
     if (refusal) onHint(refusal)
@@ -271,7 +276,11 @@ export function OriginOverlay({ viewer, model, site, which, editing, toolArmed =
   const reset = () => {
     const command = resetOriginCommand(site, which)
     if (!command) return
-    const refusal = onCommit(command, `reset the ${which === 'survey_point' ? 'site point' : 'project origin'} to model zero`)
+    const resetWhat =
+      which === 'survey_point'
+        ? t('coordinates.resetSitePointWhat', 'reset the site point to model zero', { ns: 'editor' })
+        : t('coordinates.resetOriginWhat', 'reset the project origin to model zero', { ns: 'editor' })
+    const refusal = onCommit(command, resetWhat)
     if (refusal) onHint(refusal)
   }
 
@@ -281,8 +290,9 @@ export function OriginOverlay({ viewer, model, site, which, editing, toolArmed =
   const height = viewer.renderer.domElement.clientHeight
   const labelLeft = o !== null && o.x + LABEL_ROOM_PX > width
   const startPx = northStart ? viewer.canvasPointOf(northStart.x, northStart.y, site.basePoint.z) : null
-  const resetBlocked = editBlocked ?? (resetOriginCommand(site, which) ? null : 'Already on model zero.')
-  const pointName = which === 'survey_point' ? 'site point' : 'project origin'
+  const resetBlocked = editBlocked ?? (resetOriginCommand(site, which) ? null : t('coordinates.alreadyOnZero', 'Already on model zero.', { ns: 'editor' }))
+  const pointName =
+    which === 'survey_point' ? t('coordinates.sitePointLower', 'site point', { ns: 'editor' }) : t('coordinates.originLower', 'project origin', { ns: 'editor' })
 
   return (
     <>
@@ -304,8 +314,8 @@ export function OriginOverlay({ viewer, model, site, which, editing, toolArmed =
               variant="ghost"
               data-testid="origin-hub"
               data-hovered={hovered || undefined}
-              aria-label={`${label.title}: origin options`}
-              title={`${label.title}. ${ORIGIN_HOVER_HINT}; double-click to move it.`}
+              aria-label={t('coordinates.originOptionsAria', '{{name}}: origin options', { ns: 'editor', name: label.title })}
+              title={t('coordinates.originTitleHint', '{{name}}. {{hint}}; double-click to move it.', { ns: 'editor', name: label.title, hint: originHoverHint(t) })}
               className={cn(
                 'absolute cursor-pointer rounded-full border-2 border-transparent p-0 hover:border-info-600 hover:bg-info-500/15 focus-visible:border-info-600',
                 // While dragging, the marker sits under the pointer: let the placing click through to the view.
@@ -324,12 +334,42 @@ export function OriginOverlay({ viewer, model, site, which, editing, toolArmed =
             />
           </ContextMenuTrigger>
           <ContextMenuContent className="w-64" data-testid="origin-menu">
-            <MenuItem testId="origin-menu-move" icon={<Move3d />} label="Move origin…" blocked={editBlocked} onSelect={onStartMove} />
-            <MenuItem testId="origin-menu-type" icon={<Keyboard />} label="Type coordinates…" blocked={null} onSelect={onOpenDialog} />
-            <MenuItem testId="origin-menu-reset" icon={<RotateCcw />} label="Reset to model zero" blocked={resetBlocked} onSelect={reset} />
+            <MenuItem
+              testId="origin-menu-move"
+              icon={<Move3d />}
+              label={t('coordinates.moveOrigin', 'Move origin…', { ns: 'editor' })}
+              blocked={editBlocked}
+              onSelect={onStartMove}
+            />
+            <MenuItem
+              testId="origin-menu-type"
+              icon={<Keyboard />}
+              label={t('coordinates.typeCoordinates', 'Type coordinates…', { ns: 'editor' })}
+              blocked={null}
+              onSelect={onOpenDialog}
+            />
+            <MenuItem
+              testId="origin-menu-reset"
+              icon={<RotateCcw />}
+              label={t('coordinates.resetToModelZero', 'Reset to model zero', { ns: 'editor' })}
+              blocked={resetBlocked}
+              onSelect={reset}
+            />
             <ContextMenuSeparator />
-            <MenuItem testId="origin-menu-north" icon={<Compass />} label="Set true north…" blocked={editBlocked} onSelect={onSetTrueNorth} />
-            <MenuItem testId="origin-menu-hide" icon={<EyeOff />} label="Hide origin" blocked={null} onSelect={onHide} />
+            <MenuItem
+              testId="origin-menu-north"
+              icon={<Compass />}
+              label={t('coordinates.setTrueNorth', 'Set true north…', { ns: 'editor' })}
+              blocked={editBlocked}
+              onSelect={onSetTrueNorth}
+            />
+            <MenuItem
+              testId="origin-menu-hide"
+              icon={<EyeOff />}
+              label={t('coordinates.hideOrigin', 'Hide origin', { ns: 'editor' })}
+              blocked={null}
+              onSelect={onHide}
+            />
           </ContextMenuContent>
         </ContextMenu>
       )}
@@ -340,16 +380,18 @@ export function OriginOverlay({ viewer, model, site, which, editing, toolArmed =
           data-testid="origin-label"
         >
           <span className="font-medium text-info-700">{label.title}</span>
-          <span className="text-muted-foreground">Shared site:</span>
+          <span className="text-muted-foreground">{t('coordinates.sharedSite', 'Shared site:', { ns: 'editor' })}</span>
           {label.lines.map((l) => (
             <span key={l.key} className="tabular-nums text-info-700" data-testid={`origin-label-${l.key.toLowerCase().replace('/', '')}`}>
               {l.key} {l.value}
             </span>
           ))}
-          {preview?.snappedTo && <span className="text-success-700">Snapped to {preview.snappedTo}</span>}
+          {preview?.snappedTo && (
+            <span className="text-success-700">{t('coordinates.snappedTo', 'Snapped to {{name}}', { ns: 'editor', name: preview.snappedTo })}</span>
+          )}
           {hovered && !editing && (
             <span className="text-muted-foreground" data-testid="origin-hint">
-              {ORIGIN_HOVER_HINT}
+              {originHoverHint(t)}
             </span>
           )}
         </div>
@@ -361,7 +403,9 @@ export function OriginOverlay({ viewer, model, site, which, editing, toolArmed =
           data-testid="move-origin-bar"
         >
           <span className="text-sm font-medium">
-            {placed ? `Choose how this move applies — Esc puts the ${pointName} back` : `Dragging the ${pointName} — click to place, Esc to cancel`}
+            {placed
+              ? t('coordinates.chooseHowItApplies', 'Choose how this move applies — Esc puts the {{point}} back', { ns: 'editor', point: pointName })
+              : t('coordinates.draggingPoint', 'Dragging the {{point}} — click to place, Esc to cancel', { ns: 'editor', point: pointName })}
           </span>
           <span className="flex gap-2 text-xs tabular-nums text-muted-foreground" data-testid="move-origin-readout">
             {label.lines.map((l) => (
@@ -369,15 +413,17 @@ export function OriginOverlay({ viewer, model, site, which, editing, toolArmed =
                 {l.key} {l.value}
               </span>
             ))}
-            {preview?.snappedTo && <span className="text-success-700">Snapped to {preview.snappedTo}</span>}
-            {!placed && <span>Shift keeps it on one axis</span>}
+            {preview?.snappedTo && (
+              <span className="text-success-700">{t('coordinates.snappedTo', 'Snapped to {{name}}', { ns: 'editor', name: preview.snappedTo })}</span>
+            )}
+            {!placed && <span>{t('coordinates.shiftOneAxis', 'Shift keeps it on one axis', { ns: 'editor' })}</span>}
           </span>
           <span className="flex gap-1">
             <Button size="sm" variant="ghost" onClick={onOpenDialog} data-testid="move-origin-type">
-              Type coordinates…
+              {t('coordinates.typeCoordinates', 'Type coordinates…', { ns: 'editor' })}
             </Button>
             <Button size="sm" variant="outline" onClick={onExit} data-testid="move-origin-cancel">
-              Cancel
+              {t('coordinates.cancel', 'Cancel', { ns: 'editor' })}
             </Button>
           </span>
         </div>
@@ -389,7 +435,9 @@ export function OriginOverlay({ viewer, model, site, which, editing, toolArmed =
           data-testid="move-origin-choice"
         >
           <MoveModeChoice value={mode} testIdPrefix="move-origin-choose" onCommit={choose} />
-          <span className="px-1 text-xs text-muted-foreground">Geometry, drawings and linked models never move. Undo is in the message that follows.</span>
+          <span className="px-1 text-xs text-muted-foreground">
+            {t('coordinates.nothingMoves', 'Geometry, drawings and linked models never move. Undo is in the message that follows.', { ns: 'editor' })}
+          </span>
         </div>
       )}
       {pickingNorth && (

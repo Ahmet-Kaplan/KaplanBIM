@@ -150,10 +150,16 @@ const CAPTIONS: readonly Caption[] = [
   { key: "columns.addColumn", english: "Add a column", turkish: "Sütun ekle" },
   { key: "columns.total", english: "Total", turkish: "Toplam" },
   { key: "columns.grandTotals", english: "Grand totals at the bottom", turkish: "Altta genel toplamlar" },
+  // Reviewed word order and grammar: the slot needs a head noun, and "yeniden" needs its verb.
+  { key: "columns.sortedAz", english: "Sorted by {{name}}, A to Z", turkish: "{{name}} alanına göre sıralandı, A'dan Z'ye" },
+  { key: "columns.groupedBy", english: "Grouped by {{name}}", turkish: "{{name}} alanına göre gruplandı" },
+  { key: "columns.sortHint", english: "Sort the rows by this column; again to reverse", turkish: "Satırları bu sütuna göre sıralar; tersine çevirmek için yeniden tıklayın" },
+  { key: "newField.nameLetters", english: "Use letters or digits in the name.", turkish: "Adında harf veya rakam kullanın." },
+  { key: "save.theLibrary", english: "the library", turkish: "kitaplığa" },
   { key: "columns.listsItemsNoTotal", english: "This column lists items, so it has no total.", turkish: "Bu sütun eleman listeler, toplamı olmaz." },
   { key: "columns.onlyNumbersAdd", english: "Only numbers add up.", turkish: "Yalnızca sayılar toplanır." },
   { key: "library.newField", english: "New field", turkish: "Yeni alan" },
-  { key: "library.includeRetired", english: "Include retired items", turkish: "Kullanımdan kaldırılmış öğeleri de kat" },
+  { key: "library.includeRetired", english: "Include retired items", turkish: "Kullanımdan kaldırılmış öğeleri dahil et" },
   { key: "newField.addTo", english: "Add to {{scope}}", turkish: "{{scope}} içine ekle" },
   { key: "save.title", english: "Save to firm library", turkish: "Firma kitaplığına kaydet" },
   { key: "save.publish", english: "Publish", turkish: "Yayınla" },
@@ -185,6 +191,8 @@ const VALUES: Readonly<Record<string, { readonly tr?: Record<string, string | nu
   "builder.textHasNoTotal": { tr: { name: "Genişlik" }, en: { name: "Width" } },
   "columns.title": { tr: { name: "Pompa çizelgesi" }, en: { name: "Pump schedule" } },
   "newField.addTo": { tr: { scope: "Firma" }, en: { scope: "Firm" } },
+  "columns.sortedAz": { tr: { name: "İşaret" }, en: { name: "Mark" } },
+  "columns.groupedBy": { tr: { name: "Kat" }, en: { name: "Level" } },
 };
 
 test("every schedule caption is still keyed in the source, with its English", () => {
@@ -328,4 +336,19 @@ test("the grid builds its column headings as words, not as whichever string the 
     "İşaret",
     "Gaz girişi (MBH)",
   ]);
+});
+
+test("an aggregate column's English heading keeps its word order; only the Turkish reorders it", () => {
+  // This is the regression that cost a fix round: the key's English default was
+  // reworded ("{{relationship}} · {{fn}}"), which moved every English heading from
+  // "total of pipes" to "pipes · total". The source now holds the original shape and
+  // the Turkish value is where the other word order lives.
+  const source = captionsIn(SURFACES_SRC);
+  expect(source.get("builder.aggregateHeading")?.english).toBe("{{fn}} of {{relationship}}");
+  expect(EN("builder.aggregateHeading", "{{fn}} of {{relationship}}", { ns: "schedules", fn: "total", relationship: "pipes" })).toBe("total of pipes");
+  expect(TR("builder.aggregateHeading", "{{fn}} of {{relationship}}", { ns: "schedules", fn: "toplam", relationship: "borular" })).toBe("borular · toplam");
+  // And they differ, so the Turkish is not the English with a Turkish key.
+  expect(TR("builder.aggregateHeading", "{{fn}} of {{relationship}}", { ns: "schedules", fn: "toplam", relationship: "borular" })).not.toBe(
+    "toplam of borular",
+  );
 });

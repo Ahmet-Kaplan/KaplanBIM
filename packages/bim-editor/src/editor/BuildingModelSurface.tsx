@@ -17,7 +17,16 @@ import { Avatar, AvatarFallback } from '../ui/avatar'
 import { Button } from '../ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import { undrawnLoadHint } from './schedules/loads-list'
-import { BUILTIN_LIST_DESCRIPTIONS, BUILTIN_LIST_LABELS, LOAD_SCHEDULE_IDS, builtinListBlocked, builtinListCommand, findBuiltinListView, type BuiltinListId } from './schedules/builtin-lists'
+import {
+  BUILTIN_LIST_LABELS,
+  LOAD_SCHEDULE_IDS,
+  builtinListBlocked,
+  builtinListCommand,
+  builtinListDescription,
+  builtinListLabel,
+  findBuiltinListView,
+  type BuiltinListId,
+} from './schedules/builtin-lists'
 import type { EquipmentListDialog as EquipmentListDialogComponent, EquipmentListTrade } from './equipment-list/EquipmentListDialog'
 import type { NewScheduleFormSlot } from './schedules/new-schedule-plan'
 import { useEquipmentLibraryFrom } from '@permitzip/bim-editor/editor/equipment-list/library-fields'
@@ -2733,12 +2742,14 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
 
   /** Views › Schedules › Load schedules: each opens the model's own, or says why it can't be made yet. */
   // Checking a definition opens it (every row), so that runs on the click, not on every edit.
+
   const loadScheduleLists = LOAD_SCHEDULE_IDS.map((id) => ({
     id,
-    label: BUILTIN_LIST_LABELS[id],
-    description: BUILTIN_LIST_DESCRIPTIONS[id],
-    blocked: !model ? 'The model is still loading.' : findBuiltinListView(model, id) ? null : editBlocked,
+    label: builtinListLabel(id, t),
+    description: builtinListDescription(id, t),
+    blocked: !model ? t('schedule.modelStillLoading', 'The model is still loading.', { ns: 'editor' }) : findBuiltinListView(model, id) ? null : editBlocked,
   }))
+
   /** Open the model's Equipment list (or Not placed yet, Loads) schedule, making it the first time. */
   const openBuiltinList = (id: BuiltinListId) => {
     const now = currentModel()
@@ -2746,11 +2757,18 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
     const existing = findBuiltinListView(now, id)
     const viewId = existing ?? newId('view')
     if (!existing) {
-      const refusal = submitWithUndo(builtinListCommand(now, viewId, BUILTIN_LIST_LABELS[id], id), `make the ${BUILTIN_LIST_LABELS[id]} schedule`)
+
+      // The stored view's name stays the model's own (findBuiltinListView matches it by
+      // name), so the command takes the English label while everything shown is keyed.
+      const refusal = submitWithUndo(
+        builtinListCommand(now, viewId, BUILTIN_LIST_LABELS[id], id),
+        t('schedule.makeListWhat', 'make the {{name}} schedule', { ns: 'editor', name: builtinListLabel(id, t) }),
+      )
       if (refusal) {
-        toast.error(`The ${BUILTIN_LIST_LABELS[id]} schedule wasn't made: ${refusal}`)
+        toast.error(t('schedule.listWasNotMade', 'The {{name}} schedule wasn’t made: {{reason}}', { ns: 'editor', name: builtinListLabel(id, t), reason: refusal }))
         return
       }
+
     }
     openItem({ kind: 'view', id: viewId })
     setViewDisplay('model')
@@ -2859,7 +2877,9 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
           const list = LOAD_SCHEDULE_IDS.find((l) => l === id)
           if (!list) return
           const now = currentModel()
-          const problem = now && !findBuiltinListView(now, list) ? builtinListBlocked(now, list) : null
+
+          const problem = now && !findBuiltinListView(now, list) ? builtinListBlocked(now, list, t) : null
+
           if (problem) {
             toast.error(problem)
             return

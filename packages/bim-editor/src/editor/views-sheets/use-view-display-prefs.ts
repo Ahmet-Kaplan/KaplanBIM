@@ -6,6 +6,7 @@ import type { ViewElement } from '@permitzip/bim-kernel'
 import type { EditorDataHost } from '@permitzip/bim-editor-host'
 import { unavailableWords } from '@permitzip/bim-editor/host/unavailable'
 import type { ViewDisplay } from './ViewPropertiesPanel'
+import { useEditorTranslate } from '../i18n/translate'
 
 /**
  * Whether each view opens on the live model or its printed drawing, for the
@@ -40,6 +41,7 @@ function isDisplays(value: unknown): value is { displays: Record<string, ViewDis
 type ViewPrefsPort = EditorDataHost['viewPrefs']
 
 export function useViewDisplayPrefsFrom(port: ViewPrefsPort, projectId: string): ViewDisplayPrefs {
+  const t = useEditorTranslate()
   const [saved, setSaved] = useState<Readonly<Record<string, ViewDisplay>>>({})
   const [loaded, setLoaded] = useState(false)
   /** Picks made before the saved choices arrived win over what arrives. */
@@ -71,7 +73,13 @@ export function useViewDisplayPrefsFrom(port: ViewPrefsPort, projectId: string):
       .catch((err: unknown) => {
         if (controller.signal.aborted) return
         console.error('[useViewDisplayPrefs] loading saved view choices failed', { projectId, err })
-        toast.error("Your saved choice of live model or printed drawing for each view couldn't be loaded. Views open on the live model until you reload.")
+        toast.error(
+          t(
+            'viewDisplay.loadFailed',
+            'Your saved choice of live model or printed drawing for each view couldn’t be loaded. Views open on the live model until you reload.',
+            { ns: 'editor' },
+          ),
+        )
         setLoaded(true)
       })
     return () => controller.abort()
@@ -86,7 +94,7 @@ export function useViewDisplayPrefsFrom(port: ViewPrefsPort, projectId: string):
       if (!port) {
         if (warned.current) return
         warned.current = true
-        toast.info(unavailableWords('Remembering whether each view opens on the live model or its printed drawing'))
+        toast.info(unavailableWords(t('viewDisplay.remembering', 'Remembering whether each view opens on the live model or its printed drawing', { ns: 'editor' })))
         return
       }
       port
@@ -101,7 +109,11 @@ export function useViewDisplayPrefsFrom(port: ViewPrefsPort, projectId: string):
         })
         .catch((err: unknown) => {
           console.error('[useViewDisplayPrefs] saving the view choice failed', { projectId, viewId, display, err })
-          toast.error(`This view shows the ${display === 'drawing' ? 'printed drawing' : 'live model'} now, but that choice couldn't be saved for next time.`)
+          toast.error(
+            display === 'drawing'
+              ? t('viewDisplay.notSavedDrawing', 'This view shows the printed drawing now, but that choice couldn’t be saved for next time.', { ns: 'editor' })
+              : t('viewDisplay.notSavedModel', 'This view shows the live model now, but that choice couldn’t be saved for next time.', { ns: 'editor' }),
+          )
         })
     },
     [port, projectId],

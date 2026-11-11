@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Spinner } from '../../ui/spinner'
 import { newId, type SubmitCommand } from './types'
 import type { SheetImages } from './use-sheet-images'
+import { useEditorTranslate } from '../i18n/translate'
 
 // Chart kinds are registered when the Building Model installs its add-ons (`lib/building-model/add-ons.ts`).
 
@@ -54,6 +55,7 @@ function pictureSize(file: File): Promise<Vec2> {
  * like any other project file.
  */
 export function SheetFigureDialog({ mode, sheet, model, images, submit, onClose, onPlaced }: { mode: 'chart' | 'picture'; sheet: Sheet; model: ModelState; images: SheetImages; submit: SubmitCommand; onClose: () => void; onPlaced: (itemId: string) => void }) {
+  const t = useEditorTranslate()
   const kinds = chartKinds()
   const [chart, setChart] = useState(kinds[0]?.id ?? '')
   const [title, setTitle] = useState('')
@@ -99,18 +101,32 @@ export function SheetFigureDialog({ mode, sheet, model, images, submit, onClose,
       <DialogContent className="sm:max-w-md" data-testid="sheet-figure-dialog">
         <form onSubmit={(e) => void place(e)} className="flex flex-col gap-4">
           <DialogHeader>
-            <DialogTitle>{mode === 'chart' ? 'Place a chart' : 'Place a picture'}</DialogTitle>
+            <DialogTitle>
+              {mode === 'chart'
+                ? t('sheetFigure.placeAChart', 'Place a chart', { ns: 'editor' })
+                : t('sheetFigure.placeAPicture', 'Place a picture', { ns: 'editor' })}
+            </DialogTitle>
             <DialogDescription>
-              {mode === 'chart' ? `On ${sheet.number}, drawn live from the model every time the sheet shows or prints.` : `On ${sheet.number}. The picture is saved to this project's workspace and printed in the PDF.`} It lands in the middle of the sheet: drag it to move, drag a corner to resize, Ctrl+Z takes it off.
+              {mode === 'chart'
+                ? t('sheetFigure.chartOnSheet', 'On {{number}}, drawn live from the model every time the sheet shows or prints.', { ns: 'editor', number: sheet.number })
+                : t('sheetFigure.pictureOnSheet', 'On {{number}}. The picture is saved to this project’s workspace and printed in the PDF.', {
+                    ns: 'editor',
+                    number: sheet.number,
+                  })}{' '}
+              {t(
+                'sheetFigure.landsInMiddle',
+                'It lands in the middle of the sheet: drag it to move, drag a corner to resize, Ctrl+Z takes it off.',
+                { ns: 'editor' },
+              )}
             </DialogDescription>
           </DialogHeader>
           {mode === 'chart' ? (
             <>
               <Field>
-                <FieldLabel htmlFor="bm-figure-chart">Chart</FieldLabel>
+                <FieldLabel htmlFor="bm-figure-chart">{t('sheetFigure.chart', 'Chart', { ns: 'editor' })}</FieldLabel>
                 <Select value={chart} onValueChange={setChart}>
                   <SelectTrigger id="bm-figure-chart" data-testid="sheet-figure-chart">
-                    <SelectValue placeholder="Pick a chart" />
+                    <SelectValue placeholder={t('sheetFigure.pickAChart', 'Pick a chart', { ns: 'editor' })} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
@@ -122,16 +138,26 @@ export function SheetFigureDialog({ mode, sheet, model, images, submit, onClose,
                     </SelectGroup>
                   </SelectContent>
                 </Select>
-                {preview && 'reason' in preview ? <FieldDescription className="text-warning-700">{preview.reason}; it will say so on the sheet until the model has what it needs.</FieldDescription> : preview ? <FieldDescription data-testid="sheet-figure-chart-summary">{preview.markers.length > 0 ? `Marks ${preview.markers.map((m) => m.label).join('; ')}` : 'No design points yet: it shows the curves alone until a system is drawn.'}</FieldDescription> : null}
+                {preview && 'reason' in preview ? (
+                  <FieldDescription className="text-warning-700">
+                    {t('sheetFigure.chartSaysSo', '{{reason}}; it will say so on the sheet until the model has what it needs.', { ns: 'editor', reason: preview.reason })}
+                  </FieldDescription>
+                ) : preview ? (
+                  <FieldDescription data-testid="sheet-figure-chart-summary">
+                    {preview.markers.length > 0
+                      ? t('sheetFigure.marksList', 'Marks {{list}}', { ns: 'editor', list: preview.markers.map((m) => m.label).join('; ') })
+                      : t('sheetFigure.noDesignPoints', 'No design points yet: it shows the curves alone until a system is drawn.', { ns: 'editor' })}
+                  </FieldDescription>
+                ) : null}
               </Field>
               <Field>
-                <FieldLabel htmlFor="bm-figure-title">Title (optional)</FieldLabel>
+                <FieldLabel htmlFor="bm-figure-title">{t('sheetFigure.titleOptional', 'Title (optional)', { ns: 'editor' })}</FieldLabel>
                 <Input id="bm-figure-title" maxLength={160} placeholder={preview && !('reason' in preview) ? preview.title : ''} value={title} onChange={(e) => setTitle(e.target.value)} />
               </Field>
             </>
           ) : (
             <Field>
-              <FieldLabel htmlFor="bm-figure-file">Picture (PNG or JPEG)</FieldLabel>
+              <FieldLabel htmlFor="bm-figure-file">{t('sheetFigure.pictureFile', 'Picture (PNG or JPEG)', { ns: 'editor' })}</FieldLabel>
               <Input id="bm-figure-file" type="file" accept={SHEET_IMAGE_MIMES.join(',')} onChange={(e) => setFile(e.target.files?.[0] ?? null)} data-testid="sheet-figure-file" />
               {fileProblem && <FieldDescription className="text-danger-600">{fileProblem}</FieldDescription>}
             </Field>
@@ -143,11 +169,11 @@ export function SheetFigureDialog({ mode, sheet, model, images, submit, onClose,
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
-              Cancel
+              {t('sheetFigure.cancel', 'Cancel', { ns: 'editor' })}
             </Button>
             <Button type="submit" disabled={blocked !== null || busy} title={blocked ?? undefined} data-testid="sheet-figure-place">
               {busy ? <Spinner data-icon="inline-start" /> : mode === 'chart' ? <ChartLine data-icon="inline-start" /> : <ImagePlus data-icon="inline-start" />}
-              {busy ? 'Uploading…' : 'Place on the sheet'}
+              {busy ? t('sheetFigure.uploading', 'Uploading…', { ns: 'editor' }) : t('sheetFigure.placeOnSheet', 'Place on the sheet', { ns: 'editor' })}
             </Button>
           </DialogFooter>
         </form>

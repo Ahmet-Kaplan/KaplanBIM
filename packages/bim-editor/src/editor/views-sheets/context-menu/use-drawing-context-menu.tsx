@@ -6,6 +6,7 @@ import type { Command, ModelState, ViewElement } from '@permitzip/bim-kernel'
 import type { ModelEditBridge } from '../../view-input/bridge'
 import { DrawingContextMenu } from './DrawingContextMenu'
 import { drawingMenuItems, hideInViewPatch, likeThisIds, menuElementOf, type DrawingMenu, type DrawingMenuAction, type DrawingMenuTarget } from './drawing-menu-items'
+import { useEditorTranslate } from '../../i18n/translate'
 
 export interface DrawingContextMenuOptions {
   readonly model: ModelState
@@ -51,7 +52,11 @@ function targetOf(e: MouseEvent<HTMLElement>, opts: DrawingContextMenuOptions): 
  * sheets). `open` takes the canvas's contextmenu event and always stops the
  * browser's own menu; `element` is the menu to render inside the canvas.
  */
-export function useDrawingContextMenu(opts: DrawingContextMenuOptions): { open: (e: MouseEvent<HTMLElement>) => void; element: ReactNode } {
+export function useDrawingContextMenu(opts: DrawingContextMenuOptions): {
+  open: (e: MouseEvent<HTMLElement>) => void
+  element: ReactNode
+} {
+  const t = useEditorTranslate()
   const [shown, setShown] = useState<Open | null>(null)
   // What the last menu was opened on: an item that asks first runs after the menu has closed.
   const lastTarget = useRef<DrawingMenuTarget | null>(null)
@@ -90,7 +95,7 @@ export function useDrawingContextMenu(opts: DrawingContextMenuOptions): { open: 
     const el = model.elements[target.elementId]
     if (!el) {
       console.error('[DrawingContextMenu] the element is gone from the model', { elementId: target.elementId, action })
-      toast.error("That element isn't in the model any more. Right-click it again.")
+      toast.error(t('drawing.elementGone', 'That element isn’t in the model any more. Right-click it again.', { ns: 'editor' }))
       return
     }
     if (action === 'properties') return modelEdit?.select(el.id)

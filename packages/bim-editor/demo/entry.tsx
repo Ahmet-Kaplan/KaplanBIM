@@ -11,6 +11,8 @@ import { I18nProvider, MutinyThemeProvider, readLanguagePreference, resolveIniti
 import { EditorHostProvider } from '@permitzip/bim-editor/host'
 import { createLocalEditorHost } from '@permitzip/bim-editor/host/local'
 import { editorResources } from '@permitzip/bim-editor/editor/i18n/resources'
+import { schedulesResources } from '@permitzip/bim-schedules-ui'
+import { mergeResources } from '@permitzip/bim-ui'
 import { PortalContainerProvider } from '@permitzip/bim-editor/ui/overlay-boundary'
 import { TooltipProvider } from '@permitzip/bim-editor/ui/tooltip'
 import { BuildingModelSurface, type BuildingModelView } from '@permitzip/bim-editor/editor/BuildingModelSurface'
@@ -91,7 +93,7 @@ function EditorDemo({ host, userId, displayName }: { readonly host: ReturnType<t
     writeLanguagePreference(typeof window === 'undefined' ? undefined : window.localStorage, next)
   }, [])
   return (
-    <I18nProvider language={language} onLanguageChange={changeLanguage} resources={editorResources}>
+    <I18nProvider language={language} onLanguageChange={changeLanguage} resources={mergeResources(editorResources, schedulesResources)}>
       <MutinyThemeProvider presentation="standalone" theme={THEME} hostVars={mutinyToShadcnVars} applyToDocument className="flex h-dvh min-h-0 w-full flex-col overflow-hidden bg-(--mutiny-surface)" data-testid="mutiny-root">
         <TooltipProvider>
           <Overlays>

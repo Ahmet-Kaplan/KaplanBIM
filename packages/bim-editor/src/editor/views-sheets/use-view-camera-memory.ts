@@ -7,6 +7,7 @@ import type { EditorDataHost } from '@permitzip/bim-editor-host'
 import { unavailableWords } from '@permitzip/bim-editor/host/unavailable'
 import { viewCameraSchema } from '../../contracts/building-model/view-camera-prefs'
 import { sameCamera } from './view-camera-memory'
+import { useEditorTranslate } from '../i18n/translate'
 
 /** A look is saved once the camera has rested this long (orbiting fires many settles). */
 export const CAMERA_SAVE_DELAY_MS = 1200
@@ -33,6 +34,7 @@ function isCameras(value: unknown): value is { cameras: Record<string, unknown> 
  * them across reloads and machines.
  */
 export function useViewCameraMemoryFrom(port: ViewPrefsPort, projectId: string): ViewCameraMemory {
+  const t = useEditorTranslate()
   const [loaded, setLoaded] = useState(false)
   const cameras = useRef(new Map<string, View3dCamera>())
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
@@ -61,7 +63,7 @@ export function useViewCameraMemoryFrom(port: ViewPrefsPort, projectId: string):
       .catch((err: unknown) => {
         if (controller.signal.aborted) return
         console.error('[useViewCameraMemory] loading where 3D views were left failed', { projectId, err })
-        toast.error("Where you left each 3D view couldn't be loaded, so they open at their own cameras until you reload.")
+        toast.error(t('viewMemory.loadFailed', 'Where you left each 3D view couldn’t be loaded, so they open at their own cameras until you reload.', { ns: 'editor' }))
         setLoaded(true)
       })
     return () => controller.abort()
@@ -84,7 +86,7 @@ export function useViewCameraMemoryFrom(port: ViewPrefsPort, projectId: string):
       if (!port) {
         if (warned.current) return
         warned.current = true
-        toast.info(unavailableWords('Remembering where you left each 3D view'))
+        toast.info(unavailableWords(t('viewMemory.remembering', 'Remembering where you left each 3D view', { ns: 'editor' })))
         return
       }
       const before = timers.current.get(key)
@@ -107,7 +109,9 @@ export function useViewCameraMemoryFrom(port: ViewPrefsPort, projectId: string):
               console.error('[useViewCameraMemory] saving where the 3D view was left failed', { projectId, key, err })
               if (warned.current) return
               warned.current = true
-              toast.error("Where you are in this 3D view couldn't be saved for next time; it will open at its own camera.")
+              toast.error(
+                t('viewMemory.saveFailed', 'Where you are in this 3D view couldn’t be saved for next time; it will open at its own camera.', { ns: 'editor' }),
+              )
             })
         }, CAMERA_SAVE_DELAY_MS),
       )

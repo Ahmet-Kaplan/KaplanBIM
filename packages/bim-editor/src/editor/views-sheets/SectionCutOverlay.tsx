@@ -5,6 +5,7 @@ import type { ModelViewer3D } from '@permitzip/bim-viewer-3d'
 import type { SectionCut, ViewElement } from '@permitzip/bim-kernel'
 import { Button } from '../../ui/button'
 import { Input } from '../../ui/input'
+import { useEditorTranslate } from '../i18n/translate'
 
 const FT = 304.8
 const MIN_CUT_MM = 1 * FT
@@ -36,6 +37,7 @@ interface Props {
  * the section. Existing sections on this level show as cut lines you can open.
  */
 export function SectionCutOverlay({ viewer, elevationMm, drawing, sections, suggestedName, onOpenSection, onCreate, onCancel, onFarClip }: Props) {
+  const t = useEditorTranslate()
   const ref = useRef<SVGSVGElement | null>(null)
   const [, redraw] = useReducer((n: number) => n + 1, 0)
   const [cut, setCut] = useState<SectionCut | null>(null)
@@ -116,7 +118,7 @@ export function SectionCutOverlay({ viewer, elevationMm, drawing, sections, sugg
     viewer.setNavigationEnabled(true)
     if (cut && Math.hypot(cut.end.x - cut.start.x, cut.end.y - cut.start.y) < MIN_CUT_MM) {
       setCut(null)
-      setError('Drag a longer line, at least 1 ft.')
+      setError(t('section.cutTooShort', 'Drag a longer line, at least 1 ft.', { ns: 'editor' }))
     }
   }
 
@@ -201,9 +203,9 @@ export function SectionCutOverlay({ viewer, elevationMm, drawing, sections, sugg
             {!handle && (
               <>
                 {[
-                  { at: a, h: 'start' as const, label: 'Drag to move this end' },
-                  { at: b, h: 'end' as const, label: 'Drag to move this end' },
-                  { at: d, h: 'depth' as const, label: 'Drag to set how far the section sees' },
+                  { at: a, h: 'start' as const, label: t('section.dragThisEnd', 'Drag to move this end', { ns: 'editor' }) },
+                  { at: b, h: 'end' as const, label: t('section.dragThisEnd', 'Drag to move this end', { ns: 'editor' }) },
+                  { at: d, h: 'depth' as const, label: t('section.dragDepth', 'Drag to set how far the section sees', { ns: 'editor' }) },
                 ].map(({ at, h, label }) => (
                   <circle key={h} cx={at.x} cy={at.y} r={7} fill="var(--mutiny-panel)" stroke="var(--mutiny-selection)" strokeWidth={2} className="pointer-events-auto cursor-grab" onPointerDown={grab(h)} data-testid={`section-handle-${h}`}>
                     <title>{label}</title>
@@ -217,7 +219,7 @@ export function SectionCutOverlay({ viewer, elevationMm, drawing, sections, sugg
                   }}
                   data-testid="section-flip"
                 >
-                  <title>Click to look the other way</title>
+                  <title>{t('section.lookOtherWay', 'Click to look the other way', { ns: 'editor' })}</title>
                   <circle cx={m.x} cy={m.y} r={9} fill="var(--mutiny-selection)" />
                   <text x={m.x} y={m.y + 4} fontSize={12} textAnchor="middle" fill="var(--mutiny-panel)">
                     ⇄
@@ -246,21 +248,32 @@ export function SectionCutOverlay({ viewer, elevationMm, drawing, sections, sugg
               }}
             >
               <span className="whitespace-nowrap">
-                {(g.len / FT).toFixed(1)} ft cut, sees {(cut.depthMm / FT).toFixed(0)} ft.
+                {t('section.cutReadout', '{{length}} ft cut, sees {{depth}} ft.', {
+                  ns: 'editor',
+                  length: (g.len / FT).toFixed(1),
+                  depth: (cut.depthMm / FT).toFixed(0),
+                })}
               </span>
-              <Input value={name} onChange={(e) => setName(e.target.value)} aria-label="Section name" className="h-7 w-44" maxLength={120} required />
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                aria-label={t('section.sectionName', 'Section name', { ns: 'editor' })}
+                className="h-7 w-44"
+                maxLength={120}
+                required
+              />
               <Button type="submit" size="sm" disabled={!name.trim()}>
-                Create section
+                {t('section.createSection', 'Create section', { ns: 'editor' })}
               </Button>
               <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
-                Cancel
+                {t('section.cancel', 'Cancel', { ns: 'editor' })}
               </Button>
             </form>
           ) : (
             <>
-              <span>{error ?? 'Drag across the plan where the section cuts. Esc to cancel.'}</span>
+              <span>{error ?? t('section.dragWhereCuts', 'Drag across the plan where the section cuts. Esc to cancel.', { ns: 'editor' })}</span>
               <Button size="sm" variant="ghost" onClick={onCancel}>
-                Cancel
+                {t('section.cancel', 'Cancel', { ns: 'editor' })}
               </Button>
             </>
           )}

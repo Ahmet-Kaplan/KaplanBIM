@@ -82,7 +82,7 @@ export function ParameterInput({ def, id, value, onChange, fallback, disabled }:
                   setOpen(false)
                 }}
               >
-                Today
+                {t('parameter.today', 'Today', { ns: 'editor' })}
               </Button>
             </div>
           </PopoverContent>

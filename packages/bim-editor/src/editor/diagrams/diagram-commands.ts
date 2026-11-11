@@ -1,15 +1,34 @@
 import { PIPING_DIAGRAM_KINDS, diagramKindLabel, diagramNodes, documentIndex, type Command, type DiagramHints, type ModelState, type PipeLabel, type StoredDiagramKind, type ViewElement } from '@permitzip/bim-kernel'
 import { requireAddOns } from '../../contracts/building-model/add-ons'
+import type { Translate } from '../i18n/translate'
 
 /** Which systems a piping diagram draws: the risers on a plumbing set (sanitary with its vents, domestic water, gas), or all of them. */
 export const PIPING_SYSTEM_PRESETS = [
-  { id: 'all', label: 'All plumbing systems', kinds: undefined },
-  { id: 'sanitary', label: 'Sanitary and vent', kinds: ['sanitary', 'vent'] },
-  { id: 'water', label: 'Domestic water', kinds: ['domestic_cold_water', 'domestic_hot_water', 'domestic_hot_water_return'] },
-  { id: 'gas', label: 'Gas', kinds: ['natural_gas'] },
-] as const satisfies ReadonlyArray<{ id: string; label: string; kinds: readonly string[] | undefined }>
+  { id: 'all', kinds: undefined },
+  { id: 'sanitary', kinds: ['sanitary', 'vent'] },
+  { id: 'water', kinds: ['domestic_cold_water', 'domestic_hot_water', 'domestic_hot_water_return'] },
+  { id: 'gas', kinds: ['natural_gas'] },
+] as const satisfies ReadonlyArray<{ id: string; kinds: readonly string[] | undefined }>
 
 export type PipingSystemPreset = (typeof PIPING_SYSTEM_PRESETS)[number]['id']
+
+/**
+ * What a preset is called, in the language on screen — the same shape
+ * `builtinListLabel(id, t)` has, so a caller that needs the noun for a sentence
+ * (`draw {{name}} on {{view}}`) gets it translated, not the English table value.
+ */
+export function pipingSystemPresetLabel(preset: PipingSystemPreset, t: Translate): string {
+  switch (preset) {
+    case 'all':
+      return t('diagram.presetAll', 'All plumbing systems', { ns: 'editor' })
+    case 'sanitary':
+      return t('diagram.presetSanitary', 'Sanitary and vent', { ns: 'editor' })
+    case 'water':
+      return t('diagram.presetWater', 'Domestic water', { ns: 'editor' })
+    case 'gas':
+      return t('diagram.presetGas', 'Gas', { ns: 'editor' })
+  }
+}
 
 /** The preset a view's system kinds match; 'custom' when they were set some other way (an agent, an older view). */
 export function pipingPresetOf(view: ViewElement): PipingSystemPreset | 'custom' {
@@ -19,13 +38,26 @@ export function pipingPresetOf(view: ViewElement): PipingSystemPreset | 'custom'
   return PIPING_SYSTEM_PRESETS.find((p) => p.kinds && [...p.kinds].sort().join(',') === key)?.id ?? 'custom'
 }
 
-/** The labels a piping diagram can print, in the order they read, and what each is called. */
-export const PIPE_LABEL_CHOICES: ReadonlyArray<{ readonly id: PipeLabel; readonly label: string }> = [
-  { id: 'load', label: 'What each pipe carries (DFU, WFU, MBH)' },
-  { id: 'slope', label: 'Slopes on drains' },
-  { id: 'invert', label: 'Inverts on drains' },
-  { id: 'length', label: 'Lengths (LF)' },
-]
+/** The labels a piping diagram can print, in the order they read. */
+export const PIPE_LABEL_CHOICES: ReadonlyArray<{ readonly id: PipeLabel }> = [{ id: 'load' }, { id: 'slope' }, { id: 'invert' }, { id: 'length' }]
+
+/** What each printable label is called, in the language on screen. */
+export function pipeLabelChoiceName(id: PipeLabel, t: Translate): string {
+  switch (id) {
+    case 'load':
+      return t('diagram.labelLoad', 'What each pipe carries (DFU, WFU, MBH)', { ns: 'editor' })
+    case 'slope':
+      return t('diagram.labelSlope', 'Slopes on drains', { ns: 'editor' })
+    case 'invert':
+      return t('diagram.labelInvert', 'Inverts on drains', { ns: 'editor' })
+    case 'length':
+      return t('diagram.labelLength', 'Lengths (LF)', { ns: 'editor' })
+    // Sizes always print, so this one is never a choice in the panel; it is named
+    // anyway so every `PipeLabel` has its word and no caller falls back to the id.
+    case 'size':
+      return t('diagram.labelSize', 'Sizes', { ns: 'editor' })
+  }
+}
 
 export const isPipingDiagram = (view: ViewElement): boolean => {
   const kind = view.props?.diagram?.kind

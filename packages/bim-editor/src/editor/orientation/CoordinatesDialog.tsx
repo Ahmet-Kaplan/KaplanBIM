@@ -24,14 +24,22 @@ import { moveOriginCommand, moveOriginLabel, type OriginMoveMode } from '../coor
 import { CoordinatesDiagram } from './CoordinatesDiagram'
 import { tabForPoint, type CoordinatesTab } from './coordinates-tab'
 import { MoveModeChoice } from './MoveModeChoice'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
 
 export type { CoordinatesTab } from './coordinates-tab'
 
-const TAB_LABEL: Readonly<Record<CoordinatesTab, string>> = {
-  origin: 'Project origin',
-  site_point: 'Site point',
-  north: 'North',
-  working_angle: 'Working angle',
+/** The four things this dialog sets, in the language on screen. */
+function tabLabel(tab: CoordinatesTab, t: Translate): string {
+  switch (tab) {
+    case 'origin':
+      return t('coordinates.tabOrigin', 'Project origin', { ns: 'editor' })
+    case 'site_point':
+      return t('coordinates.tabSitePoint', 'Site point', { ns: 'editor' })
+    case 'north':
+      return t('coordinates.tabNorth', 'North', { ns: 'editor' })
+    case 'working_angle':
+      return t('coordinates.tabWorkingAngle', 'Working angle', { ns: 'editor' })
+  }
 }
 
 const TABS: readonly CoordinatesTab[] = ['origin', 'site_point', 'north', 'working_angle']
@@ -105,6 +113,7 @@ interface Props {
  * each change is one undoable edit. Esc or Cancel saves nothing.
  */
 export function CoordinatesDialog({ site, initialTab, initialMode, editBlocked, view, onCancel, onSubmit, onPickTrueNorth, onPickWorkingAngle, onPointChange }: Props) {
+  const t = useEditorTranslate()
   const [tab, setTab] = useState<CoordinatesTab>(initialTab)
   const [mode, setMode] = useState<OriginMoveMode>(initialMode)
   const startOrigin = useMemo(() => valuesOf(site, 'project_base_point'), [site])
@@ -198,21 +207,25 @@ export function CoordinatesDialog({ site, initialTab, initialMode, editBlocked, 
     return (
       <>
         <FieldSet>
-          <FieldLegend variant="label">In this model (ft)</FieldLegend>
+          <FieldLegend variant="label">{t('coordinates.inThisModel', 'In this model (ft)', { ns: 'editor' })}</FieldLegend>
           <FieldGroup className="grid grid-cols-3 gap-2">
-            {field('x', 'East', mode === 'move_point')}
-            {field('y', 'North', mode === 'move_point')}
-            {field('z', 'Height', mode === 'move_point')}
+            {field('x', t('coordinates.east', 'East', { ns: 'editor' }), mode === 'move_point')}
+            {field('y', t('coordinates.north', 'North', { ns: 'editor' }), mode === 'move_point')}
+            {field('z', t('coordinates.height', 'Height', { ns: 'editor' }), mode === 'move_point')}
           </FieldGroup>
         </FieldSet>
         <FieldSet>
-          <FieldLegend variant="label">On the site (ft)</FieldLegend>
+          <FieldLegend variant="label">{t('coordinates.onTheSite', 'On the site (ft)', { ns: 'editor' })}</FieldLegend>
           <FieldGroup className="grid grid-cols-3 gap-2">
-            {field('ns', 'North–south', mode === 'relocate_project')}
-            {field('ew', 'East–west', mode === 'relocate_project')}
-            {field('elev', 'Elevation', mode === 'relocate_project')}
+            {field('ns', t('coordinates.northSouth', 'North–south', { ns: 'editor' }), mode === 'relocate_project')}
+            {field('ew', t('coordinates.eastWest', 'East–west', { ns: 'editor' }), mode === 'relocate_project')}
+            {field('elev', t('coordinates.elevation', 'Elevation', { ns: 'editor' }), mode === 'relocate_project')}
           </FieldGroup>
-          <FieldDescription>{mode === 'move_point' ? 'Moving the marker only: type where it sits in this model; its site coordinates follow.' : 'Moving the building on the site: type the site coordinates this point should have.'}</FieldDescription>
+          <FieldDescription>
+            {mode === 'move_point'
+              ? t('coordinates.markerOnlyWhy', 'Moving the marker only: type where it sits in this model; its site coordinates follow.', { ns: 'editor' })
+              : t('coordinates.buildingWhy', 'Moving the building on the site: type the site coordinates this point should have.', { ns: 'editor' })}
+          </FieldDescription>
         </FieldSet>
       </>
     )
@@ -224,92 +237,173 @@ export function CoordinatesDialog({ site, initialTab, initialMode, editBlocked, 
       <DialogContent className="sm:max-w-xl" data-testid="coordinates-dialog">
         <form onSubmit={save} className="flex flex-col gap-4">
           <DialogHeader>
-            <DialogTitle>Coordinates</DialogTitle>
-            <DialogDescription>Where this building sits on the real site, which way is north, and which way you draw. Nothing here moves geometry, drawings or linked models. Every change can be undone.</DialogDescription>
+            <DialogTitle>{t('coordinates.title', 'Coordinates', { ns: 'editor' })}</DialogTitle>
+            <DialogDescription>
+              {t(
+                'coordinates.description',
+                'Where this building sits on the real site, which way is north, and which way you draw. Nothing here moves geometry, drawings or linked models. Every change can be undone.',
+                { ns: 'editor' },
+              )}
+            </DialogDescription>
           </DialogHeader>
 
           <CoordinatesDiagram topic={tab} mode={mode} />
 
           <Tabs value={tab} onValueChange={chooseTab}>
-            <TabsList className="w-full" aria-label="What to set">
-              {TABS.map((t) => (
-                <TabsTrigger key={t} value={t} data-testid={`coord-tab-${t}`}>
-                  {TAB_LABEL[t]}
+            <TabsList className="w-full" aria-label={t('coordinates.whatToSet', 'What to set', { ns: 'editor' })}>
+              {TABS.map((tab) => (
+                <TabsTrigger key={tab} value={tab} data-testid={`coord-tab-${tab}`}>
+                  {tabLabel(tab, t)}
                 </TabsTrigger>
               ))}
             </TabsList>
 
             <TabsContent value="origin" className="flex flex-col gap-3 pt-2" data-testid="coord-panel-origin">
-              <FieldDescription>The point your drawings and site coordinates are measured from, usually a building corner or a grid crossing. Other tools call it the project base point.</FieldDescription>
+              <FieldDescription>
+                {t(
+                  'coordinates.originWhy',
+                  'The point your drawings and site coordinates are measured from, usually a building corner or a grid crossing. Other tools call it the project base point.',
+                  { ns: 'editor' },
+                )}
+              </FieldDescription>
               <MoveModeChoice value={mode} testIdPrefix="coord-mode" onChange={setMode} />
               {pointFields('origin', origin, setOrigin)}
             </TabsContent>
 
             <TabsContent value="site_point" className="flex flex-col gap-3 pt-2" data-testid="coord-panel-site_point">
-              <FieldDescription>A fixed mark on the land, usually the surveyor’s benchmark. You only need it when someone gives you survey coordinates to match. Other tools call it the survey point.</FieldDescription>
+              <FieldDescription>
+                {t(
+                  'coordinates.sitePointWhy',
+                  'A fixed mark on the land, usually the surveyor’s benchmark. You only need it when someone gives you survey coordinates to match. Other tools call it the survey point.',
+                  { ns: 'editor' },
+                )}
+              </FieldDescription>
               <MoveModeChoice value={mode} testIdPrefix="coord-site-mode" onChange={setMode} />
               {pointFields('site', sitePoint, setSitePoint)}
             </TabsContent>
 
             <TabsContent value="north" className="flex flex-col gap-3 pt-2" data-testid="coord-panel-north">
-              <FieldDescription>True north is real-world north. Plan north is straight up on a plan. One angle for the whole model: true-north plans, the compass in 3D and sheet north arrows follow it.</FieldDescription>
+              <FieldDescription>
+                {t(
+                  'coordinates.northWhy',
+                  'True north is real-world north. Plan north is straight up on a plan. One angle for the whole model: true-north plans, the compass in 3D and sheet north arrows follow it.',
+                  { ns: 'editor' },
+                )}
+              </FieldDescription>
               <div className="flex items-end gap-2">
                 <Field className="w-72">
-                  <FieldLabel htmlFor="bm-coord-north">True north (degrees clockwise from plan north)</FieldLabel>
+                  <FieldLabel htmlFor="bm-coord-north">
+                    {t('coordinates.trueNorthDegrees', 'True north (degrees clockwise from plan north)', { ns: 'editor' })}
+                  </FieldLabel>
                   <Input id="bm-coord-north" inputMode="decimal" value={north} onChange={(e) => setNorth(e.target.value)} data-testid="coord-north" />
                 </Field>
                 <Button type="button" variant="outline" disabled={editBlocked !== null} onClick={onPickTrueNorth} data-testid="coord-pick-north">
                   <Crosshair data-icon="inline-start" />
-                  Pick two points in the view
+                  {t('coordinates.pickTwoPoints', 'Pick two points in the view', { ns: 'editor' })}
                 </Button>
               </div>
             </TabsContent>
 
             <TabsContent value="working_angle" className="flex flex-col gap-3 pt-2" data-testid="coord-panel-working_angle">
-              <FieldDescription>Turns the directions you draw in to match the building. Route snaps, the placement grid, drafting ortho and polar steps and new crop boxes follow it. Nothing moves and site coordinates don’t change.</FieldDescription>
+              <FieldDescription>
+                {t(
+                  'coordinates.workingAngleWhy',
+                  'Turns the directions you draw in to match the building. Route snaps, the placement grid, drafting ortho and polar steps and new crop boxes follow it. Nothing moves and site coordinates don’t change.',
+                  { ns: 'editor' },
+                )}
+              </FieldDescription>
               <div className="flex flex-wrap items-end gap-2">
                 <Field className="w-72">
-                  <FieldLabel htmlFor="bm-coord-working-angle">Working angle (degrees counter-clockwise)</FieldLabel>
+                  <FieldLabel htmlFor="bm-coord-working-angle">
+                    {t('coordinates.workingAngleDegrees', 'Working angle (degrees counter-clockwise)', { ns: 'editor' })}
+                  </FieldLabel>
                   <Input id="bm-coord-working-angle" inputMode="decimal" value={angle} onChange={(e) => setAngle(e.target.value)} data-testid="coord-working-angle" />
                 </Field>
                 <Button type="button" variant="outline" disabled={editBlocked !== null} onClick={onPickWorkingAngle} data-testid="coord-pick-working-angle">
                   <Ruler data-icon="inline-start" />
-                  Align axes to an edge
+                  {t('coordinates.alignAxesToEdge', 'Align axes to an edge', { ns: 'editor' })}
                 </Button>
                 <Button
                   type="button"
                   variant="ghost"
                   disabled={editBlocked !== null || modelAngle === 0}
-                  title={modelAngle === 0 ? 'Already square to the model.' : undefined}
-                  onClick={() => act({ type: 'set_working_angle', angleDeg: 0 }, 'put the working angle back square')}
+                  title={modelAngle === 0 ? t('coordinates.alreadySquare', 'Already square to the model.', { ns: 'editor' }) : undefined}
+                  onClick={() => act({ type: 'set_working_angle', angleDeg: 0 }, t('coordinates.putBackSquare', 'put the working angle back square', { ns: 'editor' }))}
                   data-testid="coord-working-angle-reset"
                 >
                   <RotateCcw data-icon="inline-start" />
-                  Square to the model
+                  {t('coordinates.squareToModel', 'Square to the model', { ns: 'editor' })}
                 </Button>
               </div>
-              <FieldDescription data-testid="coord-working-angle-now">Now: {describeWorkingAngle(modelAngle)}.</FieldDescription>
+              <FieldDescription data-testid="coord-working-angle-now">
+                {t('coordinates.now', 'Now: {{angle}}.', { ns: 'editor', angle: describeWorkingAngle(modelAngle) })}
+              </FieldDescription>
               {view && viewOwn !== undefined && (
                 <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="coord-view-own-angle">
                   <span>
-                    {view.name} uses its own angle: {describeWorkingAngle(viewOwn).toLowerCase()}.
+                    {t('coordinates.viewOwnAngle', '{{name}} uses its own angle: {{angle}}.', {
+                      ns: 'editor',
+                      name: view.name,
+                      angle: describeWorkingAngle(viewOwn).toLowerCase(),
+                    })}
                   </span>
-                  <Button type="button" size="sm" variant="outline" disabled={editBlocked !== null} onClick={() => act({ type: 'set_view_properties', viewId: view.id, props: { workingAngleDeg: null } }, `use the model's working angle in ${view.name}`)}>
-                    Use the model’s angle here
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={editBlocked !== null}
+                    onClick={() =>
+                      act(
+                        { type: 'set_view_properties', viewId: view.id, props: { workingAngleDeg: null } },
+                        t('coordinates.useModelAngleWhat', 'use the model’s working angle in {{name}}', { ns: 'editor', name: view.name }),
+                      )
+                    }
+                  >
+                    {t('coordinates.useModelAngle', 'Use the model’s angle here', { ns: 'editor' })}
                   </Button>
                 </div>
               )}
               {view?.isPlan && (
                 <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="coord-plan-turn">
-                  <span>{view.orientation === 'working_angle' ? `${view.name} is drawn turned to the working angle.` : `${view.name} is drawn with ${view.orientation === 'true_north' ? 'true' : 'plan'} north up.`}</span>
+                  <span>
+                    {view.orientation === 'working_angle'
+                      ? t('coordinates.drawnTurned', '{{name}} is drawn turned to the working angle.', { ns: 'editor', name: view.name })
+                      : view.orientation === 'true_north'
+                        ? t('coordinates.drawnTrueNorth', '{{name}} is drawn with true north up.', { ns: 'editor', name: view.name })
+                        : t('coordinates.drawnPlanNorth', '{{name}} is drawn with plan north up.', { ns: 'editor', name: view.name })}
+                  </span>
                   {view.orientation !== 'working_angle' ? (
-                    <Button type="button" size="sm" variant="outline" disabled={editBlocked !== null} onClick={() => act({ type: 'set_view_properties', viewId: view.id, props: { orientation: 'working_angle' } }, 'turn the plan to the working angle')} data-testid="coord-plan-turn-working">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={editBlocked !== null}
+                      onClick={() =>
+                        act(
+                          { type: 'set_view_properties', viewId: view.id, props: { orientation: 'working_angle' } },
+                          t('coordinates.turnPlanToWorkingAngle', 'turn the plan to the working angle', { ns: 'editor' }),
+                        )
+                      }
+                      data-testid="coord-plan-turn-working"
+                    >
                       <Compass data-icon="inline-start" />
-                      Turn this plan to it
+                      {t('coordinates.turnThisPlan', 'Turn this plan to it', { ns: 'editor' })}
                     </Button>
                   ) : (
-                    <Button type="button" size="sm" variant="outline" disabled={editBlocked !== null} onClick={() => act({ type: 'set_view_properties', viewId: view.id, props: { orientation: 'plan_north' } }, 'turn the plan to plan north')} data-testid="coord-plan-turn-plan-north">
-                      Back to plan north up
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={editBlocked !== null}
+                      onClick={() =>
+                        act(
+                          { type: 'set_view_properties', viewId: view.id, props: { orientation: 'plan_north' } },
+                          t('coordinates.turnPlanToPlanNorthWhat', 'turn the plan to plan north', { ns: 'editor' }),
+                        )
+                      }
+                      data-testid="coord-plan-turn-plan-north"
+                    >
+                      {t('coordinates.backToPlanNorth', 'Back to plan north up', { ns: 'editor' })}
                     </Button>
                   )}
                 </div>
@@ -324,10 +418,10 @@ export function CoordinatesDialog({ site, initialTab, initialMode, editBlocked, 
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onCancel}>
-              Cancel
+              {t('coordinates.cancel', 'Cancel', { ns: 'editor' })}
             </Button>
             <Button type="submit" disabled={saveBlocked !== null} title={saveBlocked ?? undefined} data-testid="coord-save">
-              Save
+              {t('coordinates.save', 'Save', { ns: 'editor' })}
             </Button>
           </DialogFooter>
         </form>

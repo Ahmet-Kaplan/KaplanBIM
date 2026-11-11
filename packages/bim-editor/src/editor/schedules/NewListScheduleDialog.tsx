@@ -16,7 +16,7 @@ import { newId } from '../views-sheets/types'
 import { EQUIPMENT_LIST_CHOICE, scheduleChoiceLabel } from '../electrical/schedules/schedule-plan'
 
 import { BUILTIN_LIST_IDS, builtinListBlocked, builtinListDefinition, builtinListDescription, builtinListLabel, type BuiltinListId } from './builtin-lists'
-import { useEditorTranslate } from '../i18n/translate'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
 
 import { FIRST_PARTY_SCHEDULE_OFFERS } from '../contributions/first-party'
 import { nextSheetNumber, planScheduleCreate, sheetSpotOf, type FormScheduleReady, type NewScheduleFormSlot, type NewScheduleProps } from './new-schedule-plan'
@@ -110,7 +110,9 @@ interface AddonGroup {
   readonly equipmentList: boolean
 }
 
-function addonGroups(templates: readonly AddonScheduleChoice[], forms: readonly string[], slot: NewScheduleFormSlot | null): AddonGroup[] {
+
+function addonGroups(templates: readonly AddonScheduleChoice[], forms: readonly string[], slot: NewScheduleFormSlot | null, t: Translate): AddonGroup[] {
+
   const groups = new Map<string, AddonGroup>()
   const group = (addon: string): AddonGroup => {
     const known = groups.get(addon)
@@ -123,7 +125,9 @@ function addonGroups(templates: readonly AddonScheduleChoice[], forms: readonly 
   for (const k of forms) group(firstPartyStoredOwner('form', k) ?? 'other').forms.push(k)
   const slotOwner = slot?.kinds[0] ? (firstPartyStoredOwner('form', slot.kinds[0]) ?? 'other') : null
   if (slotOwner) groups.set(slotOwner, { ...group(slotOwner), equipmentList: true })
-  return [...groups.values()].map((g) => (g.addon === 'other' ? { ...g, label: 'Other add-ons' } : g))
+
+  return [...groups.values()].map((g) => (g.addon === 'other' ? { ...g, label: t('schedule.newWindow.otherAddons', 'Other add-ons', { ns: 'editor' }) } : g))
+
 }
 
 export interface NewScheduleWindowProps {
@@ -152,10 +156,18 @@ export interface NewScheduleWindowProps {
  * opens in the same grid, and can go straight onto a sheet. One undo step.
  */
 export function NewScheduleWindow({ model, initialCategory, initialList, initialPick, initialSheetId = null, formSlot = null, submit, onCreated, onClose }: NewScheduleWindowProps) {
+  const t = useEditorTranslate()
   const [pick, setPick] = useState<SchedulePick>(() => parsePick(initialPick) ?? (initialList ? { kind: 'list', list: initialList } : { kind: 'category', category: initialCategory }))
-  const listBlocked = useMemo(() => Object.fromEntries(BUILTIN_LIST_IDS.map((id) => [id, builtinListBlocked(model, id)])) as Record<BuiltinListId, string | null>, [model])
+
+  const listBlocked = useMemo(
+    () => Object.fromEntries(BUILTIN_LIST_IDS.map((id) => [id, builtinListBlocked(model, id, t)])) as Record<BuiltinListId, string | null>,
+    [model, t],
+  )
+
   const addonChoices = useMemo(() => addonScheduleTemplateChoices(libraryRowsOf(), FIRST_PARTY_SCHEDULE_OFFERS), [])
-  const groups = useMemo(() => addonGroups(addonChoices, formScheduleKinds(), formSlot), [addonChoices, formSlot])
+
+  const groups = useMemo(() => addonGroups(addonChoices, formScheduleKinds(), formSlot, t), [addonChoices, formSlot, t])
+
   const addonChoice: AddonScheduleChoice | null = pick.kind === 'addon' ? (addonChoices.find((c) => c.key === pick.key) ?? null) : null
   const addonBlocked = useMemo(() => (addonChoice ? addonScheduleBlocked(model, addonChoice) : null), [model, addonChoice])
   const category: ScheduleCategory = pick.kind === 'category' ? pick.category : pick.kind === 'builtin' ? EQUIPMENT_LIST_CHOICE.definition.category : initialCategory
@@ -181,7 +193,6 @@ export function NewScheduleWindow({ model, initialCategory, initialList, initial
   const sheetName = typedSheet.name ?? suggestedSheet.name
   const ready = isForm && formReady && formReady.kind === formKindPicked ? formReady.ready : null
 
-  const t = useEditorTranslate()
   const name =
     typedName ??
 
@@ -256,16 +267,20 @@ export function NewScheduleWindow({ model, initialCategory, initialList, initial
     const size = 'formSchedule' in made.props ? formTable(model, made.props.formSchedule).size : scheduleV2Paper(model, made.props.scheduleV2).table.size
     const sheet = sheets.find((s) => s.id === sheetPick) ?? null
     const viewId = newId('view')
-    const plan = planScheduleCreate(model, {
-      viewId,
-      name,
-      props: made.props,
-      size,
-      subject: made.subject,
-      viewportId: newId('vp'),
-      sheet: sheet ? sheetSpotOf(sheet) : null,
-      ...(sheetPick === NEW_SHEET ? { newSheet: { sheetId: newId('sheet'), number: sheetNumber, name: sheetName } } : {}),
-    })
+    const plan = planScheduleCreate(
+      model,
+      {
+        viewId,
+        name,
+        props: made.props,
+        size,
+        subject: made.subject,
+        viewportId: newId('vp'),
+        sheet: sheet ? sheetSpotOf(sheet) : null,
+        ...(sheetPick === NEW_SHEET ? { newSheet: { sheetId: newId('sheet'), number: sheetNumber, name: sheetName } } : {}),
+      },
+      t,
+    )
     if (!plan.ok) {
       setRefusal(plan.reason)
       return

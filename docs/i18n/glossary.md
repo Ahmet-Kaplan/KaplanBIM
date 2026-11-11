@@ -419,6 +419,29 @@ Aşama 4 (Task 4.1–4.2) çizelgeleri, hesap sayfalarını, paftaları, görün
 | Machine / Project information | **proje bilgileri** | Her paftanın antedine yazılan künye |
 | Retired (library item) | **kullanımdan kaldırıldı** | §5 alan adları |
 
+### 5.2 Aşama 4 düzeltme turunda eklenen sözcükler (2026-11-10)
+
+Çizelge/pafta/görünüm çevirisinin ikinci geçişi (çizim araçları, notlar, etiketler, çizim seti, koordinatlar) bu sözcükleri gerektirdi. Yukarıda karara bağlı olanlar tekrar yazılmadı.
+
+| EN | TR | Not |
+|----|----|-----|
+| Arrange / Even grid / Rows, in order | **Düzenle** / **Eşit ızgara** / **Sırayla satırlar** | Paftadaki görünümleri yerleştirme |
+| Half tone / halftone | **yarım ton** | §2.4 |
+| Drawing aids | **çizim yardımcıları** | Orto ve kutup izleme ile birlikte |
+| Snap: endpoint / midpoint / centre / intersection / perpendicular / nearest | **uç noktalar / orta noktalar / merkezler / kesişimler / dik / en yakın nokta** | |
+| Ortho / Polar | **Orto / Kutup** | Kısa düğme yazıları |
+| Hatch pattern: solid / diagonal / crosshatch / dots / concrete / earth / rigid insulation / masonry | **dolu dolgu / çapraz / çapraz tarama / noktalar / beton / toprak / sert yalıtım / duvar örgüsü** | |
+| Inscribed / Circumscribed | **içten teğet / dıştan teğet** | Çokgen oturtma |
+| Detail group / Ungroup | **detay grubu** / **grubu çöz** | |
+| Leader / Elbow / Arrowhead: arrow / dot / tick / none | **kılavuz / dirsek / ok ucu: ok / nokta / çentik / oksuz** | Etiket ve nota kılavuzları |
+| Dimension: linear / aligned / angular / radius / diameter / arc length / spot elevation / spot coordinate | **doğrusal ölçü / hizalı ölçü / açısal ölçü / yarıçap / çap / yay uzunluğu / nokta kotu / nokta koordinatı** | §2.4 *Dimension* = ölçü |
+| Tag template (mark, equipment mark, air terminal…) | **etiket şablonu** (*işaret*, *ekipman işareti*…) | §5 *Mark* = işaret |
+| Note formatting: bold / italic / underline / bullets / numbered list / align left / centre / right / justify | **kalın / italik / altı çizili / madde işaretleri / numaralı liste / sola hizala / ortala / sağa hizala / iki yana yasla** | |
+| Print set / Print the set again / Issue set / Verify pages / Issued drawings | **seti yazdır / seti yeniden yazdır / set yayınla / doğrulama sayfaları / yayınlanmış çizimler** | |
+| Revision row / add revision | **revizyon satırı** / **revizyon ekle** | §2.3 *Revision* = revizyon |
+| Layout / plan north / true north up | **yerleşim** / *plan kuzeyi* / *gerçek kuzey yukarı* | §2.3 |
+| Snap to (verb) | **yakalanmak** ("… öğesine yakalandı") | |
+
 ---
 
 ## 6. Maliyet ve ticari terimler

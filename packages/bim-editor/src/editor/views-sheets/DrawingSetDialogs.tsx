@@ -38,6 +38,7 @@ type Submit = SubmitCommand
 // ── Arrange views ────────────────────────────────────────────────────────────
 
 export function ArrangeSheetDialog({ model, sheet, onCancel, submit }: { model: ModelState; sheet: Sheet; onCancel: () => void; submit: Submit }) {
+  const t = useEditorTranslate()
   const [mode, setMode] = useState<'pack' | 'grid'>('pack')
   const [columns, setColumns] = useState('2')
   const [gapIn, setGapIn] = useState('0.5')
@@ -57,10 +58,10 @@ export function ArrangeSheetDialog({ model, sheet, onCancel, submit }: { model: 
   }, [model, sheet.id, mode, gap, cols, fitScales, valid])
   const apply = () => {
     if (!plan?.command) return
-    const refusal = submit(plan.command, `arrange the views on ${sheet.number}`)
+    const refusal = submit(plan.command, t('arrange.what', 'arrange the views on {{number}}', { ns: 'editor', number: sheet.number }))
     if (refusal) setError(refusal)
     else {
-      toast(`${sheet.number} arranged. Ctrl+Z puts the views back.`)
+      toast(t('arrange.done', '{{number}} arranged. Ctrl+Z puts the views back.', { ns: 'editor', number: sheet.number }))
       onCancel()
     }
   }
@@ -68,53 +69,77 @@ export function ArrangeSheetDialog({ model, sheet, onCancel, submit }: { model: 
     <Dialog open onOpenChange={(open) => !open && onCancel()}>
       <DialogContent data-testid="arrange-sheet-dialog">
         <DialogHeader>
-          <DialogTitle>Arrange views on {sheet.number}</DialogTitle>
-          <DialogDescription>Places every view and schedule inside the border and left of the title block, with room for each view&apos;s title. Same sheet, same answer every time.</DialogDescription>
+          <DialogTitle>{t('arrange.title', 'Arrange views on {{number}}', { ns: 'editor', number: sheet.number })}</DialogTitle>
+          <DialogDescription>
+            {t(
+              'arrange.description',
+              'Places every view and schedule inside the border and left of the title block, with room for each view’s title. Same sheet, same answer every time.',
+              { ns: 'editor' },
+            )}
+          </DialogDescription>
         </DialogHeader>
         <FieldGroup>
           <Field>
-            <FieldLabel>Arrangement</FieldLabel>
+            <FieldLabel>{t('arrange.arrangement', 'Arrangement', { ns: 'editor' })}</FieldLabel>
             <ToggleGroup type="single" variant="outline" value={mode} onValueChange={(v) => (v === 'pack' || v === 'grid') && setMode(v)}>
-              <ToggleGroupItem value="pack">Rows, in order</ToggleGroupItem>
-              <ToggleGroupItem value="grid">Even grid</ToggleGroupItem>
+              <ToggleGroupItem value="pack">{t('arrange.rowsInOrder', 'Rows, in order', { ns: 'editor' })}</ToggleGroupItem>
+              <ToggleGroupItem value="grid">{t('arrange.evenGrid', 'Even grid', { ns: 'editor' })}</ToggleGroupItem>
             </ToggleGroup>
           </Field>
           <div className="grid grid-cols-2 gap-3">
             {mode === 'grid' && (
               <Field>
-                <FieldLabel htmlFor="ar-cols">Columns</FieldLabel>
+                <FieldLabel htmlFor="ar-cols">{t('arrange.columns', 'Columns', { ns: 'editor' })}</FieldLabel>
                 <Input id="ar-cols" inputMode="numeric" value={columns} onChange={(e) => setColumns(e.target.value)} />
               </Field>
             )}
             <Field>
-              <FieldLabel htmlFor="ar-gap">Space between (in)</FieldLabel>
+              <FieldLabel htmlFor="ar-gap">{t('arrange.spaceBetween', 'Space between (in)', { ns: 'editor' })}</FieldLabel>
               <Input id="ar-gap" inputMode="decimal" value={gapIn} onChange={(e) => setGapIn(e.target.value)} />
             </Field>
           </div>
           <Field orientation="horizontal">
             <Checkbox id="ar-fit" checked={fitScales} onCheckedChange={(c) => setFitScales(c === true)} />
-            <FieldLabel htmlFor="ar-fit" className="font-normal">Shrink a view to the next standard scale when it doesn&apos;t fit (never enlarges)</FieldLabel>
+            <FieldLabel htmlFor="ar-fit" className="font-normal">
+              {t('arrange.shrinkToFit', 'Shrink a view to the next standard scale when it doesn’t fit (never enlarges)', { ns: 'editor' })}
+            </FieldLabel>
           </Field>
           {!valid ? (
-            <FieldError>Space is 0 to 4 inches; a grid has 1 to 12 columns.</FieldError>
+            <FieldError>{t('arrange.badNumbers', 'Space is 0 to 4 inches; a grid has 1 to 12 columns.', { ns: 'editor' })}</FieldError>
           ) : plan === null ? (
-            <FieldError>The layout couldn&apos;t be worked out for this sheet. Check its views, then try again.</FieldError>
+            <FieldError>
+              {t('arrange.couldNotWorkOut', 'The layout couldn’t be worked out for this sheet. Check its views, then try again.', { ns: 'editor' })}
+            </FieldError>
           ) : (
             <div className="flex flex-col gap-1 text-sm" data-testid="arrange-preview">
-              <p>{plan.command ? `${plan.layout.moves.length} view${plan.layout.moves.length === 1 ? '' : 's'} move${plan.layout.moves.length === 1 ? 's' : ''}.` : 'Everything is already where this arrangement puts it.'}</p>
+              <p>
+                {plan.command
+                  ? plan.layout.moves.length === 1
+                    ? t('arrange.oneMoves', '1 view moves.', { ns: 'editor' })
+                    : t('arrange.someMove', '{{n}} views move.', { ns: 'editor', n: plan.layout.moves.length })
+                  : t('arrange.nothingMoves', 'Everything is already where this arrangement puts it.', { ns: 'editor' })}
+              </p>
               {plan.layout.moves.filter((m) => m.scale !== undefined).map((m) => (
-                <p key={m.viewportId} className="text-xs text-muted-foreground">{m.viewName} drops to {scaleLabel(m.scale ?? 1)} to fit.</p>
+                <p key={m.viewportId} className="text-xs text-muted-foreground">
+                  {t('arrange.dropsTo', '{{name}} drops to {{scale}} to fit.', { ns: 'editor', name: m.viewName, scale: scaleLabel(m.scale ?? 1) })}
+                </p>
               ))}
               {plan.layout.unplaced.map((u) => (
-                <p key={u.viewportId} className="text-xs text-danger-600">{u.viewName} can&apos;t fit: {u.reason}</p>
+                <p key={u.viewportId} className="text-xs text-danger-600">
+                  {t('arrange.cannotFit', '{{name}} can’t fit: {{reason}}', { ns: 'editor', name: u.viewName, reason: u.reason })}
+                </p>
               ))}
             </div>
           )}
           {error && <FieldError>{error}</FieldError>}
         </FieldGroup>
         <DialogFooter>
-          <Button variant="outline" onClick={onCancel}>Cancel</Button>
-          <Button onClick={apply} disabled={!plan?.command} data-testid="arrange-apply">Arrange</Button>
+          <Button variant="outline" onClick={onCancel}>
+            {t('arrange.cancel', 'Cancel', { ns: 'editor' })}
+          </Button>
+          <Button onClick={apply} disabled={!plan?.command} data-testid="arrange-apply">
+            {t('arrange.arrange', 'Arrange', { ns: 'editor' })}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -145,31 +170,68 @@ export function RevisionsDialog({ sheet, allSheets, onCancel, submit }: { sheet:
       <DialogContent className="max-w-2xl" data-testid="revisions-dialog">
         <DialogHeader>
           <DialogTitle>{t('panel.revisionsOnSheet', 'Revisions on {{number}}', { number: sheet.number, ns: 'editor' })}</DialogTitle>
-          <DialogDescription>The revision table printed in the title block, oldest first. Issue set adds one row to every issued sheet for you.</DialogDescription>
+          <DialogDescription>
+            {t('revisions.description', 'The revision table printed in the title block, oldest first. Issue set adds one row to every issued sheet for you.', {
+              ns: 'editor',
+            })}
+          </DialogDescription>
         </DialogHeader>
         <Table>
-          <TableCaption className="sr-only">Revision rows on {sheet.number}</TableCaption>
+          <TableCaption className="sr-only">
+            {t('revisions.caption', 'Revision rows on {{number}}', { ns: 'editor', number: sheet.number })}
+          </TableCaption>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-20">Rev</TableHead>
-              <TableHead className="w-36">Date</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead className="w-10"><span className="sr-only">Remove</span></TableHead>
+              <TableHead className="w-20">{t('revisions.rev', 'Rev', { ns: 'editor' })}</TableHead>
+              <TableHead className="w-36">{t('revisions.date', 'Date', { ns: 'editor' })}</TableHead>
+              <TableHead>{t('revisions.descriptionField', 'Description', { ns: 'editor' })}</TableHead>
+              <TableHead className="w-10">
+                <span className="sr-only">{t('revisions.remove', 'Remove', { ns: 'editor' })}</span>
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-sm text-muted-foreground">No revisions yet. Add one, or let Issue set add it.</TableCell>
+                <TableCell colSpan={4} className="text-sm text-muted-foreground">
+                  {t('revisions.noneYet', 'No revisions yet. Add one, or let Issue set add it.', { ns: 'editor' })}
+                </TableCell>
               </TableRow>
             ) : (
               rows.map((r, i) => (
                 <TableRow key={i}>
-                  <TableCell><Input aria-label={`Revision ${i + 1} number`} value={r.number} maxLength={10} onChange={(e) => set(i, 'number', e.target.value)} /></TableCell>
-                  <TableCell><Input aria-label={`Revision ${i + 1} date`} value={r.date} maxLength={20} onChange={(e) => set(i, 'date', e.target.value)} /></TableCell>
-                  <TableCell><Input aria-label={`Revision ${i + 1} description`} value={r.description} maxLength={80} placeholder="ISSUED FOR PERMIT" onChange={(e) => set(i, 'description', e.target.value)} /></TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="icon-sm" aria-label={`Remove revision ${r.number || i + 1}`} onClick={() => setRows((prev) => prev.filter((_, j) => j !== i))}>
+                    <Input
+                      aria-label={t('revisions.numberAria', 'Revision {{n}} number', { ns: 'editor', n: i + 1 })}
+                      value={r.number}
+                      maxLength={10}
+                      onChange={(e) => set(i, 'number', e.target.value)}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      aria-label={t('revisions.dateAria', 'Revision {{n}} date', { ns: 'editor', n: i + 1 })}
+                      value={r.date}
+                      maxLength={20}
+                      onChange={(e) => set(i, 'date', e.target.value)}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      aria-label={t('revisions.descriptionAria', 'Revision {{n}} description', { ns: 'editor', n: i + 1 })}
+                      value={r.description}
+                      maxLength={80}
+                      placeholder={t('revisions.placeholder', 'ISSUED FOR PERMIT', { ns: 'editor' })}
+                      onChange={(e) => set(i, 'description', e.target.value)}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={t('revisions.removeAria', 'Remove revision {{n}}', { ns: 'editor', n: r.number || i + 1 })}
+                      onClick={() => setRows((prev) => prev.filter((_, j) => j !== i))}
+                    >
                       <Trash2 />
                     </Button>
                   </TableCell>
@@ -181,13 +243,17 @@ export function RevisionsDialog({ sheet, allSheets, onCancel, submit }: { sheet:
         <div>
           <Button variant="outline" size="sm" onClick={add} disabled={rows.length >= 20} data-testid="revisions-add">
             <Plus data-icon="inline-start" />
-            Add revision
+            {t('revisions.addRevision', 'Add revision', { ns: 'editor' })}
           </Button>
         </div>
         {error && <FieldError>{error}</FieldError>}
         <DialogFooter>
-          <Button variant="outline" onClick={onCancel}>Cancel</Button>
-          <Button onClick={save} data-testid="revisions-save">Save revisions</Button>
+          <Button variant="outline" onClick={onCancel}>
+            {t('revisions.cancel', 'Cancel', { ns: 'editor' })}
+          </Button>
+          <Button onClick={save} data-testid="revisions-save">
+            {t('revisions.saveRevisions', 'Save revisions', { ns: 'editor' })}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -197,9 +263,12 @@ export function RevisionsDialog({ sheet, allSheets, onCancel, submit }: { sheet:
 // ── Shared: which sheets, and saving first ──────────────────────────────────
 
 function SheetPicker({ sheets, picked, onChange }: { sheets: readonly Sheet[]; picked: ReadonlySet<string>; onChange: (next: Set<string>) => void }) {
+  const t = useEditorTranslate()
   return (
     <FieldSet>
-      <FieldLegend variant="label">Sheets ({picked.size} of {sheets.length}, in printed order)</FieldLegend>
+      <FieldLegend variant="label">
+        {t('set.sheetsLegend', 'Sheets ({{picked}} of {{total}}, in printed order)', { ns: 'editor', picked: picked.size, total: sheets.length })}
+      </FieldLegend>
       <div className="flex max-h-44 flex-col gap-1.5 overflow-y-auto rounded-md border p-2" data-testid="set-sheet-picker">
         {sheets.map((s) => (
           <Field key={s.id} orientation="horizontal">
@@ -251,6 +320,7 @@ function when(iso: string): string {
 // ── Print set ────────────────────────────────────────────────────────────────
 
 export function PrintSetDialog({ projectId, modelId, model, save, onCancel }: { projectId: string; modelId: string; model: ModelState; save: SaveState; onCancel: () => void }) {
+  const t = useEditorTranslate()
   const drawingSets = useEditorHost().data.drawingSets
   const sheets = useMemo(() => setOrder(elementsOfKind(model.elements, 'sheet').filter((e) => !e.deleted)), [model])
   const [picked, setPicked] = useState<Set<string>>(() => new Set(sheets.map((s) => s.id)))
@@ -259,18 +329,26 @@ export function PrintSetDialog({ projectId, modelId, model, save, onCancel }: { 
   const [printed, setPrinted] = useState<Extract<PrintSetResult, { status: 'printed' }> | null>(null)
   const run = async () => {
     setError(null)
-    setBusy(save.pending > 0 ? 'Waiting for your edits to save…' : 'Drawing the set…')
+    setBusy(
+      save.pending > 0
+        ? t('print.waitingEdits', 'Waiting for your edits to save…', { ns: 'editor' })
+        : t('print.drawingSet', 'Drawing the set…', { ns: 'editor' }),
+    )
     try {
       const notSaved = await saveFirst(save)
       if (notSaved) return setError(notSaved)
-      setBusy('Drawing the set…')
+      setBusy(t('print.drawingSet', 'Drawing the set…', { ns: 'editor' }))
       const result = await printSetFrom(drawingSets, projectId, modelId, { sheets: pickedList(sheets, picked) })
       if (result.status === 'refused') return setError(result.message)
       setPrinted(result)
-      toast.success(`Printed ${result.sheets.length} sheet${result.sheets.length === 1 ? '' : 's'} from Rev ${result.revision}.`)
+      toast.success(
+        result.sheets.length === 1
+          ? t('print.printedOne', 'Printed 1 sheet from Rev {{revision}}.', { ns: 'editor', revision: result.revision })
+          : t('print.printedMany', 'Printed {{n}} sheets from Rev {{revision}}.', { ns: 'editor', n: result.sheets.length, revision: result.revision }),
+      )
     } catch (err) {
       console.error('[PrintSetDialog] printing the set failed', err)
-      setError(err instanceof Error ? err.message : "The set couldn't be printed. Try again.")
+      setError(err instanceof Error ? err.message : t('print.couldNotPrint', 'The set couldn’t be printed. Try again.', { ns: 'editor' }))
     } finally {
       setBusy(null)
     }
@@ -279,23 +357,40 @@ export function PrintSetDialog({ projectId, modelId, model, save, onCancel }: { 
     <Dialog open onOpenChange={(open) => !open && !busy && onCancel()}>
       <DialogContent className="max-w-lg" data-testid="print-set-dialog">
         <DialogHeader>
-          <DialogTitle>Print the set</DialogTitle>
-          <DialogDescription>One vector PDF at true scale, a page per sheet, from the last saved revision. Printing doesn&apos;t issue; Issue set checks against this print.</DialogDescription>
+          <DialogTitle>{t('print.title', 'Print the set', { ns: 'editor' })}</DialogTitle>
+          <DialogDescription>
+            {t(
+              'print.description',
+              'One vector PDF at true scale, a page per sheet, from the last saved revision. Printing doesn’t issue; Issue set checks against this print.',
+              { ns: 'editor' },
+            )}
+          </DialogDescription>
         </DialogHeader>
         {sheets.length === 0 ? (
-          <p className="text-sm">This model has no sheets yet. Make one with + in Views and sheets.</p>
+          <p className="text-sm">{t('print.noSheets', 'This model has no sheets yet. Make one with + in Views and sheets.', { ns: 'editor' })}</p>
         ) : printed ? (
           <div className="flex flex-col gap-2 text-sm" data-testid="print-set-result">
             <p>
-              Printed {printed.sheets.length} sheet{printed.sheets.length === 1 ? '' : 's'} from Rev {printed.revision}: {printed.sheets.map((s) => s.number).join(', ')}.
+              {printed.sheets.length === 1
+                ? t('print.resultOne', 'Printed 1 sheet from Rev {{revision}}: {{numbers}}.', { ns: 'editor', revision: printed.revision, numbers: printed.sheets.map((s) => s.number).join(', ') })
+                : t('print.resultMany', 'Printed {{n}} sheets from Rev {{revision}}: {{numbers}}.', {
+                    ns: 'editor',
+                    n: printed.sheets.length,
+                    revision: printed.revision,
+                    numbers: printed.sheets.map((s) => s.number).join(', '),
+                  })}
             </p>
             {printed.titleBlockNote && <p className="text-xs text-warning-700">{printed.titleBlockNote}</p>}
-            {printed.backgroundsMissing.length > 0 && <p className="text-xs text-warning-700">Printed without some linked backgrounds: {printed.backgroundsMissing.join('; ')}</p>}
+            {printed.backgroundsMissing.length > 0 && (
+              <p className="text-xs text-warning-700">
+                {t('print.missingBackgrounds', 'Printed without some linked backgrounds: {{list}}', { ns: 'editor', list: printed.backgroundsMissing.join('; ') })}
+              </p>
+            )}
             {printed.printNotes.map((note) => <p key={note} className="text-xs text-warning-700">{note}</p>)}
             <Button asChild variant="outline" className="self-start">
               <a href={printed.downloadUrl} target="_blank" rel="noopener noreferrer" data-testid="print-set-download">
                 <Download data-icon="inline-start" />
-                Open the PDF
+                {t('print.openThePdf', 'Open the PDF', { ns: 'editor' })}
               </a>
             </Button>
             <p className="text-xs text-muted-foreground">The link works for {Math.round(printed.expiresInSeconds / 60)} minutes.</p>
@@ -332,6 +427,7 @@ export function IssueSetDialog({ projectId, modelId, model, save, canIssue, bloc
   /** Close and open Print set. */
   onPrintAgain: () => void
 }) {
+  const t = useEditorTranslate()
   const IssuedSheetLinks = useOptionalEditorHost()?.shell.IssuedSheetLinks
   const drawingSets = useEditorHost().data.drawingSets
   const sheets = useMemo(() => setOrder(elementsOfKind(model.elements, 'sheet').filter((e) => !e.deleted)), [model])
@@ -411,21 +507,41 @@ export function IssueSetDialog({ projectId, modelId, model, save, canIssue, bloc
       }
     } catch (err) {
       console.error('[IssueSetDialog] issuing the set failed', err)
-      setError(err instanceof Error ? err.message : "The set couldn't be issued. Try again.")
+      setError(err instanceof Error ? err.message : t('issue.couldNotIssue', 'The set couldn’t be issued. Try again.', { ns: 'editor' }))
     } finally {
       setBusy(false)
     }
   }
   const rowMissing = addRow && (!revNumber.trim() || !revDate.trim() || !revText.trim())
   const codeBlocked = status?.codeCheck && !status.codeCheck.ok ? status.codeCheck.words : null
-  const reason = !canIssue ? blockedReason : !ready ? null : picked.size === 0 ? 'Pick at least one sheet.' : codeBlocked ? `${codeBlocked}. Each signer opens the sheet and chooses Re-check and sign, or Override with a reason.` : !name.trim() ? 'Name the issue.' : rowMissing ? 'The revision row needs a number, a date and a description.' : differs && !accepted ? 'Print the set again, or confirm you checked the sheets that changed.' : null
+  const reason = !canIssue
+    ? blockedReason
+    : !ready
+      ? null
+      : picked.size === 0
+        ? t('issue.pickASheet', 'Pick at least one sheet.', { ns: 'editor' })
+        : codeBlocked
+          ? t('issue.codeBlocked', '{{words}}. Each signer opens the sheet and chooses Re-check and sign, or Override with a reason.', { ns: 'editor', words: codeBlocked })
+          : !name.trim()
+            ? t('issue.nameTheIssue', 'Name the issue.', { ns: 'editor' })
+            : rowMissing
+              ? t('issue.rowNeeds', 'The revision row needs a number, a date and a description.', { ns: 'editor' })
+              : differs && !accepted
+                ? t('issue.printAgainOrConfirm', 'Print the set again, or confirm you checked the sheets that changed.', { ns: 'editor' })
+                : null
 
   return (
     <Dialog open onOpenChange={(open) => !open && !busy && onCancel()}>
       <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto" data-testid="issue-set-dialog">
         <DialogHeader>
-          <DialogTitle>Issue the set</DialogTitle>
-          <DialogDescription>Adds the revision row, captures the model, draws the set from that capture and files the PDF in the project&apos;s Workspace › Issued drawings. Later edits never change an issued set.</DialogDescription>
+          <DialogTitle>{t('issue.title', 'Issue the set', { ns: 'editor' })}</DialogTitle>
+          <DialogDescription>
+            {t(
+              'issue.description',
+              'Adds the revision row, captures the model, draws the set from that capture and files the PDF in the project’s Workspace › Issued drawings. Later edits never change an issued set.',
+              { ns: 'editor' },
+            )}
+          </DialogDescription>
         </DialogHeader>
         {issued ? (
           <div className="flex flex-col gap-2 text-sm" data-testid="issue-set-result">
@@ -436,7 +552,7 @@ export function IssueSetDialog({ projectId, modelId, model, save, canIssue, bloc
             <Button asChild variant="outline" className="self-start">
               <a href={issued.downloadUrl} target="_blank" rel="noopener noreferrer" data-testid="issue-set-download">
                 <Download data-icon="inline-start" />
-                Open the issued PDF
+                {t('issue.openIssuedPdf', 'Open the issued PDF', { ns: 'editor' })}
               </a>
             </Button>
             {/* V10: each sheet's Verify page and own PDF. */}
@@ -453,25 +569,40 @@ export function IssueSetDialog({ projectId, modelId, model, save, canIssue, bloc
         ) : ready ? (
           <FieldGroup>
             <Alert className={differs ? 'border-warning-300 bg-warning-50' : 'border-success-300 bg-success-50'} data-testid="issue-print-check" data-status={ready.comparison.status}>
-              <AlertTitle>{differs ? 'Changed since the last print' : 'Matches the last print'}</AlertTitle>
+              <AlertTitle>
+                {differs
+                  ? t('issue.changedSincePrint', 'Changed since the last print', { ns: 'editor' })
+                  : t('issue.matchesPrint', 'Matches the last print', { ns: 'editor' })}
+              </AlertTitle>
               <AlertDescription>
                 <p>{ready.message}</p>
                 {status?.history.lastPrint && (
                   <p className="text-xs">
-                    Last set print: Rev {status.history.lastPrint.modelRevision}, {when(status.history.lastPrint.printedAt)}
-                    {status.history.lastPrint.printedByName ? ` by ${status.history.lastPrint.printedByName}` : ''}.{' '}
-                    <a className="underline" href={status.history.lastPrint.downloadUrl} target="_blank" rel="noopener noreferrer">Open it</a>
+                    {t('issue.lastSetPrint', 'Last set print: Rev {{revision}}, {{when}}', {
+                      ns: 'editor',
+                      revision: status.history.lastPrint.modelRevision,
+                      when: when(status.history.lastPrint.printedAt),
+                    })}
+                    {status.history.lastPrint.printedByName
+                      ? ` ${t('issue.printedBy', 'by {{name}}', { ns: 'editor', name: status.history.lastPrint.printedByName })}`
+                      : ''}
+                    .{' '}
+                    <a className="underline" href={status.history.lastPrint.downloadUrl} target="_blank" rel="noopener noreferrer">
+                      {t('issue.openIt', 'Open it', { ns: 'editor' })}
+                    </a>
                   </p>
                 )}
                 {differs && (
                   <div className="mt-2 flex flex-col gap-2">
                     <Button variant="outline" size="sm" className="self-start" onClick={onPrintAgain} data-testid="issue-print-again">
                       <Printer data-icon="inline-start" />
-                      Print the set again
+                      {t('issue.printAgain', 'Print the set again', { ns: 'editor' })}
                     </Button>
                     <Field orientation="horizontal">
                       <Checkbox id="is-accept" checked={accepted} onCheckedChange={(c) => setAccepted(c === true)} data-testid="issue-accept-changes" />
-                      <FieldLabel htmlFor="is-accept" className="font-normal">I&apos;ve checked these sheets as they draw now. Issue them anyway.</FieldLabel>
+                      <FieldLabel htmlFor="is-accept" className="font-normal">
+                        {t('issue.checkedThem', 'I’ve checked these sheets as they draw now. Issue them anyway.', { ns: 'editor' })}
+                      </FieldLabel>
                     </Field>
                   </div>
                 )}
@@ -480,13 +611,17 @@ export function IssueSetDialog({ projectId, modelId, model, save, canIssue, bloc
             {/* C10: approvals checked against an older rule block a reissue until their signer acts. */}
             {status?.codeCheck && <IssueBlockedNotice check={status.codeCheck} />}
             <Field>
-              <FieldLabel htmlFor="is-name">Issue</FieldLabel>
+              <FieldLabel htmlFor="is-name">{t('issue.issueName', 'Issue', { ns: 'editor' })}</FieldLabel>
               <Input id="is-name" value={name} maxLength={120} onChange={(e) => setName(e.target.value)} />
-              <FieldDescription>Prints as the PDF title, e.g. Issued for permit, Bid set, Addendum 1.</FieldDescription>
+              <FieldDescription>
+                {t('issue.issueNameWhy', 'Prints as the PDF title, e.g. Issued for permit, Bid set, Addendum 1.', { ns: 'editor' })}
+              </FieldDescription>
             </Field>
             <Field orientation="horizontal">
               <Checkbox id="is-row" checked={addRow} onCheckedChange={(c) => setAddRow(c === true)} />
-              <FieldLabel htmlFor="is-row" className="font-normal">Add a revision row to every issued sheet</FieldLabel>
+              <FieldLabel htmlFor="is-row" className="font-normal">
+                {t('issue.addRevisionRow', 'Add a revision row to every issued sheet', { ns: 'editor' })}
+              </FieldLabel>
             </Field>
             {addRow && (
               <div className="grid grid-cols-[5rem_8rem_1fr] gap-2">
@@ -499,7 +634,7 @@ export function IssueSetDialog({ projectId, modelId, model, save, canIssue, bloc
                   <Input id="is-date" value={revDate} maxLength={20} onChange={(e) => setRevDate(e.target.value)} />
                 </Field>
                 <Field>
-                  <FieldLabel htmlFor="is-desc">Description</FieldLabel>
+                  <FieldLabel htmlFor="is-desc">{t('issue.descriptionField', 'Description', { ns: 'editor' })}</FieldLabel>
                   <Input id="is-desc" value={revText} maxLength={80} onChange={(e) => setRevText(e.target.value)} />
                 </Field>
               </div>
@@ -512,19 +647,31 @@ export function IssueSetDialog({ projectId, modelId, model, save, canIssue, bloc
                 recheck()
               }}
             />
-            <p className="text-xs text-muted-foreground">Issues from saved Rev {ready.revision}. If anyone saves before you press Issue, nothing is issued and you&apos;re asked to check again.</p>
+            <p className="text-xs text-muted-foreground">
+              {t('issue.issuesFromSaved', 'Issues from saved Rev {{revision}}. If anyone saves before you press Issue, nothing is issued and you’re asked to check again.', {
+                ns: 'editor',
+                revision: ready.revision,
+              })}
+            </p>
             {status && status.history.issues.length > 0 && (
               <FieldSet>
-                <FieldLegend variant="label">Earlier issues</FieldLegend>
+                <FieldLegend variant="label">{t('issue.earlierIssues', 'Earlier issues', { ns: 'editor' })}</FieldLegend>
                 <ul className="flex flex-col gap-1 text-xs" data-testid="issue-history">
                   {status.history.issues.map((i) => (
                     <li key={i.issueId}>
-                      <a className="underline" href={i.downloadUrl} target="_blank" rel="noopener noreferrer">{i.name}</a>, Rev {i.modelRevision}, {when(i.issuedAt)}
-                      {i.issuedByName ? ` by ${i.issuedByName}` : ''} ({i.sheets.length} sheet{i.sheets.length === 1 ? '' : 's'})
+                      <a className="underline" href={i.downloadUrl} target="_blank" rel="noopener noreferrer">{i.name}</a>
+                      {', '}
+                      {t('issue.issueLine', 'Rev {{revision}}, {{when}}', { ns: 'editor', revision: i.modelRevision, when: when(i.issuedAt) })}
+                      {i.issuedByName ? ` ${t('issue.printedBy', 'by {{name}}', { ns: 'editor', name: i.issuedByName })}` : ''}{' '}
+                      {i.sheets.length === 1
+                        ? t('issue.oneSheet', '(1 sheet)', { ns: 'editor' })
+                        : t('issue.someSheets', '({{n}} sheets)', { ns: 'editor', n: i.sheets.length })}
                       {/* V10: the issue's Verify pages, on demand. */}
                       {IssuedSheetLinks && (
                         <Button variant="link" size="sm" onClick={() => setVerifyIssue(verifyIssue === i.issueId ? null : i.issueId)} aria-expanded={verifyIssue === i.issueId} data-testid="issue-history-verify">
-                          {verifyIssue === i.issueId ? 'Hide Verify pages' : 'Verify pages'}
+                          {verifyIssue === i.issueId
+                            ? t('issue.hideVerifyPages', 'Hide Verify pages', { ns: 'editor' })
+                            : t('issue.verifyPages', 'Verify pages', { ns: 'editor' })}
                         </Button>
                       )}
                       {IssuedSheetLinks && verifyIssue === i.issueId && <IssuedSheetLinks modelRef={projectId} issueId={i.issueId} withdraw={{ issueName: i.name, disabledReason: canIssue ? null : blockedReason }} />}
@@ -537,11 +684,13 @@ export function IssueSetDialog({ projectId, modelId, model, save, canIssue, bloc
         ) : null}
         {error && <p className="text-sm text-danger-600" role="alert">{error}</p>}
         <DialogFooter>
-          <Button variant="outline" onClick={onCancel} disabled={busy}>{issued ? 'Done' : 'Cancel'}</Button>
+          <Button variant="outline" onClick={onCancel} disabled={busy}>
+            {issued ? t('issue.done', 'Done', { ns: 'editor' }) : t('issue.cancel', 'Cancel', { ns: 'editor' })}
+          </Button>
           {!issued && (
             <Button onClick={() => void issue()} disabled={busy || !ready || reason !== null} title={reason ?? undefined} data-testid="issue-set-confirm">
               {busy ? <Spinner data-icon="inline-start" /> : <Stamp data-icon="inline-start" />}
-              {busy ? 'Issuing…' : 'Issue set'}
+              {busy ? t('issue.issuing', 'Issuing…', { ns: 'editor' }) : t('issue.issueSet', 'Issue set', { ns: 'editor' })}
             </Button>
           )}
         </DialogFooter>

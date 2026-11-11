@@ -39,10 +39,18 @@ function bundledResources(): Resource {
   return { tr: { common: trCommon } };
 }
 
-/** Two levels deep (language → namespace → key) is all i18next resources use here. */
-function mergeResources(base: Resource, extra: Resource | undefined): Resource {
+/**
+ * Two levels deep (language → namespace → key) is all i18next resources use here.
+ *
+ * Exported because a host now passes more than one package's Turkish: the editor
+ * ships `editor`, the schedule surfaces ship `schedules`, and the provider takes
+ * one `resources` object. Merging by hand at each host is how a namespace gets
+ * forgotten and 360 translated strings silently fall back to English.
+ */
+export function mergeResources(base: Resource, ...extra: ReadonlyArray<Resource | undefined>): Resource {
   const merged: Resource = {};
-  for (const source of [base, extra ?? {}]) {
+  for (const source of [base, ...extra]) {
+    if (source === undefined) continue
     for (const [language, namespaces] of Object.entries(source)) {
       const target = (merged[language] ??= {});
       for (const [namespace, keys] of Object.entries(namespaces ?? {})) {

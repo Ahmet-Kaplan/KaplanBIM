@@ -10,6 +10,7 @@ import { agentDrawingPrompt } from '../../contracts/building-model/agent-drawing
 import type { SaveState } from './DrawingSetDialogs'
 import type { PanelRequest } from './ViewsSheetsPanel'
 import type { SubmitCommand } from './types'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
 
 const ArrangeSheetDialog = dynamic(() => import('./DrawingSetDialogs').then((m) => m.ArrangeSheetDialog), { ssr: false })
 const RevisionsDialog = dynamic(() => import('./DrawingSetDialogs').then((m) => m.RevisionsDialog), { ssr: false })
@@ -46,7 +47,10 @@ export function openAgentToMakeDrawings(
   toast('Cmd+J has a drafted request in a new thread. Edit it and press Send; nothing changes until you approve.')
 }
 
-const NO_MODEL_SERVER = "Printing and issuing a set needs the model server, which isn't connected for this project. Reload, or ask an admin to connect it."
+const noModelServer = (t: Translate): string =>
+  t('drawingSet.needsModelServer', "Printing and issuing a set needs the model server, which isn't connected for this project. Reload, or ask an admin to connect it.", {
+    ns: 'editor',
+  })
 
 /** The drawing-set dialogs a Views & Sheets or ribbon request opens (arrange, revisions, print set, issue set, IFC export). */
 export function DrawingSetRequests({
@@ -80,11 +84,12 @@ export function DrawingSetRequests({
   blockedReason: string
   submit: SubmitCommand
 }) {
+  const t = useEditorTranslate()
   const host = useEditorHost()
   const needsServer = request?.kind === 'print_set' || request?.kind === 'issue_set'
   useEffect(() => {
     if (needsServer && (!modelId || !model)) {
-      toast.error(NO_MODEL_SERVER)
+      toast.error(noModelServer(t))
       onDone()
     }
   }, [needsServer, modelId, model, onDone])
@@ -93,7 +98,7 @@ export function DrawingSetRequests({
   useEffect(() => {
     if (request?.kind !== 'agent_make') return
     if (model) openAgentToMakeDrawings(host, model, { projectId, projectName, projectNumber })
-    else toast.error("The model hasn't finished opening yet. Wait for it to load, then try again.")
+    else toast.error(t('drawingSet.modelNotOpen', 'The model hasn’t finished opening yet. Wait for it to load, then try again.', { ns: 'editor' }))
     onDone()
   }, [host, request, model, projectId, projectName, projectNumber, onDone])
 

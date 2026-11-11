@@ -5,6 +5,7 @@ import type { SheetScene } from '@permitzip/bim-kernel'
 import type { SheetImageSource } from '@permitzip/bim-sheets/pdf-core'
 import { Spinner } from '../../ui/spinner'
 import { scenePdfBytes } from './print-sheet'
+import { useEditorTranslate } from '../i18n/translate'
 
 /** Longest side of a rendered bitmap, device pixels (browsers cap canvas size). */
 export const MAX_RENDER_PX = 8192
@@ -113,6 +114,7 @@ export function PrintedPdfLayer({
   /** Changes whenever the paper moves under the window (pan, zoom). */
   frame?: string
 }) {
+  const t = useEditorTranslate()
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [rendered, setRendered] = useState<Rendered | null>(null)
   const [placement, setPlacement] = useState<Placement>({ left: 0, top: 0, width: 1, height: 1 })
@@ -203,12 +205,16 @@ export function PrintedPdfLayer({
         aria-hidden
       />
       <div className="pointer-events-none absolute right-2 top-2 flex select-none items-center gap-1.5 rounded-md border bg-background/95 px-2 py-1 text-xs text-muted-foreground shadow-sm" role="status" data-testid="printed-pdf-status">
-        {current && `Printed PDF, Rev ${scene.revision}`}
-        {failed && <span className="text-danger-600">The printed PDF couldn&apos;t be drawn: {failed} The preview underneath is the same drawing.</span>}
+        {current && t('printedPdf.rev', 'Printed PDF, Rev {{revision}}', { ns: 'editor', revision: scene.revision })}
+        {failed && (
+          <span className="text-danger-600">
+            {t('printedPdf.couldNotDraw', 'The printed PDF couldn’t be drawn: {{message}} The preview underneath is the same drawing.', { ns: 'editor', message: failed })}
+          </span>
+        )}
         {!current && !failed && (
           <>
             <Spinner />
-            Updating the printed PDF…
+            {t('printedPdf.updating', 'Updating the printed PDF…', { ns: 'editor' })}
           </>
         )}
       </div>

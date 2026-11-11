@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { cn } from '../../ui/cn'
 import type { OriginMoveMode } from '../coordinates'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
 
 /** Which idea the diagram is explaining right now (the dialog's open tab). */
 export type CoordinatesTopic = 'origin' | 'site_point' | 'north' | 'working_angle'
@@ -25,11 +26,26 @@ const CSS = `
 @media (prefers-reduced-motion: reduce) { .bm-coord-anim { animation: none !important; } }
 `
 
-const CAPTION: Readonly<Record<CoordinatesTopic, string>> = {
-  origin: 'The project origin sits on the building. Your drawings and site coordinates are measured from it.',
-  site_point: 'The site point is a fixed mark on the land, usually from the survey. It stays put when the building moves on the site.',
-  north: 'True north is real-world north. Plan north is straight up on your screen. The angle between them is set once, for the whole model.',
-  working_angle: 'The working angle turns the directions you draw in to match the building’s walls. Nothing moves.',
+/** The picture's own words, in the language on screen. */
+function topicCaption(topic: CoordinatesTopic, t: Translate): string {
+  switch (topic) {
+    case 'origin':
+      return t('coordinates.captionOrigin', 'The project origin sits on the building. Your drawings and site coordinates are measured from it.', { ns: 'editor' })
+    case 'site_point':
+      return t(
+        'coordinates.captionSitePoint',
+        'The site point is a fixed mark on the land, usually from the survey. It stays put when the building moves on the site.',
+        { ns: 'editor' },
+      )
+    case 'north':
+      return t(
+        'coordinates.captionNorth',
+        'True north is real-world north. Plan north is straight up on your screen. The angle between them is set once, for the whole model.',
+        { ns: 'editor' },
+      )
+    case 'working_angle':
+      return t('coordinates.captionWorkingAngle', 'The working angle turns the directions you draw in to match the building’s walls. Nothing moves.', { ns: 'editor' })
+  }
 }
 
 /**
@@ -39,6 +55,7 @@ const CAPTION: Readonly<Record<CoordinatesTopic, string>> = {
  * The open tab's idea is drawn strong and moves; the rest fade back.
  */
 export function CoordinatesDiagram({ topic, mode }: { readonly topic: CoordinatesTopic; readonly mode: OriginMoveMode }) {
+  const t = useEditorTranslate()
   const [reducedMotion] = useState(() => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
   const dim = (on: boolean) => (on ? 'opacity-100' : 'opacity-30')
   const relocating = topic === 'origin' && mode === 'relocate_project'
@@ -60,14 +77,14 @@ export function CoordinatesDiagram({ topic, mode }: { readonly topic: Coordinate
         {/* Model zero: the model's own 0,0,0. */}
         <g className={dim(topic === 'origin')} data-testid="diagram-model-zero">
           <circle cx={46} cy={124} r={2.5} className="fill-muted-foreground" />
-          <text x={52} y={127} className="fill-muted-foreground">Model zero</text>
+          <text x={52} y={127} className="fill-muted-foreground">{t('coordinates.diagramModelZero', 'Model zero', { ns: 'editor' })}</text>
         </g>
 
         {/* The building, skewed on the site, with its project origin on a corner. */}
         <g className={cn(relocating && 'bm-coord-anim bm-coord-slide-building')}>
           <g transform={`rotate(${BUILDING_DEG} 150 82)`}>
             <rect x={108} y={56} width={84} height={52} className="fill-background stroke-foreground" strokeWidth={1.2} data-testid="diagram-building" />
-            <text x={176} y={102} textAnchor="middle" className="fill-muted-foreground">Building</text>
+            <text x={176} y={102} textAnchor="middle" className="fill-muted-foreground">{t('coordinates.diagramBuilding', 'Building', { ns: 'editor' })}</text>
             {/* Working axes along the walls. */}
             <g className={dim(topic === 'working_angle')} data-testid="diagram-working-axes">
               <line x1={96} y1={108} x2={204} y2={108} className="stroke-success-600" strokeWidth={1.2} strokeDasharray="4 3" />
@@ -80,7 +97,7 @@ export function CoordinatesDiagram({ topic, mode }: { readonly topic: Coordinate
               <line x1={113} y1={113} x2={123} y2={113} className="stroke-info-600" strokeWidth={1.2} />
               <line x1={118} y1={108} x2={118} y2={118} className="stroke-info-600" strokeWidth={1.2} />
             </g>
-            <text x={96} y={134} className="fill-info-700">Project origin</text>
+            <text x={96} y={134} className="fill-info-700">{t('coordinates.diagramProjectOrigin', 'Project origin', { ns: 'editor' })}</text>
           </g>
         </g>
 
@@ -96,30 +113,30 @@ export function CoordinatesDiagram({ topic, mode }: { readonly topic: Coordinate
             <text x={147} y={33} className="fill-success-700">Y</text>
           </g>
         )}
-        <text x={214} y={118} className={cn('fill-success-700', dim(topic === 'working_angle'))}>Working angle</text>
+        <text x={214} y={118} className={cn('fill-success-700', dim(topic === 'working_angle'))}>{t('coordinates.diagramWorkingAngle', 'Working angle', { ns: 'editor' })}</text>
 
         {/* The site point: a fixed mark on the land. */}
         <g className={cn(dim(topic === 'site_point'), topic === 'site_point' && 'bm-coord-anim bm-coord-pulse')} data-testid="diagram-site-point">
           <path d="M 252 40 L 259 52 L 245 52 Z" className="fill-warning-500/30 stroke-warning-600" strokeWidth={1.2} />
-          <text x={232} y={63} className="fill-warning-700">Site point</text>
+          <text x={232} y={63} className="fill-warning-700">{t('coordinates.diagramSitePoint', 'Site point', { ns: 'editor' })}</text>
         </g>
 
         {/* North: plan north (up on the screen) and true north, drawn once. */}
         <g className={dim(topic === 'north')} data-testid="diagram-north">
           <line x1={34} y1={58} x2={34} y2={18} className="stroke-muted-foreground" strokeWidth={1.2} strokeDasharray="3 2" />
-          <text x={20} y={14} className="fill-muted-foreground">Plan north</text>
+          <text x={20} y={14} className="fill-muted-foreground">{t('coordinates.diagramPlanNorth', 'Plan north', { ns: 'editor' })}</text>
           <g transform={`rotate(${NORTH_DEG} 34 58)`}>
             <line x1={34} y1={58} x2={34} y2={20} className="stroke-danger-600" strokeWidth={1.6} />
             <path d="M 34 14 L 38 23 L 30 23 Z" className="fill-danger-600" />
           </g>
-          <text x={56} y={26} className="fill-danger-600">True north</text>
+          <text x={56} y={26} className="fill-danger-600">{t('coordinates.diagramTrueNorth', 'True north', { ns: 'editor' })}</text>
           {topic === 'north' && (
             <path d="M 34 34 A 24 24 0 0 1 45.3 36.8" className="bm-coord-anim bm-coord-sweep fill-none stroke-danger-600" strokeWidth={1} strokeDasharray="60" />
           )}
         </g>
       </svg>
       <figcaption id="bm-coord-diagram-caption" className="text-xs text-muted-foreground" data-testid="coordinates-diagram-caption">
-        {CAPTION[topic]}
+        {topicCaption(topic, t)}
       </figcaption>
     </figure>
   )

@@ -6,6 +6,7 @@ import { orientationFor, projectAxis, SIDE_LABEL, type ModelAxis, type Orientati
 import { Button } from '../../ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip'
 import { cn } from '../../ui/cn'
+import { useEditorTranslate } from '../i18n/translate'
 
 const SIZE = 72
 const CENTRE = SIZE / 2
@@ -60,6 +61,7 @@ interface Props {
  * Follows the camera through refs, not React state, so orbiting re-renders nothing.
  */
 export function OrientationBall({ viewer }: Props) {
+  const t = useEditorTranslate()
   const ids = useId()
   const shadeId = `${ids}-shade`
   const shadowId = `${ids}-shadow`
@@ -158,7 +160,7 @@ export function OrientationBall({ viewer }: Props) {
       style={{ width: SIZE, height: SIZE }}
       data-testid="orientation-ball"
       role="group"
-      aria-label="Orientation ball. Click a dot to look from that side; drag the ball to orbit."
+      aria-label={t('orientation.ballAria', 'Orientation ball. Click a dot to look from that side; drag the ball to orbit.', { ns: 'editor' })}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={endPress}

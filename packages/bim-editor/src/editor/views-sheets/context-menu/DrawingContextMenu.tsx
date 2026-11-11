@@ -4,6 +4,7 @@ import { Fragment, useState } from 'react'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../../ui/alert-dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '../../../ui/dropdown-menu'
 import type { DrawingMenu, DrawingMenuAction, DrawingMenuItem } from './drawing-menu-items'
+import { useEditorTranslate } from '../../i18n/translate'
 
 interface Props {
   /** Pixels from the canvas's top-left where the right-click landed; null when closed. */
@@ -25,6 +26,7 @@ function groups(items: readonly DrawingMenuItem[]): DrawingMenuItem[][] {
 
 /** The drawing and sheet right-click menu at the pointer. Esc or a click away closes it; a greyed item says why it can't run. */
 export function DrawingContextMenu({ at, menu, onClose, onRun }: Props) {
+  const t = useEditorTranslate()
   const [confirming, setConfirming] = useState<DrawingMenuItem | null>(null)
   return (
     <>
@@ -71,7 +73,7 @@ export function DrawingContextMenu({ at, menu, onClose, onRun }: Props) {
             <AlertDialogDescription>{confirming?.confirm?.description}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('drawing.cancel', 'Cancel', { ns: 'editor' })}</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               onClick={() => {

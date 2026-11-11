@@ -17,6 +17,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { editorSourceCaptions } from "./helpers/editor-source-captions";
+import { englishOnly } from "../src/editor/i18n/translate";
+import { builtinListBlocked, builtinListLabel } from "../src/editor/schedules/builtin-lists";
 import { translateFor } from "./helpers/editor-i18n";
 import { createI18n } from "@permitzip/bim-ui";
 import { schedulesResources } from "../../bim-schedules-ui/src/i18n/resources";
@@ -204,4 +206,40 @@ test("a placeholder is never written with one brace", () => {
     .filter(([, value]) => /(^|[^{])\{[A-Za-z0-9_]+\}/u.test(value))
     .map(([key]) => key);
   expect(wrong).toEqual([]);
+});
+
+// ---------------------------------------------------------------------------
+// The leak guards: no raw placeholder, on any path a Turkish screen can reach
+// ---------------------------------------------------------------------------
+
+test("a built-in list that cannot be made says so without an English sentence or a raw placeholder", () => {
+  // `builtinListBlocked` defaults to `englishOnly`. The editor's `englishOnly` now
+  // fills `{{placeholders}}`, and `NewListScheduleDialog` and `BuildingModelSurface`
+  // pass the real translator. Both shapes are pinned here: neither an English
+  // sentence nor a literal `{{name}}`/`{{reason}}` may reach a Turkish screen.
+  const model = {
+    modelId: "m",
+    revision: 0,
+    elements: {},
+    connections: [],
+    settings: { units: "imperial", precision: 2 },
+  } as unknown as Parameters<typeof builtinListBlocked>[0];
+
+  for (const id of ["equipment_list", "loads", "takeoff"] as const) {
+    const turkish = builtinListBlocked(model, id, TR);
+    const english = builtinListBlocked(model, id, EN);
+    if (turkish === null) continue;
+    expect(turkish).not.toMatch(/\{\{/u);
+    expect(english).not.toMatch(/\{\{/u);
+    // A refusal that reaches a Turkish screen is Turkish, not the English default.
+    expect(turkish).not.toBe(english);
+    expect(turkish).toContain(builtinListLabel(id, TR));
+  }
+});
+
+test("the editor's englishOnly fills its placeholders rather than printing them", () => {
+  // The one-line change that keeps every future default from leaking a `{{name}}`.
+  expect(englishOnly("schedule.listCannotBeMade", "{{name}} can’t be made yet: {{reason}}", { name: "Loads", reason: "no field" })).toBe(
+    "Loads can’t be made yet: no field",
+  );
 });

@@ -110,7 +110,7 @@ export function ModelSchedulePane({ projectId, session, connected, view, actor, 
     )
   }
 
-  if (!view.props?.schedule && !view.props?.scheduleV2) return <FormScheduleOpens view={view} model={model} onOpenSheet={onOpenSheet} t={t} />
+  if (!view.props?.schedule && !view.props?.scheduleV2) return <FormScheduleOpens view={view} model={model} onOpenSheet={onOpenSheet} translate={t} />
 
   return (
     <div className="h-full overflow-auto p-3" data-testid="model-schedule-grid">
@@ -215,16 +215,18 @@ export function FormScheduleOpens({
   view,
   model,
   onOpenSheet,
-  t,
+  translate,
 }: {
   readonly view: ViewElement
   readonly model: ModelState | null
   readonly onOpenSheet?: (sheetId: string) => void
   /** The translator the pane passes down, so a form schedule's own words are keyed too. */
-  readonly t?: Translate
+  readonly translate?: Translate
 }) {
-  const words = useEditorTranslate()
-  const tr = t ?? words
+  // One translator, named `t`: both guards (`editor-source-captions.ts` and
+  // `tools/i18n/review-bundle.mjs`) bind a caption to its key by the `t('…')` call
+  // itself, so an alias would hide every one of these four from them.
+  const t = translate ?? useEditorTranslate()
 
   const viewport = model ? documentIndex(model).viewportByView.get(view.id) : undefined
   const sheet = viewport && model ? documentIndex(model).sheets.find((s) => s.id === viewport.sheetId) : undefined
@@ -232,21 +234,17 @@ export function FormScheduleOpens({
     <Empty data-testid="model-schedule-form-only">
       <EmptyHeader>
 
-        <EmptyTitle>{tr('schedule.formOnlyTitle', '{{name}} is laid out by its form', { ns: 'editor', name: view.name })}</EmptyTitle>
+        <EmptyTitle>{t('schedule.formOnlyTitle', '{{name}} is laid out by its form', { ns: 'editor', name: view.name })}</EmptyTitle>
 
         <EmptyDescription>
 
           {sheet
-            ? tr(
-                'schedule.formOnlyOnSheet',
-                'It is drawn on {{number}} · {{title}}; open that sheet to read it and change it (its template and rules are in its properties).',
-                { ns: 'editor', number: sheet.number, title: sheet.title },
-              )
-            : tr(
-                'schedule.formOnlyNotPlaced',
-                'Put it on a sheet from its properties (Place on sheet), then open that sheet to read it.',
-                { ns: 'editor' },
-              )}
+            ? t('schedule.formOnlyOnSheet', 'It is drawn on {{number}} · {{title}}; open that sheet to read it and change it (its template and rules are in its properties).', {
+                ns: 'editor',
+                number: sheet.number,
+                title: sheet.title,
+              })
+            : t('schedule.formOnlyNotPlaced', 'Put it on a sheet from its properties (Place on sheet), then open that sheet to read it.', { ns: 'editor' })}
 
         </EmptyDescription>
       </EmptyHeader>
@@ -255,7 +253,7 @@ export function FormScheduleOpens({
           <Button onClick={() => onOpenSheet(sheet.id)} data-testid="model-schedule-open-sheet">
 
             <FileText data-icon="inline-start" />
-            {tr('schedule.openSheetNumber', 'Open {{number}}', { ns: 'editor', number: sheet.number })}
+            {t('schedule.openSheetNumber', 'Open {{number}}', { ns: 'editor', number: sheet.number })}
 
           </Button>
         </EmptyContent>

@@ -40,8 +40,14 @@ export type Translate = (key: string, english: string, values?: TranslateValues)
  * The ribbon a host gives no translator for. Not a degraded mode: the editor's
  * providers come from the host, so a host that has not wired a language yet (or
  * a test) reads the English the call sites already carry.
+ *
+ * It fills `{{placeholders}}` rather than returning the English verbatim. That is
+ * the same repair `useEditorTranslate()` makes, and it is here so a builder that
+ * *defaults* to this translator (the built-in list checks, `calcTemplateBlocked`,
+ * `newFieldItem`) cannot put a raw `{{name}}` on a screen when a caller forgets to
+ * pass the real one — the shape both `withValues` and the schedules package use.
  */
-export const englishOnly: Translate = (_key, english) => english;
+export const englishOnly: Translate = (_key, english, values) => withValues(english, values);
 
 /**
  * The editor's translator, bound to its own namespace.

@@ -11,7 +11,16 @@ import { Separator } from '../../ui/separator'
 import { Switch } from '../../ui/switch'
 import type { SubmitCommand } from '../views-sheets/types'
 import { useEditorTranslate } from '../i18n/translate'
-import { hintsCommand, PIPE_LABEL_CHOICES, PIPING_SYSTEM_PRESETS, pipingPresetOf, type PipingSystemPreset, movedCount } from './diagram-commands'
+import {
+  hintsCommand,
+  PIPE_LABEL_CHOICES,
+  PIPING_SYSTEM_PRESETS,
+  pipeLabelChoiceName,
+  pipingPresetOf,
+  pipingSystemPresetLabel,
+  type PipingSystemPreset,
+  movedCount,
+} from './diagram-commands'
 
 interface Props {
   readonly model: ModelState
@@ -107,7 +116,7 @@ export function PipingDiagramProperties({ model, view, selectedIds, canEdit, blo
             if (p)
               set(
                 { systemKinds: p.kinds ? [...p.kinds] : undefined },
-                t('diagram.drawSystem', 'draw {{name}} on {{view}}', { ns: 'editor', name: p.label.toLowerCase(), view: view.name }),
+                t('diagram.drawSystem', 'draw {{name}} on {{view}}', { ns: 'editor', name: pipingSystemPresetLabel(p.id, t).toLowerCase(), view: view.name }),
               )
 
           }}
@@ -120,7 +129,7 @@ export function PipingDiagramProperties({ model, view, selectedIds, canEdit, blo
             <SelectGroup>
               {PIPING_SYSTEM_PRESETS.map((p) => (
                 <SelectItem key={p.id} value={p.id}>
-                  {p.label}
+                  {pipingSystemPresetLabel(p.id, t)}
                 </SelectItem>
               ))}
 
@@ -137,8 +146,14 @@ export function PipingDiagramProperties({ model, view, selectedIds, canEdit, blo
 
       {PIPE_LABEL_CHOICES.map((c) => (
         <Field key={c.id} orientation="horizontal">
-          <Switch id={`diagram-label-${c.id}`} checked={shown.has(c.id)} disabled={!canEdit} onCheckedChange={(on) => toggle(c.id, on, c.label)} data-testid={`diagram-label-${c.id}`} />
-          <FieldLabel htmlFor={`diagram-label-${c.id}`}>{c.label}</FieldLabel>
+          <Switch
+            id={`diagram-label-${c.id}`}
+            checked={shown.has(c.id)}
+            disabled={!canEdit}
+            onCheckedChange={(on) => toggle(c.id, on, pipeLabelChoiceName(c.id, t))}
+            data-testid={`diagram-label-${c.id}`}
+          />
+          <FieldLabel htmlFor={`diagram-label-${c.id}`}>{pipeLabelChoiceName(c.id, t)}</FieldLabel>
         </Field>
       ))}
 

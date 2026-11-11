@@ -1,5 +1,6 @@
 import { PAPER_SIZES, documentIndex, type Command, type FormScheduleDefinition, type ModelState, type ScheduleDefinitionV2, type Sheet, type TitleBlockType, type Vec2, type ViewCommand } from '@permitzip/bim-kernel'
 import type { ReactNode } from 'react'
+import { englishOnly, type Translate } from '../i18n/translate'
 
 /**
  * The one New schedule window's plan: make the schedule view and, when
@@ -60,19 +61,28 @@ export interface ScheduleCreate {
 
 export type NewSchedulePlan = { readonly ok: true; readonly command: Command; readonly label: string; readonly sheetId: string | null } | { readonly ok: false; readonly reason: string }
 
-/** The one edit that makes the schedule view and, when asked, puts it on its sheet. */
-export function planScheduleCreate(model: ModelState, input: ScheduleCreate): NewSchedulePlan {
-  if (!input.name.trim()) return { ok: false, reason: 'Give the schedule a name.' }
+/**
+ * The one edit that makes the schedule view and, when asked, puts it on its sheet.
+ *
+ * A refusal is a sentence the window shows under its own words, so it is keyed
+ * like any other: an English reason here reached a Turkish screen as
+ * "Çizelge oluşturulmadı: Give the schedule a name."
+ */
+export function planScheduleCreate(model: ModelState, input: ScheduleCreate, t: Translate = englishOnly): NewSchedulePlan {
+  if (!input.name.trim()) return { ok: false, reason: t('schedule.newWindow.giveName', 'Give the schedule a name.', { ns: 'editor' }) }
   const steps: ViewCommand[] = []
   let sheet = input.sheet
   if (input.newSheet) {
-    if (!input.newSheet.number.trim() || !input.newSheet.name.trim()) return { ok: false, reason: 'Give the new sheet a number and a name.' }
+    if (!input.newSheet.number.trim() || !input.newSheet.name.trim())
+      return { ok: false, reason: t('schedule.newWindow.giveSheetNumber', 'Give the new sheet a number and a name.', { ns: 'editor' }) }
     steps.push({ type: 'create_sheet', sheetId: input.newSheet.sheetId, number: input.newSheet.number.trim(), name: input.newSheet.name.trim() })
     sheet = { id: input.newSheet.sheetId, number: input.newSheet.number.trim() }
   }
   steps.push({ type: 'create_view', viewId: input.viewId, name: input.name.trim(), viewType: 'schedule', props: input.props })
   if (sheet) steps.push({ type: 'place_viewport', viewportId: input.viewportId, sheetId: sheet.id, viewId: input.viewId, center: freeSpotOnSheet(model, sheet, input.size) })
-  const label = `add ${input.subject}${sheet ? ` to ${sheet.number}` : ''}`
+  const label = sheet
+    ? t('schedule.addToSheet', 'add {{what}} to {{number}}', { ns: 'editor', what: input.subject, number: sheet.number })
+    : t('schedule.addWhat', 'add {{what}}', { ns: 'editor', what: input.subject })
   const command: Command = steps.length === 1 && steps[0] ? steps[0] : { type: 'batch_documents', label, commands: steps }
   return { ok: true, command, label, sheetId: sheet?.id ?? null }
 }

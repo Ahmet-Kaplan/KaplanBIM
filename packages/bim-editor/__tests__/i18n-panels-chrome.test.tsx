@@ -249,7 +249,7 @@ const SITES: Readonly<Record<string, number>> = {
   "panel.copies": 2,
   "panel.linkedModels": 4,
   "panel.notPlacedYet": 2,
-  "panel.properties": 2,
+  "panel.properties": 3,
   "panel.questions": 4,
   "panel.show": 3,
   "panel.showRail": 2,

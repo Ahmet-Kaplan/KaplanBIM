@@ -21,12 +21,20 @@ import path from "node:path";
 export const EDITOR_SRC = path.join(__dirname, "..", "..", "src", "editor");
 
 /**
- * `t('<key>', '<English>'` — the shape every caption is written in. The key may be
- * single- or double-quoted: the editor writes single quotes, the schedule
- * surfaces (`@permitzip/bim-schedules-ui`) double, and the scan has to read both
- * or their guard would pass over a literal it never saw.
+ * `t('<key>', '<English>'` — the shape every caption is written in.
+ *
+ * The translator may be named `t` **or** `tr`: a component that takes one as a
+ * prop and falls back to the hook (`const tr = translate ?? useEditorTranslate()`)
+ * would otherwise write `tr('schedule.formOnlyTitle', …)` and every one of its
+ * captions would be invisible to this scan — and to `npm run i18n:review`, which
+ * binds a key by the same shape. Four keys shipped in English that way; matching
+ * both names is what keeps the alias from coming back.
+ *
+ * The key may be single- or double-quoted: the editor writes single quotes, the
+ * schedule surfaces (`@permitzip/bim-schedules-ui`) double, and the scan has to
+ * read both or their guard would pass over a literal it never saw.
  */
-const CAPTION_CALL = /\bt\((['"])([A-Za-z][\w.]*)\1,\s*(['"])((?:\\.|(?!\3)[^\\])*)\3/g;
+const CAPTION_CALL = /\b(?:t|tr)\((['"])([A-Za-z][\w.]*)\1,\s*(['"])((?:\\.|(?!\3)[^\\])*)\3/g;
 
 /** One caption as the source writes it: the English the call sites hold, and how many call sites hold it. */
 export interface SourceCaption {

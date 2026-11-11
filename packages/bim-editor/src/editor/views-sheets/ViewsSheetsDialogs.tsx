@@ -24,35 +24,48 @@ import { VIEW_TYPE_LABEL, type CreatableViewType } from './types'
 import { useEditorHost } from '@permitzip/bim-editor/host'
 import { loadTitleBlocksFrom, type TitleBlockChoice } from './title-blocks-client'
 import { ParameterInput } from './ParameterInput'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
 
-const TITLE_BLOCK_LABEL: Record<TitleBlockType, string> = {
-  arch_d_mutinybim: 'ARCH D, 36" x 24"',
-  ansi_b_mutinybim: 'ANSI B, 17" x 11"',
+/** The two built-in title blocks, with the paper each is drawn for (§2.4: antet, pafta). */
+function titleBlockLabel(type: TitleBlockType, t: Translate): string {
+  return type === 'arch_d_mutinybim'
+    ? t('sheetDialog.titleBlockArchD', 'ARCH D, 36" x 24"', { ns: 'editor' })
+    : t('sheetDialog.titleBlockAnsiB', 'ANSI B, 17" x 11"', { ns: 'editor' });
 }
 
-const SHEET_FIELDS: ReadonlyArray<{ key: string; label: string; hint?: string }> = [
-  { key: 'project_name', label: 'Project' },
-  { key: 'project_number', label: 'Project no.' },
-  { key: 'client', label: 'Client' },
-  { key: 'address', label: 'Project address' },
-  { key: 'drawn_by', label: 'Drawn by' },
-  { key: 'checked_by', label: 'Checked by' },
-  { key: 'date', label: 'Date' },
-  { key: 'status', label: 'Status' },
-]
+/** The title block's own fields, in the language on screen. */
+function sheetFields(t: Translate): ReadonlyArray<{ key: string; label: string; hint?: string }> {
+  return [
+    { key: 'project_name', label: t('sheetDialog.field.project', 'Project', { ns: 'editor' }) },
+    { key: 'project_number', label: t('sheetDialog.field.projectNo', 'Project no.', { ns: 'editor' }) },
+    { key: 'client', label: t('sheetDialog.field.client', 'Client', { ns: 'editor' }) },
+    { key: 'address', label: t('sheetDialog.field.address', 'Project address', { ns: 'editor' }) },
+    { key: 'drawn_by', label: t('sheetDialog.field.drawnBy', 'Drawn by', { ns: 'editor' }) },
+    { key: 'checked_by', label: t('sheetDialog.field.checkedBy', 'Checked by', { ns: 'editor' }) },
+    { key: 'date', label: t('sheetDialog.field.date', 'Date', { ns: 'editor' }) },
+    { key: 'status', label: t('sheetDialog.field.status', 'Status', { ns: 'editor' }) },
+  ];
+}
 
 /** What a firm (library) title block adds to the strip: owner and consultants, the seal, the issue purpose. */
-const LIBRARY_SHEET_FIELDS: ReadonlyArray<{ key: string; label: string; hint?: string }> = [
-  { key: 'project_state', label: 'Project state', hint: "Two letters (VA); prints the firm's registration number for it" },
-  { key: 'owner', label: 'Owner', hint: 'Name, city' },
-  { key: 'architect', label: 'Architect', hint: 'Name, city' },
-  { key: 'structural', label: 'Structural', hint: 'Name, city' },
-  { key: 'civil', label: 'Civil', hint: 'Name, city' },
-  { key: 'engineer_name', label: 'Engineer of record' },
-  { key: 'engineer_license', label: 'Licence no.' },
-  { key: 'engineer_state', label: 'Licence state' },
-  { key: 'issue_purpose', label: 'Issue purpose', hint: 'Blank: the status' },
-]
+function librarySheetFields(t: Translate): ReadonlyArray<{ key: string; label: string; hint?: string }> {
+  const city = t('sheetDialog.hint.nameCity', 'Name, city', { ns: 'editor' });
+  return [
+    {
+      key: 'project_state',
+      label: t('sheetDialog.field.projectState', 'Project state', { ns: 'editor' }),
+      hint: t('sheetDialog.hint.projectState', "Two letters (VA); prints the firm's registration number for it", { ns: 'editor' }),
+    },
+    { key: 'owner', label: t('sheetDialog.field.owner', 'Owner', { ns: 'editor' }), hint: city },
+    { key: 'architect', label: t('sheetDialog.field.architect', 'Architect', { ns: 'editor' }), hint: city },
+    { key: 'structural', label: t('sheetDialog.field.structural', 'Structural', { ns: 'editor' }), hint: city },
+    { key: 'civil', label: t('sheetDialog.field.civil', 'Civil', { ns: 'editor' }), hint: city },
+    { key: 'engineer_name', label: t('sheetDialog.field.engineerName', 'Engineer of record', { ns: 'editor' }) },
+    { key: 'engineer_license', label: t('sheetDialog.field.engineerLicense', 'Licence no.', { ns: 'editor' }) },
+    { key: 'engineer_state', label: t('sheetDialog.field.engineerState', 'Licence state', { ns: 'editor' }) },
+    { key: 'issue_purpose', label: t('sheetDialog.field.issuePurpose', 'Issue purpose', { ns: 'editor' }), hint: t('sheetDialog.hint.blankStatus', 'Blank: the status', { ns: 'editor' }) },
+  ];
+}
 
 /** A sheet field's type: the project parameter of the same key (a date picker for Date, a list for Status), else text. */
 function fieldDef(f: { key: string; label: string; hint?: string }): ProjectParameterDef {
@@ -138,6 +151,7 @@ export function NewViewDialog({
   onCancel: () => void
   onCreate: (input: { name: string; level: string | null; scale: number }) => string | null | Promise<string | null>
 }) {
+  const t = useEditorTranslate()
   const needsLevel = viewType === 'floor_plan' || viewType === 'ceiling_plan'
   const [level, setLevel] = useState(levels[0] ?? '')
   const suggested = (lvl: string) =>
@@ -156,19 +170,19 @@ export function NewViewDialog({
       <DialogContent>
         <form onSubmit={submit} className="flex flex-col gap-4">
           <DialogHeader>
-            <DialogTitle>New {VIEW_TYPE_LABEL[viewType].toLowerCase()}</DialogTitle>
+            <DialogTitle>{t('sheetDialog.newViewTitle', 'New {{kind}}', { ns: 'editor', kind: VIEW_TYPE_LABEL[viewType].toLowerCase() })}</DialogTitle>
             <DialogDescription>
               {viewType === 'detail'
-                ? 'A drawing-only view: draw lines, text and dimensions, then place it on a sheet.'
+                ? t('sheetDialog.newDetailWhy', 'A drawing-only view: draw lines, text and dimensions, then place it on a sheet.', { ns: 'editor' })
                 : viewType === 'three_d'
-                  ? 'A saved 3D view of the work. On a sheet it prints as an isometric outline.'
-                  : 'Shows one level, cut at the height you set, with the linked models underneath.'}
+                  ? t('sheetDialog.new3dWhy', 'A saved 3D view of the work. On a sheet it prints as an isometric outline.', { ns: 'editor' })
+                  : t('sheetDialog.newPlanWhy', 'Shows one level, cut at the height you set, with the linked models underneath.', { ns: 'editor' })}
             </DialogDescription>
           </DialogHeader>
           <FieldGroup>
             {needsLevel && (
               <Field>
-                <FieldLabel htmlFor="nv-level">Level</FieldLabel>
+                <FieldLabel htmlFor="nv-level">{t('sheetDialog.level', 'Level', { ns: 'editor' })}</FieldLabel>
                 {levels.length > 0 ? (
                   <Select
                     value={level}
@@ -178,7 +192,7 @@ export function NewViewDialog({
                     }}
                   >
                     <SelectTrigger id="nv-level">
-                      <SelectValue placeholder="Pick a level" />
+                      <SelectValue placeholder={t('sheetDialog.pickALevel', 'Pick a level', { ns: 'editor' })} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
@@ -193,11 +207,15 @@ export function NewViewDialog({
                 ) : (
                   <Input id="nv-level" value={level} onChange={(e) => setLevel(e.target.value)} placeholder="L1" required />
                 )}
-                <FieldDescription>{levels.length > 0 ? "Levels come from the linked architect's model." : 'No linked model levels yet; type the level name your ductwork uses (L1).'}</FieldDescription>
+                <FieldDescription>
+                  {levels.length > 0
+                    ? t('sheetDialog.levelsFromLinked', 'Levels come from the linked architect’s model.', { ns: 'editor' })
+                    : t('sheetDialog.noLinkedLevels', 'No linked model levels yet; type the level name your ductwork uses (L1).', { ns: 'editor' })}
+                </FieldDescription>
               </Field>
             )}
             <Field>
-              <FieldLabel htmlFor="nv-name">Name</FieldLabel>
+              <FieldLabel htmlFor="nv-name">{t('sheetDialog.name', 'Name', { ns: 'editor' })}</FieldLabel>
               <Input
                 id="nv-name"
                 value={name}
@@ -212,7 +230,7 @@ export function NewViewDialog({
             </Field>
             {viewType !== 'three_d' && (
               <Field>
-                <FieldLabel htmlFor="nv-scale">Scale</FieldLabel>
+                <FieldLabel htmlFor="nv-scale">{t('sheetDialog.scale', 'Scale', { ns: 'editor' })}</FieldLabel>
                 <ScaleSelect id="nv-scale" value={scale} onChange={setScale} />
               </Field>
             )}
@@ -220,11 +238,11 @@ export function NewViewDialog({
           </FieldGroup>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onCancel}>
-              Cancel
+              {t('sheetDialog.cancel', 'Cancel', { ns: 'editor' })}
             </Button>
             <Button type="submit" disabled={busy || !name.trim() || (needsLevel && !level.trim())}>
               {busy && <Spinner data-icon="inline-start" />}
-              Create and open
+              {t('sheetDialog.createAndOpen', 'Create and open', { ns: 'editor' })}
             </Button>
           </DialogFooter>
         </form>
@@ -252,6 +270,7 @@ export function SheetDialog({
   /** `titleBlockRow`: a firm title block copied onto the sheet; null: the built-in `titleBlock`. */
   onSave: (input: { number: string; name: string; titleBlock: TitleBlockType; titleBlockRow: TitleBlockRow | null; fields: Record<string, string> }) => string | null | Promise<string | null>
 }) {
+  const t = useEditorTranslate()
   const [number, setNumber] = useState(sheet?.number ?? suggestedNumber)
   const [name, setName] = useState(sheet?.title ?? 'Mechanical plan')
   const [titleBlock, setTitleBlock] = useState<TitleBlockType>(sheet?.props?.titleBlock ?? 'arch_d_mutinybim')
@@ -278,70 +297,83 @@ export function SheetDialog({
     const builtIn = TITLE_BLOCK_TYPES.find((t) => `${BUILT_IN}${t}` === value)
     if (builtIn) setTitleBlock(builtIn)
   }
-  const shownFields = row ? [...SHEET_FIELDS.filter((f) => f.key !== 'client' && f.key !== 'status'), ...LIBRARY_SHEET_FIELDS] : SHEET_FIELDS
+  const allFields = sheetFields(t)
+  const shownFields = row ? [...allFields.filter((f) => f.key !== 'client' && f.key !== 'status'), ...librarySheetFields(t)] : allFields
   return (
     <Dialog open onOpenChange={(open) => !open && onCancel()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <form onSubmit={submit} className="flex flex-col gap-4">
           <DialogHeader>
-            <DialogTitle>{sheet ? `Sheet ${sheet.number}` : 'New sheet'}</DialogTitle>
-            <DialogDescription>{sheet ? 'Number, name and title block text.' : 'After it opens, drag views from the panel onto it.'}</DialogDescription>
+            <DialogTitle>
+              {sheet ? t('sheetDialog.sheetNumbered', 'Sheet {{number}}', { ns: 'editor', number: sheet.number }) : t('sheetDialog.newSheet', 'New sheet', { ns: 'editor' })}
+            </DialogTitle>
+            <DialogDescription>
+              {sheet
+                ? t('sheetDialog.editSheetWhy', 'Number, name and title block text.', { ns: 'editor' })
+                : t('sheetDialog.newSheetWhy', 'After it opens, drag views from the panel onto it.', { ns: 'editor' })}
+            </DialogDescription>
           </DialogHeader>
           <FieldGroup>
             <div className="grid grid-cols-3 gap-3">
               <Field>
-                <FieldLabel htmlFor="sh-number">Number</FieldLabel>
+                <FieldLabel htmlFor="sh-number">{t('sheetDialog.number', 'Number', { ns: 'editor' })}</FieldLabel>
                 <Input id="sh-number" value={number} onChange={(e) => setNumber(e.target.value)} required maxLength={40} autoFocus={!sheet} />
               </Field>
               <Field className="col-span-2">
-                <FieldLabel htmlFor="sh-name">Name</FieldLabel>
+                <FieldLabel htmlFor="sh-name">{t('sheetDialog.name', 'Name', { ns: 'editor' })}</FieldLabel>
                 <Input id="sh-name" value={name} onChange={(e) => setName(e.target.value)} required maxLength={200} />
               </Field>
             </div>
             <Field>
-              <FieldLabel htmlFor="sh-tb">Title block</FieldLabel>
+              <FieldLabel htmlFor="sh-tb">{t('sheetDialog.titleBlock', 'Title block', { ns: 'editor' })}</FieldLabel>
               <Select value={choice ?? undefined} onValueChange={pick} disabled={choice === null}>
                 <SelectTrigger id="sh-tb">
-                  <SelectValue placeholder="Loading the firm's title blocks…" />
+                  <SelectValue placeholder={t('sheetDialog.loadingTitleBlocks', 'Loading the firm’s title blocks…', { ns: 'editor' })} />
                 </SelectTrigger>
                 <SelectContent>
                   {library.choices.length > 0 && (
                     <SelectGroup>
-                      <SelectLabel>Firm library</SelectLabel>
+                      <SelectLabel>{t('sheetDialog.firmLibrary', 'Firm library', { ns: 'editor' })}</SelectLabel>
                       {library.choices.map((c) => (
                         <SelectItem key={c.id} value={`${LIBRARY}${c.id}`}>
                           {c.name}
-                          {c.isDefault ? ' (default)' : ''}
+                          {c.isDefault ? ` ${t('sheetDialog.isDefault', '(default)', { ns: 'editor' })}` : ''}
                         </SelectItem>
                       ))}
                     </SelectGroup>
                   )}
                   {keptRow && !library.choices.some((c) => c.id === keptRow.id) && (
                     <SelectGroup>
-                      <SelectLabel>On this sheet</SelectLabel>
+                      <SelectLabel>{t('sheetDialog.onThisSheet', 'On this sheet', { ns: 'editor' })}</SelectLabel>
                       <SelectItem value={`${LIBRARY}${keptRow.id}`}>{keptRow.name}</SelectItem>
                     </SelectGroup>
                   )}
                   <SelectGroup>
-                    <SelectLabel>Built in</SelectLabel>
-                    {TITLE_BLOCK_TYPES.map((t) => (
-                      <SelectItem key={t} value={`${BUILT_IN}${t}`}>
-                        {TITLE_BLOCK_LABEL[t]}
+                    <SelectLabel>{t('sheetDialog.builtIn', 'Built in', { ns: 'editor' })}</SelectLabel>
+                    {TITLE_BLOCK_TYPES.map((type) => (
+                      <SelectItem key={type} value={`${BUILT_IN}${type}`}>
+                        {titleBlockLabel(type, t)}
                       </SelectItem>
                     ))}
                   </SelectGroup>
                 </SelectContent>
               </Select>
-              {library.note ? <FieldDescription>{library.note}</FieldDescription> : <FieldDescription>Firm title blocks and the default: Settings › MutinyBIM library › Title blocks.</FieldDescription>}
+              {library.note ? (
+                <FieldDescription>{library.note}</FieldDescription>
+              ) : (
+                <FieldDescription>
+                  {t('sheetDialog.firmBlocksWhere', 'Firm title blocks and the default: Settings › MutinyBIM library › Title blocks.', { ns: 'editor' })}
+                </FieldDescription>
+              )}
             </Field>
             <FieldDescription>
-              A blank field prints the project&apos;s information, filled in once for every sheet
+              {t('sheetDialog.blankPrintsProject', 'A blank field prints the project’s information, filled in once for every sheet', { ns: 'editor' })}
               {onProjectInfo ? (
                 <>
                   {' '}
                   in{' '}
                   <Button type="button" variant="link" className="h-auto p-0" onClick={onProjectInfo} data-testid="sheet-dialog-project-info">
-                    Project information
+                    {t('sheetDialog.projectInformation', 'Project information', { ns: 'editor' })}
                   </Button>
                 </>
               ) : null}
@@ -365,11 +397,15 @@ export function SheetDialog({
           </FieldGroup>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onCancel}>
-              Cancel
+              {t('sheetDialog.cancel', 'Cancel', { ns: 'editor' })}
             </Button>
-            <Button type="submit" disabled={busy || !number.trim() || !name.trim() || choice === null} title={choice === null ? "Waiting for the firm's title blocks to load" : undefined}>
+            <Button
+              type="submit"
+              disabled={busy || !number.trim() || !name.trim() || choice === null}
+              title={choice === null ? t('sheetDialog.waitingTitleBlocks', 'Waiting for the firm’s title blocks to load', { ns: 'editor' }) : undefined}
+            >
               {busy && <Spinner data-icon="inline-start" />}
-              {sheet ? 'Save' : 'Create and open'}
+              {sheet ? t('sheetDialog.save', 'Save', { ns: 'editor' }) : t('sheetDialog.createAndOpen', 'Create and open', { ns: 'editor' })}
             </Button>
           </DialogFooter>
         </form>
@@ -379,6 +415,7 @@ export function SheetDialog({
 }
 
 export function RenameViewDialog({ view, onCancel, onRename }: { view: ViewElement; onCancel: () => void; onRename: (name: string) => string | null }) {
+  const t = useEditorTranslate()
   const [name, setName] = useState(view.name)
   const { error, busy, run } = useSave(onCancel)
   return (
@@ -392,20 +429,22 @@ export function RenameViewDialog({ view, onCancel, onRename }: { view: ViewEleme
           }}
         >
           <DialogHeader>
-            <DialogTitle>Rename view</DialogTitle>
-            <DialogDescription>The new name shows on every sheet this view is placed on.</DialogDescription>
+            <DialogTitle>{t('sheetDialog.renameView', 'Rename view', { ns: 'editor' })}</DialogTitle>
+            <DialogDescription>
+              {t('sheetDialog.renameViewWhy', 'The new name shows on every sheet this view is placed on.', { ns: 'editor' })}
+            </DialogDescription>
           </DialogHeader>
           <Field>
-            <FieldLabel htmlFor="rv-name">Name</FieldLabel>
+            <FieldLabel htmlFor="rv-name">{t('sheetDialog.name', 'Name', { ns: 'editor' })}</FieldLabel>
             <Input id="rv-name" value={name} onChange={(e) => setName(e.target.value)} required maxLength={120} autoFocus />
             {error && <FieldError>{error}</FieldError>}
           </Field>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onCancel}>
-              Cancel
+              {t('sheetDialog.cancel', 'Cancel', { ns: 'editor' })}
             </Button>
             <Button type="submit" disabled={busy || !name.trim() || name.trim() === view.name}>
-              Rename
+              {t('sheetDialog.rename', 'Rename', { ns: 'editor' })}
             </Button>
           </DialogFooter>
         </form>
@@ -427,6 +466,7 @@ export function DeleteDialog({
   onCancel: () => void
   onConfirm: () => string | null
 }) {
+  const t = useEditorTranslate()
   const [error, setError] = useState<string | null>(null)
   return (
     <AlertDialog open onOpenChange={(open) => !open && onCancel()}>
@@ -437,7 +477,7 @@ export function DeleteDialog({
         </AlertDialogHeader>
         {error && <p className="text-sm text-danger-600" role="alert">{error}</p>}
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>{t('sheetDialog.cancel', 'Cancel', { ns: 'editor' })}</AlertDialogCancel>
           <AlertDialogAction
             className="bg-destructive text-white hover:bg-destructive/90"
             onClick={(e) => {
@@ -475,45 +515,66 @@ export function PrintDialog({
   onCancel: () => void
   onPrint: (choice: PrintChoice) => Promise<string | null>
 }) {
+  const t = useEditorTranslate()
   const [choice, setChoice] = useState<PrintChoice>(pendingOnSheet > 0 ? 'wait' : 'saved')
   const { error, busy, run } = useSave(onCancel)
   return (
     <Dialog open onOpenChange={(open) => !open && !busy && onCancel()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Print {sheet.number} to PDF</DialogTitle>
-          <DialogDescription>A vector PDF at true scale, {paperWords(sheetPaperSize(sheet))}. Printing doesn&apos;t issue the sheet.</DialogDescription>
+          <DialogTitle>{t('print.printToPdf', 'Print {{number}} to PDF', { ns: 'editor', number: sheet.number })}</DialogTitle>
+          <DialogDescription>
+            {t('print.vectorPdf', 'A vector PDF at true scale, {{paper}}. Printing doesn’t issue the sheet.', {
+              ns: 'editor',
+              paper: paperWords(sheetPaperSize(sheet)),
+            })}
+          </DialogDescription>
         </DialogHeader>
         {pendingOnSheet > 0 ? (
           <RadioGroup value={choice} onValueChange={(v) => setChoice(v === 'saved' ? 'saved' : 'wait')} className="gap-3">
             <div className="flex items-start gap-2">
               <RadioGroupItem id="pr-wait" value="wait" />
               <Label htmlFor="pr-wait" className="flex flex-col items-start gap-0.5 font-normal">
-                <span className="font-medium">Wait for my pending edits, then print</span>
+                <span className="font-medium">{t('print.waitForEdits', 'Wait for my pending edits, then print', { ns: 'editor' })}</span>
                 <span className="text-xs text-muted-foreground">
-                  {pendingOnSheet} of your changes on this sheet {pendingOnSheet === 1 ? "isn't" : "aren't"} saved yet. If one is refused, nothing prints and you&apos;ll see why.
+                  {pendingOnSheet === 1
+                    ? t('print.oneUnsaved', '1 of your changes on this sheet isn’t saved yet. If it is refused, nothing prints and you’ll see why.', { ns: 'editor' })
+                    : t('print.someUnsaved', '{{n}} of your changes on this sheet aren’t saved yet. If one is refused, nothing prints and you’ll see why.', {
+                        ns: 'editor',
+                        n: pendingOnSheet,
+                      })}
                 </span>
               </Label>
             </div>
             <div className="flex items-start gap-2">
               <RadioGroupItem id="pr-saved" value="saved" />
               <Label htmlFor="pr-saved" className="flex flex-col items-start gap-0.5 font-normal">
-                <span className="font-medium">Print the last saved revision (Rev {savedRevision})</span>
-                <span className="text-xs text-muted-foreground">Leaves out your changes still on their way.</span>
+                <span className="font-medium">
+                  {t('print.printLastSaved', 'Print the last saved revision (Rev {{revision}})', { ns: 'editor', revision: savedRevision })}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {t('print.leavesOutYours', 'Leaves out your changes still on their way.', { ns: 'editor' })}
+                </span>
               </Label>
             </div>
           </RadioGroup>
         ) : (
-          <p className="text-sm">Everything on this sheet is saved. It prints from Rev {savedRevision}.</p>
+          <p className="text-sm">
+            {t('print.allSaved', 'Everything on this sheet is saved. It prints from Rev {{revision}}.', { ns: 'editor', revision: savedRevision })}
+          </p>
         )}
         {error && <p className="text-sm text-danger-600" role="alert">{error}</p>}
         <DialogFooter>
           <Button variant="outline" onClick={onCancel} disabled={busy}>
-            Cancel
+            {t('print.cancel', 'Cancel', { ns: 'editor' })}
           </Button>
           <Button onClick={() => void run(() => onPrint(choice))} disabled={busy} data-testid="print-pdf-confirm">
             {busy && <Spinner data-icon="inline-start" />}
-            {busy ? (choice === 'wait' && pendingOnSheet > 0 ? 'Waiting for edits to save…' : 'Drawing the PDF…') : 'Print PDF'}
+            {busy
+              ? choice === 'wait' && pendingOnSheet > 0
+                ? t('print.waitingForEdits', 'Waiting for edits to save…', { ns: 'editor' })
+                : t('print.drawingPdf', 'Drawing the PDF…', { ns: 'editor' })
+              : t('print.printPdf', 'Print PDF', { ns: 'editor' })}
           </Button>
         </DialogFooter>
       </DialogContent>

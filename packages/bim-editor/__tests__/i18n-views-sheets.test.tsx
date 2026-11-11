@@ -83,12 +83,85 @@ const CAPTIONS: readonly Caption[] = [
   { key: "view.rename", english: "Rename", turkish: "Yeniden adlandır" },
 ];
 
-/** How many call sites each shared caption has today; a new site is a deliberate bump here. */
+/**
+ * The prefixes this file owns: the words a view, a sheet, a crop, the orientation
+ * controls, the drafting bar, a tag, a note, a drawing-set dialog and a diagram
+ * are drawn with. The exhaustiveness half below uses it, so a key added to one of
+ * these surfaces cannot arrive without a site count.
+ */
+const OWNED = [
+  "view.",
+  "crop3d.",
+  "coordinates.",
+  "orientation.",
+  "canvas.",
+  "draft.",
+  "tag.",
+  "dimension.",
+  "note.",
+  "section.",
+  "selection.",
+  "sheetDialog.",
+  "sheetFigure.",
+  "arrange.",
+  "callout.",
+  "circuits.",
+  "figure.",
+  "issue.",
+  "keynote.",
+  "parameter.",
+  "print.",
+  "printedPdf.",
+  "revisions.",
+  "set.",
+  "drawingSet.",
+  "drawing.",
+  "titleBlock.",
+  "projectInfo.",
+  "diagram.",
+] as const;
+
+/**
+ * How many call sites each shared caption has today; a new site is a deliberate
+ * bump here. A key written in two places (a heading and a tooltip, an aria-label
+ * and a button) would pass a presence check while one of them went back to a
+ * literal, which is exactly the revert this table catches.
+ */
 const SITES: Readonly<Record<string, number>> = {
-  "view.projection": 2,
+  "view.projection": 3,
   "view.noLimit": 2,
+  "view.drawEveryLinkedObject": 2,
+  "view.leaveOutLinkedUnder": 2,
   "titleBlock.default": 2,
   "titleBlock.unknownError": 2,
+  "coordinates.cancel": 2,
+  "coordinates.howOriginMoves": 2,
+  "coordinates.typeCoordinates": 2,
+  "coordinates.snappedTo": 2,
+  "orientation.offWorkPlane": 2,
+  "crop3d.moveGripWhat": 2,
+  "canvas.editingOnSheet": 2,
+  "callout.refersTo": 2,
+  "keynote.pickAKeynote": 2,
+  "section.dragThisEnd": 2,
+  "section.cancel": 2,
+  "print.drawingSet": 2,
+  "issue.printedBy": 2,
+  "sheetDialog.name": 3,
+  "sheetDialog.cancel": 4,
+  "sheetDialog.createAndOpen": 2,
+  "draft.lineStyle": 2,
+  "diagram.properties": 2,
+  "diagram.namedOnThisDiagram": 2,
+  "diagram.leaveOffWhat": 2,
+  "diagram.leaveOff": 2,
+  "diagram.leftOff": 2,
+  "diagram.showAgainWhat": 2,
+  "diagram.showAgain": 2,
+  "diagram.nothingMoved": 2,
+  "diagram.resetWhat": 2,
+  "diagram.resetPositionsN": 2,
+  "diagram.resetPositions": 2,
 };
 
 const fill = (template: string, values: Readonly<Record<string, string | number>> | undefined): string =>
@@ -106,6 +179,28 @@ test("a view or sheet caption is still keyed at every place it is written", () =
   for (const caption of CAPTIONS) {
     expect({ key: caption.key, sites: source.get(caption.key)?.sites }).toEqual({ key: caption.key, sites: SITES[caption.key] ?? 1 });
   }
+});
+
+/**
+ * The other half of the pin: a caption written in two places must have a number
+ * in `SITES`. Without this, `SITES[key] ?? 1` quietly assumed one site for every
+ * new key, and a second site could appear (or revert) unpinned.
+ */
+test("every caption this file owns that is written twice or more has its site count pinned", () => {
+  const source = editorSourceCaptions();
+  const unpinned = [...source.entries()]
+    .filter(([key]) => OWNED.some((prefix) => key.startsWith(prefix)))
+    .filter(([key, caption]) => caption.sites > 1 && SITES[key] === undefined)
+    .map(([key, caption]) => `${key} (${caption.sites} sites)`);
+  expect(unpinned).toEqual([]);
+});
+
+test("no pinned count is stale: every key in SITES is still in the source that many times", () => {
+  const source = editorSourceCaptions();
+  const wrong = Object.entries(SITES)
+    .filter(([key, sites]) => (source.get(key)?.sites ?? 0) !== sites)
+    .map(([key, sites]) => `${key}: pinned ${sites}, source has ${source.get(key)?.sites ?? 0}`);
+  expect(wrong).toEqual([]);
 });
 
 test("sheet and title block labels are Turkish", () => {
