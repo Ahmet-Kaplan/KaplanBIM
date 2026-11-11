@@ -2,6 +2,8 @@ import { CircleSlash, RotateCw } from 'lucide-react'
 import { Spinner } from '../../ui/spinner'
 import type { BuildingModelRibbonContext } from '../building-model-ribbon'
 import type { RibbonCommand, RibbonGroup, RibbonTab } from '../ribbon/types'
+import { englishOnly } from '../i18n/translate'
+import { domainLabelOf } from '../i18n/domain'
 import { FIRST_PARTY_ONLY, isAddonActive, loadState, retryContribution, ribbonContributions } from './registry'
 import type { AddonId, RibbonCommandContribution, RibbonCommandTarget, RibbonTabContribution } from './types'
 
@@ -16,8 +18,13 @@ function notLoadedReason(name: string): string {
   return `${name} isn't loaded for this model. The model has ${name} content, but this server doesn't have the ${name} add-on, so its tools are off. Nothing is lost: the content stays in the model.`
 }
 
-function statusTab(c: RibbonTabContribution, select: RibbonGroup, command: RibbonCommand): RibbonTab {
-  return { id: c.id, label: c.label, groups: [select, { id: `${c.id}-addon-status`, label: c.label, commands: [command] }] }
+/**
+ * A tab whose code has not loaded. Its name is the add-on's own trade word
+ * (`ADDON_UI`), which is domain data: `label` here is already translated by the
+ * caller (§7/Ç-B), so an English pack stays English in the file.
+ */
+function statusTab(c: RibbonTabContribution, label: string, select: RibbonGroup, command: RibbonCommand): RibbonTab {
+  return { id: c.id, label, groups: [select, { id: `${c.id}-addon-status`, label, commands: [command] }] }
 }
 
 function loadingCommand(id: string, label: string, testId: string): RibbonCommand {
@@ -31,12 +38,15 @@ function retryCommand(id: string, label: string, message: string, retry: () => v
 /** The tabs of one kind the model's add-ons bring, in registration order. */
 export function contributedTabs(kind: RibbonTabContribution['kind'], ctx: BuildingModelRibbonContext, select: RibbonGroup): RibbonTab[] {
   const availability = ctx.addons ?? FIRST_PARTY_ONLY
+  // The add-on's trade word is a domain label (`Electrical`, `Fire protection`),
+  // so it is translated where it is drawn rather than in the pack's `ADDON_UI`.
+  const domain = domainLabelOf(ctx.t ?? englishOnly)
   const out: RibbonTab[] = []
   for (const c of ribbonContributions()) {
     if (c.kind !== kind || !c.applies(ctx)) continue
     const missing = availability.notLoaded.get(c.addon)
     if (missing !== undefined) {
-      if (kind === 'ribbon-tab') out.push(statusTab(c, select, { id: `${c.id}-not-loaded`, label: `${missing} isn't loaded`, icon: CircleSlash, description: notLoadedReason(missing), disabledReason: notLoadedReason(missing), testId: `ribbon-${c.id}-not-loaded` }))
+      if (kind === 'ribbon-tab') out.push(statusTab(c, domain(c.label), select, { id: `${c.id}-not-loaded`, label: `${missing} isn't loaded`, icon: CircleSlash, description: notLoadedReason(missing), disabledReason: notLoadedReason(missing), testId: `ribbon-${c.id}-not-loaded` }))
       continue
     }
     if (!isAddonActive(c.addon, availability)) continue
@@ -45,7 +55,8 @@ export function contributedTabs(kind: RibbonTabContribution['kind'], ctx: Buildi
       const tab = state.module.build(ctx, select)
       if (tab) out.push(tab)
     } else if (kind === 'ribbon-tab') {
-      out.push(statusTab(c, select, state.status === 'loading' ? loadingCommand(c.id, c.label, `ribbon-${c.id}-loading`) : retryCommand(c.id, c.label, state.message, () => retryContribution(c), `ribbon-${c.id}-retry`)))
+      const label = domain(c.label)
+      out.push(statusTab(c, label, select, state.status === 'loading' ? loadingCommand(c.id, label, `ribbon-${c.id}-loading`) : retryCommand(c.id, label, state.message, () => retryContribution(c), `ribbon-${c.id}-retry`)))
     }
   }
   return out

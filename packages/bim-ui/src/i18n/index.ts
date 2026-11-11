@@ -1,5 +1,6 @@
 import i18next, { type i18n as I18nInstance, type Resource } from "i18next";
 import trCommon from "../../locales/tr/common.json";
+import trDomain from "../../locales/tr/domain.json";
 
 /**
  * The languages MutinyBIM speaks. English is the source of truth: the text lives
@@ -36,7 +37,10 @@ export interface CreateI18nOptions {
  * name itself is never shown.
  */
 function bundledResources(): Resource {
-  return { tr: { common: trCommon } };
+  // `common` and `domain` are both this kit's own: `domain` is the ~600 pack and
+  // `bim-units` labels (`src/i18n/domain.ts`), which every host needs and no
+  // package owns. Anything else travels with the package that shows it.
+  return { tr: { common: trCommon, domain: trDomain } };
 }
 
 /**

@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { GitMerge, Hand, RefreshCw } from 'lucide-react'
-import { disciplineLabel } from '@permitzip/bim-kernel'
 import type { LandedPart, MergePreview, WaitingPart } from '@permitzip/bim-sync'
 import { Alert, AlertDescription, AlertTitle } from '../../ui/alert'
 import { Badge } from '../../ui/badge'
@@ -17,6 +16,7 @@ import { useEditorHost } from '@permitzip/bim-editor/host'
 import { fetchMergesFrom, proposeMergeFrom, recordLandedFrom, takeResponsibilityFrom } from '../../contracts/bim/responsibilities/client'
 import { takeOutcomeWords } from '../responsibilities/signoff-words'
 import { useEditorTranslate } from '../i18n/translate'
+import { domainLabelOf } from '../i18n/domain'
 
 /**
  * In a branch › header › Propose merge to Main. Shows what would merge, by
@@ -54,8 +54,12 @@ type Load =
   | { readonly state: 'error'; readonly message: string }
   | { readonly state: 'ready'; readonly preview: MergePreview; readonly proposal: ProposalView | null; readonly viewerId: string }
 
-export function ProposeMergeDialog({ open, onOpenChange, projectId, branchId, blockedReason, requestPreview, requestApply, labelOf = disciplineLabel }: ProposeMergeDialogProps) {
+export function ProposeMergeDialog({ open, onOpenChange, projectId, branchId, blockedReason, requestPreview, requestApply, labelOf: labelOfGiven }: ProposeMergeDialogProps) {
   const t = useEditorTranslate()
+  // A discipline's name is domain data (`domain.json`: *Electrical* → *Elektrik*),
+  // so the default reader translates it where it is drawn; a host that names its
+  // own parts passes its own `labelOf` and keeps it.
+  const labelOf = labelOfGiven ?? domainLabelOf(t)
   const responsibilities = useEditorHost().data.responsibilities
   const [attempt, setAttempt] = useState(0)
   const key = `${projectId}|${branchId}|${attempt}`

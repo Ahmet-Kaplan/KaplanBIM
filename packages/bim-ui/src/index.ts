@@ -18,6 +18,7 @@ export { cn } from "./ui/cn";
 export * from "./i18n";
 export * from "./i18n/provider";
 export * from "./i18n/use-t";
+export * from "./i18n/domain";
 export * from "./i18n/format";
 export * from "./i18n/prose";
 export * from "./i18n/persistence";
