@@ -91,10 +91,23 @@ const SCREEN_NOUNS: readonly (readonly [string, string])[] = [
   ["tavan", "ceiling"],
 ];
 
-/** True when `word` stands alone in `text` (Turkish suffixes are on the left of it only). */
+/**
+ * True when `text` names `word`.
+ *
+ * **Left boundary only, on purpose.** Turkish builds a word from a stem plus suffixes
+ * on the *right*: `pafta` → `paftada`/`paftadan`, `grup` → `grupta`, `görünüm` →
+ * `görünümü`, `faz` → `fazlar`. A right-hand boundary made this guard blind to exactly
+ * the strings it exists to catch — it reported the old `in_use` sentence (“… bir
+ * paftada kullanımda …”) as naming no sheet at all, so the two defects the review found
+ * stayed invisible and only the English half of each self-test fired.
+ *
+ * The cost is over-reach in the other direction (`kat` also matches `kategori`), which
+ * is the direction a guard should err: a false alarm is a sentence to rewrite, a missed
+ * one is a wrong sentence on screen.
+ */
 function namesWord(text: string, word: string): boolean {
   const escaped = word.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-  return new RegExp(String.raw`(?<![\p{L}])${escaped}(?![\p{L}])`, "iu").test(text);
+  return new RegExp(String.raw`(?<![\p{L}])${escaped}`, "iu").test(text);
 }
 
 const TR = translateFor("tr");
@@ -131,7 +144,7 @@ test("a sentence a template can key is preferred to the generic one", () => {
 test("a sentence no template can key falls back to the translated code, never to English", () => {
   const shown = refusalWords("has_dependents", '2 elements are in "Level 1". Choose a group to move them to, then delete.', "tr", TR);
   // The generic sentence says less — and says it in Turkish, which is the point.
-  expect(shown).toContain("Bağlı elemanlar var");
+  expect(shown).toContain("Buna bağlı başka şeyler var");
   expect(shown).not.toContain("elements");
 });
 
@@ -151,31 +164,76 @@ test("no raw slot or placeholder reaches the screen", () => {
 // The same defect, one layer up: the editor's own "not connected" prose
 // ---------------------------------------------------------------------------
 
+/**
+ * `isn't connected`, in every form it reaches the source.
+ *
+ * `isn.t connected` looked like it covered them and covered none but the ASCII one:
+ * `.` is *one* character and `isn&apos;t` has six between `isn` and `t`. The review
+ * measured it false on the exact JSX form a revert would produce, so the whole guard
+ * was decorative. Each apostrophe is spelled out and a self-test below proves it.
+ */
+const NOT_CONNECTED = /isn(?:'|&#39;|&apos;|\u2019)t\s+connected/iu;
+
+/**
+ * Sentences in `files` (`id` → source) that say "isn't connected" without being inside a
+ * `t('session.…', '…')` call. Split out of its test so the guard can be proven to fire.
+ */
+function bareConnectedSentences(files: Readonly<Record<string, string>>): string[] {
+  const bare: string[] = [];
+  for (const [id, text] of Object.entries(files)) {
+    for (const line of text.split("\n")) {
+      const found = NOT_CONNECTED.exec(line);
+      if (found === null) continue;
+      // A comment explaining the family is not a sentence on a screen.
+      if (/^\s*(?:\*|\/\*|\/\/)/u.test(line)) continue;
+      // The key has to be on the same line, before the sentence: `t('session.…', "…"`
+      // with any options after it (on this line or the next).
+      if (/t\(\s*'session\.[A-Za-z]+',\s*"[^"]*$/u.test(line.slice(0, found.index))) continue;
+      bare.push(`${id}: ${line.trim()}`);
+    }
+  }
+  return bare;
+}
+
+const OWNED_FILES = ["packages/bim-editor/src/editor/model-session.ts", "packages/bim-editor/src/editor/BuildingModelSurface.tsx"];
+
+/** The two files' sources, read once. */
+function ownedSources(): Record<string, string> {
+  return Object.fromEntries(OWNED_FILES.map((id) => [id, readFileSync(join(REPO_ROOT, id), "utf8")]));
+}
+
 test("the session and the surface say why editing is off in a translated sentence", () => {
   // These call sites hand a sentence back to a panel when there is no live session.
   // Written as a bare English literal they reached a Turkish screen as English — the
   // same complaint this file exists for, one layer above the kernel. Every one of
   // them is a `t('session.…', '…', { ns: 'editor' })` now, and this keeps it that way.
-  const files = ["packages/bim-editor/src/editor/model-session.ts", "packages/bim-editor/src/editor/BuildingModelSurface.tsx"];
-  const bare: string[] = [];
-  for (const id of files) {
-    for (const line of readFileSync(join(__dirname, "../../..", id), "utf8").split("\n")) {
-      // `isn.t connected` on purpose: the apostrophe arrives as `'`, as the JSX entity
-      // `&apos;`, and as the typographic `\u2019`. The first version of this guard
-      // matched only the ASCII form, so a whole JSX alert sailed past it.
-      if (!/isn.t connected/iu.test(line)) continue;
-      // A comment explaining the family is not a sentence on a screen.
-      if (/^\s*(?:\*|\/\*|\/\/)/u.test(line)) continue;
-      // The key has to be on the same line, before the sentence: `t('session.…', "…"`
-      // with any options after it (on this line or the next).
-      const at = line.indexOf(
-        line.match(/isn.t connected/iu)?.[0] ?? "",
-      );
-      if (/t\(\s*'session\.[A-Za-z]+',\s*"[^"]*$/u.test(line.slice(0, at))) continue;
-      bare.push(`${id}: ${line.trim()}`);
-    }
-  }
-  expect(bare).toEqual([]);
+  expect(bareConnectedSentences(ownedSources())).toEqual([]);
+});
+
+test("the isn't-connected guard sees every apostrophe the source can carry", () => {
+  const forms = [
+    "Live editing isn't connected",
+    "Live editing isn&apos;t connected",
+    "Live editing isn&#39;t connected",
+    "Live editing isn\u2019t connected",
+  ];
+  expect(forms.filter((form) => !NOT_CONNECTED.test(form))).toEqual([]);
+  expect(NOT_CONNECTED.test("Live editing is connected")).toBe(false);
+  expect(NOT_CONNECTED.test("Live editing is not connected")).toBe(false);
+});
+
+test("the isn't-connected guard fires on a bare JSX sentence and passes the keyed one", () => {
+  // The exact shape of a revert of the read-only alert: JSX text, `&apos;`, no `t()`.
+  expect(
+    bareConnectedSentences({
+      "surface.tsx": '                <AlertDescription>Live editing isn&apos;t connected for this project yet.</AlertDescription>',
+    }),
+  ).toHaveLength(1);
+  expect(
+    bareConnectedSentences({
+      "surface.tsx": '                <AlertDescription>{t(\'session.viewOnlyBody\', "Live editing isn&apos;t connected for this project yet.", { ns: \'editor\' })}</AlertDescription>',
+    }),
+  ).toEqual([]);
 });
 
 test("every keyed sentence in those two files has a Turkish string, and the count is pinned", () => {
@@ -275,6 +333,33 @@ test("no generic refusal names a screen that only some of its sentences are abou
   expect(defects).toEqual([]);
 });
 
+test("the cause-neutrality guard sees Turkish suffixes, so it can fire at all", () => {
+  // Turkish attaches suffixes on the right. A boundary-strict matcher reported the old
+  // `in_use` sentence as naming no sheet, which is why two rounds of review found this
+  // and the guard did not.
+  expect(namesWord("Bu hâlâ bir paftada kullanımda. Önce paftadan kaldırın.", "pafta")).toBe(true);
+  expect(namesWord('"Level 1" is locked, so new elements can\'t go in it.', "grupta")).toBe(false);
+  expect(namesWord("Kilitli bir grupta. Gruplar ve fazlar.", "grup")).toBe(true);
+  expect(namesWord("Görünümünüz güncellendi.", "görünüm")).toBe(true);
+  expect(namesWord("Karışık fazlar", "faz")).toBe(true);
+  // Quiet where there is genuinely no such noun.
+  expect(namesWord("Bu değer geçerli değil. Kontrol edip tekrar deneyin.", "pafta")).toBe(false);
+  expect(namesWord("Kilitli olduğu için değiştirilemedi.", "grup")).toBe(false);
+});
+
+test("the cause-neutrality guard fires on the sentence from the Turkish side alone", () => {
+  // The English says nothing about a sheet; only the Turkish half named one, which is
+  // exactly the half the old matcher could not see.
+  expect(
+    genericSentenceDefects(
+      "in_use",
+      "Bu hâlâ bir paftada kullanımda. Önce paftadan kaldırın.",
+      "That is still in use, so it can't be changed.",
+      catalogue.templates.filter((row) => row.codes.includes("in_use")),
+    ),
+  ).not.toEqual([]);
+});
+
 test("the cause-neutrality guard fires on the two sentences the review found", () => {
   const backing = (code: string): readonly { template: string }[] => catalogue.templates.filter((row) => row.codes.includes(code));
 
@@ -334,4 +419,15 @@ test("no placeholder reaches the screen through englishOnly", () => {
     .map(([key, english, values]) => ({ key, shown: withValues(englishOnly(key, english), values) }))
     .filter(({ shown }) => /\{\{|\}\}/u.test(shown));
   expect(leaked).toEqual([]);
+});
+
+test("the two placeholder sentences are wrapped in withValues, not handed to a bare t()", () => {
+  // `englishOnly` returns its English argument verbatim, `{{reason}}` and all, so a
+  // call site that loses `withValues` leaks braces. Nothing asserted it before: reverting
+  // either line stayed green.
+  const source = readFileSync(join(REPO_ROOT, "packages/bim-editor/src/editor/model-session.ts"), "utf8");
+  const unwrapped = ["session.changeNotSaved", "session.levelNotAdded"].filter(
+    (key) => !new RegExp(String.raw`withValues\(\s*this\.t\(\s*'${key.replace(".", "\\.")}'`, "u").test(source),
+  );
+  expect(unwrapped).toEqual([]);
 });

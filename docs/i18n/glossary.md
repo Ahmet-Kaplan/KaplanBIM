@@ -468,7 +468,44 @@ Türkçede **çoğul eki yoktur** sayıdan sonra: "3 eleman" (~~"3 elemanlar"~~)
 | `Mixed phases` / `Mixed` | `Karışık fazlar` / `Karışık` |
 | `Not set` | `Ayarlanmadı` |
 
-**Durum/hata sözlüğü:** Bağlantı kurulamıyor · Bu bilgisayar çevrimdışı · Bağlantı kontrol ediliyor · Oturumunuz kapalı · Model sunucusu oturum açmanızı reddetti · Bu proje için canlı düzenleme henüz kurulmadı · Bu modeli düzenleme yetkiniz yok · Yalnızca görüntüleme · Salt okunur · Proje dışındakiler için salt okunur · Bağlandı. Tüm değişiklikler kaydedildi · Bağlanıyor… · Yeniden bağlanıyor… · Kaydediliyor… · Kaydedilmemiş değişiklikler · Kaydedilmemiş değişiklik yok · Kaydedilmedi · Hazır değil · İlgi gerekiyor · Önce boyutu düzeltin · reddedildi · çakışma · geçersiz · kilitli · kullanımda · eski · desteklenmiyor · yasak · bağlı elemanlar var · geri alınamadı · devre dışı · engellendi · Bu adda veya numarada bir kayıt zaten var · Aynı anda başka biri bunu değiştirdi · Görünümünüz güncellendi; tekrar deneyin · O eleman başka biri tarafından kaldırıldı · Hiçbir şey silinmedi
+**Durum/hata sözlüğü (kelimeler):** bağlantı kurulamıyor · Bu bilgisayar çevrimdışı · Bağlantı kontrol ediliyor · Oturumunuz kapalı · Model sunucusu oturum açmanızı reddetti · Bu proje için canlı düzenleme henüz kurulmadı · Bu modeli düzenleme yetkiniz yok · Yalnızca görüntüleme · Salt okunur · Bağlandı. Tüm değişiklikler kaydedildi · Bağlanıyor… · Yeniden bağlanıyor… · Kaydediliyor… · Kaydedilmemiş değişiklikler · Kaydedilmemiş değişiklik yok · Kaydedilmedi · Hazır değil · İlgi gerekiyor · Önce boyutu düzeltin · reddedildi · çakışma · geçersiz · kilitli · kullanımda · eski · desteklenmiyor · yasak · bağlı elemanlar var · geri alınamadı · devre dışı · engellendi
+
+#### §8.1 Hata kodu → cümle (gönderilen metin)
+
+Kernel reddetmeleri `CommandError` ile bir **kod** ve serbest İngilizce bir cümle
+taşır. Cümle bir şablona eşlenebiliyorsa Türkçesi gösterilir; eşlenemiyorsa (cümle
+bir ad ya da çoğul taşıyorsa) **koda ait genel cümle** gösterilir. Bu tablo o genel
+cümlelerdir ve **gönderilen metindir** — sözlük gerçeğe uymak zorundadır.
+
+| kod | gönderilen Türkçe |
+|-----|-------------------|
+| `element_not_found` | O eleman bulunamadı. Modelden yeniden seçin. |
+| `wrong_kind` | O eleman bu şekilde değiştirilemez. |
+| `outside_host` | Bu, ait olduğu elemanın dışına çıkıyor. İçeri taşıyıp tekrar deneyin. |
+| `tap_spacing` | Başka bir branşman ayrımına çok yakın. Aralarında en az bir ayrım genişliği bırakın. |
+| `min_straight_length` | Bu, bir elemanı en kısa düz uzunluğundan kısa bırakır. Kaydırıp tekrar deneyin. |
+| `anchored_would_move` | Bu, bağlı olduğu şeyi hareket ettirir. Önce bağlantısını kesin. |
+| `unsupported_geometry` | Model bu biçimi henüz kuramıyor. Güzergâhı değiştirip tekrar deneyin. |
+| `profile_incompatible` | Bu boyut, bağlandığı bağlantı parçalarına uymuyor. |
+| `disconnected` | Uçlar birleştirilemedi. Birbirine baktıklarını kontrol edin. |
+| `invalid_value` | Bu değer geçerli değil. Kontrol edip tekrar deneyin. |
+| `already_exists` | Bu zaten var ya da başka bir şeyle çakışıyor. Başka birini seçin. |
+| `in_use` | Bu hâlâ başka bir yerde kullanıldığı için işlem yapılmadı. Hiçbir şey değişmedi. |
+| `stale_base` | Aynı anda başka biri bunu değiştirdi. Tekrar denemeden önce yenileyin. |
+| `conflict` | Aynı anda başka biri bunu değiştirdi, bu yüzden hiçbir şey kaydedilmedi. Kontrol edip tekrar deneyin. |
+| `forbidden` | Bu modeli düzenleme yetkiniz yok. |
+| `has_dependents` | Buna bağlı başka şeyler var, bu yüzden hiçbir şey değişmedi. |
+| `undo_refused` | Bu değişiklik artık geri alınamıyor. |
+| `locked` | Kilitli olduğu için değiştirilemedi. Kilidi açıp tekrar deneyin. |
+
+> **Kural — genel cümle nedensiz olmalı.** Bir kodun cümlesi, o koda düşen **her**
+> cümle için doğru olmak zorundadır; tek bir cümle için yazılmış özel bir çare
+> (ekran adı, "paftadan kaldırın", "grubun kilidini açın") yanlış olur. `in_use`
+> kodunun 19 cümlesi kilit, varsayılan grup, devre, yük noktası ve faz ataması
+> hakkındadır: çareleri farklıdır, bu yüzden genel cümle **hiçbir çare adı
+> vermez**. Ölçüt `packages/bim-editor/__tests__/i18n-refusal-sentences.test.ts`
+> içindeki *"no generic refusal names a screen that only some of its sentences are
+> about"* testidir; sözlüğe cümle eklerken o testi çalıştırın.
 
 ---
 

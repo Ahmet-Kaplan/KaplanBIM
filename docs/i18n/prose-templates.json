@@ -9969,7 +9969,7 @@
       "matchable": false
     },
     {
-      "template": "{0} device{1} connection type {2}, which isn't in the project's connection types, so {3} load comes from the part instead; add {4} Electrical types",
+      "template": "{0} device{1} connection type {2}, which isn't in the project's connection types, so {3} load comes from the part instead; add {4} in Electrical types",
       "count": 1,
       "sources": [
         "packages/bim-pack-electrical/src/connections/check.ts:102"

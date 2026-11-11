@@ -140,7 +140,10 @@ function unitPattern(unit: string): string {
   // `String.raw` is not decoration: in a plain template literal `\p{L}` loses its
   // backslash and becomes the character class `[p{L}d]`, and `\b` becomes a backspace.
   if (unit !== "in") return String.raw`${symbol}(?![\p{L}\d])`;
-  return String.raw`${symbol}(?![\p{L}\d])(?!\s+(?:${DETERMINERS})\b)`;
+  // `in` before a determiner or before a capitalised word is the preposition:
+  // `12 in the model`, `3 in this run`, `add a type in Electrical types`. Inches are
+  // never followed by a proper noun, so the capital rule is safe in both directions.
+  return String.raw`${symbol}(?![\p{L}\d])(?!\s+(?:${DETERMINERS})\b)(?!\s+\p{Lu})`;
 }
 
 /** Every unit as one regex alternation, longest symbol first. */

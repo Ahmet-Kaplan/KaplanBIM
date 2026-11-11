@@ -101,7 +101,7 @@ const REFUSALS: Readonly<Record<(typeof CODES)[number], { readonly english: stri
     english: "Too close to another branch takeoff. Keep them at least a takeoff width apart.",
     turkish: "Başka bir branşman ayrımına çok yakın. Aralarında en az bir ayrım genişliği bırakın.",
   },
-  min_straight_length: { english: "That would leave a piece shorter than its minimum straight length.", turkish: "Bu, bir parçayı en kısa düz uzunluğundan kısa bırakır." },
+  min_straight_length: { english: "That would leave an element shorter than its minimum straight length. Slide it along and try again.", turkish: "Bu, bir elemanı en kısa düz uzunluğundan kısa bırakır. Kaydırıp tekrar deneyin." },
   anchored_would_move: { english: "That would move what it is attached to. Detach it first.", turkish: "Bu, bağlı olduğu şeyi hareket ettirir. Önce bağlantısını kesin." },
   unsupported_geometry: { english: "The model can't build that shape yet. Change the route and try again.", turkish: "Model bu biçimi henüz kuramıyor. Güzergâhı değiştirip tekrar deneyin." },
   profile_incompatible: {
@@ -111,11 +111,11 @@ const REFUSALS: Readonly<Record<(typeof CODES)[number], { readonly english: stri
   disconnected: { english: "The ends could not be joined. Check that they face each other.", turkish: "Uçlar birleştirilemedi. Birbirine baktıklarını kontrol edin." },
   invalid_value: { english: "That value isn't valid. Check it and try again.", turkish: "Bu değer geçerli değil. Kontrol edip tekrar deneyin." },
   already_exists: { english: "That is already there or clashes with something else. Choose another.", turkish: "Bu zaten var ya da başka bir şeyle çakışıyor. Başka birini seçin." },
-  in_use: { english: "That is still in use, so it can't be changed. Take it out of use first.", turkish: "Bu hâlâ kullanımda, bu yüzden değiştirilemedi. Önce kullanımdan çıkarın." },
+  in_use: { english: "That is still used somewhere else, so nothing was changed.", turkish: "Bu hâlâ başka bir yerde kullanıldığı için işlem yapılmadı. Hiçbir şey değişmedi." },
   stale_base: { english: "Someone else changed this at the same time. Reload before trying again.", turkish: "Aynı anda başka biri bunu değiştirdi. Tekrar denemeden önce yenileyin." },
   conflict: { english: "Someone else changed this at the same time, so nothing was saved. Check it and try again.", turkish: "Aynı anda başka biri bunu değiştirdi, bu yüzden hiçbir şey kaydedilmedi. Kontrol edip tekrar deneyin." },
   forbidden: { english: "You don't have permission to edit this model.", turkish: "Bu modeli düzenleme yetkiniz yok." },
-  has_dependents: { english: "Other things depend on this, so nothing changed. Detach them or move them first.", turkish: "Bağlı elemanlar var, bu yüzden hiçbir şey değişmedi. Önce onları ayırın ya da taşıyın." },
+  has_dependents: { english: "Other things are attached to this, so nothing was changed.", turkish: "Buna bağlı başka şeyler var, bu yüzden hiçbir şey değişmedi." },
   undo_refused: { english: "That change can't be undone now.", turkish: "Bu değişiklik artık geri alınamıyor." },
   locked: { english: "That is locked, so it couldn't be changed. Unlock it and try again.", turkish: "Kilitli olduğu için değiştirilemedi. Kilidi açıp tekrar deneyin." },
 };
@@ -148,10 +148,13 @@ test("a refusal sent to every sentence of a code stays true for all of them", ()
   // neutral one, so the wording names the code's own vocabulary and no screen.
   expect(operatorMessage("locked", TR)).toContain("Kilitli");
   expect(operatorMessage("locked", TR)).not.toContain("Gruplar");
-  expect(operatorMessage("in_use", TR)).toContain("kullanımda");
+  expect(operatorMessage("in_use", TR)).toContain("kullanıldığı için");
   expect(operatorMessage("in_use", TR)).not.toContain("pafta");
-  expect(operatorMessage("has_dependents", TR)).toContain("Bağlı elemanlar var");
+  // And no invented step: the nineteen sentences behind `in_use` need different ones.
+  expect(operatorMessage("in_use", TR)).not.toContain("çıkarın");
+  expect(operatorMessage("has_dependents", TR)).toContain("Buna bağlı başka şeyler var");
   expect(operatorMessage("has_dependents", TR)).toContain("hiçbir şey değişmedi");
+  expect(operatorMessage("has_dependents", TR)).not.toContain("ayırın");
 });
 
 // ---------------------------------------------------------------------------
