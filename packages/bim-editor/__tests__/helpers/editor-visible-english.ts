@@ -282,7 +282,14 @@ function lineOf(source: string, at: number): number {
   return source.slice(0, at).split("\n").length;
 }
 
+/**
+ * Every `.ts`/`.tsx` under a root. A root may be a file: the ribbon's largest
+ * builder (`building-model-ribbon.ts`) sits beside the trees, not inside one, and
+ * a guard that cannot name it would have to skip the tooltips it writes.
+ */
 function sourceFiles(dir: string): string[] {
+  const stat = fs.statSync(dir);
+  if (stat.isFile()) return /\.tsx?$/u.test(dir) ? [dir] : [];
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) return sourceFiles(full);

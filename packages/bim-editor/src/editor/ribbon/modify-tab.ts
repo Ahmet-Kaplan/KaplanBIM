@@ -59,24 +59,26 @@ const MODIFY_ICON: Record<ModifyOpName, RibbonCommand['icon']> = {
   pin: Pin,
   unpin: PinOff,
 }
-const MODIFY_WHAT: Record<ModifyOpName, string> = {
-  move: 'Move what is selected from a base point to a new one',
-  copy: 'Copy what is selected from a base point to a new one',
-  rotate: 'Turn what is selected about a point by the angle you type',
-  mirror: 'Flip what is selected across a line you click (or keep the original)',
-  scale: 'Grow or shrink what is selected about a point',
-  array: 'Copies in a row: click the base point and where the next one goes',
-  polar_array: 'Copies around a centre',
-  align: 'Line a point on the selection up with a line',
-  offset: 'A parallel line, arc or circle a typed distance away (or two clicks apart); a joined chain offsets as one. Uncheck Copy to move the original',
-  trim_extend_corner: 'Click two lines or arcs on the parts to keep: they meet in a sharp corner',
-  trim_extend_single: 'Click a boundary, then a line or arc to cut or lengthen to it',
-  trim_extend_multiple: 'Click a boundary, then each line or arc to cut or lengthen to it',
-  split: 'Click a line or arc to cut it in two there (or twice, deleting the piece between)',
-  split_gap: 'Click a line or arc to cut a gap of a typed length into it',
-  fillet_arc: 'Click two lines: an arc of the radius you type rounds the corner, and the lines trim to it',
-  pin: 'Pin what is selected so Move, trims, splits and Delete leave it alone',
-  unpin: 'Unpin what is selected so it can be changed again',
+function modifyWhat(t: Translate): Record<ModifyOpName, string> {
+  return {
+  move: t('ribbon.help.moveWhatIsSelectedFrom', 'Move what is selected from a base point to a new one', { ns: 'editor' }),
+  copy: t('ribbon.help.copyWhatIsSelectedFrom', 'Copy what is selected from a base point to a new one', { ns: 'editor' }),
+  rotate: t('ribbon.help.turnWhatIsSelectedAbout', 'Turn what is selected about a point by the angle you type', { ns: 'editor' }),
+  mirror: t('ribbon.help.flipWhatIsSelectedAcross', 'Flip what is selected across a line you click (or keep the original)', { ns: 'editor' }),
+  scale: t('ribbon.help.growOrShrinkWhatIs', 'Grow or shrink what is selected about a point', { ns: 'editor' }),
+  array: t('ribbon.help.copiesInARowClick', 'Copies in a row: click the base point and where the next one goes', { ns: 'editor' }),
+  polar_array: t('ribbon.help.copiesAroundACentre', 'Copies around a centre', { ns: 'editor' }),
+  align: t('ribbon.help.lineAPointOnThe', 'Line a point on the selection up with a line', { ns: 'editor' }),
+  offset: t('ribbon.help.aParallelLineArcOr', 'A parallel line, arc or circle a typed distance away (or two clicks apart); a joined chain offsets as one. Uncheck Copy to move the original', { ns: 'editor' }),
+  trim_extend_corner: t('ribbon.help.clickTwoLinesOrArcs', 'Click two lines or arcs on the parts to keep: they meet in a sharp corner', { ns: 'editor' }),
+  trim_extend_single: t('ribbon.help.clickABoundaryThenA', 'Click a boundary, then a line or arc to cut or lengthen to it', { ns: 'editor' }),
+  trim_extend_multiple: t('ribbon.help.clickABoundaryThenEach', 'Click a boundary, then each line or arc to cut or lengthen to it', { ns: 'editor' }),
+  split: t('ribbon.help.clickALineOrArcTo', 'Click a line or arc to cut it in two there (or twice, deleting the piece between)', { ns: 'editor' }),
+  split_gap: t('ribbon.help.clickALineOrArc', 'Click a line or arc to cut a gap of a typed length into it', { ns: 'editor' }),
+  fillet_arc: t('ribbon.help.clickTwoLinesAnArc', 'Click two lines: an arc of the radius you type rounds the corner, and the lines trim to it', { ns: 'editor' }),
+  pin: t('ribbon.help.pinWhatIsSelectedSo', 'Pin what is selected so Move, trims, splits and Delete leave it alone', { ns: 'editor' }),
+  unpin: t('ribbon.help.unpinWhatIsSelectedSo', 'Unpin what is selected so it can be changed again', { ns: 'editor' }),
+  }
 }
 
 /** Where the Modify verbs act right now. */
@@ -116,7 +118,7 @@ function draftOp(ctx: BuildingModelRibbonContext, op: ModifyOpName): RibbonComma
     id: `draft-${op}`,
     label: modifyLabel(op, t),
     icon: MODIFY_ICON[op],
-    description: MODIFY_WHAT[op],
+    description: modifyWhat(t)[op],
     keywords: ['modify', 'edit', op.replace('_', ' ')],
     disabledReason: where === 'drawn' ? drawnReason(ctx, op, t) : notOnModelYet(op, t),
     pressed: draft?.pending?.kind === 'modify' && draft.pending.op === op,
@@ -134,16 +136,17 @@ function modelReason(ctx: BuildingModelRibbonContext): string | null {
 }
 
 function move(ctx: BuildingModelRibbonContext): RibbonCommand {
+  const t = ctx.t ?? englishOnly
   if (target(ctx) === 'drawn') return draftOp(ctx, 'move')
   const group = ctx.selection?.kind === 'group' ? ctx.selection : null
   return {
     id: 'draft-move',
-    label: 'Move',
+    label: t('ribbon.command.move', 'Move', { ns: 'editor' }),
     icon: Move,
-    description: group ? 'Move the selection by a distance (connected runs follow; fixed parts refuse)' : 'Drag a part to a new spot (on a drawing: from a base point to a new one)',
+    description: group ? t('ribbon.description.moveTheSelectionByA', 'Move the selection by a distance (connected runs follow; fixed parts refuse)', { ns: 'editor' }) : t('ribbon.description.dragAPartToA', 'Drag a part to a new spot (on a drawing: from a base point to a new one)', { ns: 'editor' }),
     shortcut: TOOL_SHORTCUTS.move,
     keywords: ['modify', 'drag', 'relocate'],
-    disabledReason: modelReason(ctx) ?? (group && group.movable === 0 ? 'Nothing in this selection moves on its own.' : null),
+    disabledReason: modelReason(ctx) ?? (group && group.movable === 0 ? t('ribbon.help.nothingInThisSelectionMoves', 'Nothing in this selection moves on its own.', { ns: 'editor' }) : null),
     pressed: ctx.tool === 'move',
     run: group ? ctx.moveSelected : () => ctx.chooseTool(ctx.tool === 'move' ? 'select' : 'move'),
     testId: 'ribbon-draft-move',
@@ -151,21 +154,23 @@ function move(ctx: BuildingModelRibbonContext): RibbonCommand {
 }
 
 function rotate(ctx: BuildingModelRibbonContext): RibbonCommand {
+  const t = ctx.t ?? englishOnly
   if (target(ctx) === 'drawn') return draftOp(ctx, 'rotate')
   const part = ctx.selection?.kind === 'part'
   return {
     id: 'draft-rotate',
-    label: 'Rotate',
+    label: t('ribbon.command.rotate', 'Rotate', { ns: 'editor' }),
     icon: RotateCw,
-    description: 'Turn the selected part a quarter turn clockwise (typed angles work on drawn lines and notes)',
+    description: t('ribbon.description.turnTheSelectedPartA', 'Turn the selected part a quarter turn clockwise (typed angles work on drawn lines and notes)', { ns: 'editor' }),
     keywords: ['modify', 'turn', 'spin'],
-    disabledReason: modelReason(ctx) ?? (part ? null : 'Select a part to turn it a quarter turn. Typed angles work on drawn lines and notes.'),
+    disabledReason: modelReason(ctx) ?? (part ? null : t('ribbon.help.selectAPartToTurn', 'Select a part to turn it a quarter turn. Typed angles work on drawn lines and notes.', { ns: 'editor' })),
     run: () => ctx.rotateSelected(90),
     testId: 'ribbon-draft-rotate',
   }
 }
 
 function split(ctx: BuildingModelRibbonContext): RibbonCommand {
+  const t = ctx.t ?? englishOnly
   if (target(ctx) === 'drawn') {
     const face = draftOp(ctx, 'split')
     return { ...face, id: 'modify-split', split: true, children: [face, draftOp(ctx, 'split_gap')], testId: 'ribbon-modify-split' }
@@ -174,52 +179,57 @@ function split(ctx: BuildingModelRibbonContext): RibbonCommand {
   const straightRun = target(ctx) === 'model' && sel?.kind === 'run' && !sel.fitting
   return {
     id: 'modify-split',
-    label: 'Split',
+    label: t('ribbon.command.split', 'Split', { ns: 'editor' }),
     icon: Scissors,
-    description: 'Click along the selected duct or pipe run to split it there',
+    description: t('ribbon.description.clickAlongTheSelectedDuct', 'Click along the selected duct or pipe run to split it there', { ns: 'editor' }),
     shortcut: TOOL_SHORTCUTS.split,
     keywords: ['cut', 'break', 'divide'],
     pressed: ctx.tool === 'split',
-    disabledReason: modelReason(ctx) ?? (straightRun ? null : 'Select a straight duct or pipe run, then click where to split it. Drawn lines split from a sheet or a detail view.'),
+    disabledReason: modelReason(ctx) ?? (straightRun ? null : t('ribbon.help.selectAStraightDuctOr', 'Select a straight duct or pipe run, then click where to split it. Drawn lines split from a sheet or a detail view.', { ns: 'editor' })),
     run: ctx.splitSelected,
     testId: 'ribbon-modify-split',
   }
 }
 
 function deleteCommand(ctx: BuildingModelRibbonContext): RibbonCommand {
+  const t = ctx.t ?? englishOnly
   if (target(ctx) === 'drawn') {
     const n = ctx.draft?.selectedIds.length ?? 0
     return {
       id: 'modify-delete',
-      label: 'Delete',
+      label: t('ribbon.command.deleteDrawn', 'Delete', { ns: 'editor' }),
       icon: Trash2,
-      description: `Delete the ${n === 1 ? 'selected drawn item' : `${n} selected drawn items`} (undo brings ${n === 1 ? 'it' : 'them'} back)`,
+      description:
+        n === 1
+          ? t('ribbon.description.deleteTheSelectedDrawn', 'Delete the selected drawn item (undo brings it back)', { ns: 'editor' })
+          : t('ribbon.description.deleteSelectedDrawnItems', 'Delete the {{count}} selected drawn items (undo brings them back)', { ns: 'editor', count: n }),
       shortcut: 'Del',
       keywords: ['remove', 'erase'],
-      disabledReason: ctx.editBlocked ?? (n > 0 ? null : 'Select drawn items to delete them.'),
+      disabledReason: ctx.editBlocked ?? (n > 0 ? null : t('ribbon.help.selectDrawnItemsToDelete', 'Select drawn items to delete them.', { ns: 'editor' })),
       run: () => ctx.draft?.sendRequest('delete'),
       testId: 'ribbon-modify-delete',
     }
   }
   return {
     id: 'modify-delete',
-    label: 'Delete…',
+    label: t('ribbon.command.delete', 'Delete…', { ns: 'editor' }),
     icon: Trash2,
-    description: 'Delete what is selected (asks first; undo brings it back)',
+    description: t('ribbon.description.deleteWhatIsSelectedAsks', 'Delete what is selected (asks first; undo brings it back)', { ns: 'editor' }),
     shortcut: 'Del',
     keywords: ['remove', 'erase'],
-    disabledReason: modelReason(ctx) ?? (ctx.selection ? null : 'Select something to delete it.'),
+    disabledReason: modelReason(ctx) ?? (ctx.selection ? null : t('ribbon.help.selectSomethingToDeleteIt', 'Select something to delete it.', { ns: 'editor' })),
     run: ctx.deleteSelected,
     testId: 'ribbon-modify-delete',
   }
 }
 
 function measure(ctx: BuildingModelRibbonContext, reason: string | null): RibbonCommand {
+  const t = ctx.t ?? englishOnly
   return {
     id: 'measure',
-    label: 'Measure',
+    label: t('ribbon.command.measure', 'Measure', { ns: 'editor' }),
     icon: Ruler,
-    description: 'Click two points to measure between them',
+    description: t('ribbon.description.clickTwoPointsToMeasure', 'Click two points to measure between them', { ns: 'editor' }),
     shortcut: TOOL_SHORTCUTS.measure,
     keywords: ['distance', 'tape'],
     pressed: ctx.tool === 'measure',
@@ -243,11 +253,12 @@ function pinCommand(ctx: BuildingModelRibbonContext): RibbonCommand {
 
 /** Copy (Ctrl+C) and Paste (Ctrl+V) of placed parts, in Modify › More so the group keeps five faces. */
 function clipboardCommands(ctx: BuildingModelRibbonContext): RibbonCommand[] {
+  const t = ctx.t ?? englishOnly
   const c = ctx.clipboard
   if (!c) return []
   return [
-    { id: 'clipboard-copy', label: 'Copy parts', icon: ClipboardCopy, description: 'Remember the selected devices, fixtures and equipment to paste them elsewhere', shortcut: '⌘C', keywords: ['copy', 'clipboard', 'duplicate'], disabledReason: c.copyBlocked, run: c.copy, testId: 'ribbon-clipboard-copy' },
-    { id: 'clipboard-paste', label: 'Paste parts', icon: ClipboardPaste, description: 'Put a copy of what you copied under the pointer: one edit, one undo, on no circuit and with no mark', shortcut: '⌘V', keywords: ['paste', 'clipboard'], disabledReason: c.pasteBlocked, run: c.paste, testId: 'ribbon-clipboard-paste' },
+    { id: 'clipboard-copy', label: t('ribbon.command.copyParts', 'Copy parts', { ns: 'editor' }), icon: ClipboardCopy, description: t('ribbon.description.rememberTheSelectedDevicesFixtures', 'Remember the selected devices, fixtures and equipment to paste them elsewhere', { ns: 'editor' }), shortcut: '⌘C', keywords: ['copy', 'clipboard', 'duplicate'], disabledReason: c.copyBlocked, run: c.copy, testId: 'ribbon-clipboard-copy' },
+    { id: 'clipboard-paste', label: t('ribbon.command.pasteParts', 'Paste parts', { ns: 'editor' }), icon: ClipboardPaste, description: t('ribbon.description.putACopyOfWhat', 'Put a copy of what you copied under the pointer: one edit, one undo, on no circuit and with no mark', { ns: 'editor' }), shortcut: '⌘V', keywords: ['paste', 'clipboard'], disabledReason: c.pasteBlocked, run: c.paste, testId: 'ribbon-clipboard-paste' },
   ]
 }
 
@@ -264,7 +275,7 @@ export function modifyGroups(ctx: BuildingModelRibbonContext, modelToolReason: s
         draftOp(ctx, 'copy'),
         rotate(ctx),
         draftOp(ctx, 'mirror'),
-        { id: 'draft-modify-more', label: 'More', icon: MoreHorizontal, description: ctx.clipboard ? 'Copy and paste parts, scale, align and arrays' : 'Scale, align and arrays', children: [...clipboardCommands(ctx), draftOp(ctx, 'scale'), draftOp(ctx, 'align'), draftOp(ctx, 'array'), draftOp(ctx, 'polar_array')], testId: 'ribbon-draft-modify-more' },
+        { id: 'draft-modify-more', label: t('ribbon.command.more', 'More', { ns: 'editor' }), icon: MoreHorizontal, description: ctx.clipboard ? t('ribbon.description.copyAndPastePartsScale', 'Copy and paste parts, scale, align and arrays', { ns: 'editor' }) : t('ribbon.description.scaleAlignAndArrays', 'Scale, align and arrays', { ns: 'editor' }), children: [...clipboardCommands(ctx), draftOp(ctx, 'scale'), draftOp(ctx, 'align'), draftOp(ctx, 'array'), draftOp(ctx, 'polar_array')], testId: 'ribbon-draft-modify-more' },
       ],
     },
     { id: 'geometry', label: t('ribbon.group.geometry', 'Geometry', { ns: 'editor' }), shared: true, commands: [draftOp(ctx, 'offset'), trimExtend(ctx), split(ctx), draftOp(ctx, 'fillet_arc')] },
@@ -289,7 +300,7 @@ export function drawnItemsTab(ctx: BuildingModelRibbonContext, leading: RibbonGr
     groups: [
       leading,
       ...modifyGroups(ctx, modelToolReason),
-      { id: 'drawn-done', label: n === 1 ? '1 drawn item' : `${n} drawn items`, commands: [{ id: 'deselect-drawn', label: 'Deselect', icon: X, description: 'Clear the selection', shortcut: 'Esc', run: () => ctx.draft?.sendRequest('deselect'), testId: 'ribbon-deselect-drawn' }] },
+      { id: 'drawn-done', label: n === 1 ? t('ribbon.command.1DrawnItem', '1 drawn item', { ns: 'editor' }) : t('ribbon.command.nDrawnItems', '{{count}} drawn items', { ns: 'editor', count: n }), commands: [{ id: 'deselect-drawn', label: t('ribbon.command.deselect', 'Deselect', { ns: 'editor' }), icon: X, description: t('ribbon.description.clearTheSelection', 'Clear the selection', { ns: 'editor' }), shortcut: 'Esc', run: () => ctx.draft?.sendRequest('deselect'), testId: 'ribbon-deselect-drawn' }] },
     ],
   }
 }

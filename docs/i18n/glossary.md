@@ -385,6 +385,46 @@ Modelin **ret cümleleri** (18 kod), **bağlantı sorunları**, **araç engeller
 | This model server doesn't merge branches yet. / …doesn't open branches yet, so the design can't be updated here. | **Bu model sunucusu henüz dalları birleştirmiyor.** / **Bu model sunucusu henüz dal açmıyor, bu yüzden tasarım burada güncellenemez.** | Sunucunun yetmediği yer; §9/Ç8 *branch* = **dal** (tasarım dalı) |
 
 
+### 4.3 Aşama 4 · Task 4.5: ribbon ipuçları ve komut sözcükleri (2026-11-10)
+
+Ribbon'un **her araç ipucu** (`description`, `tooltipFor()` ile hover'da görünür) ve
+araç etiketleri bu görevde anahtarlanırken sözlükte olmayan sözcükler çıktı. Hepsi
+burada karara bağlandı; §4.1 ve §4.2'de zaten karara bağlı olanlar tekrar yazılmadı.
+
+| EN (ipucu / komut) | TR | Not |
+|----|----|-----|
+| Ribbon (şeridin kendisi) | **şerit** | "Şeridi genişlet", "Şeridi tek satıra daralt"; sekme/grup **adları** değişmez |
+| Crop box (3D crop box) | **kırpma kutusu** | §3 *Crop* = Kırp; kutu onun aracı. "3B kırpma kutusu" |
+| Rise / Drop (güzergâh) | **yükselme / iniş** | Fiil: "yüksel", "in"; §4.1 *Height* = Yükseklik bunlardan ayrı |
+| {{angle}} rises | **{{angle}} eğimli yükselme** | §8: sayıdan sonra çoğul eki gelmez |
+| Reducer / Eccentric | **redüksiyon** / **eksantrik** | "Ortalanmış ya da üstten veya alttan düz (eksantrik)" |
+| Masking region / Filled region | **maskeleme bölgesi** / **dolu bölge** | §2.4 *Region* = bölge |
+| Component (detail component) | **bileşen** | §2.1 *Part* = parça'dan ayrı: bu 2B detay bileşenidir |
+| Spline | **spline** | Türkçe yerleşik karşılığı yok; çevrilmez (§0.3 mantığı) |
+| Plan north | **plan kuzeyi** | §2.3 *True north* = gerçek kuzey, *Working angle* = çalışma açısı |
+| Survey point / Project base point | **ölçüm noktası** / **proje temel noktası** | §2.3 *Site point* = şantiye noktası'ndan ayrı üç kavram |
+| Shared coordinates / Shared site | **ortak koordinatlar** / **ortak şantiye** | |
+| Code (of record) / Code study | **kural** / **kural çalışması** | "Kurallar" grubu; *code* = kural (yönetmelik değil) |
+| Live table / Load summary / Keynote list | **canlı tablo** / **yük özeti** / **anahtar not listesi** | §2.4 *Keynote* = anahtar not |
+| Performance (FPS sayacı) | **başarım** | "Başarım"; "performans" değil |
+| Area load / Separation line / Vendor list | **alan yükü** / **ayırma çizgisi** / **tedarikçi listesi** | §2.3 *Space* = mekan; alan yükü mekanın yüküdür |
+| Dimension kinds: Linear / Aligned / Angle / Radius / Diameter / Arc length / Spot elevation / Spot coordinate | **Doğrusal / Hizalı / Açı / Yarıçap / Çap / Yay uzunluğu / Nokta kotu / Nokta koordinatı** | §2.4 *Dimension* = ölçü; bunlar ölçünün **türleri** |
+| Keep / Skip (pencere seçimi süzgeci) | **korunur / atlanır** | Cümle içinde: "Pencere seçimlerinde Kanal korunur" |
+| Open as a spreadsheet (çizelge) | **elektronik tablo olarak aç** | §9/Ç3: *sheet* = **pafta**; *spreadsheet* yalnız burada *elektronik tablo* |
+| Quick (araç arama sekmesi) | **Hızlı** | §4'teki **Hızlı erişim** ile aynı kök |
+
+> **İpucu = cümle, etiket = emir kipi.** §0.7 burada en çok uygulanan kural oldu:
+> `description` alanları kibar çoğul emir kipidir ("…tıklayın", "…seçin", "…basın"),
+> `label` alanları tekil emir kipidir (*Seç*, *Böl*, *Kırp*, *Güzergâh çiz*). Bir
+> ipucunu kısaltıp ada çevirmek yasak: ipucu **ne yaptığını ve sonra ne olacağını**
+> söyler. Ölçüldü: ribbon kaynaklarında 590 `ribbon.*` anahtarı var; hepsi bu kurala
+> göre yazıldı.
+
+> **İngilizce yer tutucu sırası.** Şablonla kurulan ipuçlarında İngilizce
+> değişmedi (`Draw a {{shape}} on this drawing…`), Türkçede ise etiket cümlenin
+> başına alındı (`{{kind}} ölçüsü çiz`): Türkçede **nesne fiilden önce** gelir, bu
+> yüzden İngilizce sırası birebir çevrilmez. Bu bir sapma değil, §0.2'nin sonucudur.
+
 ---
 
 ## 5. Çizelgeler ve metraj

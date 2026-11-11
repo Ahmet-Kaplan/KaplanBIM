@@ -45,6 +45,9 @@ const OWNED_DIRS = [
   "levels",
   "ifc-import",
   "ifc-export",
+  // Stage 4 · Task 4.5 — every ribbon tooltip, which `tooltipFor()` shows on hover.
+  "ribbon",
+  "building-model-ribbon.ts",
 ];
 
 /**

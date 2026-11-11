@@ -22,9 +22,12 @@ import { render, screen } from "@testing-library/react";
 import { buildingModelRibbon, type BuildingModelRibbonContext } from "../src/editor/building-model-ribbon";
 import { Ribbon } from "../src/editor/ribbon/Ribbon";
 import { tradeTab } from "../src/editor/ribbon/trade-tab";
-import { groupOwnWord, type RibbonTab } from "../src/editor/ribbon/types";
+import { groupOwnWord, tooltipFor, type RibbonCommand, type RibbonTab } from "../src/editor/ribbon/types";
 import { DEFAULT_DRAFT_SETTINGS, DEFAULT_MODIFY_PARAMS } from "../src/editor/views-sheets/draft/draft-input";
 import { TooltipProvider } from "../src/ui/tooltip";
+import { editorResources } from "../src/editor/i18n/resources";
+import { EDITOR_NAMESPACE } from "../src/editor/i18n/translate";
+import { editorSourceCaptions } from "./helpers/editor-source-captions";
 import { translateFor, Wrap } from "./helpers/editor-i18n";
 
 const NOOP = (): void => {};
@@ -163,6 +166,25 @@ function drawingARoute(): Partial<BuildingModelRibbonContext> {
   };
 }
 
+/**
+ * The Plan group wired up. Its tooltips ("Paste the vendor's equipment…") only
+ * exist while a surface offers a plan, so without this state the runtime guard
+ * cannot see them — which is how one of them stayed English through two reviews.
+ */
+const PLAN: Partial<BuildingModelRibbonContext> = {
+  plan: {
+    equipmentList: NOOP,
+    equipmentListBlocked: null,
+    notPlacedYet: { open: NOOP, counts: { model: 3 }, blocked: null },
+    spaces: { open: NOOP, blocked: null, roomFromWalls: NOOP, findFromWalls: NOOP, split: NOOP },
+  },
+};
+
+/** A sheet open, so Print PDF knows its number and the sheet groups are live. */
+function sheetOpen(): Partial<BuildingModelRibbonContext> {
+  return { ...projectWithSheets(), sheet: { number: "A-101", editTitleBlock: NOOP, print: NOOP, arrange: NOOP, revisions: NOOP, chart: NOOP, picture: NOOP } };
+}
+
 /** A duct run selected: the contextual tab is named after what is selected. */
 const DUCT_RUN: Partial<BuildingModelRibbonContext> = { selection: { kind: "run", label: "VAV-1 supply", domain: "duct" } };
 
@@ -280,7 +302,7 @@ describe("the ribbon in Turkish", () => {
  * - A selected thing's own name ("VAV box", "VAV-1 supply", "3 drawn items") is
  *   model data, not a translated word: it reads the same in either language.
  */
-const SAME_IN_BOTH = new Set(["tab:model", "tab:drawn-items", "group:plan", "group:part", "group:run", "group:group", "group:branch", "group:drawn-done"]);
+const SAME_IN_BOTH = new Set(["tab:model", "tab:drawn-items", "group:plan", "group:model-plan", "group:part", "group:run", "group:group", "group:branch", "group:drawn-done"]);
 
 /** Every caption that stayed English in the Turkish ribbon, or `[]`. */
 function englishLeftInTurkish(overrides: Partial<BuildingModelRibbonContext>): string[] {
@@ -301,6 +323,14 @@ function englishLeftInTurkish(overrides: Partial<BuildingModelRibbonContext>): s
         continue;
       }
       if (group.label === translated.label && !SAME_IN_BOTH.has(`group:${group.id}`)) leaks.push(`group:${en.id}/${group.id} "${translated.label}"`);
+      for (const command of group.commands) {
+        const other = translated.commands.find((candidate) => candidate.id === command.id);
+        if (other === undefined) {
+          leaks.push(`command:${en.id}/${group.id}/${command.id} is missing from the Turkish ribbon`);
+          continue;
+        }
+        if (command.description === other.description && !SAME_IN_BOTH.has(`description:${command.id}`)) leaks.push(`description:${command.id} "${other.description}"`);
+      }
     }
   }
   return leaks;
@@ -315,6 +345,8 @@ describe("nothing is left English in a Turkish ribbon", () => {
     ["a duct run selected", DUCT_RUN],
     ["a pipe run selected", PIPE_RUN],
     ["a part selected", PART],
+    ["the Plan group wired up (its tooltips only exist then)", PLAN],
+    ["a sheet open to print, with the live table and chart offered", sheetOpen()],
   ])("%s", (_name, overrides) => {
     expect(englishLeftInTurkish(overrides as Partial<BuildingModelRibbonContext>)).toEqual([]);
   });
@@ -452,5 +484,124 @@ describe("the ribbon on screen", () => {
     expect(screen.getByTestId("ribbon-group-crop")).toHaveTextContent("Kırp");
     // The group's caption is the accessible name of the controls it holds.
     expect(screen.getByRole("group", { name: "Grafikler" })).toBeTruthy();
+  });
+});
+
+/**
+ * The tooltips, key by key.
+ *
+ * `englishLeftInTurkish` above proves that the ribbon a Turkish host builds says
+ * every tooltip in Turkish, in every state those tests cover. It cannot see the
+ * states they do not build (a reducer selected, a sheet open to print, an add-on
+ * tab), so this half reads the source instead: every `ribbon.*` key the builders
+ * write must have a Turkish row in `locales/tr/editor.json`. That is the pin that
+ * a new tooltip cannot ship in English — the defect `tooltipFor()` made possible
+ * for the whole ribbon, where the tab said "Görünümler" and the hover said
+ * "Crop view".
+ */
+describe("every ribbon tooltip has its Turkish", () => {
+  test("no ribbon key in the source is missing from the Turkish bundle", () => {
+    const source = editorSourceCaptions();
+    const ribbonKeys = [...source.keys()].filter((key) => key.startsWith("ribbon."));
+    // The tab and group captions were keyed by an earlier task; the tooltips, the
+    // labels and the keywords are this one's. Both are read, so neither can fall out.
+    expect(ribbonKeys.length).toBeGreaterThan(400);
+    const missing = ribbonKeys.filter((key) => valueAt(key) === undefined).sort();
+    expect(missing).toEqual([]);
+  });
+
+  test("no tooltip was copied across untranslated", () => {
+    // The completeness check above would pass on a row that is the English again.
+    // A sentence of four words or more is translated or it is still the defect.
+    const source = editorSourceCaptions();
+    const copied = [...source.entries()]
+      .filter(([key, caption]) => key.startsWith("ribbon.description.") && caption.english.split(" ").length >= 4)
+      .filter(([key, caption]) => valueAt(key) === caption.english)
+      .map(([key]) => key);
+    expect(copied).toEqual([]);
+  });
+});
+
+/** The Turkish row at `key`, or `undefined`. */
+function valueAt(key: string): string | undefined {
+  let node: unknown = (editorResources.tr as Record<string, unknown>)[EDITOR_NAMESPACE];
+  for (const part of key.split(".")) {
+    if (typeof node !== "object" || node === null) return undefined;
+    node = (node as Record<string, unknown>)[part];
+  }
+  return typeof node === "string" && node !== "" ? node : undefined;
+}
+
+/**
+ * The tooltips in English, character for character.
+ *
+ * The English a person reads is the call site's own — `tooltipFor()` hangs the
+ * shortcut off it in parentheses — so these pin the whole rendered sentence,
+ * including the two commands whose words are composed at build time (a sheet's
+ * own number in Print PDF, the count in Delete all). A translation pass that
+ * retyped an English instead of moving it is a defect the Turkish tests cannot
+ * see, because both languages would be wrong in the same way.
+ */
+describe("the tooltips in English", () => {
+  /** Every command on every tab, by id, so a tooltip can be read back by the words it shows. */
+  function tooltipsIn(overrides: Partial<BuildingModelRibbonContext>): Map<string, string> {
+    const out = new Map<string, string>();
+    const walk = (commands: readonly RibbonCommand[]): void => {
+      for (const command of commands) {
+        out.set(command.id, tooltipFor(command));
+        if (command.children) walk(command.children);
+      }
+    };
+    for (const tab of ribbonIn("en", overrides)) for (const group of tab.groups) walk(group.commands);
+    return out;
+  }
+
+  test("keeps a plain tooltip and hangs the shortcut on it in parentheses", () => {
+    const tips = tooltipsIn({ crop3d: { on: false, shown: false, set: NOOP, reset: NOOP, toSelection: NOOP, selectionBlocked: null, alignBlocked: null, alignToWorkingAngle: NOOP, alignToEdge: NOOP } });
+    // Nothing is disabled: the tooltip is the description with the shortcut beside it.
+    expect(tips.get("crop-3d-reset")).toBe("Put the box back around the whole model, square to the working angle, linked models included");
+    expect(tips.get("select")).toBe(
+      "Pick something to see its properties: a part or a run in the model, a line or a note on a drawing. Drag on empty space of a drawing or plan to box select (left to right: wholly inside; right to left: touching). In 3D, drag turns the view and Shift+drag boxes; the middle button pans. Drag a selection to move it (hold Shift while dragging for up and down) (Esc)",
+    );
+  });
+
+  test("reads the sheet's own number in the words it always used", () => {
+    const tips = tooltipsIn(sheetOpen());
+    expect(tips.get("print-pdf")).toBe("Print A-101 to a vector PDF at scale");
+  });
+
+  test("reads the count in Delete all the way it always did", () => {
+    const tips = tooltipsIn({ selection: { kind: "group", label: "Supply ducts", count: 4, runs: 4, movable: 4 } });
+    expect(tips.get("delete-group")).toBe("Delete all 4 (asks first; undo brings them back) (Del)");
+  });
+
+  test("reads the words it always composed: which surface fits, which north is up", () => {
+    // Both sentences were assembled from a branch of a template; the rendering must
+    // still be the one sentence a person read before, so each branch is pinned.
+    expect(tooltipsIn({ drawingOpen: "sheet" }).get("fit")).toBe("Sheets fit with the zoom control above the drawing (0).");
+    expect(tooltipsIn({ drawingOpen: "detail" }).get("fit")).toBe("Drawings fit with the zoom control above the drawing (0).");
+    const coordinates = (value: "plan_north" | "true_north" | "working_angle"): Partial<BuildingModelRibbonContext> => ({
+      coordinates: { ...ribbonContext().coordinates, orientation: { value, set: NOOP } },
+    });
+    expect(tooltipsIn(coordinates("true_north")).get("view-orientation")).toBe("This plan is drawn with true north up");
+    expect(tooltipsIn(coordinates("plan_north")).get("view-orientation")).toBe("This plan is drawn with plan north up");
+    expect(tooltipsIn(coordinates("working_angle")).get("view-orientation")).toBe("This plan is turned to the working angle");
+  });
+
+  test("reads the drawn item's own count in Delete, both ways it was written", () => {
+    const one = tooltipsIn({ ...drawingWithDraft(), draft: { ...(drawingWithDraft().draft as NonNullable<BuildingModelRibbonContext["draft"]>), selectedIds: ["a"] } });
+    expect(one.get("modify-delete")).toBe("Delete the selected drawn item (undo brings it back) (Del)");
+    const many = tooltipsIn({ ...drawingWithDraft(), draft: { ...(drawingWithDraft().draft as NonNullable<BuildingModelRibbonContext["draft"]>), selectedIds: ["a", "b", "c"] } });
+    expect(many.get("modify-delete")).toBe("Delete the 3 selected drawn items (undo brings them back) (Del)");
+  });
+
+  test("reads a box filter's kind and choice in the sentence it always used", () => {
+    const tips = tooltipsIn({});
+    expect(tips.get("box-filter")).toBe("Box select keeps: Duct, Pipe, Parts");
+    expect(tips.get("box-filter-duct")).toBe("Keep Duct in box selections");
+    const withoutDuct = tooltipsIn({ boxFilter: { duct: false, pipe: true, parts: true } });
+    expect(withoutDuct.get("box-filter-duct")).toBe("Skip Duct in box selections");
+    expect(withoutDuct.get("box-filter")).toBe("Box select keeps: Pipe, Parts");
+    expect(tooltipsIn({ boxFilter: { duct: false, pipe: false, parts: false } }).get("box-filter")).toBe("Box select keeps: nothing (turn a kind on)");
   });
 });

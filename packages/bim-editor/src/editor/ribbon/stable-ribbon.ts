@@ -2,6 +2,7 @@
 
 import { memo, useRef } from 'react'
 import { useContributionsVersion } from '../contributions/AddonComponent'
+import { useEditorTranslate } from '../i18n/translate'
 import { Ribbon } from './Ribbon'
 import type { RibbonCommand, RibbonGroup, RibbonTab } from './types'
 
@@ -135,7 +136,12 @@ export function useStableRibbonTabs(tabs: readonly RibbonTab[]): readonly Ribbon
 
 /** The quick commands (Undo, Redo) as a stable value, the same way. */
 export function useStableCommands(commands: readonly RibbonCommand[]): readonly RibbonCommand[] {
-  const asTab: readonly RibbonTab[] = [{ id: 'quick', label: 'Quick', groups: [{ id: 'quick', label: 'Quick', commands }] }]
+  // The synthetic tab only exists to borrow the stability machinery; the row it
+  // is named after is drawn by the ribbon, but the words are keyed all the same so
+  // no English hides in this file.
+  const t = useEditorTranslate()
+  const label = t('ribbon.tab.quick', 'Quick', { ns: 'editor' })
+  const asTab: readonly RibbonTab[] = [{ id: 'quick', label, groups: [{ id: 'quick', label, commands }] }]
   return useStableRibbonTabs(asTab)[0]?.groups[0]?.commands ?? commands
 }
 

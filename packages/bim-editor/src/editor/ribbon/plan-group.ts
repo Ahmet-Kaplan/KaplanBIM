@@ -49,14 +49,14 @@ export function planTabIds(): readonly string[] {
   return [...planTabs().keys()]
 }
 
-export function planCommands(tabId: string, trade: PlanTrade, p: RibbonPlan): RibbonCommand[] {
+export function planCommands(tabId: string, trade: PlanTrade, p: RibbonPlan, t: Translate = englishOnly): RibbonCommand[] {
   const out: RibbonCommand[] = [
     {
       id: `${tabId}-equipment-list`,
-      label: 'Equipment list',
+      label: t('ribbon.command.equipmentList', 'Equipment list', { ns: 'editor' }),
       icon: ClipboardList,
-      description: 'Paste the vendor’s equipment or fixture schedule (from a PDF, a spreadsheet or a CSV): each row becomes planned equipment with its electrical, gas and water values, before anything is drawn',
-      keywords: ['equipment schedule', 'kitchen schedule', 'paste', 'csv', 'vendor list', 'planned', 'import'],
+      description: t('ribbon.description.pasteTheVendorsEquipmentOr', 'Paste the vendor’s equipment or fixture schedule (from a PDF, a spreadsheet or a CSV): each row becomes planned equipment with its electrical, gas and water values, before anything is drawn', { ns: 'editor' }),
+      keywords: [t('ribbon.keyword.equipmentSchedule', 'equipment schedule', { ns: 'editor' }), t('ribbon.keyword.kitchenSchedule', 'kitchen schedule', { ns: 'editor' }), 'paste', 'csv', t('ribbon.keyword.vendorList', 'vendor list', { ns: 'editor' }), 'planned', 'import'],
       disabledReason: p.equipmentListBlocked,
       run: () => p.equipmentList(trade),
       testId: `ribbon-${tabId}-equipment-list`,
@@ -67,10 +67,10 @@ export function planCommands(tabId: string, trade: PlanTrade, p: RibbonPlan): Ri
     const count = n.counts[tabId] ?? 0
     out.push({
       id: `${tabId}-not-placed-yet`,
-      label: count > 0 ? `Not placed yet (${count})` : 'Not placed yet',
+      label: count > 0 ? t('ribbon.command.notPlacedYetCount', 'Not placed yet ({{count}})', { ns: 'editor', count }) : t('ribbon.command.notPlacedYet', 'Not placed yet', { ns: 'editor' }),
       icon: ListTodo,
-      description: 'Everything that exists but isn’t drawn yet: panels from a service layout, rooftop units, kitchen items. Place each one in the view you are in',
-      keywords: ['planned', 'unplaced', 'checklist', 'to place', 'place'],
+      description: t('ribbon.description.everythingThatExistsButIsnt', 'Everything that exists but isn’t drawn yet: panels from a service layout, rooftop units, kitchen items. Place each one in the view you are in', { ns: 'editor' }),
+      keywords: ['planned', 'unplaced', 'checklist', t('ribbon.keyword.toPlace', 'to place', { ns: 'editor' }), 'place'],
       disabledReason: n.blocked,
       run: () => n.open(tabId),
       testId: `ribbon-${tabId}-not-placed-yet`,
@@ -79,10 +79,10 @@ export function planCommands(tabId: string, trade: PlanTrade, p: RibbonPlan): Ri
   if (p.spaces) {
     out.push({
       id: `${tabId}-spaces`,
-      label: 'Spaces',
+      label: t('ribbon.command.spaces', 'Spaces', { ns: 'editor' }),
       icon: SquareDashedMousePointer,
-      description: 'The rooms and zones you design for: make them from the architect’s rooms or trace them over a PDF or CAD drawing, then give them area loads',
-      keywords: ['space', 'zone', 'room', 'area load', 'trace', 'underlay', 'density'],
+      description: t('ribbon.description.theRoomsAndZonesYou', 'The rooms and zones you design for: make them from the architect’s rooms or trace them over a PDF or CAD drawing, then give them area loads', { ns: 'editor' }),
+      keywords: ['space', 'zone', 'room', t('ribbon.keyword.areaLoad', 'area load', { ns: 'editor' }), 'trace', 'underlay', 'density'],
       disabledReason: p.spaces.blocked,
       run: p.spaces.open,
       testId: `ribbon-${tabId}-spaces`,
@@ -91,11 +91,11 @@ export function planCommands(tabId: string, trade: PlanTrade, p: RibbonPlan): Ri
     if (sp.roomFromWalls)
       out.push({
         id: `${tabId}-room-from-walls`,
-        label: 'Room from walls',
+        label: t('ribbon.command.roomFromWalls', 'Room from walls', { ns: 'editor' }),
         icon: BrickWall,
-        description: 'Hover inside the walls of a room to see it and its area, then click to make it a space that follows its walls',
+        description: t('ribbon.description.hoverInsideTheWallsOf', 'Hover inside the walls of a room to see it and its area, then click to make it a space that follows its walls', { ns: 'editor' }),
         shortcut: 'R W',
-        keywords: ['room', 'space', 'walls', 'bounded', 'click inside', 'make room'],
+        keywords: ['room', 'space', 'walls', 'bounded', t('ribbon.keyword.clickInside', 'click inside', { ns: 'editor' }), t('ribbon.keyword.makeRoom', 'make room', { ns: 'editor' })],
         disabledReason: sp.blocked,
         run: sp.roomFromWalls,
         testId: `ribbon-${tabId}-room-from-walls`,
@@ -103,11 +103,11 @@ export function planCommands(tabId: string, trade: PlanTrade, p: RibbonPlan): Ri
     if (sp.findFromWalls)
       out.push({
         id: `${tabId}-find-rooms-from-walls`,
-        label: 'Find rooms from walls',
+        label: t('ribbon.command.findRoomsFromWalls', 'Find rooms from walls', { ns: 'editor' }),
         icon: ScanSearch,
-        description: 'Find every room the walls on this plan close that has no space yet; accept or reject each before anything is saved',
+        description: t('ribbon.description.findEveryRoomTheWalls', 'Find every room the walls on this plan close that has no space yet; accept or reject each before anything is saved', { ns: 'editor' }),
         shortcut: 'R F',
-        keywords: ['detect rooms', 'find rooms', 'walls', 'propose', 'spaces'],
+        keywords: [t('ribbon.keyword.detectRooms', 'detect rooms', { ns: 'editor' }), t('ribbon.keyword.findRooms', 'find rooms', { ns: 'editor' }), 'walls', 'propose', 'spaces'],
         disabledReason: sp.blocked,
         run: sp.findFromWalls,
         testId: `ribbon-${tabId}-find-rooms-from-walls`,
@@ -115,10 +115,10 @@ export function planCommands(tabId: string, trade: PlanTrade, p: RibbonPlan): Ri
     if (sp.split)
       out.push({
         id: `${tabId}-split-space`,
-        label: 'Split space',
+        label: t('ribbon.command.splitSpace', 'Split space', { ns: 'editor' }),
         icon: SquareSplitHorizontal,
-        description: 'Draw a line from wall to wall across a room; the room keeps its name and area and gets sub-rooms under it',
-        keywords: ['split', 'sub-room', 'separation line', 'divide room', 'open office'],
+        description: t('ribbon.description.drawALineFromWall', 'Draw a line from wall to wall across a room; the room keeps its name and area and gets sub-rooms under it', { ns: 'editor' }),
+        keywords: ['split', 'sub-room', t('ribbon.keyword.separationLine', 'separation line', { ns: 'editor' }), t('ribbon.keyword.divideRoom', 'divide room', { ns: 'editor' }), t('ribbon.keyword.openOffice', 'open office', { ns: 'editor' })],
         disabledReason: sp.blocked,
         run: sp.split,
         testId: `ribbon-${tabId}-split-space`,
@@ -138,7 +138,7 @@ export function withPlanGroups(tabs: readonly RibbonTab[], p: RibbonPlan | null 
   return tabs.map((tab) => {
     const trade = plans.get(tab.id)
     if (!trade) return tab
-    const group: RibbonGroup = { id: `${tab.id}-plan`, label: t('ribbon.group.plan', 'Plan', { ns: 'editor' }), commands: [...planCommands(tab.id, trade, p), ...(added[tab.id] ?? [])] }
+    const group: RibbonGroup = { id: `${tab.id}-plan`, label: t('ribbon.group.plan', 'Plan', { ns: 'editor' }), commands: [...planCommands(tab.id, trade, p, t), ...(added[tab.id] ?? [])] }
     const at = tab.groups.findIndex((g) => g.id === 'select')
     const groups = [...tab.groups]
     groups.splice(at >= 0 ? at + 1 : 0, 0, group)

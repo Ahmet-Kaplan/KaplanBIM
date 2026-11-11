@@ -72,9 +72,9 @@ export function ToolSearchList({
   }
   return (
     <Command filter={toolSearchScore}>
-      <CommandInput placeholder="Find a tool…" aria-label="Find a tool" value={search} onValueChange={setSearch} />
+      <CommandInput placeholder={t('ribbon.findAToolEllipsis', 'Find a tool…', { ns: 'editor' })} aria-label={t('ribbon.findATool', 'Find a tool', { ns: 'editor' })} value={search} onValueChange={setSearch} />
       <CommandList>
-        <CommandEmpty>No tool by that name. Try another word, like “duct”, “sheet” or “dimension”.</CommandEmpty>
+        <CommandEmpty>{t('ribbon.noToolByThatName', 'No tool by that name. Try another word, like “duct”, “sheet” or “dimension”.', { ns: 'editor' })}</CommandEmpty>
         {search.trim() ? (
           // One list while searching, so the best match is on top whichever tab it is on (results across groups don't reorder).
           <CommandGroup heading="Tools">{entries.map((entry) => item(entry, entry.path.split(' › ')[0] ?? null))}</CommandGroup>

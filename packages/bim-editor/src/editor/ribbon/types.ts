@@ -82,8 +82,8 @@ export function splitGroup(commands: readonly RibbonCommand[]): { visible: reado
 
 /**
  * The name a group's More button is read by: the group's own word ("Create · Build"
- * reads "More build tools"), translated in the ribbon, where the translator is
- * (`Ribbon.tsx`, `ribbon.moreTools`).
+ * reads "More build tools"), translated here, where the translator can be handed in.
+ * Called without one it reads the English it always did.
  */
 export function groupOwnWord(groupLabel: string, language?: string): string {
   return (groupLabel.split(' · ').pop() ?? groupLabel).toLocaleLowerCase(localeOf(language))
@@ -99,9 +99,9 @@ function localeOf(language: string | undefined): string {
   return language !== undefined && language.toLowerCase().startsWith('tr') ? 'tr' : 'en'
 }
 
-/** The English the ribbon used to build itself: `More build tools`. The ribbon now says it in the host's language (`ribbon.moreTools`); this stays for callers outside the package. */
-export function moreToolsLabel(groupLabel: string): string {
-  return `More ${groupOwnWord(groupLabel)} tools`
+/** The English the ribbon used to build itself: `More build tools`. The ribbon says it in the host's language (`ribbon.moreTools`); this stays for callers outside the package, and takes the same key so it cannot ship in English. */
+export function moreToolsLabel(groupLabel: string, t: (key: string, english: string, values?: { readonly ns?: string; readonly name?: string }) => string = (_key, english) => english): string {
+  return t('ribbon.moreTools', 'More {{name}} tools', { ns: 'editor', name: groupOwnWord(groupLabel) })
 }
 
 export interface SearchEntry {

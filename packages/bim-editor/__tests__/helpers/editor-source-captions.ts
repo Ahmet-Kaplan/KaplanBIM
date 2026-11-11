@@ -76,7 +76,14 @@ export function captionsUnder(source: ReadonlyMap<string, SourceCaption>, prefix
   return [...source.keys()].filter((key) => prefixes.some((prefix) => key.startsWith(prefix)));
 }
 
+/**
+ * Every `.ts`/`.tsx` under a root. A root may be a file: the ribbon's largest
+ * builder (`ribbon/../building-model-ribbon.ts`) sits beside the trees, not
+ * inside one, and a guard that cannot name it would skip the tooltips it writes.
+ */
 function sourceFiles(dir: string): string[] {
+  const stat = fs.statSync(dir);
+  if (stat.isFile()) return /\.tsx?$/u.test(dir) ? [dir] : [];
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) return sourceFiles(full);

@@ -78,6 +78,7 @@ export function Ribbon({
   readonly testId?: string
 }) {
   const [collapsed, setCollapsed] = useState(false)
+  const t = useEditorTranslate()
   const [searchOpen, setSearchOpen] = useState(false)
   const active = tabs.find((t) => t.id === value) ?? tabs[0]
   // A narrow window scrolls the tool row sideways. When the tab or its groups change (another view opened,
@@ -106,7 +107,7 @@ export function Ribbon({
       <div className="flex min-w-0 items-center gap-1 px-2">
         <Tabs value={active?.id} onValueChange={onValueChange} className="min-w-0 shrink">
           {/* Too narrow for every tab: the tab row scrolls by itself; the status and search on the right never push it away. */}
-          <TabsList variant="line" aria-label="Tool tabs" className="h-9 max-w-full justify-start overflow-x-auto overflow-y-hidden" data-testid="ribbon-tabs">
+          <TabsList variant="line" aria-label={t('ribbon.toolTabs', 'Tool tabs', { ns: 'editor' })} className="h-9 max-w-full justify-start overflow-x-auto overflow-y-hidden" data-testid="ribbon-tabs">
             {tabs.map((tab) => (
               <TabsTrigger
                 key={tab.id}
@@ -133,7 +134,7 @@ export function Ribbon({
           {trailing}
           {trailingSlotId ? <div id={trailingSlotId} className="flex items-center" /> : null}
           {quick.length > 0 && (
-            <div className="flex items-center gap-0.5" role="group" aria-label="Quick access" data-testid="ribbon-quick">
+            <div className="flex items-center gap-0.5" role="group" aria-label={t('ribbon.quickAccess', 'Quick access', { ns: 'editor' })} data-testid="ribbon-quick">
               {quick.map((c) => (
                 <CommandButton key={c.id} command={c} compact />
               ))}
@@ -142,11 +143,11 @@ export function Ribbon({
           <CommandSearch tabs={tabs} quick={quick} open={searchOpen} onOpenChange={setSearchOpen} onTab={onValueChange} />
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon-sm" aria-label={collapsed ? 'Expand the ribbon' : 'Collapse the ribbon to one row'} aria-pressed={collapsed} onClick={() => setCollapsed((c) => !c)} data-testid="ribbon-collapse">
+              <Button variant="ghost" size="icon-sm" aria-label={collapsed ? t('ribbon.expand', 'Expand the ribbon', { ns: 'editor' }) : t('ribbon.collapseToOneRow', 'Collapse the ribbon to one row', { ns: 'editor' })} aria-pressed={collapsed} onClick={() => setCollapsed((c) => !c)} data-testid="ribbon-collapse">
                 {collapsed ? <ChevronsUpDown /> : <ChevronsDownUp />}
               </Button>
             </TooltipTrigger>
-            <TooltipContent>{collapsed ? 'Show tool names and groups' : 'Fold the tools into one row'}</TooltipContent>
+            <TooltipContent>{collapsed ? t('ribbon.showToolNames', 'Show tool names and groups', { ns: 'editor' }) : t('ribbon.foldToOneRow', 'Fold the tools into one row', { ns: 'editor' })}</TooltipContent>
           </Tooltip>
         </div>
       </div>
@@ -259,6 +260,8 @@ function useKeyboardHandOff() {
 /** The face runs the last choice (Detail line draws the last shape); the chevron opens the other choices. */
 function SplitCommand({ command, compact }: { readonly command: RibbonCommand; readonly compact: boolean }) {
   const handOff = useKeyboardHandOff()
+  const t = useEditorTranslate()
+  const language = useEditorLanguage()
   return (
     <ButtonGroup aria-label={command.label}>
       <CommandButton command={command} compact={compact} />
@@ -271,7 +274,7 @@ function SplitCommand({ command, compact }: { readonly command: RibbonCommand; r
               </Button>
             </DropdownMenuTrigger>
           </TooltipTrigger>
-          <TooltipContent>{command.disabledReason ?? `Choose another kind of ${command.label.toLowerCase()}`}</TooltipContent>
+          <TooltipContent>{command.disabledReason ?? t('ribbon.chooseAnotherKind', 'Choose another kind of {{kind}}', { ns: 'editor', kind: command.label.toLocaleLowerCase(language) })}</TooltipContent>
         </Tooltip>
         <DropdownMenuContent align="start" className={CLOSES_AT_ONCE} onCloseAutoFocus={handOff.onCloseAutoFocus}>
           {command.disabledReason && <DropdownMenuLabel className="max-w-64 text-xs font-normal text-muted-foreground">{command.disabledReason}</DropdownMenuLabel>}
@@ -376,12 +379,13 @@ function CommandSearch({
   readonly onOpenChange: (open: boolean) => void
   readonly onTab: (tabId: string) => void
 }) {
+  const t = useEditorTranslate()
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="w-40 justify-start text-muted-foreground" aria-label="Find a tool" data-testid="ribbon-search-trigger">
+        <Button variant="outline" size="sm" className="w-40 justify-start text-muted-foreground" aria-label={t('ribbon.findATool', 'Find a tool', { ns: 'editor' })} data-testid="ribbon-search-trigger">
           <Search data-icon="inline-start" />
-          Find a tool
+          {t('ribbon.findATool', 'Find a tool', { ns: 'editor' })}
           <kbd className="ml-auto rounded border px-1 font-mono text-[10px]">/</kbd>
         </Button>
       </PopoverTrigger>

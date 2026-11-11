@@ -50,19 +50,19 @@ function tabStarts(): ReadonlyMap<string, ScheduleCategory> {
   return starts
 }
 
-function scheduleCommands(tabId: string, start: ScheduleCategory, s: RibbonSchedules): RibbonCommand[] {
+function scheduleCommands(tabId: string, start: ScheduleCategory, s: RibbonSchedules, t: Translate): RibbonCommand[] {
   const open: RibbonCommand = {
     id: `${tabId}-open-schedule`,
-    label: 'Open a schedule',
+    label: t('ribbon.command.openASchedule', 'Open a schedule', { ns: 'editor' }),
     icon: FolderOpen,
-    description: 'Open one of the model’s schedules as a spreadsheet you can edit',
+    description: t('ribbon.description.openOneOfTheModels', 'Open one of the model’s schedules as a spreadsheet you can edit', { ns: 'editor' }),
     keywords: ['schedule', 'spreadsheet', 'grid', 'table'],
-    disabledReason: s.views.length === 0 ? 'No schedules in this model yet. Make one with New schedule…' : null,
+    disabledReason: s.views.length === 0 ? t('ribbon.help.noSchedulesInThisModel', 'No schedules in this model yet. Make one with New schedule…', { ns: 'editor' }) : null,
     children: s.views.map((v) => ({
       id: `${tabId}-open-schedule-${v.id}`,
       label: v.name,
       icon: TableProperties,
-      description: `Open ${v.name} as a spreadsheet`,
+      description: t('ribbon.description.openNameAsASpreadsheet', 'Open {{name}} as a spreadsheet', { ns: 'editor', name: v.name }),
       run: () => s.open(v.id),
       testId: `ribbon-open-schedule-${v.id}`,
     })),
@@ -72,10 +72,10 @@ function scheduleCommands(tabId: string, start: ScheduleCategory, s: RibbonSched
     ? [
         {
           id: `${tabId}-load-schedules`,
-          label: 'Load schedules',
+          label: t('ribbon.command.loadSchedules', 'Load schedules', { ns: 'editor' }),
           icon: Sigma,
-          description: 'A schedule with the Loads columns already chosen: estimate, devices so far and counted, per space or per panel',
-          keywords: ['loads', 'load study', 'space loads', 'panel loads', 'estimate', 'devices so far', 'counted', 'va', 'wsfu', 'dfu', 'cfm'],
+          description: t('ribbon.description.aScheduleWithTheLoads', 'A schedule with the Loads columns already chosen: estimate, devices so far and counted, per space or per panel', { ns: 'editor' }),
+          keywords: ['loads', t('ribbon.keyword.loadStudy', 'load study', { ns: 'editor' }), t('ribbon.keyword.spaceLoads', 'space loads', { ns: 'editor' }), t('ribbon.keyword.panelLoads', 'panel loads', { ns: 'editor' }), 'estimate', t('ribbon.keyword.devicesSoFar', 'devices so far', { ns: 'editor' }), 'counted', 'va', 'wsfu', 'dfu', 'cfm'],
           children: s.loadSchedules.lists.map((l) => ({
             id: `${tabId}-load-schedule-${l.id}`,
             label: l.label,
@@ -92,9 +92,9 @@ function scheduleCommands(tabId: string, start: ScheduleCategory, s: RibbonSched
   return [
     {
       id: `${tabId}-new-schedule`,
-      label: 'New schedule…',
+      label: t('ribbon.command.newSchedule', 'New schedule…', { ns: 'editor' }),
       icon: TableProperties,
-      description: 'List items from the model in a spreadsheet: choose what to list, then the columns',
+      description: t('ribbon.description.listItemsFromTheModel', 'List items from the model in a spreadsheet: choose what to list, then the columns', { ns: 'editor' }),
       keywords: ['schedule', 'list', 'spreadsheet', 'grid', 'table', 'takeoff'],
       disabledReason: s.editBlocked,
       run: () => s.newSchedule(start),
@@ -105,13 +105,13 @@ function scheduleCommands(tabId: string, start: ScheduleCategory, s: RibbonSched
   ]
 }
 
-export function libraryCommand(s: RibbonSchedules): RibbonCommand {
+export function libraryCommand(s: RibbonSchedules, t: Translate = englishOnly): RibbonCommand {
   return {
     id: 'manage-library',
-    label: 'Library',
+    label: t('ribbon.command.library', 'Library', { ns: 'editor' }),
     icon: Library,
-    description: 'The firm’s shared calculations, fields and schedule templates',
-    keywords: ['library', 'formula', 'calculation', 'template', 'shared parameters'],
+    description: t('ribbon.description.theFirmsSharedCalculationsFields', 'The firm’s shared calculations, fields and schedule templates', { ns: 'editor' }),
+    keywords: ['library', 'formula', 'calculation', 'template', t('ribbon.keyword.sharedParameters', 'shared parameters', { ns: 'editor' })],
     run: s.openLibrary,
     testId: 'ribbon-manage-library',
   }
@@ -122,10 +122,10 @@ export function withScheduleGroups(tabs: readonly RibbonTab[], s: RibbonSchedule
   if (!s) return [...tabs]
   const starts = tabStarts()
   return tabs.map((tab) => {
-    if (tab.id === 'manage') return { ...tab, groups: [...tab.groups, { id: 'manage-library', label: t('ribbon.group.library', 'Library', { ns: 'editor' }), commands: [libraryCommand(s)] }] }
+    if (tab.id === 'manage') return { ...tab, groups: [...tab.groups, { id: 'manage-library', label: t('ribbon.group.library', 'Library', { ns: 'editor' }), commands: [libraryCommand(s, t)] }] }
     const start = starts.get(tab.id)
     if (!start) return tab
-    const commands = scheduleCommands(tab.id, start, s)
+    const commands = scheduleCommands(tab.id, start, s, t)
     // A trade's tab keeps them in its Documents section, first.
     if (isTradeTab(tab)) return withTradeSectionCommands(tab, 'documents', commands, true, t)
     // Idempotent by the id this builder gives its own group. Matching on the caption
