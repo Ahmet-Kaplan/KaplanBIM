@@ -1,5 +1,6 @@
 import { formScheduleKindLabel, formScheduleKinds, isBoundFormKind, documentIndex, type FormScheduleDefinition, type FormScheduleKind, type ModelState, type ScheduleDefinition } from '@permitzip/bim-kernel'
 import { type DistributionSummary } from '@permitzip/bim-pack-electrical'
+import { englishOnly, type Translate } from '../../i18n/translate'
 
 /** What the schedule menus offer: the form kinds, plus the mechanical equipment list with its live electrical columns. */
 export type ScheduleChoice = FormScheduleKind | 'mechanical_equipment'
@@ -9,14 +10,11 @@ export function scheduleChoices(): readonly ScheduleChoice[] {
   return [...formScheduleKinds(), 'mechanical_equipment']
 }
 
-const CHOICE_LABEL_OVERRIDES: Readonly<Record<string, string>> = {
-  connection_types: 'Connection type schedule',
-  mechanical_equipment: 'Mechanical equipment (with electrical)',
-}
-
 /** What the menus call a choice: the add-on's label for a form kind. */
-export function scheduleChoiceLabel(choice: ScheduleChoice): string {
-  return CHOICE_LABEL_OVERRIDES[choice] ?? formScheduleKindLabel(choice)
+export function scheduleChoiceLabel(choice: ScheduleChoice, t: Translate = englishOnly): string {
+  if (choice === 'connection_types') return t('electrical.connectionTypeSchedule', 'Connection type schedule', { ns: 'editor' })
+  if (choice === 'mechanical_equipment') return t('electrical.mechanicalEquipmentWithElectrical', 'Mechanical equipment (with electrical)', { ns: 'editor' })
+  return formScheduleKindLabel(choice)
 }
 
 export const MECHANICAL_EQUIPMENT_SCHEDULE: ScheduleDefinition = {
@@ -35,16 +33,20 @@ export function boundKindFor(equipment: Pick<DistributionSummary, 'kind'>): 'pan
 }
 
 /** Code rules ids a schedule can compute demand under; absent = connected loads only. */
-export const RULE_CHOICES = [
-  { value: 'none', label: 'Connected loads only' },
-  { value: 'nec-2020', label: 'NEC 2020' },
-  { value: 'nec-2023', label: 'NEC 2023' },
-] as const
+export function ruleChoices(t: Translate = englishOnly): readonly { readonly value: RuleChoice; readonly label: string }[] {
+  return [
+    { value: 'none', label: t('electrical.ruleChoice.none', 'Connected loads only', { ns: 'editor' }) },
+    { value: 'nec-2020', label: 'NEC 2020' },
+    { value: 'nec-2023', label: 'NEC 2023' },
+  ]
+}
 
-export type RuleChoice = (typeof RULE_CHOICES)[number]['value']
+export type RuleChoice = 'none' | 'nec-2020' | 'nec-2023'
+
+const RULE_VALUES: readonly RuleChoice[] = ['none', 'nec-2020', 'nec-2023']
 
 export function ruleChoiceOf(rules: string | undefined): RuleChoice {
-  return RULE_CHOICES.find((r) => r.value === rules)?.value ?? 'none'
+  return RULE_VALUES.find((r) => r === rules) ?? 'none'
 }
 
 /** The definition with `rules` set, or dropped for connected loads only. */
@@ -72,4 +74,4 @@ export function nextScheduleSheetNumber(model: Pick<ModelState, 'elements' | 'co
 export { freeSpotOnSheet, sheetSpotOf, type SheetSpot } from '../../schedules/new-schedule-plan'
 
 /** The equipment list with live circuit columns, as the one New schedule window offers it (under this add-on). */
-export const EQUIPMENT_LIST_CHOICE = { definition: MECHANICAL_EQUIPMENT_SCHEDULE, label: CHOICE_LABEL_OVERRIDES.mechanical_equipment ?? 'Equipment (with electrical)' } as const
+export const EQUIPMENT_LIST_CHOICE = { definition: MECHANICAL_EQUIPMENT_SCHEDULE, label: 'Equipment (with electrical)' } as const

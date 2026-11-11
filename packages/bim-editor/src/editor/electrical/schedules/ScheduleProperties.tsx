@@ -9,8 +9,9 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Separator } from '../../../ui/separator'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip'
 import type { SubmitCommand } from '../../views-sheets/types'
-import { RULE_CHOICES, boundKindFor, isBoundKind, ruleChoiceOf, withRules } from './schedule-plan'
+import { ruleChoices, boundKindFor, isBoundKind, ruleChoiceOf, withRules } from './schedule-plan'
 import type { ScheduleTemplates } from './use-schedule-templates'
+import { useEditorTranslate } from '../../i18n/translate'
 
 const TEXT_SIZES_MM = [1.5, 2, 2.5, 3] as const
 
@@ -47,6 +48,7 @@ export function ScheduleProperties({
   readonly templates: ScheduleTemplates
   readonly onEditTemplate: () => void
 }) {
+  const t = useEditorTranslate()
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
   const [saving, setSaving] = useState(false)
   const editBlocked = canEdit ? null : blockedReason
@@ -76,7 +78,7 @@ export function ScheduleProperties({
       <FieldGroup className="gap-3">
         {isBoundKind(def.kind) && (
           <Field>
-            <FieldLabel htmlFor="sp-panel">{def.kind === 'panel' ? 'Panel' : 'Switchboard or transformer'}</FieldLabel>
+            <FieldLabel htmlFor="sp-panel">{def.kind === 'panel' ? t('electrical.panel', 'Panel', { ns: 'editor' }) : 'Switchboard or transformer'}</FieldLabel>
             <Select value={bound?.id ?? ''} disabled={!canEdit || equipment.length === 0} onValueChange={(id) => send({ ...def, elementId: id }, `show ${equipment.find((e) => e.id === id)?.name ?? 'another panel'} in ${view.name}`)}>
               <SelectTrigger id="sp-panel" size="sm" data-testid="schedule-props-panel">
                 <SelectValue placeholder="No longer in the model: choose one" />
@@ -96,13 +98,13 @@ export function ScheduleProperties({
         )}
         <Field>
           <FieldLabel htmlFor="sp-rules">Demand figures</FieldLabel>
-          <Select value={ruleChoiceOf(def.rules)} disabled={!canEdit} onValueChange={(v) => send(withRules(def, RULE_CHOICES.find((r) => r.value === v)?.value ?? 'none'), `${view.name}: ${RULE_CHOICES.find((r) => r.value === v)?.label ?? 'connected loads only'}`)}>
+          <Select value={ruleChoiceOf(def.rules)} disabled={!canEdit} onValueChange={(v) => send(withRules(def, ruleChoices(t).find((r) => r.value === v)?.value ?? 'none'), `${view.name}: ${ruleChoices(t).find((r) => r.value === v)?.label ?? 'connected loads only'}`)}>
             <SelectTrigger id="sp-rules" size="sm" data-testid="schedule-props-rules">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                {RULE_CHOICES.map((r) => (
+                {ruleChoices(t).map((r) => (
                   <SelectItem key={r.value} value={r.value}>
                     {r.label}
                   </SelectItem>
@@ -149,7 +151,7 @@ export function ScheduleProperties({
           <TooltipTrigger asChild>
             <span className="flex-1">
               <Button variant="outline" size="sm" className="w-full" disabled={saveBlocked !== null || saving} onClick={() => void saveAsDefault()} data-testid="schedule-props-save-default">
-                {saving ? 'Saving…' : 'Save as firm default'}
+                {saving ? t('electrical.saving', 'Saving…', { ns: 'editor' }) : 'Save as firm default'}
               </Button>
             </span>
           </TooltipTrigger>

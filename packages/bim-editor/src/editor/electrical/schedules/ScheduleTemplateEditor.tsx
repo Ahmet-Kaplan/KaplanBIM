@@ -14,24 +14,53 @@ import { Input } from '../../../ui/input'
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '../../../ui/input-group'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select'
 import type { SubmitCommand } from '../../views-sheets/types'
-import { useEditorTranslate } from '../../i18n/translate'
+import { englishOnly, useEditorTranslate, type Translate } from '../../i18n/translate'
 
 type Align = (typeof FORM_ALIGNS)[number]
-const ALIGN_LABEL: Record<Align, string> = { left: 'Left', center: 'Centre', right: 'Right' }
-const STARTS_FROM: Record<FieldPathInfo['on'], string> = { panel: 'The panel', device: 'A device on a circuit', circuit: 'A circuit', feeder: 'A feeder', pipe: 'A pipe', load_point: 'A load point', any: 'Any part' }
+/** A column's alignment in words — a `label(t)` accessor, not a table. */
+function alignLabel(align: Align, t: Translate): string {
+  switch (align) {
+    case 'left':
+      return t('electrical.align.left', 'Left', { ns: 'editor' })
+    case 'center':
+      return t('electrical.align.center', 'Centre', { ns: 'editor' })
+    case 'right':
+      return t('electrical.align.right', 'Right', { ns: 'editor' })
+  }
+}
+
+/** Where a field path starts, in words. */
+function startsFromWord(on: FieldPathInfo['on'], t: Translate): string {
+  switch (on) {
+    case 'panel':
+      return t('electrical.thePanel', 'The panel', { ns: 'editor' })
+    case 'device':
+      return t('electrical.aDeviceOnACircuit', 'A device on a circuit', { ns: 'editor' })
+    case 'circuit':
+      return t('electrical.aCircuit', 'A circuit', { ns: 'editor' })
+    case 'feeder':
+      return t('electrical.aFeeder', 'A feeder', { ns: 'editor' })
+    case 'pipe':
+      return t('electrical.aPipe', 'A pipe', { ns: 'editor' })
+    case 'load_point':
+      return t('electrical.aLoadPoint', 'A load point', { ns: 'editor' })
+    case 'any':
+      return t('electrical.anyPart', 'Any part', { ns: 'editor' })
+  }
+}
 
 /** A first schema issue in plain words: "Column 3 value: A { has no closing }". */
-export function templateIssue(template: FormTemplate): string | null {
+export function templateIssue(template: FormTemplate, t: Translate = englishOnly): string | null {
   const parsed = formTemplateSchema.safeParse(template)
   if (parsed.success) return null
   const issue = parsed.error.issues[0]
-  if (!issue) return 'The template doesn’t fit.'
+  if (!issue) return t('electrical.theTemplateDoesnTFit', 'The template doesn’t fit.', { ns: 'editor' })
   const [a, b, c, d] = issue.path
   const where =
     a === 'title'
       ? 'Title'
       : a === 'name'
-        ? 'Template name'
+        ? t('electrical.templateName', 'Template name', { ns: 'editor' })
         : a === 'supplyFrom'
           ? 'Supply from wording'
           : a === 'header' && b === 'fields' && typeof c === 'number'
@@ -39,10 +68,10 @@ export function templateIssue(template: FormTemplate): string | null {
             : a === 'body' && b === 'columns' && typeof c === 'number'
               ? `Column ${c + 1} ${d === 'heading' ? 'heading' : 'value'}`
               : a === 'body' && b === 'columns'
-                ? 'Columns'
+                ? t('electrical.columns', 'Columns', { ns: 'editor' })
                 : a === 'notes' && typeof b === 'number'
                   ? `Note ${b + 1} ${typeof c === 'string' ? c : ''}`.trim()
-                  : 'The template'
+                  : t('electrical.theTemplate', 'The template', { ns: 'editor' })
   return `${where}: ${issue.message}`
 }
 
@@ -63,6 +92,7 @@ function TemplateInput({
   preview: ((template: string) => string) | null
   testId?: string
 }) {
+  const t = useEditorTranslate()
   const parsed = parseFieldTemplate(value)
   const reads = parsed.ok && preview ? preview(value) : null
   return (
@@ -81,7 +111,7 @@ function TemplateInput({
       ) : (
         reads !== null && (
           <FieldDescription className="text-xs" data-testid={testId ? `${testId}-preview` : undefined}>
-            Reads: {reads || '(empty here)'}
+            {t('electrical.reads', 'Reads: {{what}}', { ns: 'editor', what: reads || t('electrical.emptyHere', '(empty here)', { ns: 'editor' }) })}
           </FieldDescription>
         )
       )}
@@ -90,6 +120,7 @@ function TemplateInput({
 }
 
 function FieldPathMenu({ onPick, label }: { onPick: (path: string) => void; label: string }) {
+  const t = useEditorTranslate()
   const groups = (['panel', 'device', 'circuit', 'feeder', 'any'] as const).map((on) => ({ on, paths: fieldPaths().filter((f) => f.on === on) })).filter((g) => g.paths.length > 0)
   return (
     <DropdownMenu>
@@ -102,7 +133,7 @@ function FieldPathMenu({ onPick, label }: { onPick: (path: string) => void; labe
         {groups.map((g, i) => (
           <DropdownMenuGroup key={g.on}>
             {i > 0 && <DropdownMenuSeparator />}
-            <DropdownMenuLabel className="text-xs">{STARTS_FROM[g.on]}</DropdownMenuLabel>
+            <DropdownMenuLabel className="text-xs">{startsFromWord(g.on, t)}</DropdownMenuLabel>
             {g.paths.map((f) => (
               <DropdownMenuItem key={f.path} onSelect={() => onPick(f.path)}>
                 <span className="flex-1">{f.label}</span>
@@ -165,7 +196,7 @@ export function ScheduleTemplateEditor({
     setRefusal(null)
   }
   const elementId = def.elementId ?? null
-  const boundName = elementId ? formatFieldTemplate(model.elements, elementId, '{name}').text || 'the panel' : null
+  const boundName = elementId ? formatFieldTemplate(model.elements, elementId, '{name}').text || t('electrical.thePanel_165', 'the panel', { ns: 'editor' }) : null
   const preview = elementId ? (template: string) => formatFieldTemplate(model.elements, elementId, template, { rules: def.rules ?? null, ...(draft.supplyFrom ? { supplyFrom: draft.supplyFrom } : {}) }).text : null
   const header = draft.header.fields
   const columns = draft.body.columns
@@ -189,15 +220,15 @@ export function ScheduleTemplateEditor({
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl" data-testid="schedule-template-editor">
         <form onSubmit={save} className="flex flex-col gap-4">
           <DialogHeader>
-            <DialogTitle>Edit template</DialogTitle>
+            <DialogTitle>{t('electrical.editTemplate_189', 'Edit template', { ns: 'editor' })}</DialogTitle>
             <DialogDescription>
-              Braces read the model: {'{bus}'} prints {boundName ? `${boundName}’s` : 'the'} bus rating. Square brackets drop when a field inside is empty: [ via {'{feeder.type}'}]. This changes this schedule only.
+              {t('electrical.bracesReadTheModel', 'Braces read the model:', { ns: 'editor' })} {'{bus}'} prints {boundName ? `${boundName}’s` : 'the'} bus rating. Square brackets drop when a field inside is empty: [ via {'{feeder.type}'}]. This changes this schedule only.
             </DialogDescription>
           </DialogHeader>
           <FieldGroup className="gap-3">
             <div className="grid grid-cols-3 gap-3">
               <Field>
-                <FieldLabel htmlFor="ste-name">Template name</FieldLabel>
+                <FieldLabel htmlFor="ste-name">{t('electrical.templateName', 'Template name', { ns: 'editor' })}</FieldLabel>
                 <Input id="ste-name" value={draft.name} maxLength={80} onChange={(e) => set({ name: e.target.value })} />
               </Field>
               <div className="col-span-2">
@@ -209,7 +240,7 @@ export function ScheduleTemplateEditor({
                 <div key={i} className="grid grid-cols-[8rem_1fr_auto] items-start gap-2" data-testid={`ste-header-${i}`}>
                   <Field>
                     <FieldLabel htmlFor={`ste-hl-${i}`} className="sr-only">
-                      Header label {i + 1}
+                      {t('electrical.headerLabel', 'Header label', { ns: 'editor' })} {i + 1}
                     </FieldLabel>
                     <Input id={`ste-hl-${i}`} value={f.label} maxLength={40} onChange={(e) => setHeader(header.map((h, j) => (j === i ? { ...h, label: e.target.value } : h)))} />
                   </Field>
@@ -221,15 +252,15 @@ export function ScheduleTemplateEditor({
               ))}
               <Button type="button" variant="outline" size="sm" className="self-start" onClick={() => setHeader([...header, { label: 'NEW', value: '' }])} disabled={header.length >= 24}>
                 <Plus data-icon="inline-start" />
-                Add header field
+                {t('electrical.addHeaderField', 'Add header field', { ns: 'editor' })}
               </Button>
             </Section>
-            <Section title={draft.body.layout === 'slots' ? 'Columns (each half of the slot grid)' : 'Columns'} count={columns.length}>
+            <Section title={draft.body.layout === 'slots' ? t('electrical.columnsEachHalfOfTheSlotGrid', 'Columns (each half of the slot grid)', { ns: 'editor' }) : 'Columns'} count={columns.length}>
               {columns.map((c, i) => (
                 <div key={i} className="grid grid-cols-[7rem_1fr_6rem_auto] items-start gap-2" data-testid={`ste-column-${i}`}>
                   <Field>
                     <FieldLabel htmlFor={`ste-ch-${i}`} className="sr-only">
-                      Column {i + 1} heading
+                      {t('electrical.column', 'Column', { ns: 'editor' })} {i + 1} heading
                     </FieldLabel>
                     <Input id={`ste-ch-${i}`} value={c.heading} maxLength={40} onChange={(e) => editColumn(i, { heading: e.target.value })} />
                   </Field>
@@ -242,7 +273,7 @@ export function ScheduleTemplateEditor({
                       <SelectGroup>
                         {FORM_ALIGNS.map((a) => (
                           <SelectItem key={a} value={a}>
-                            {ALIGN_LABEL[a]}
+                            {alignLabel(a, t)}
                           </SelectItem>
                         ))}
                       </SelectGroup>
@@ -263,7 +294,7 @@ export function ScheduleTemplateEditor({
               ))}
               <Button type="button" variant="outline" size="sm" className="self-start" onClick={() => setColumns([...columns, { heading: 'NEW', value: '' }])} disabled={columns.length >= (draft.body.layout === 'slots' ? 8 : 16)}>
                 <Plus data-icon="inline-start" />
-                Add column
+                {t('electrical.addColumn', 'Add column', { ns: 'editor' })}
               </Button>
             </Section>
             <Section title={t('panel.notesLegend', 'Notes legend', { ns: 'editor' })} count={draft.notes.length}>
@@ -289,7 +320,7 @@ export function ScheduleTemplateEditor({
               ))}
               <Button type="button" variant="outline" size="sm" className="self-start" onClick={() => setNotes([...draft.notes, { mark: String.fromCharCode(65 + (draft.notes.length % 26)), text: 'Note' }])} disabled={draft.notes.length >= 16}>
                 <Plus data-icon="inline-start" />
-                Add note
+                {t('electrical.addNote', 'Add note', { ns: 'editor' })}
               </Button>
             </Section>
             {(def.kind === 'panel' || def.kind === 'switchboard') && (
@@ -307,23 +338,23 @@ export function ScheduleTemplateEditor({
                   preview={preview}
                   testId="ste-supply"
                 />
-                <FieldDescription className="text-xs">Where {'{supply_from}'} is used, it prints this: the default reads “MDP via 225A/3P via F225”.</FieldDescription>
+                <FieldDescription className="text-xs">{t('electrical.where', 'Where', { ns: 'editor' })} {'{supply_from}'} is used, it prints this: the default reads “MDP via 225A/3P via F225”.</FieldDescription>
               </Section>
             )}
           </FieldGroup>
           {refusal && (
             <Alert variant="destructive" data-testid="ste-refusal">
               <CircleAlert />
-              <AlertTitle>Not saved</AlertTitle>
+              <AlertTitle>{t('electrical.notSaved', 'Not saved', { ns: 'editor' })}</AlertTitle>
               <AlertDescription>{refusal}</AlertDescription>
             </Alert>
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
+              {t('electrical.cancel', 'Cancel', { ns: 'editor' })}
             </Button>
             <Button type="submit" data-testid="ste-save">
-              Save to this schedule
+              {t('electrical.saveToThisSchedule', 'Save to this schedule', { ns: 'editor' })}
             </Button>
           </DialogFooter>
         </form>

@@ -34,6 +34,7 @@ import { useNecRulesFrom, type NecRules } from './use-nec-rules'
 import { useCapacityTargets } from './use-capacity-targets'
 import { useScheduleWorkflow } from './schedules/use-schedule-workflow'
 import type { NewScheduleFormSlot } from '../schedules/new-schedule-plan'
+import { useEditorTranslate } from '../i18n/translate'
 
 export interface ElectricalWorkflowInput {
   /** The host project, for its Code Study's NEC edition. */
@@ -127,6 +128,7 @@ const PLACE_PANEL_FIRST = 'Place a panel first: Electrical › Panel, then name 
  * send (bim_create_circuit and friends).
  */
 export function useElectricalWorkflow(input: ElectricalWorkflowInput): ElectricalWorkflow {
+  const t = useEditorTranslate()
   const { projectId, model, selectedIds, editBlocked, modelToolsBlocked, submit, place, activeTab, notify, openDiagram, select } = input
   const nec = useNecRulesFrom(useEditorHost().data.codeAdoption, projectId)
   const capacityTargets = useCapacityTargets(projectId)
@@ -195,7 +197,7 @@ export function useElectricalWorkflow(input: ElectricalWorkflowInput): Electrica
     for (let i = 0; i < plan.commands.length; i++) {
       const command = plan.commands[i]
       if (!command) continue
-      const refusal = submit(command, i === plan.commands.length - 1 ? plan.label : 'take devices off their old circuit')
+      const refusal = submit(command, i === plan.commands.length - 1 ? plan.label : t('electrical.undo.takeDevicesOffCircuit', 'take devices off their old circuit', { ns: 'editor' }))
       if (refusal) {
         notify(refusal, 'error')
         return false

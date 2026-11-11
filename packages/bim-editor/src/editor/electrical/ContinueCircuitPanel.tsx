@@ -12,17 +12,31 @@ import { newElementId } from '../placement'
 import { CLOSES_AT_ONCE } from '../menu-close'
 import type { SubmitCommand } from '../views-sheets/types'
 import type { ElectricalPlaceKind } from './electrical-tab'
+import { englishOnly, useEditorTranslate, type Translate } from '../i18n/translate'
 
 const NEW_CIRCUIT = '__new__'
 
 /** What Continue circuit places, in the words of the Device menu. */
-export const CONTINUE_DEVICE_KINDS: readonly { readonly kind: ElectricalPlaceKind; readonly label: string; readonly plural: string }[] = [
-  { kind: 'receptacle', label: 'Receptacle', plural: 'receptacles' },
-  { kind: 'receptacle_gfci', label: 'Receptacle, GFCI', plural: 'GFCI receptacles' },
-  { kind: 'light', label: 'Light', plural: 'lights' },
-  { kind: 'downlight', label: 'Downlight', plural: 'downlights' },
-  { kind: 'junction_box', label: 'Junction box', plural: 'junction boxes' },
-]
+export const CONTINUE_DEVICE_KINDS: readonly ElectricalPlaceKind[] = ['receptacle', 'receptacle_gfci', 'light', 'downlight', 'junction_box']
+
+/** One kind's words in the Device menu's own terms: a `label(t)` accessor, not a
+ * const table that would freeze in the language the module first loaded in. */
+export function continueDeviceWords(kind: ElectricalPlaceKind, t: Translate = englishOnly): { readonly label: string; readonly plural: string } {
+  switch (kind) {
+    case 'receptacle':
+      return { label: t('electrical.continueDevice.receptacle', 'Receptacle', { ns: 'editor' }), plural: t('electrical.continueDevice.receptacles', 'receptacles', { ns: 'editor' }) }
+    case 'receptacle_gfci':
+      return { label: t('electrical.continueDevice.receptacleGfci', 'Receptacle, GFCI', { ns: 'editor' }), plural: t('electrical.continueDevice.gfciReceptacles', 'GFCI receptacles', { ns: 'editor' }) }
+    case 'light':
+      return { label: t('electrical.continueDevice.light', 'Light', { ns: 'editor' }), plural: t('electrical.continueDevice.lights', 'lights', { ns: 'editor' }) }
+    case 'downlight':
+      return { label: t('electrical.continueDevice.downlight', 'Downlight', { ns: 'editor' }), plural: t('electrical.continueDevice.downlights', 'downlights', { ns: 'editor' }) }
+    case 'junction_box':
+      return { label: t('electrical.continueDevice.junctionBox', 'Junction box', { ns: 'editor' }), plural: t('electrical.continueDevice.junctionBoxes', 'junction boxes', { ns: 'editor' }) }
+    default:
+      return { label: t('electrical.continueDevice.device', 'Device', { ns: 'editor' }), plural: t('electrical.continueDevice.devices', 'devices', { ns: 'editor' }) }
+  }
+}
 
 interface Active {
   readonly panelId: string
@@ -39,6 +53,7 @@ interface Active {
  * after that.
  */
 export function ContinueCircuitPanel({ model, editBlocked, submit, place, onClose, notify }: { readonly model: ModelState; readonly editBlocked: string | null; readonly submit: SubmitCommand; readonly place: (kind: ElectricalPlaceKind) => string | null; readonly onClose: () => void; readonly notify: (message: string, kind?: 'info' | 'error') => void }) {
+  const t = useEditorTranslate()
   const panels = useMemo(() => continuePanels(model), [model])
   const [panelId, setPanelId] = useState<string>(panels[0]?.panelId ?? '')
   const circuits = useMemo(() => (panelId ? panelCircuits(model, panelId) : []), [model, panelId])
@@ -49,10 +64,10 @@ export function ContinueCircuitPanel({ model, editBlocked, submit, place, onClos
   const known = useRef<Set<string>>(new Set())
 
   const panelName = panels.find((p) => p.panelId === (active?.panelId ?? panelId))?.name ?? ''
-  const device = CONTINUE_DEVICE_KINDS.find((d) => d.kind === (active?.kind ?? kind)) ?? CONTINUE_DEVICE_KINDS[0]
-  const circuitLabel = (linkId: string | null) => (linkId ? (panelCircuits(model, active?.panelId ?? panelId).find((c) => c.linkId === linkId)?.label ?? 'the circuit') : `a new circuit on ${panelName}`)
+  const device = continueDeviceWords(active?.kind ?? kind, t)
+  const circuitLabel = (linkId: string | null) => (linkId ? (panelCircuits(model, active?.panelId ?? panelId).find((c) => c.linkId === linkId)?.label ?? t('electrical.theCircuit', 'the circuit', { ns: 'editor' })) : `a new circuit on ${panelName}`)
 
-  const startBlocked = editBlocked ?? (panels.length === 0 ? 'Place a panel first: Electrical › Panel, then name it in its properties.' : !panelId ? 'Pick the panel.' : null)
+  const startBlocked = editBlocked ?? (panels.length === 0 ? t('electrical.placeAPanelFirstElectricalPanelThenNameItInI', 'Place a panel first: Electrical › Panel, then name it in its properties.', { ns: 'editor' }) : !panelId ? t('electrical.pickThePanel', 'Pick the panel.', { ns: 'editor' }) : null)
 
   const start = () => {
     if (startBlocked) return
@@ -111,11 +126,11 @@ export function ContinueCircuitPanel({ model, editBlocked, submit, place, onClos
   }, [model, active, submit])
 
   return (
-    <div className="absolute bottom-3 left-3 z-20 flex w-96 flex-col gap-3 rounded-lg border bg-background/95 p-3 shadow-md" data-testid="continue-circuit-panel" role="region" aria-label="Continue circuit">
+    <div className="absolute bottom-3 left-3 z-20 flex w-96 flex-col gap-3 rounded-lg border bg-background/95 p-3 shadow-md" data-testid="continue-circuit-panel" role="region" aria-label={t('electrical.continueCircuit', 'Continue circuit', { ns: 'editor' })}>
       <div className="flex items-center justify-between gap-2">
         <span className="flex items-center gap-2 font-medium">
           <Cable data-icon="inline-start" />
-          Continue circuit
+          {t('electrical.continueCircuit', 'Continue circuit', { ns: 'editor' })}
         </span>
         {!active && (
           <Button variant="ghost" size="icon-sm" aria-label="Close Continue circuit" onClick={onClose} data-testid="continue-circuit-close">
@@ -126,18 +141,18 @@ export function ContinueCircuitPanel({ model, editBlocked, submit, place, onClos
       {active ? (
         <>
           <p className="text-sm" data-testid="continue-circuit-status">
-            Each {device?.label.toLowerCase()} you place joins {circuitLabel(active.linkId)}. Added {active.added}.
+            {t('electrical.each', 'Each', { ns: 'editor' })} {device?.label.toLowerCase()} you place joins {circuitLabel(active.linkId)}. Added {active.added}.
           </p>
-          <p className="text-xs text-muted-foreground">Click in the plan to place. Undo takes the last one off the circuit. Esc stops placing and circuiting; Stop ends circuiting only (Place part stays on).</p>
+          <p className="text-xs text-muted-foreground">{t('electrical.clickInThePlanToPlaceUndoTakesTheLastOneOffT', 'Click in the plan to place. Undo takes the last one off the circuit. Esc stops placing and circuiting; Stop ends circuiting only (Place part stays on).', { ns: 'editor' })}</p>
           <Button onClick={stop} data-testid="continue-circuit-stop">
             <Square data-icon="inline-start" />
-            Stop
+            {t('electrical.stop', 'Stop', { ns: 'editor' })}
           </Button>
         </>
       ) : (
         <>
           <Field>
-            <FieldLabel htmlFor="continue-circuit-panel-pick">Panel</FieldLabel>
+            <FieldLabel htmlFor="continue-circuit-panel-pick">{t('electrical.panel', 'Panel', { ns: 'editor' })}</FieldLabel>
             <Select
               value={panelId}
               onValueChange={(v) => {
@@ -160,14 +175,14 @@ export function ContinueCircuitPanel({ model, editBlocked, submit, place, onClos
             </Select>
           </Field>
           <Field>
-            <FieldLabel htmlFor="continue-circuit-circuit-pick">Circuit</FieldLabel>
+            <FieldLabel htmlFor="continue-circuit-circuit-pick">{t('electrical.circuit', 'Circuit', { ns: 'editor' })}</FieldLabel>
             <Select value={circuit} onValueChange={setCircuit}>
               <SelectTrigger id="continue-circuit-circuit-pick" data-testid="continue-circuit-circuit-pick">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className={CLOSES_AT_ONCE}>
                 <SelectGroup>
-                  <SelectItem value={NEW_CIRCUIT}>New circuit (best-balanced free spaces)</SelectItem>
+                  <SelectItem value={NEW_CIRCUIT}>{t('electrical.newCircuitBestBalancedFreeSpaces', 'New circuit (best-balanced free spaces)', { ns: 'editor' })}</SelectItem>
                   {circuits.map((c) => (
                     <SelectItem key={c.linkId} value={c.linkId}>
                       {c.label} · {c.members} on it
@@ -178,16 +193,16 @@ export function ContinueCircuitPanel({ model, editBlocked, submit, place, onClos
             </Select>
           </Field>
           <Field>
-            <FieldLabel htmlFor="continue-circuit-device-pick">Place</FieldLabel>
-            <Select value={kind} onValueChange={(v) => setKind(CONTINUE_DEVICE_KINDS.find((d) => d.kind === v)?.kind ?? 'receptacle')}>
+            <FieldLabel htmlFor="continue-circuit-device-pick">{t('electrical.place', 'Place', { ns: 'editor' })}</FieldLabel>
+            <Select value={kind} onValueChange={(v) => setKind(CONTINUE_DEVICE_KINDS.find((d) => d === v) ?? 'receptacle')}>
               <SelectTrigger id="continue-circuit-device-pick" data-testid="continue-circuit-device-pick">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className={CLOSES_AT_ONCE}>
                 <SelectGroup>
                   {CONTINUE_DEVICE_KINDS.map((d) => (
-                    <SelectItem key={d.kind} value={d.kind}>
-                      {d.label}
+                    <SelectItem key={d} value={d}>
+                      {continueDeviceWords(d, t).label}
                     </SelectItem>
                   ))}
                 </SelectGroup>
@@ -196,7 +211,7 @@ export function ContinueCircuitPanel({ model, editBlocked, submit, place, onClos
           </Field>
           <Button onClick={start} disabled={startBlocked !== null} title={startBlocked ?? undefined} data-testid="continue-circuit-start">
             <Cable data-icon="inline-start" />
-            Start placing
+            {t('electrical.startPlacing', 'Start placing', { ns: 'editor' })}
           </Button>
           {startBlocked && <p className="text-xs text-muted-foreground">{startBlocked}</p>}
         </>

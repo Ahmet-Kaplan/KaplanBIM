@@ -13,6 +13,7 @@ import { Field, FieldDescription, FieldLabel } from '../../ui/field'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../ui/select'
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table'
 import type { SubmitCommand } from '../views-sheets/types'
+import { useEditorTranslate } from '../i18n/translate'
 
 const NO_PANEL = '__none__'
 
@@ -25,6 +26,7 @@ const NO_PANEL = '__none__'
  * them as one undoable edit; Esc or Cancel closes with nothing changed.
  */
 export function ApplyTemplateDialog({ model, initialTemplate, selectedIds, submit, onClose, onDone, onEditTemplates }: { readonly model: ModelState; readonly initialTemplate: string | null; readonly selectedIds: readonly string[]; readonly submit: SubmitCommand; readonly onClose: () => void; readonly onDone: (panelId: string | null) => void; readonly onEditTemplates: () => void }) {
+  const t = useEditorTranslate()
   const els = model.elements
   const templates = useMemo(() => circuitTemplates(model), [model])
   const [templateName, setTemplateName] = useState(initialTemplate ?? templates[0]?.entry.name ?? '')
@@ -40,7 +42,7 @@ export function ApplyTemplateDialog({ model, initialTemplate, selectedIds, submi
   const missingPanel = chosen.find((u) => !panelFor[u.unit])
   const units = useMemo<TemplateUnit[]>(() => suggested.filter((u) => include.has(u.unit)).flatMap((u) => (panelFor[u.unit] ? [{ panelId: panelFor[u.unit] as string, roomIds: u.roomIds, label: `Unit ${u.unit}` }] : [])), [suggested, include, panelFor])
   const plan = useMemo(() => (template && units.length > 0 && !missingPanel ? planCircuitTemplate(model, template, units) : null), [model, template, units, missingPanel])
-  const why = !template ? 'Choose a room template (make one in Electrical types › Room templates).' : chosen.length === 0 ? 'Tick the units to circuit.' : missingPanel ? `Choose the panel for unit ${missingPanel.unit}.` : plan && !plan.command ? plan.message : null
+  const why = !template ? t('electrical.chooseARoomTemplateMakeOneInElectricalTypesR', 'Choose a room template (make one in Electrical types › Room templates).', { ns: 'editor' }) : chosen.length === 0 ? t('electrical.tickTheUnitsToCircuit', 'Tick the units to circuit.', { ns: 'editor' }) : missingPanel ? `Choose the panel for unit ${missingPanel.unit}.` : plan && !plan.command ? plan.message : null
 
   const apply = () => {
     if (!plan?.command) return
@@ -53,11 +55,11 @@ export function ApplyTemplateDialog({ model, initialTemplate, selectedIds, submi
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-3xl" data-testid="apply-template-dialog">
         <DialogHeader>
-          <DialogTitle>Circuit units by a room template</DialogTitle>
-          <DialogDescription>The devices inside each room go on the circuit its rule names, on the panel you choose for the unit. Devices already on a circuit are left alone. You can undo this.</DialogDescription>
+          <DialogTitle>{t('electrical.circuitUnitsByARoomTemplate', 'Circuit units by a room template', { ns: 'editor' })}</DialogTitle>
+          <DialogDescription>{t('electrical.theDevicesInsideEachRoomGoOnTheCircuitItsRul', 'The devices inside each room go on the circuit its rule names, on the panel you choose for the unit. Devices already on a circuit are left alone. You can undo this.', { ns: 'editor' })}</DialogDescription>
         </DialogHeader>
         <Field>
-          <FieldLabel htmlFor="bm-template">Room template</FieldLabel>
+          <FieldLabel htmlFor="bm-template">{t('electrical.roomTemplate', 'Room template', { ns: 'editor' })}</FieldLabel>
           <Select value={templateName} onValueChange={setTemplateName}>
             <SelectTrigger id="bm-template" data-testid="apply-template-select">
               <SelectValue placeholder="Choose a template" />
@@ -76,20 +78,20 @@ export function ApplyTemplateDialog({ model, initialTemplate, selectedIds, submi
         {suggested.length === 0 ? (
           <Empty className="border py-4">
             <EmptyHeader>
-              <EmptyTitle>No rooms in this model</EmptyTitle>
+              <EmptyTitle>{t('electrical.noRoomsInThisModel', 'No rooms in this model', { ns: 'editor' })}</EmptyTitle>
               <EmptyDescription>Rooms come from the architectural model. Link or import it, then come back.</EmptyDescription>
             </EmptyHeader>
           </Empty>
         ) : (
           <div className="max-h-52 overflow-auto rounded-md border">
             <Table data-testid="apply-template-units">
-              <TableCaption className="sr-only">Units to circuit</TableCaption>
+              <TableCaption className="sr-only">{t('electrical.unitsToCircuit', 'Units to circuit', { ns: 'editor' })}</TableCaption>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Circuit</TableHead>
-                  <TableHead>Unit</TableHead>
-                  <TableHead>Rooms</TableHead>
-                  <TableHead>Panel</TableHead>
+                  <TableHead>{t('electrical.circuit', 'Circuit', { ns: 'editor' })}</TableHead>
+                  <TableHead>{t('electrical.unit', 'Unit', { ns: 'editor' })}</TableHead>
+                  <TableHead>{t('electrical.rooms', 'Rooms', { ns: 'editor' })}</TableHead>
+                  <TableHead>{t('electrical.panel', 'Panel', { ns: 'editor' })}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -107,7 +109,7 @@ export function ApplyTemplateDialog({ model, initialTemplate, selectedIds, submi
                         </SelectTrigger>
                         <SelectContent>
                           <SelectGroup>
-                            <SelectItem value={NO_PANEL}>Choose the unit&apos;s panel</SelectItem>
+                            <SelectItem value={NO_PANEL}>{t('electrical.chooseTheUnitAposSPanel', 'Choose the unit&apos;s panel', { ns: 'editor' })}</SelectItem>
                             {panels.map((p) => (
                               <SelectItem key={p.id} value={p.id}>
                                 {p.name}
@@ -126,13 +128,13 @@ export function ApplyTemplateDialog({ model, initialTemplate, selectedIds, submi
         {plan && (
           <div className="max-h-56 overflow-auto rounded-md border">
             <Table data-testid="apply-template-preview">
-              <TableCaption className="sr-only">Circuits it makes</TableCaption>
+              <TableCaption className="sr-only">{t('electrical.circuitsItMakes', 'Circuits it makes', { ns: 'editor' })}</TableCaption>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Unit</TableHead>
-                  <TableHead>Rooms</TableHead>
-                  <TableHead>Circuit</TableHead>
-                  <TableHead>Devices</TableHead>
+                  <TableHead>{t('electrical.unit', 'Unit', { ns: 'editor' })}</TableHead>
+                  <TableHead>{t('electrical.rooms', 'Rooms', { ns: 'editor' })}</TableHead>
+                  <TableHead>{t('electrical.circuit', 'Circuit', { ns: 'editor' })}</TableHead>
+                  <TableHead>{t('electrical.devices', 'Devices', { ns: 'editor' })}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -154,7 +156,7 @@ export function ApplyTemplateDialog({ model, initialTemplate, selectedIds, submi
         {why ? (
           <Alert data-testid="apply-template-why">
             <CircleAlert />
-            <AlertTitle>Not ready</AlertTitle>
+            <AlertTitle>{t('electrical.notReady', 'Not ready', { ns: 'editor' })}</AlertTitle>
             <AlertDescription>{why}</AlertDescription>
           </Alert>
         ) : (
@@ -167,14 +169,14 @@ export function ApplyTemplateDialog({ model, initialTemplate, selectedIds, submi
         )}
         <DialogFooter>
           <Button variant="ghost" className="mr-auto" onClick={onEditTemplates}>
-            Edit templates
+            {t('electrical.editTemplates', 'Edit templates', { ns: 'editor' })}
           </Button>
           <Button variant="outline" onClick={onClose}>
-            Cancel
+            {t('electrical.cancel', 'Cancel', { ns: 'editor' })}
           </Button>
           <Button onClick={apply} disabled={why !== null} title={why ?? undefined} data-testid="apply-template-apply">
             <SquareStack data-icon="inline-start" />
-            Make {plan?.made ?? 0} circuit{plan?.made === 1 ? '' : 's'}
+            {t('electrical.make', 'Make', { ns: 'editor' })} {plan?.made ?? 0} circuit{plan?.made === 1 ? '' : 's'}
           </Button>
         </DialogFooter>
       </DialogContent>

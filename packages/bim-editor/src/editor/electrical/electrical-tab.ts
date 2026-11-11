@@ -105,23 +105,23 @@ function scheduleCommand(s: ScheduleAction, kind: ScheduleChoice, label: string,
   return { id: `schedule-${kind}`, label, icon, description, keywords, disabledReason: s.blockedFor(kind), run: () => s.run(kind), testId }
 }
 
-function schedulesGroup(s: ScheduleAction): RibbonGroup {
+function schedulesGroup(s: ScheduleAction, t: Translate): RibbonGroup {
   return {
     id: 'electrical-schedules',
-    label: 'Schedules',
+    label: t('electrical.electricalSchedules', 'Schedules', { ns: 'editor' }),
     commands: [
-      scheduleCommand(s, 'panel', 'Panel schedule', Table2, 'A live panel schedule of the selected panel (or the panel of the selected device), placed on a sheet', 'ribbon-electrical-panel-schedule', ['panel schedule', 'switchboard schedule', 'load schedule', 'circuits']),
-      scheduleCommand(s, 'feeder', 'Feeder schedule', Table2, 'Every feeder type in the model with its conductors and conduit, placed on a sheet', 'ribbon-electrical-feeder-schedule', ['feeders', 'conductors', 'wire']),
+      scheduleCommand(s, 'panel', t('electrical.panelSchedule', 'Panel schedule', { ns: 'editor' }), Table2, t('electrical.aLivePanelScheduleOfTheSelectedPanelOrThePan', 'A live panel schedule of the selected panel (or the panel of the selected device), placed on a sheet', { ns: 'editor' }), 'ribbon-electrical-panel-schedule', [t('electrical.panelSchedule_113', 'panel schedule', { ns: 'editor' }), t('electrical.switchboardSchedule', 'switchboard schedule', { ns: 'editor' }), t('electrical.loadSchedule', 'load schedule', { ns: 'editor' }), 'circuits']),
+      scheduleCommand(s, 'feeder', t('electrical.feederSchedule', 'Feeder schedule', { ns: 'editor' }), Table2, t('electrical.everyFeederTypeInTheModelWithItsConductorsAn', 'Every feeder type in the model with its conductors and conduit, placed on a sheet', { ns: 'editor' }), 'ribbon-electrical-feeder-schedule', ['feeders', 'conductors', 'wire']),
       {
         id: 'more-schedules',
-        label: 'More schedules',
+        label: t('electrical.moreSchedules', 'More schedules', { ns: 'editor' }),
         icon: TableProperties,
-        description: 'Connection types, equipment connections, and mechanical equipment with its circuit',
+        description: t('electrical.moreSchedulesWhy', 'Connection types, equipment connections, and mechanical equipment with its circuit', { ns: 'editor' }),
         keywords: ['schedule'],
         children: [
-          scheduleCommand(s, 'connection_types', 'Connection types', Table2, 'Devices grouped by type and load', 'ribbon-electrical-connection-types-schedule', ['devices', 'receptacles']),
-          scheduleCommand(s, 'equipment_connections', 'Equipment connections', Table2, 'Hardwired equipment with MCA, MOCP and its live circuit', 'ribbon-electrical-equipment-connections-schedule', ['mca', 'mocp', 'disconnect']),
-          scheduleCommand(s, 'mechanical_equipment', 'Mechanical equipment (with electrical)', Table2, 'The mechanical equipment list with volts, MCA, MOCP and the circuit it is on', 'ribbon-electrical-mechanical-schedule', ['rtu', 'hvac', 'cross trade']),
+          scheduleCommand(s, 'connection_types', t('electrical.connectionTypes', 'Connection types', { ns: 'editor' }), Table2, t('electrical.devicesGroupedByTypeAndLoad', 'Devices grouped by type and load', { ns: 'editor' }), 'ribbon-electrical-connection-types-schedule', ['devices', 'receptacles']),
+          scheduleCommand(s, 'equipment_connections', t('electrical.equipmentConnections', 'Equipment connections', { ns: 'editor' }), Table2, t('electrical.hardwiredEquipmentWithMCAMOCPAndItsLiveCircu', 'Hardwired equipment with MCA, MOCP and its live circuit', { ns: 'editor' }), 'ribbon-electrical-equipment-connections-schedule', ['mca', 'mocp', 'disconnect']),
+          scheduleCommand(s, 'mechanical_equipment', t('electrical.mechanicalEquipmentWithElectrical', 'Mechanical equipment (with electrical)', { ns: 'editor' }), Table2, t('electrical.theMechanicalEquipmentListWithVoltsMCAMOCPAn', 'The mechanical equipment list with volts, MCA, MOCP and the circuit it is on', { ns: 'editor' }), 'ribbon-electrical-mechanical-schedule', ['rtu', 'hvac', t('electrical.crossTrade', 'cross trade', { ns: 'editor' })]),
         ],
         testId: 'ribbon-electrical-more-schedules',
       },
@@ -133,74 +133,74 @@ function placeCommand(e: ElectricalRibbon, kind: ElectricalPlaceKind, label: str
   return { id: `place-${kind}`, label, icon, description, keywords, disabledReason: e.placeBlocked, run: () => e.place(kind), testId: `ribbon-electrical-place-${kind.replace(/_/g, '-')}` }
 }
 
-function placeGroup(e: ElectricalRibbon): RibbonGroup {
+function placeGroup(e: ElectricalRibbon, t: Translate): RibbonGroup {
   return {
     id: 'electrical-place',
-    label: 'Place',
+    label: t('electrical.electricalPlace', 'Place', { ns: 'editor' }),
     commands: [
       {
         id: 'place-device',
-        label: 'Device',
+        label: t('electrical.placeDevice', 'Device', { ns: 'editor' }),
         icon: Plug,
-        description: 'Place a receptacle, light, switch, junction box or hardwired equipment connection, then click in a plan or the 3D model',
-        keywords: ['receptacle', 'outlet', 'light', 'fixture', 'switch', 'junction box', 'equipment connection', 'disconnect', 'power'],
+        description: t('electrical.placeDeviceWhy', 'Place a receptacle, light, switch, junction box or hardwired equipment connection, then click in a plan or the 3D model', { ns: 'editor' }),
+        keywords: ['receptacle', 'outlet', 'light', 'fixture', 'switch', t('electrical.keyword.junctionbox', 'junction box', { ns: 'editor' }), t('electrical.keyword.equipmentconnection', 'equipment connection', { ns: 'editor' }), 'disconnect', 'power'],
         disabledReason: e.placeBlocked,
         children: [
-          placeCommand(e, 'receptacle', 'Receptacle', Plug, 'A 20 A duplex receptacle, 120 V, 180 VA', ['outlet', 'duplex', 'plug']),
-          placeCommand(e, 'receptacle_quad', 'Receptacle, quad', Plug, 'Two duplexes in one box, 360 VA', ['fourplex', 'double duplex']),
-          placeCommand(e, 'receptacle_gfci', 'Receptacle, GFCI', Plug, 'A GFCI duplex receptacle', ['ground fault', 'gfi', 'wet']),
-          placeCommand(e, 'receptacle_counter', 'Receptacle, countertop', Plug, 'A GFCI receptacle 42" up, above a counter', ['kitchen', 'counter', 'break room']),
-          placeCommand(e, 'receptacle_floor', 'Receptacle, floor box', Plug, 'A duplex in a floor box', ['floor', 'poke-thru']),
-          placeCommand(e, 'receptacle_ceiling', 'Receptacle, ceiling', Plug, 'A ceiling-mounted duplex', ['ceiling', 'projector']),
-          placeCommand(e, 'light', 'Light', Lightbulb, 'A 2x4 LED troffer, 277 V', ['fixture', 'luminaire', 'troffer', 'lighting']),
+          placeCommand(e, 'receptacle', 'Receptacle', Plug, t('electrical.a20ADuplexReceptacle120V180VA', 'A 20 A duplex receptacle, 120 V, 180 VA', { ns: 'editor' }), ['outlet', 'duplex', 'plug']),
+          placeCommand(e, 'receptacle_quad', t('electrical.receptacleQuad', 'Receptacle, quad', { ns: 'editor' }), Plug, t('electrical.twoDuplexesInOneBox360VA', 'Two duplexes in one box, 360 VA', { ns: 'editor' }), ['fourplex', t('electrical.doubleDuplex', 'double duplex', { ns: 'editor' })]),
+          placeCommand(e, 'receptacle_gfci', t('electrical.receptacleGFCI', 'Receptacle, GFCI', { ns: 'editor' }), Plug, t('electrical.aGFCIDuplexReceptacle', 'A GFCI duplex receptacle', { ns: 'editor' }), [t('electrical.groundFault', 'ground fault', { ns: 'editor' }), 'gfi', 'wet']),
+          placeCommand(e, 'receptacle_counter', t('electrical.receptacleCountertop', 'Receptacle, countertop', { ns: 'editor' }), Plug, 'A GFCI receptacle 42" up, above a counter', ['kitchen', 'counter', 'break room']),
+          placeCommand(e, 'receptacle_floor', t('electrical.receptacleFloorBox', 'Receptacle, floor box', { ns: 'editor' }), Plug, t('electrical.aDuplexInAFloorBox', 'A duplex in a floor box', { ns: 'editor' }), ['floor', 'poke-thru']),
+          placeCommand(e, 'receptacle_ceiling', t('electrical.receptacleCeiling', 'Receptacle, ceiling', { ns: 'editor' }), Plug, t('electrical.aCeilingMountedDuplex', 'A ceiling-mounted duplex', { ns: 'editor' }), ['ceiling', 'projector']),
+          placeCommand(e, 'light', 'Light', Lightbulb, t('electrical.a2x4LEDTroffer277V', 'A 2x4 LED troffer, 277 V', { ns: 'editor' }), ['fixture', 'luminaire', 'troffer', 'lighting']),
           placeCommand(e, 'downlight', 'Downlight', Lightbulb, 'A 6" LED downlight, 277 V', ['can', 'recessed']),
-          placeCommand(e, 'light_emergency', 'Light, emergency battery', BatteryCharging, 'A 2x4 troffer with an emergency battery', ['emergency', 'egress', 'em']),
-          placeCommand(e, 'exit_sign', 'Exit sign', BatteryCharging, 'An LED exit sign with battery', ['exit', 'egress']),
-          placeCommand(e, 'switch', 'Switch', ToggleLeft, 'A single-pole switch', ['light switch', 'toggle']),
-          placeCommand(e, 'junction_box', 'Junction box', Box, 'A 4" square junction box', ['j-box', 'jbox']),
-          placeCommand(e, 'equipment_1p', 'Equipment connection, 120 V', PlugZap, 'A hardwired connection, 1 pole: set its load and breaker to the nameplate', ['hardwired', 'disconnect', 'equipment']),
-          placeCommand(e, 'equipment_2p', 'Equipment connection, 208 V 2-pole', PlugZap, 'A hardwired connection, 2 poles', ['hardwired', 'water heater', 'equipment']),
-          placeCommand(e, 'equipment_3p', 'Equipment connection, 3-phase', PlugZap, 'A hardwired connection, 3 poles: set its voltage to 208 or 480', ['hardwired', 'motor', 'equipment']),
+          placeCommand(e, 'light_emergency', t('electrical.lightEmergencyBattery', 'Light, emergency battery', { ns: 'editor' }), BatteryCharging, t('electrical.a2x4TrofferWithAnEmergencyBattery', 'A 2x4 troffer with an emergency battery', { ns: 'editor' }), ['emergency', 'egress', 'em']),
+          placeCommand(e, 'exit_sign', t('electrical.exitSign', 'Exit sign', { ns: 'editor' }), BatteryCharging, t('electrical.anLEDExitSignWithBattery', 'An LED exit sign with battery', { ns: 'editor' }), ['exit', 'egress']),
+          placeCommand(e, 'switch', 'Switch', ToggleLeft, t('electrical.aSinglePoleSwitch', 'A single-pole switch', { ns: 'editor' }), [t('electrical.lightSwitch', 'light switch', { ns: 'editor' }), 'toggle']),
+          placeCommand(e, 'junction_box', t('electrical.junctionBox', 'Junction box', { ns: 'editor' }), Box, 'A 4" square junction box', ['j-box', 'jbox']),
+          placeCommand(e, 'equipment_1p', t('electrical.equipmentConnection120V', 'Equipment connection, 120 V', { ns: 'editor' }), PlugZap, t('electrical.aHardwiredConnection1PoleSetItsLoadAndBreake', 'A hardwired connection, 1 pole: set its load and breaker to the nameplate', { ns: 'editor' }), ['hardwired', 'disconnect', 'equipment']),
+          placeCommand(e, 'equipment_2p', t('electrical.equipmentConnection208V2Pole', 'Equipment connection, 208 V 2-pole', { ns: 'editor' }), PlugZap, t('electrical.aHardwiredConnection2Poles', 'A hardwired connection, 2 poles', { ns: 'editor' }), ['hardwired', t('electrical.waterHeater', 'water heater', { ns: 'editor' }), 'equipment']),
+          placeCommand(e, 'equipment_3p', t('electrical.equipmentConnection3Phase', 'Equipment connection, 3-phase', { ns: 'editor' }), PlugZap, 'A hardwired connection, 3 poles: set its voltage to 208 or 480', ['hardwired', 'motor', 'equipment']),
         ],
         testId: 'ribbon-electrical-device',
       },
       {
         id: 'place-panel',
-        label: 'Panel',
+        label: t('electrical.placePanel', 'Panel', { ns: 'editor' }),
         icon: Server,
-        description: 'Place a panelboard or switchboard; name it (L1, H1, MDP) in its properties so circuits read L1-3',
-        keywords: ['panelboard', 'switchboard', 'mdp', 'distribution', 'load center'],
+        description: t('electrical.placePanelWhy', 'Place a panelboard or switchboard; name it (L1, H1, MDP) in its properties so circuits read L1-3', { ns: 'editor' }),
+        keywords: ['panelboard', 'switchboard', 'mdp', 'distribution', t('electrical.keyword.loadcenter', 'load center', { ns: 'editor' })],
         disabledReason: e.placeBlocked,
         children: [
-          placeCommand(e, 'panel_208', 'Panelboard 120/208 V', Server, '225 A, 42 circuits, main lugs', ['208', 'lighting panel', 'receptacle panel']),
-          placeCommand(e, 'panel_480', 'Panelboard 277/480 V', Server, '225 A, 42 circuits, main lugs', ['480', 'h panel']),
-          placeCommand(e, 'panel_208_mcb', 'Panelboard 120/208 V, main breaker', Server, '225 A main breaker, 42 circuits', ['mcb', 'main breaker']),
-          placeCommand(e, 'panel_480_mcb', 'Panelboard 277/480 V, main breaker', Server, '225 A main breaker, 42 circuits', ['mcb', 'main breaker']),
-          placeCommand(e, 'panel_unit', 'Unit panel 120/208 V 1-phase', Server, '125 A main breaker, 30 circuits: a dwelling unit', ['apartment', 'unit', 'load center', 'residential']),
-          placeCommand(e, 'switchboard', 'Switchboard 277/480 V', SquareStack, '800 A main breaker, 30 positions', ['mdp', 'main distribution', 'service']),
-          placeCommand(e, 'switchboard_sections', 'Switchboard, sections', SquareStack, '1600 A, 3 sections (set the count in its properties)', ['msb', 'main switchboard', 'sections']),
+          placeCommand(e, 'panel_208', 'Panelboard 120/208 V', Server, t('electrical.225A42CircuitsMainLugs', '225 A, 42 circuits, main lugs', { ns: 'editor' }), ['208', t('electrical.lightingPanel', 'lighting panel', { ns: 'editor' }), t('electrical.receptaclePanel', 'receptacle panel', { ns: 'editor' })]),
+          placeCommand(e, 'panel_480', 'Panelboard 277/480 V', Server, t('electrical.225A42CircuitsMainLugs', '225 A, 42 circuits, main lugs', { ns: 'editor' }), ['480', 'h panel']),
+          placeCommand(e, 'panel_208_mcb', 'Panelboard 120/208 V, main breaker', Server, t('electrical.225AMainBreaker42Circuits', '225 A main breaker, 42 circuits', { ns: 'editor' }), ['mcb', t('electrical.mainBreaker_177', 'main breaker', { ns: 'editor' })]),
+          placeCommand(e, 'panel_480_mcb', 'Panelboard 277/480 V, main breaker', Server, t('electrical.225AMainBreaker42Circuits', '225 A main breaker, 42 circuits', { ns: 'editor' }), ['mcb', t('electrical.mainBreaker', 'main breaker', { ns: 'editor' })]),
+          placeCommand(e, 'panel_unit', 'Unit panel 120/208 V 1-phase', Server, t('electrical.125AMainBreaker30CircuitsADwellingUnit', '125 A main breaker, 30 circuits: a dwelling unit', { ns: 'editor' }), ['apartment', 'unit', t('electrical.loadCenter', 'load center', { ns: 'editor' }), 'residential']),
+          placeCommand(e, 'switchboard', 'Switchboard 277/480 V', SquareStack, t('electrical.800AMainBreaker30Positions', '800 A main breaker, 30 positions', { ns: 'editor' }), ['mdp', t('electrical.mainDistribution_180', 'main distribution', { ns: 'editor' }), 'service']),
+          placeCommand(e, 'switchboard_sections', t('electrical.switchboardSections', 'Switchboard, sections', { ns: 'editor' }), SquareStack, t('electrical.1600A3SectionsSetTheCountInItsProperties', '1600 A, 3 sections (set the count in its properties)', { ns: 'editor' }), ['msb', t('electrical.mainSwitchboard', 'main switchboard', { ns: 'editor' }), 'sections']),
         ],
         testId: 'ribbon-electrical-panel',
       },
       placeCommand(e, 'transformer', 'Transformer', Zap, 'A 75 kVA dry-type transformer, 480 V to 208Y/120 V: feed it from a 480 V breaker, then feed a 208 V panel from it', ['step down', 'xfmr', 'kva']),
       {
         id: 'place-equipment',
-        label: 'Equipment',
+        label: t('electrical.placeEquipment', 'Equipment', { ns: 'editor' }),
         icon: Factory,
-        description: 'Place a generator, transfer switch, meter and CT cabinet, tap box, disconnect or another transformer size',
-        keywords: ['generator', 'ats', 'transfer switch', 'meter', 'ct cabinet', 'tap box', 'disconnect', 'safety switch'],
+        description: t('electrical.placeEquipmentWhy', 'Place a generator, transfer switch, meter and CT cabinet, tap box, disconnect or another transformer size', { ns: 'editor' }),
+        keywords: ['generator', 'ats', t('electrical.keyword.transferswitch', 'transfer switch', { ns: 'editor' }), 'meter', t('electrical.keyword.ctcabinet', 'ct cabinet', { ns: 'editor' }), t('electrical.keyword.tapbox', 'tap box', { ns: 'editor' }), 'disconnect', t('electrical.keyword.safetyswitch', 'safety switch', { ns: 'editor' })],
         disabledReason: e.placeBlocked,
         children: [
           placeCommand(e, 'generator', 'Generator', Power, '150 kW diesel, 480Y/277 V: feed a transfer switch’s emergency side from it', ['genset', 'standby', 'emergency']),
-          placeCommand(e, 'ats', 'Transfer switch', Repeat, '400 A, 4-pole: fed on its normal side by a breaker and on its emergency side by a generator', ['ats', 'automatic transfer']),
-          placeCommand(e, 'meter', 'Meter and CT cabinet', Gauge, '800 A, 480Y/277 V: between the utility and the main switchboard', ['ct', 'utility meter', 'service']),
-          placeCommand(e, 'tap_box', 'Tap box', Gauge, '1200 A, 480Y/277 V, no breakers: feeders tap off the service here', ['tap can', 'wireway', 'gutter', 'service', 'fire pump']),
-          placeCommand(e, 'disconnect_nf_30', 'Disconnect, non-fused 30 A', Unplug, 'NEMA 3R, for rooftop equipment', ['safety switch', 'nf', 'rooftop']),
-          placeCommand(e, 'disconnect_nf_60', 'Disconnect, non-fused 60 A', Unplug, 'NEMA 1', ['safety switch', 'nf']),
-          placeCommand(e, 'disconnect_fused_60', 'Disconnect, fused 60 A', Unplug, '40 A fuses, NEMA 1', ['safety switch', 'fused']),
-          placeCommand(e, 'disconnect_fused_100', 'Disconnect, fused 100 A', Unplug, '80 A fuses, NEMA 3R', ['safety switch', 'fused']),
-          placeCommand(e, 'transformer_45', 'Transformer 45 kVA', Zap, '480 V to 208Y/120 V', ['xfmr']),
-          placeCommand(e, 'transformer_112', 'Transformer 112.5 kVA', Zap, '480 V to 208Y/120 V', ['xfmr']),
+          placeCommand(e, 'ats', t('electrical.transferSwitch', 'Transfer switch', { ns: 'editor' }), Repeat, t('electrical.400A4PoleFedOnItsNormalSideByABreakerAndOnIt', '400 A, 4-pole: fed on its normal side by a breaker and on its emergency side by a generator', { ns: 'editor' }), ['ats', t('electrical.automaticTransfer', 'automatic transfer', { ns: 'editor' })]),
+          placeCommand(e, 'meter', t('electrical.meterAndCTCabinet', 'Meter and CT cabinet', { ns: 'editor' }), Gauge, '800 A, 480Y/277 V: between the utility and the main switchboard', ['ct', t('electrical.utilityMeter', 'utility meter', { ns: 'editor' }), 'service']),
+          placeCommand(e, 'tap_box', t('electrical.tapBox', 'Tap box', { ns: 'editor' }), Gauge, '1200 A, 480Y/277 V, no breakers: feeders tap off the service here', [t('electrical.tapCan', 'tap can', { ns: 'editor' }), 'wireway', 'gutter', 'service', t('electrical.firePump', 'fire pump', { ns: 'editor' })]),
+          placeCommand(e, 'disconnect_nf_30', t('electrical.disconnectNonFused30A', 'Disconnect, non-fused 30 A', { ns: 'editor' }), Unplug, t('electrical.nema3RForRooftopEquipment', 'NEMA 3R, for rooftop equipment', { ns: 'editor' }), [t('electrical.safetySwitch', 'safety switch', { ns: 'editor' }), 'nf', 'rooftop']),
+          placeCommand(e, 'disconnect_nf_60', t('electrical.disconnectNonFused60A', 'Disconnect, non-fused 60 A', { ns: 'editor' }), Unplug, 'NEMA 1', [t('electrical.safetySwitch', 'safety switch', { ns: 'editor' }), 'nf']),
+          placeCommand(e, 'disconnect_fused_60', t('electrical.disconnectFused60A', 'Disconnect, fused 60 A', { ns: 'editor' }), Unplug, '40 A fuses, NEMA 1', ['safety switch', 'fused']),
+          placeCommand(e, 'disconnect_fused_100', t('electrical.disconnectFused100A', 'Disconnect, fused 100 A', { ns: 'editor' }), Unplug, t('electrical.80AFusesNEMA3R', '80 A fuses, NEMA 3R', { ns: 'editor' }), ['safety switch', 'fused']),
+          placeCommand(e, 'transformer_45', t('electrical.transformer45KVA', 'Transformer 45 kVA', { ns: 'editor' }), Zap, '480 V to 208Y/120 V', ['xfmr']),
+          placeCommand(e, 'transformer_112', t('electrical.transformer1125KVA', 'Transformer 112.5 kVA', { ns: 'editor' }), Zap, '480 V to 208Y/120 V', ['xfmr']),
         ],
         testId: 'ribbon-electrical-equipment',
       },
@@ -208,35 +208,35 @@ function placeGroup(e: ElectricalRibbon): RibbonGroup {
   }
 }
 
-function circuitCommands(e: ElectricalRibbon): RibbonCommand[] {
+function circuitCommands(e: ElectricalRibbon, t: Translate): RibbonCommand[] {
   const onCircuit = (e.selection?.circuited ?? 0) > 0
   return [
     {
       id: 'add-to-circuit',
-      label: onCircuit && e.selection?.loads === e.selection?.circuited ? 'Change circuit' : 'Add to circuit',
+      label: onCircuit && e.selection?.loads === e.selection?.circuited ? t('electrical.changeCircuit', 'Change circuit', { ns: 'editor' }) : t('electrical.addToCircuit', 'Add to circuit', { ns: 'editor' }),
       icon: Cable,
-      description: 'Put what you selected on a circuit: pick the panel, and the free slots that best balance its phases are chosen for you',
-      keywords: ['circuit', 'home run', 'branch circuit', 'assign', 'panel'],
+      description: t('electrical.addToCircuitWhy', 'Put what you selected on a circuit: pick the panel, and the free slots that best balance its phases are chosen for you', { ns: 'editor' }),
+      keywords: ['circuit', t('electrical.keyword.homerun', 'home run', { ns: 'editor' }), t('electrical.keyword.branchcircuit', 'branch circuit', { ns: 'editor' }), 'assign', 'panel'],
       disabledReason: e.addBlocked,
       run: e.addToCircuit,
       testId: 'ribbon-electrical-add-to-circuit',
     },
     {
       id: 'edit-circuit',
-      label: 'Edit circuit',
+      label: t('electrical.editCircuit', 'Edit circuit', { ns: 'editor' }),
       icon: Waypoints,
-      description: 'Change the selected device’s circuit: its slots, breaker, wire and what is on it',
-      keywords: ['breaker', 'wire', 'slot', 'move circuit', 'remove device'],
+      description: t('electrical.editCircuitWhy', 'Change the selected device’s circuit: its slots, breaker, wire and what is on it', { ns: 'editor' }),
+      keywords: ['breaker', 'wire', 'slot', t('electrical.keyword.movecircuit', 'move circuit', { ns: 'editor' }), t('electrical.keyword.removedevice', 'remove device', { ns: 'editor' })],
       disabledReason: e.editBlocked,
       run: e.editCircuit,
       testId: 'ribbon-electrical-edit-circuit',
     },
     {
       id: 'feed-panel',
-      label: 'Feed panel',
+      label: t('electrical.feedPanel', 'Feed panel', { ns: 'editor' }),
       icon: Unplug,
       description: 'Feed the selected panel or transformer from a breaker in another panel or switchboard',
-      keywords: ['feeder', 'supply from', 'fed from', 'sub-feed', 'transformer'],
+      keywords: ['feeder', t('electrical.keyword.supplyfrom', 'supply from', { ns: 'editor' }), t('electrical.keyword.fedfrom', 'fed from', { ns: 'editor' }), 'sub-feed', 'transformer'],
       disabledReason: e.feedBlocked,
       run: e.feedPanel,
       testId: 'ribbon-electrical-feed-panel',
@@ -244,26 +244,26 @@ function circuitCommands(e: ElectricalRibbon): RibbonCommand[] {
   ]
 }
 
-function continueCircuitCommand(a: ElectricalAction): RibbonCommand {
+function continueCircuitCommand(a: ElectricalAction, t: Translate): RibbonCommand {
   return {
     id: 'continue-circuit',
-    label: 'Continue circuit',
+    label: t('electrical.continueCircuit', 'Continue circuit', { ns: 'editor' }),
     icon: Repeat,
-    description: 'Pick a panel and a circuit (or a new one), then every device you place joins it; Esc or Stop ends it',
-    keywords: ['keep adding', 'circuit while placing', 'daisy chain', 'home run', 'place on circuit'],
+    description: t('electrical.continueCircuitWhy', 'Pick a panel and a circuit (or a new one), then every device you place joins it; Esc or Stop ends it', { ns: 'editor' }),
+    keywords: [t('electrical.keyword.keepadding', 'keep adding', { ns: 'editor' }), t('electrical.keyword.circuitwhileplacing', 'circuit while placing', { ns: 'editor' }), t('electrical.keyword.daisychain', 'daisy chain', { ns: 'editor' }), t('electrical.keyword.homerun', 'home run', { ns: 'editor' }), t('electrical.keyword.placeoncircuit', 'place on circuit', { ns: 'editor' })],
     disabledReason: a.blocked,
     run: a.run,
     testId: 'ribbon-electrical-continue-circuit',
   }
 }
 
-function diagramsGroup(d: NonNullable<ElectricalRibbon['diagram']>): RibbonGroup {
+function diagramsGroup(d: NonNullable<ElectricalRibbon['diagram']>, t: Translate): RibbonGroup {
   return {
     id: 'electrical-diagrams',
-    label: 'Diagrams',
+    label: t('electrical.electricalDiagrams', 'Diagrams', { ns: 'editor' }),
     commands: [
       { id: 'one-line-diagram', label: 'One-line diagram', icon: Network, description: 'The live one-line, drawn from your panels and feeders and redrawn whenever they change; place it on a sheet like any view', keywords: ['single line', 'sld', 'one line', 'riser', 'distribution', 'feeder'], disabledReason: d.blocked, run: () => d.open('one_line'), testId: 'ribbon-electrical-one-line' },
-      { id: 'electrical-riser', label: 'Riser diagram', icon: Network, description: 'The live electrical riser: the same equipment and feeders drawn floor by floor', keywords: ['riser', 'vertical', 'floors'], disabledReason: d.blocked, run: () => d.open('electrical_riser'), testId: 'ribbon-electrical-riser' },
+      { id: 'electrical-riser', label: t('electrical.electricalRiserWhy', 'Riser diagram', { ns: 'editor' }), icon: Network, description: t('electrical.electricalRiserWhy_266', 'The live electrical riser: the same equipment and feeders drawn floor by floor', { ns: 'editor' }), keywords: ['riser', 'vertical', 'floors'], disabledReason: d.blocked, run: () => d.open('electrical_riser'), testId: 'ribbon-electrical-riser' },
     ],
   }
 }
@@ -272,52 +272,52 @@ function diagramsGroup(d: NonNullable<ElectricalRibbon['diagram']>): RibbonGroup
 export function electricalTab(e: ElectricalRibbon, select: RibbonGroup, t: Translate = englishOnly): RibbonTab {
   return tradeTab({
     id: 'electrical',
-    label: 'Electrical',
+    label: t('electrical.electrical', 'Electrical', { ns: 'editor' }),
     select,
-    create: [placeGroup(e)],
-    connect: { id: 'electrical-circuit', label: 'Circuits', commands: [...circuitCommands(e), ...(e.continueCircuit ? [continueCircuitCommand(e.continueCircuit)] : [])] },
+    create: [placeGroup(e, t)],
+    connect: { id: 'electrical-circuit', label: t('electrical.electricalCircuit', 'Circuits', { ns: 'editor' }), commands: [...circuitCommands(e, t), ...(e.continueCircuit ? [continueCircuitCommand(e.continueCircuit, t)] : [])] },
     analyze: {
       id: 'electrical-panels',
-      label: 'Panels',
+      label: t('electrical.electricalPanels', 'Panels', { ns: 'editor' }),
       commands: [
         {
           id: 'panel-view',
-          label: 'Panel view',
+          label: t('electrical.panelView', 'Panel view', { ns: 'editor' }),
           icon: CircleDot,
-          description: 'The live panel schedule: every slot, its circuit, breaker and load by phase',
-          keywords: ['panel schedule', 'slots', 'breakers', 'loads'],
+          description: t('electrical.panelViewWhy', 'The live panel schedule: every slot, its circuit, breaker and load by phase', { ns: 'editor' }),
+          keywords: [t('electrical.keyword.panelschedule', 'panel schedule', { ns: 'editor' }), 'slots', 'breakers', 'loads'],
           disabledReason: e.panelViewBlocked,
           run: e.openPanelView,
           testId: 'ribbon-electrical-panel-view',
           // One entry per docked record opens its schedule beside the plan.
           ...(e.docked && e.docked.list.length > 0 ? { split: true, children: dockChildren(e.docked.addon, e.docked.dock, CircleDot, e.docked.list, e.docked.open) } : {}),
         },
-        ...(e.check ? [{ id: 'electrical-check', label: 'Check', icon: ClipboardCheck, description: 'What needs attention: devices on no circuit, voltage mismatches, overloaded or unbalanced panels', keywords: ['findings', 'errors', 'uncircuited', 'overloaded', 'unbalanced', 'audit'], disabledReason: e.check.blocked, run: e.check.run, testId: 'ribbon-electrical-check' }] : []),
-        ...(e.balance ? [{ id: 'electrical-balance', label: 'Balance phases', icon: Scale, description: 'Suggest slot moves that even out the load on A, B and C; you choose which to apply', keywords: ['rebalance', 'phase balance', 'load balance'], disabledReason: e.balance.blocked, run: e.balance.run, testId: 'ribbon-electrical-balance' }] : []),
+        ...(e.check ? [{ id: 'electrical-check', label: t('electrical.electricalCheckWhy', 'Check', { ns: 'editor' }), icon: ClipboardCheck, description: t('electrical.electricalCheckWhy_295', 'What needs attention: devices on no circuit, voltage mismatches, overloaded or unbalanced panels', { ns: 'editor' }), keywords: ['findings', 'errors', 'uncircuited', 'overloaded', 'unbalanced', 'audit'], disabledReason: e.check.blocked, run: e.check.run, testId: 'ribbon-electrical-check' }] : []),
+        ...(e.balance ? [{ id: 'electrical-balance', label: t('electrical.electricalBalanceWhy', 'Balance phases', { ns: 'editor' }), icon: Scale, description: t('electrical.electricalBalanceWhy_296', 'Suggest slot moves that even out the load on A, B and C; you choose which to apply', { ns: 'editor' }), keywords: ['rebalance', 'phase balance', 'load balance'], disabledReason: e.balance.blocked, run: e.balance.run, testId: 'ribbon-electrical-balance' }] : []),
       ],
     },
     design: {
       id: 'electrical-design',
-      label: 'Design',
+      label: t('electrical.electricalDesign', 'Design', { ns: 'editor' }),
       commands: [
-        ...(e.types ? [{ id: 'electrical-types', label: 'Electrical types', icon: Library, description: 'Connection types (E.05: load, voltage, poles, class), feeder types (F225: breaker, conductors, conduit) and room templates', keywords: ['connection type', 'feeder type', 'feeder schedule', 'designator', 'catalog', 'f225'], disabledReason: e.types.blocked, run: e.types.run, testId: 'ribbon-electrical-types' }] : []),
-        ...(e.propose ? [{ id: 'electrical-propose', label: 'Propose receptacles', icon: LayoutGrid, description: 'Pick rooms and a receptacle type: see where NEC 210.52 spacing (or a light, medium or heavy density) puts them, then accept all or some. Nothing is circuited', keywords: ['receptacle layout', '210.52', 'outlet spacing', 'suggest receptacles', 'density', 'dwelling'], disabledReason: e.propose.blocked, run: e.propose.run, testId: 'ribbon-electrical-propose' }] : []),
-        ...(e.serviceSize ? [{ id: 'electrical-service-size', label: 'Service size', icon: Gauge, description: 'Paste the kitchen and mechanical equipment lists: confirm each load class and get the NEC Article 220 service size with its trail, before any layout', keywords: ['service', 'load calc', 'equipment list', 'kitchen schedule', 'article 220', 'utility'], disabledReason: e.serviceSize.blocked, run: e.serviceSize.run, testId: 'ribbon-electrical-service-size' }] : []),
+        ...(e.types ? [{ id: 'electrical-types', label: t('electrical.electricalTypesWhy', 'Electrical types', { ns: 'editor' }), icon: Library, description: t('electrical.electricalTypesWhy_303', 'Connection types (E.05: load, voltage, poles, class), feeder types (F225: breaker, conductors, conduit) and room templates', { ns: 'editor' }), keywords: ['connection type', 'feeder type', 'feeder schedule', 'designator', 'catalog', 'f225'], disabledReason: e.types.blocked, run: e.types.run, testId: 'ribbon-electrical-types' }] : []),
+        ...(e.propose ? [{ id: 'electrical-propose', label: t('electrical.electricalProposeWhy', 'Propose receptacles', { ns: 'editor' }), icon: LayoutGrid, description: t('electrical.electricalProposeWhy_304', 'Pick rooms and a receptacle type: see where NEC 210.52 spacing (or a light, medium or heavy density) puts them, then accept all or some. Nothing is circuited', { ns: 'editor' }), keywords: ['receptacle layout', '210.52', 'outlet spacing', 'suggest receptacles', 'density', 'dwelling'], disabledReason: e.propose.blocked, run: e.propose.run, testId: 'ribbon-electrical-propose' }] : []),
+        ...(e.serviceSize ? [{ id: 'electrical-service-size', label: t('electrical.electricalServiceSizeWhy', 'Service size', { ns: 'editor' }), icon: Gauge, description: t('electrical.electricalServiceSizeWhy_305', 'Paste the kitchen and mechanical equipment lists: confirm each load class and get the NEC Article 220 service size with its trail, before any layout', { ns: 'editor' }), keywords: ['service', 'load calc', 'equipment list', 'kitchen schedule', 'article 220', 'utility'], disabledReason: e.serviceSize.blocked, run: e.serviceSize.run, testId: 'ribbon-electrical-service-size' }] : []),
         ...(e.serviceLayout ? [{ id: 'electrical-service-layout', label: 'Service layout', icon: Network, description: 'From a service size (400 A 120/208 V): place the meter, main, main distribution and the panels you list, each fed from what you pick, as one edit; the one-line then shows it', keywords: ['one-line skeleton', 'service entrance', 'mdp', 'main distribution', 'starter layout', 'riser', 'single line'], disabledReason: e.serviceLayout.blocked, run: e.serviceLayout.run, testId: 'ribbon-electrical-service-layout' }] : []),
-        ...(e.templates ? [{ id: 'electrical-templates', label: 'Room templates', icon: SquareStack, description: 'Your firm’s circuit conventions (bedroom on circuit 1, living room on 2…), applied to the units you pick', keywords: ['template', 'dwelling', 'unit', 'convention', 'multifamily'], disabledReason: e.templates.blocked, run: e.templates.run, testId: 'ribbon-electrical-templates' }] : []),
+        ...(e.templates ? [{ id: 'electrical-templates', label: t('electrical.electricalTemplatesWhy', 'Room templates', { ns: 'editor' }), icon: SquareStack, description: t('electrical.electricalTemplatesWhy_307', 'Your firm’s circuit conventions (bedroom on circuit 1, living room on 2…), applied to the units you pick', { ns: 'editor' }), keywords: ['template', 'dwelling', 'unit', 'convention', 'multifamily'], disabledReason: e.templates.blocked, run: e.templates.run, testId: 'ribbon-electrical-templates' }] : []),
       ],
     },
-    documents: [e.schedules ? schedulesGroup(e.schedules) : null, e.diagram ? diagramsGroup(e.diagram) : null],
+    documents: [e.schedules ? schedulesGroup(e.schedules, t) : null, e.diagram ? diagramsGroup(e.diagram, t) : null],
   }, t)
 }
 
 /** Circuit: opens by itself when something electrical is selected. Null when nothing is. */
-export function circuitTab(e: ElectricalRibbon, select: RibbonGroup): RibbonTab | null {
+export function circuitTab(e: ElectricalRibbon, select: RibbonGroup, t: Translate = englishOnly): RibbonTab | null {
   const sel = e.selection
   if (!sel) return null
   return {
     id: 'circuit',
-    label: 'Circuit',
+    label: t('electrical.circuit', 'Circuit', { ns: 'editor' }),
     contextual: true,
     groups: [
       select,
@@ -325,9 +325,9 @@ export function circuitTab(e: ElectricalRibbon, select: RibbonGroup): RibbonTab 
         id: 'circuit',
         label: sel.label,
         commands: [
-          ...circuitCommands(e),
-          { id: 'remove-from-circuit', label: 'Take off circuit', icon: X, description: 'Take the selected devices off their circuits; the circuit stays as a spare if nothing is left on it', keywords: ['remove', 'unassign', 'disconnect'], disabledReason: e.removeBlocked, run: e.removeFromCircuit, testId: 'ribbon-electrical-remove-from-circuit' },
-          { id: 'circuit-panel-view', label: 'Panel view', icon: CircleDot, description: 'Open the panel schedule of the selected panel, or of the panel the selected device is on', disabledReason: e.panelViewBlocked, run: e.openPanelView, testId: 'ribbon-circuit-panel-view' },
+          ...circuitCommands(e, t),
+          { id: 'remove-from-circuit', label: t('electrical.removeFromCircuitWhy', 'Take off circuit', { ns: 'editor' }), icon: X, description: t('electrical.removeFromCircuitWhy_329', 'Take the selected devices off their circuits; the circuit stays as a spare if nothing is left on it', { ns: 'editor' }), keywords: ['remove', 'unassign', 'disconnect'], disabledReason: e.removeBlocked, run: e.removeFromCircuit, testId: 'ribbon-electrical-remove-from-circuit' },
+          { id: 'circuit-panel-view', label: t('electrical.circuitPanelViewWhy', 'Panel view', { ns: 'editor' }), icon: CircleDot, description: t('electrical.circuitPanelViewWhy_330', 'Open the panel schedule of the selected panel, or of the panel the selected device is on', { ns: 'editor' }), disabledReason: e.panelViewBlocked, run: e.openPanelView, testId: 'ribbon-circuit-panel-view' },
         ],
       },
     ],

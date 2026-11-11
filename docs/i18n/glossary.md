@@ -535,15 +535,45 @@ ayarlar, parça listesi, IFC içe/dışa aktarma) çevrilirken bunlar gerekti. Y
 | Data-use agreement | **veri kullanım anlaşması** | |
 | Country of origin: unit symbols | `kVA`, `CFM`, `fpm`, `in. w.c.`, `A`, `V`, `Pa`, `ft`, `Btu/h` **çevrilmez** | §7 — bu turda yalnız `bal.`/`vent.` sütun başlıklarında görünür |
 
-> **Bu turda kapanmayan ağaçlar.** `electrical/` ve `plumbing/` (Task 4.3) ile
-> `spaces/`, `questions/`, `equipment-list/`, `library/`, `coordination/`
-> (Task 4.4) **anahtarlanmadı**; bu yüzden Ç7 (*pano* / *panel*), Ç8'in elektrik
-> tarafı, Ç12 (*armatür* / *yük birimi*), Ç20 (*Sahip* / *İşveren*) ve `kVA`
-> sütunları bu sürümde hâlâ İngilizcedir ve negatif-alan koruması o ağaçları
-> **taramasın** diye `NOT_YET_GUARDED` listesinde adlandırılmıştır
-> (`packages/bim-editor/__tests__/i18n-negative-space.test.ts`). Sahibi: Aşama 4'ün
-> kalan turları; gerekçe ve sayılar görev raporundadır
+> **Bu turda kapanmayan ağaçlar.** `electrical/` (265 site kaldı), `plumbing/`
+> (402), `spaces/` (427), `questions/` (213), `equipment-list/` (110), `library/`
+> (68) ve `coordination/` (58) **henüz tamamlanmadı**; bu yüzden Ç7 (*pano* /
+> *panel*), Ç8'in elektrik tarafı, Ç12 (*armatür* / *yük birimi*), Ç20 (*Sahip* /
+> *İşveren*) ve `kVA` sütunlarının bir kısmı hâlâ İngilizcedir ve negatif-alan
+> koruması o ağaçları **taramasın** diye `NOT_YET_GUARDED` listesinde
+> adlandırılmıştır (`packages/bim-editor/__tests__/i18n-negative-space.test.ts`).
+> Sahibi: Aşama 4'ün kalan turları; gerekçe ve sayılar görev raporundadır
 > (`.superpowers/sdd/2026-11-10-bilingual-ui/task-4.3-4.4-report.md`).
+>
+> **Aşama 4 · Task 4.3 elektrik sözcükleri (2026-11-10, ikinci tur).** Elektrik
+> panolarının çevrilen kısmı için karara bağlananlar:
+>
+> | EN | TR | Not |
+> |----|----|-----|
+> | Panel / Panelboard (electrical) | **pano** | §9/Ç7; UI yan paneli **panel** kalır |
+> | Panel schedule / Panel view | **pano çizelgesi** / **pano görünümü** | §2.4 |
+> | Switchboard | **şalter panosu** | Ana şalter panosu = **ana şalter panosu** |
+> | Main breaker / Main lugs | **ana şalter** / **ana pabuç** | |
+> | Feeder / Feeder type / Feeder schedule | **besleme** / **besleme tipi** / **besleme çizelgesi** | |
+> | Receptacle | **priz** | Duplex = **ikili priz**; GFCI korunur |
+> | Light / Luminaire (fixture) | **armatür** | §9/Ç12; panel armatür, gömme spot |
+> | Junction box | **bağlantı kutusu** | |
+> | Disconnect / Safety switch | **ayırıcı** / **şalter** | |
+> | Transfer switch / ATS | **transfer şalteri** / **otomatik transfer** | |
+> | Meter and CT cabinet | **sayaç ve akım trafo kabini** | |
+> | Tap box | **branşman kutusu** | |
+> | Home run | **ana hat** | |
+> | Branch circuit | **branşman devresi** | §9/Ç8 |
+> | Load center | **yük merkezi** | |
+> | Service / Service size / Service layout | **servis** / **servis boyutu** / **servis yerleşimi** | |
+> | Dedicated space (NEC 110.26(E)) | **ayrılmış boşluk** | *alan* DEĞİL (§2.3) |
+> | Fault current / Available fault current | **kısa devre akımı** / **mevcut kısa devre akımı** | |
+> | Load class | **yük sınıfı** | |
+> | Continuous load | **sürekli yük** | |
+> | Unit (dwelling) | **ünite** | Konut ünitesi; §2.3 *space* = mekan |
+> | Room template | **oda şablonu** | §2.3 *room* = oda |
+> | Connection type / Designator | **bağlantı tipi** / **tanımlayıcı** | |
+> | Riser diagram / One-line diagram | **kolon şeması** / **tek hat diyagramı** | §2.4 |
 
 ---
 

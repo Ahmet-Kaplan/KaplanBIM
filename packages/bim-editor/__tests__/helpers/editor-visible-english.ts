@@ -176,6 +176,9 @@ const looksLikeProse = (text: string): boolean => {
  */
 const looksLikeWords = (text: string): boolean => {
   const trimmed = text.trim();
+  // A bare placeholder is a format example a person types (`{bus}`, `{supply_from}`),
+  // not a caption: the words around it are keyed, the token itself never is.
+  if (/^\{[A-Za-z_.]+\}$/u.test(trimmed)) return false;
   if (!/[A-Za-z]{2,}/u.test(trimmed)) return false;
   // One identifier, camelCase, hyphenated or dotted: `Promise`, `DarkMode`, `detail-end`,
   // `working_angle`, `t.rich`. A single capitalised word is the exception — that is the

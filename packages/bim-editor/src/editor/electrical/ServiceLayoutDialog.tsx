@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table'
 import { ToggleGroup, ToggleGroupItem } from '../../ui/toggle-group'
 import type { SubmitCommand } from '../views-sheets/types'
+import { useEditorTranslate } from '../i18n/translate'
 
 export const SYSTEM_LABEL: Record<ServiceSystem, string> = { '208Y/120': '120/208 V 3-phase', '480Y/277': '277/480 V 3-phase', '120/240': '120/240 V single-phase' }
 const isSystem = (v: string): v is ServiceSystem => SERVICE_SYSTEMS.some((s) => s === v)
@@ -93,6 +94,7 @@ export function ServiceLayoutDialog({
   /** Close the dialog, pick a point in the plan, and reopen with this draft; absent when no plan or 3D view is open. */
   readonly onPickPoint?: (draft: ServiceLayoutDraft) => void
 }) {
+  const t = useEditorTranslate()
   const levels = elementsOfKind(model.elements, 'level')
   const rooms = useMemo(() => serviceLayoutRooms(model), [model])
   const [level, setLevel] = useState(draft?.level ?? (levelId && model.elements[levelId]?.kind === 'level' ? levelId : (levels[0]?.id ?? '')))
@@ -112,14 +114,14 @@ export function ServiceLayoutDialog({
   const update = (key: number, change: Partial<Row>) => setRows(rows.map((r) => (r.key === key ? { ...r, ...change } : r)))
   const nextKey = rows.reduce((m, r) => Math.max(m, r.key), 0) + 1
   const sources = [mdpName.trim() || 'MDP', ...rows.map((r) => r.name.trim()).filter(Boolean)]
-  const levelName = levels.find((l) => l.id === level)?.name ?? 'the level'
+  const levelName = levels.find((l) => l.id === level)?.name ?? t('electrical.theLevel', 'the level', { ns: 'editor' })
 
   const serviceA = positive(amps)
   const request = useMemo<ServiceLayoutRequest | string>(() => {
-    if (!level) return 'Add a level first: the service equipment goes on one.'
-    if (serviceA === undefined || !Number.isInteger(serviceA)) return 'Type the service size in whole amps (400).'
-    if (!planOnly && where === 'room' && !roomId) return 'Pick the room the service goes in, or place it at a point in the plan.'
-    if (!planOnly && where === 'point' && !point) return 'Press Pick in plan and click where the lineup starts.'
+    if (!level) return t('electrical.addALevelFirstTheServiceEquipmentGoesOnOne', 'Add a level first: the service equipment goes on one.', { ns: 'editor' })
+    if (serviceA === undefined || !Number.isInteger(serviceA)) return t('electrical.typeTheServiceSizeInWholeAmps400', 'Type the service size in whole amps (400).', { ns: 'editor' })
+    if (!planOnly && where === 'room' && !roomId) return t('electrical.pickTheRoomTheServiceGoesInOrPlaceItAtAPoint', 'Pick the room the service goes in, or place it at a point in the plan.', { ns: 'editor' })
+    if (!planOnly && where === 'point' && !point) return t('electrical.pressPickInPlanAndClickWhereTheLineupStarts', 'Press Pick in plan and click where the lineup starts.', { ns: 'editor' })
     const anchor = planOnly ? {} : where === 'room' ? { roomId } : where === 'point' && point ? { origin: point } : {}
     const equipment: NonNullable<ServiceLayoutRequest['equipment']>[number][] = []
     for (const r of rows) {
@@ -149,16 +151,16 @@ export function ServiceLayoutDialog({
       <DialogContent className="sm:max-w-4xl" data-testid="service-layout-dialog">
         <form onSubmit={place} className="flex flex-col gap-4">
           <DialogHeader>
-            <DialogTitle>Service layout</DialogTitle>
+            <DialogTitle>{t('electrical.serviceLayout', 'Service layout', { ns: 'editor' })}</DialogTitle>
             <DialogDescription>Start the distribution from the service size: list the panels and transformers and what feeds each. Check the preview, then place it as one edit you can undo. The one-line opens and draws it.</DialogDescription>
           </DialogHeader>
           <div className="flex flex-wrap gap-3">
             <Field className="w-32">
-              <FieldLabel htmlFor="bm-svc-amps">Service (A)</FieldLabel>
+              <FieldLabel htmlFor="bm-svc-amps">{t('electrical.serviceA', 'Service (A)', { ns: 'editor' })}</FieldLabel>
               <Input id="bm-svc-amps" inputMode="numeric" value={amps} onChange={(e) => setAmps(e.target.value)} data-testid="service-layout-amps" />
             </Field>
             <Field className="min-w-48 flex-1">
-              <FieldLabel htmlFor="bm-svc-system">System</FieldLabel>
+              <FieldLabel htmlFor="bm-svc-system">{t('electrical.system', 'System', { ns: 'editor' })}</FieldLabel>
               <Select value={system} onValueChange={(v) => isSystem(v) && setSystem(v)}>
                 <SelectTrigger id="bm-svc-system" data-testid="service-layout-system">
                   <SelectValue />
@@ -175,12 +177,12 @@ export function ServiceLayoutDialog({
               </Select>
             </Field>
             <Field className="w-36">
-              <FieldLabel htmlFor="bm-svc-mdp">Main distribution</FieldLabel>
+              <FieldLabel htmlFor="bm-svc-mdp">{t('electrical.mainDistribution', 'Main distribution', { ns: 'editor' })}</FieldLabel>
               <Input id="bm-svc-mdp" maxLength={40} value={mdpName} onChange={(e) => setMdpName(e.target.value)} data-testid="service-layout-mdp" />
             </Field>
             {levels.length > 1 && (
               <Field className="w-40">
-                <FieldLabel htmlFor="bm-svc-level">Level</FieldLabel>
+                <FieldLabel htmlFor="bm-svc-level">{t('electrical.level', 'Level', { ns: 'editor' })}</FieldLabel>
                 <Select value={level} onValueChange={setLevel}>
                   <SelectTrigger id="bm-svc-level">
                     <SelectValue />
@@ -201,40 +203,40 @@ export function ServiceLayoutDialog({
           <div className="flex flex-wrap gap-6">
             <Field orientation="horizontal" className="w-auto">
               <Checkbox id="bm-svc-meter" checked={meter} onCheckedChange={(v) => setMeter(v === true)} />
-              <FieldLabel htmlFor="bm-svc-meter">Utility meter (CT cabinet)</FieldLabel>
+              <FieldLabel htmlFor="bm-svc-meter">{t('electrical.utilityMeterCTCabinet', 'Utility meter (CT cabinet)', { ns: 'editor' })}</FieldLabel>
             </Field>
             <Field orientation="horizontal" className="w-auto">
               <Checkbox id="bm-svc-disc" checked={mainDisconnect} onCheckedChange={(v) => setMainDisconnect(v === true)} data-testid="service-layout-main-disconnect" />
-              <FieldLabel htmlFor="bm-svc-disc">Separate fused main disconnect (main distribution is then main lugs only)</FieldLabel>
+              <FieldLabel htmlFor="bm-svc-disc">{t('electrical.separateFusedMainDisconnectMainDistributionI', 'Separate fused main disconnect (main distribution is then main lugs only)', { ns: 'editor' })}</FieldLabel>
             </Field>
             <Field orientation="horizontal" className="w-auto">
               <Checkbox id="bm-svc-plan-only" checked={planOnly} onCheckedChange={(v) => setPlanOnly(v === true)} data-testid="service-layout-plan-only" />
-              <FieldLabel htmlFor="bm-svc-plan-only">Plan only: don’t draw it yet (it waits in Not placed yet)</FieldLabel>
+              <FieldLabel htmlFor="bm-svc-plan-only">{t('electrical.planOnlyDonTDrawItYetItWaitsInNotPlacedYet', 'Plan only: don’t draw it yet (it waits in Not placed yet)', { ns: 'editor' })}</FieldLabel>
             </Field>
           </div>
           {!planOnly && (
           <div className="flex flex-wrap items-end gap-3">
             <Field className="w-auto">
-              <FieldLabel id="bm-svc-where-label">Where it goes</FieldLabel>
+              <FieldLabel id="bm-svc-where-label">{t('electrical.whereItGoes', 'Where it goes', { ns: 'editor' })}</FieldLabel>
               <ToggleGroup type="single" variant="outline" size="sm" aria-labelledby="bm-svc-where-label" value={where} onValueChange={(v) => (v === 'room' || v === 'point' || v === 'origin') && setWhere(v)} data-testid="service-layout-where">
                 <ToggleGroupItem value="room" disabled={rooms.length === 0} className={PICKED}>
-                  In a room
+                  {t('electrical.inARoom', 'In a room', { ns: 'editor' })}
                 </ToggleGroupItem>
                 <ToggleGroupItem value="point" className={PICKED} data-testid="service-layout-where-point">
-                  At a point
+                  {t('electrical.atAPoint', 'At a point', { ns: 'editor' })}
                 </ToggleGroupItem>
                 <ToggleGroupItem value="origin" className={PICKED} data-testid="service-layout-where-origin">
-                  Level origin
+                  {t('electrical.levelOrigin', 'Level origin', { ns: 'editor' })}
                 </ToggleGroupItem>
               </ToggleGroup>
-              {rooms.length === 0 && <FieldDescription data-testid="service-layout-no-rooms">No rooms in the model yet, so In a room is off: trace them (Electrical › Propose receptacles) or pick a point.</FieldDescription>}
+              {rooms.length === 0 && <FieldDescription data-testid="service-layout-no-rooms">{t('electrical.noRoomsInTheModelYetSoInARoomIsOffTraceThemE', 'No rooms in the model yet, so In a room is off: trace them (Electrical › Propose receptacles) or pick a point.', { ns: 'editor' })}</FieldDescription>}
             </Field>
             {where === 'room' && rooms.length > 0 && (
               <Field className="min-w-48 flex-1">
-                <FieldLabel htmlFor="bm-svc-room">Room</FieldLabel>
+                <FieldLabel htmlFor="bm-svc-room">{t('electrical.room', 'Room', { ns: 'editor' })}</FieldLabel>
                 <Select value={roomId} onValueChange={setRoomId}>
                   <SelectTrigger id="bm-svc-room" data-testid="service-layout-room">
-                    <SelectValue placeholder="Pick the room" />
+                    <SelectValue placeholder={t('electrical.pickTheRoom', 'Pick the room', { ns: 'editor' })} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
@@ -250,37 +252,37 @@ export function ServiceLayoutDialog({
             )}
             {where === 'point' && (
               <div className="flex items-center gap-2">
-                <Button type="button" variant="outline" size="sm" onClick={pickPoint} disabled={!pickPoint} title={pickPoint ? undefined : 'Open a plan or the 3D model to pick a point in it'} data-testid="service-layout-pick">
+                <Button type="button" variant="outline" size="sm" onClick={pickPoint} disabled={!pickPoint} title={pickPoint ? undefined : t('electrical.openAPlanOrThe3DModelToPickAPointInIt', 'Open a plan or the 3D model to pick a point in it', { ns: 'editor' })} data-testid="service-layout-pick">
                   <Crosshair data-icon="inline-start" />
-                  {point ? 'Pick again' : 'Pick in plan'}
+                  {point ? t('electrical.pickAgain', 'Pick again', { ns: 'editor' }) : t('electrical.pickInPlan', 'Pick in plan', { ns: 'editor' })}
                 </Button>
-                <FieldDescription data-testid="service-layout-point">{point ? `Starts ${feet(point.x)} east, ${feet(point.y)} north` : 'No point picked yet'}</FieldDescription>
+                <FieldDescription data-testid="service-layout-point">{point ? `Starts ${feet(point.x)} east, ${feet(point.y)} north` : t('electrical.noPointPickedYet', 'No point picked yet', { ns: 'editor' })}</FieldDescription>
               </div>
             )}
           </div>
           )}
           <div className="max-h-56 overflow-auto rounded-md border">
             <Table data-testid="service-layout-rows">
-              <TableCaption className="sr-only">Panels and transformers to place</TableCaption>
+              <TableCaption className="sr-only">{t('electrical.panelsAndTransformersToPlace', 'Panels and transformers to place', { ns: 'editor' })}</TableCaption>
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>Kind</TableHead>
-                  <TableHead>Size</TableHead>
+                  <TableHead>{t('electrical.kind', 'Kind', { ns: 'editor' })}</TableHead>
+                  <TableHead>{t('electrical.size', 'Size', { ns: 'editor' })}</TableHead>
                   <TableHead>System</TableHead>
-                  <TableHead>Mains</TableHead>
+                  <TableHead>{t('electrical.mains', 'Mains', { ns: 'editor' })}</TableHead>
                   <TableHead>Fed from</TableHead>
-                  <TableHead>Breaker (A)</TableHead>
-                  <TableHead className="sr-only">Remove</TableHead>
+                  <TableHead>{t('electrical.breakerA', 'Breaker (A)', { ns: 'editor' })}</TableHead>
+                  <TableHead className="sr-only">{t('electrical.remove', 'Remove', { ns: 'editor' })}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.map((r) => (
                   <TableRow key={r.key} data-testid="service-layout-row">
                     <TableCell>
-                      <Input aria-label="Name" className="h-8 w-20" maxLength={40} value={r.name} onChange={(e) => update(r.key, { name: e.target.value })} />
+                      <Input aria-label={t('electrical.name', 'Name', { ns: 'editor' })} className="h-8 w-20" maxLength={40} value={r.name} onChange={(e) => update(r.key, { name: e.target.value })} />
                     </TableCell>
-                    <TableCell className="text-xs">{r.kind === 'panel' ? 'Panel' : 'Transformer'}</TableCell>
+                    <TableCell className="text-xs">{r.kind === 'panel' ? t('electrical.panel', 'Panel', { ns: 'editor' }) : t('electrical.transformer', 'Transformer', { ns: 'editor' })}</TableCell>
                     <TableCell>
                       <Input aria-label={r.kind === 'panel' ? `${r.name} bus amps` : `${r.name} kVA`} className="h-8 w-20" inputMode="decimal" placeholder={r.kind === 'panel' ? 'A' : 'kVA'} value={r.size} onChange={(e) => update(r.key, { size: e.target.value })} />
                     </TableCell>
@@ -308,8 +310,8 @@ export function ServiceLayoutDialog({
                           </SelectTrigger>
                           <SelectContent>
                             <SelectGroup>
-                              <SelectItem value="MCB">Main breaker</SelectItem>
-                              <SelectItem value="MLO">Main lugs</SelectItem>
+                              <SelectItem value="MCB">{t('electrical.mainBreaker', 'Main breaker', { ns: 'editor' })}</SelectItem>
+                              <SelectItem value="MLO">{t('electrical.mainLugs', 'Main lugs', { ns: 'editor' })}</SelectItem>
                             </SelectGroup>
                           </SelectContent>
                         </Select>
@@ -320,7 +322,7 @@ export function ServiceLayoutDialog({
                     <TableCell>
                       <Select value={r.fedFrom} onValueChange={(v) => update(r.key, { fedFrom: v })}>
                         <SelectTrigger size="sm" aria-label={`${r.name} fed from`} data-testid={`service-layout-fed-from-${r.key}`}>
-                          <SelectValue placeholder="Fed from" />
+                          <SelectValue placeholder={t('electrical.fedFrom', 'Fed from', { ns: 'editor' })} />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectGroup>
@@ -336,7 +338,7 @@ export function ServiceLayoutDialog({
                       </Select>
                     </TableCell>
                     <TableCell>
-                      <Input aria-label={`${r.name} feeder breaker`} className="h-8 w-20" inputMode="numeric" placeholder={r.kind === 'transformer' ? 'Required' : 'Default'} value={r.breaker} onChange={(e) => update(r.key, { breaker: e.target.value })} />
+                      <Input aria-label={`${r.name} feeder breaker`} className="h-8 w-20" inputMode="numeric" placeholder={r.kind === 'transformer' ? t('electrical.required', 'Required', { ns: 'editor' }) : t('electrical.default', 'Default', { ns: 'editor' })} value={r.breaker} onChange={(e) => update(r.key, { breaker: e.target.value })} />
                     </TableCell>
                     <TableCell>
                       <Button type="button" variant="ghost" size="icon-sm" aria-label={`Remove ${r.name}`} onClick={() => setRows(rows.filter((x) => x.key !== r.key))}>
@@ -351,17 +353,17 @@ export function ServiceLayoutDialog({
           <div className="flex gap-2">
             <Button type="button" variant="outline" size="sm" onClick={() => setRows([...rows, { key: nextKey, kind: 'panel', name: `L${nextKey}`, fedFrom: mdpName.trim() || 'MDP', size: '225', system, mains: 'MCB', breaker: '' }])} data-testid="service-layout-add-panel">
               <Plus data-icon="inline-start" />
-              Add panel
+              {t('electrical.addPanel', 'Add panel', { ns: 'editor' })}
             </Button>
             <Button type="button" variant="outline" size="sm" onClick={() => setRows([...rows, { key: nextKey, kind: 'transformer', name: `T${nextKey}`, fedFrom: mdpName.trim() || 'MDP', size: '', system: '208Y/120', mains: 'MLO', breaker: '' }])} data-testid="service-layout-add-transformer">
               <Plus data-icon="inline-start" />
-              Add transformer
+              {t('electrical.addTransformer', 'Add transformer', { ns: 'editor' })}
             </Button>
           </div>
           {why ? (
             <Alert variant="destructive" data-testid="service-layout-refusal">
               <CircleAlert />
-              <AlertTitle>Not ready to place</AlertTitle>
+              <AlertTitle>{t('electrical.notReadyToPlace', 'Not ready to place', { ns: 'editor' })}</AlertTitle>
               <AlertDescription>{why}</AlertDescription>
             </Alert>
           ) : (
@@ -393,11 +395,11 @@ export function ServiceLayoutDialog({
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
+              {t('electrical.cancel', 'Cancel', { ns: 'editor' })}
             </Button>
             <Button type="submit" disabled={!plan?.ok} data-testid="service-layout-place">
               <Network data-icon="inline-start" />
-              {planOnly ? 'Plan and open the one-line' : 'Place and open the one-line'}
+              {planOnly ? t('electrical.planAndOpenTheOneLine', 'Plan and open the one-line', { ns: 'editor' }) : t('electrical.placeAndOpenTheOneLine', 'Place and open the one-line', { ns: 'editor' })}
             </Button>
           </DialogFooter>
         </form>

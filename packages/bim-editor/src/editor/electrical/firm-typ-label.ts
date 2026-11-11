@@ -1,6 +1,7 @@
 import { firmTypLabelTemplate } from '@permitzip/bim-pack-electrical'
 import type { EditorDataHost } from '@permitzip/bim-editor-host'
 import { EditorServiceUnavailableError } from '@permitzip/bim-editor/host/unavailable'
+import { englishOnly, type Translate } from '../i18n/translate'
 
 /** The firm's published typical-label standard (a library tag type keyed `electrical.typ_label`), or null when the firm has none. */
 export interface FirmTypLabel {
@@ -13,8 +14,8 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null
 }
 
-export async function loadFirmTypLabelFrom(port: EditorDataHost['firmLibrary']): Promise<FirmTypLabel | null> {
-  if (!port) throw new EditorServiceUnavailableError("The firm's typical-label standard")
+export async function loadFirmTypLabelFrom(port: EditorDataHost['firmLibrary'], t: Translate = englishOnly): Promise<FirmTypLabel | null> {
+  if (!port) throw new EditorServiceUnavailableError(t('electrical.theFirmSTypicalLabelStandard', 'The firm\'s typical-label standard', { ns: 'editor' }))
   const res = await port.listOfType({ scope: 'firm', type: 'tag_type' })
   if (!res.ok) throw new Error(`the firm library answered ${res.status}`)
   const body: unknown = await res.json()

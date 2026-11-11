@@ -8,6 +8,7 @@ import { Button } from '../../ui/button'
 import { Field, FieldDescription, FieldLabel } from '../../ui/field'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../ui/select'
 import type { SubmitCommand } from '../views-sheets/types'
+import { useEditorTranslate } from '../i18n/translate'
 
 const NONE = '__none__'
 const MIXED = '__mixed__'
@@ -28,12 +29,13 @@ export function ConnectionTypePicker({ model, ids, submit, editBlocked, onManage
       return typeof v === 'string' && v.trim() !== '' ? v : NONE
     }),
   )
+  const t = useEditorTranslate()
   const current = values.size === 1 ? ([...values][0] ?? NONE) : MIXED
   const known = records.find((r) => r.entry.designator.toUpperCase() === current.toUpperCase())
   const choose = (v: string) => {
     if (v === MIXED) return
     for (const id of ids) {
-      const refusal = submit({ type: 'set_parameters', id, scope: 'instance', values: { connection_type: v === NONE ? '' : v } }, v === NONE ? 'clear the connection type' : `use connection type ${v}`)
+      const refusal = submit({ type: 'set_parameters', id, scope: 'instance', values: { connection_type: v === NONE ? '' : v } }, v === NONE ? t('electrical.clearTheConnectionType', 'clear the connection type', { ns: 'editor' }) : t('electrical.undo.useConnectionType', 'use connection type {{name}}', { ns: 'editor', name: v }))
       if (refusal) return setError(refusal)
     }
     setError(null)
@@ -41,7 +43,7 @@ export function ConnectionTypePicker({ model, ids, submit, editBlocked, onManage
   return (
     <Field>
       <FieldLabel htmlFor="bm-connection-type" className="text-xs">
-        Connection type
+        {t('electrical.connectionType', 'Connection type', { ns: 'editor' })}
       </FieldLabel>
       <div className="flex gap-1">
         <Select value={current} onValueChange={choose} disabled={editBlocked !== null}>
@@ -50,8 +52,8 @@ export function ConnectionTypePicker({ model, ids, submit, editBlocked, onManage
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
-              <SelectItem value={NONE}>None (the part&apos;s own values)</SelectItem>
-              {current === MIXED && <SelectItem value={MIXED}>Different on each</SelectItem>}
+              <SelectItem value={NONE}>{t('electrical.noneThePartAposSOwnValues', 'None (the part&apos;s own values)', { ns: 'editor' })}</SelectItem>
+              {current === MIXED && <SelectItem value={MIXED}>{t('electrical.differentOnEach', 'Different on each', { ns: 'editor' })}</SelectItem>}
               {current !== NONE && current !== MIXED && !known && <SelectItem value={current}>{current} (not in the project&apos;s types)</SelectItem>}
               {records.map((r) => (
                 <SelectItem key={r.entry.designator} value={r.entry.designator}>

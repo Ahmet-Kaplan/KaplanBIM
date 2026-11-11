@@ -12,6 +12,7 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from '../../ui/field'
 import { Input } from '../../ui/input'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../ui/select'
 import type { SubmitCommand } from '../views-sheets/types'
+import { useEditorTranslate } from '../i18n/translate'
 
 /**
  * Electrical › Feed panel: the selected panel or transformer gets its feeder
@@ -34,6 +35,7 @@ export function FeedPanelDialog({
   readonly onClose: () => void
   readonly onDone: (sourceId: string) => void
 }) {
+  const t = useEditorTranslate()
   const els = model.elements
   const fed = panelSchedule(els, fedId)
   const sources = distributionEquipment(els).filter((d) => d.id !== fedId)
@@ -60,7 +62,7 @@ export function FeedPanelDialog({
   const why = !sourceId
     ? `Choose what feeds ${fed.name}.`
     : breakerBad
-      ? 'The breaker is amps, a number above 0 (or leave it empty for the default).'
+      ? t('electrical.theBreakerIsAmpsANumberAbove0OrLeaveItEmptyF', 'The breaker is amps, a number above 0 (or leave it empty for the default).', { ns: 'editor' })
       : plan && !plan.ok
         ? plan.reason
         : needsBreaker
@@ -85,14 +87,14 @@ export function FeedPanelDialog({
       <DialogContent className="sm:max-w-lg" data-testid="feed-dialog">
         <form onSubmit={send} className="flex flex-col gap-4">
           <DialogHeader>
-            <DialogTitle>Feed {fed.name}</DialogTitle>
+            <DialogTitle>{t('electrical.feed', 'Feed', { ns: 'editor' })} {fed.name}</DialogTitle>
             <DialogDescription>
               {fed.name} needs {fed.supply ?? fed.system}. {fed.fedBy ? `It is fed from ${fed.fedBy.sourceName} now; this moves its feeder.` : 'Pick what feeds it.'} You can undo this.
             </DialogDescription>
           </DialogHeader>
           <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="bm-feed-source">Fed from</FieldLabel>
+              <FieldLabel htmlFor="bm-feed-source">{t('electrical.fedFrom', 'Fed from', { ns: 'editor' })}</FieldLabel>
               <Select
                 value={sourceId}
                 onValueChange={(v) => {
@@ -121,10 +123,10 @@ export function FeedPanelDialog({
               sourceId && (
                 <FieldGroup className="grid grid-cols-2 gap-3">
                   <Field>
-                    <FieldLabel htmlFor="bm-feed-slots">Slots on {source?.name}</FieldLabel>
+                    <FieldLabel htmlFor="bm-feed-slots">{t('electrical.slotsOn', 'Slots on', { ns: 'editor' })} {source?.name}</FieldLabel>
                     <Select value={slotsKey} onValueChange={(key) => setSlotsPick({ source: sourceId, key })} disabled={choices.length === 0}>
                       <SelectTrigger id="bm-feed-slots" data-testid="feed-slots-select">
-                        <SelectValue placeholder={choices.length === 0 ? 'No free slots' : 'Slots'} />
+                        <SelectValue placeholder={choices.length === 0 ? t('electrical.noFreeSlots', 'No free slots', { ns: 'editor' }) : t('electrical.slots', 'Slots', { ns: 'editor' })} />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectGroup>
@@ -139,15 +141,15 @@ export function FeedPanelDialog({
                     <FieldDescription>{poles ? `${poles}-pole breaker` : ''}</FieldDescription>
                   </Field>
                   <Field>
-                    <FieldLabel htmlFor="bm-feed-breaker">Breaker (A)</FieldLabel>
-                    <Input id="bm-feed-breaker" inputMode="numeric" placeholder={fedInfo?.kind === 'transformer' ? 'Required' : 'Default'} value={breaker} onChange={(e) => setBreaker(e.target.value)} data-testid="feed-breaker" />
+                    <FieldLabel htmlFor="bm-feed-breaker">{t('electrical.breakerA', 'Breaker (A)', { ns: 'editor' })}</FieldLabel>
+                    <Input id="bm-feed-breaker" inputMode="numeric" placeholder={fedInfo?.kind === 'transformer' ? t('electrical.required', 'Required', { ns: 'editor' }) : t('electrical.default', 'Default', { ns: 'editor' })} value={breaker} onChange={(e) => setBreaker(e.target.value)} data-testid="feed-breaker" />
                     <FieldDescription>{primaryFla !== null ? `${fed.name} draws ${Math.round(primaryFla)} A at full load on its primary; size the breaker to your calc` : `Empty: ${fed.name}’s main, else its bus`}</FieldDescription>
                   </Field>
                 </FieldGroup>
               )
             )}
             <Field>
-              <FieldLabel htmlFor="bm-feed-type">Feeder type (optional)</FieldLabel>
+              <FieldLabel htmlFor="bm-feed-type">{t('electrical.feederTypeOptional', 'Feeder type (optional)', { ns: 'editor' })}</FieldLabel>
               <Input id="bm-feed-type" placeholder="F225" maxLength={40} value={feederType} onChange={(e) => setFeederType(e.target.value)} />
             </Field>
           </FieldGroup>
@@ -160,7 +162,7 @@ export function FeedPanelDialog({
           ) : (
             plan?.ok && (
               <p className="text-sm" data-testid="feed-summary">
-                Makes <span className="font-medium">{plan.summary}</span>
+                {t('electrical.makes', 'Makes', { ns: 'editor' })} <span className="font-medium">{plan.summary}</span>
               </p>
             )
           )}
@@ -171,11 +173,11 @@ export function FeedPanelDialog({
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
+              {t('electrical.cancel', 'Cancel', { ns: 'editor' })}
             </Button>
             <Button type="submit" disabled={why !== null} data-testid="feed-submit">
               <Unplug data-icon="inline-start" />
-              Feed {fed.name}
+              {t('electrical.feed', 'Feed', { ns: 'editor' })} {fed.name}
             </Button>
           </DialogFooter>
         </form>

@@ -17,7 +17,7 @@ import { CapacityTargetLine } from './CapacityTargetLine'
 import { FaultCurrentStrip } from './FaultCurrentStrip'
 import type { CapacityTargets } from './use-capacity-targets'
 import { NEC_EDITIONS, type NecRules } from './use-nec-rules'
-import { useEditorTranslate } from '../i18n/translate'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
 
 const kva = (va: number) => (va / 1000).toFixed(1)
 
@@ -65,14 +65,17 @@ function dropProps(slot: PanelSlot, drop: PanelDrop | undefined): React.TdHTMLAt
 }
 
 /** "not placed yet" when what the circuit serves exists only on the list; "2 not placed yet" for some of several. */
-function notPlacedText(c: PanelCircuit): string | null {
+function notPlacedText(c: PanelCircuit, t: Translate): string | null {
   const n = c.members.filter((m) => m.notPlaced).length
   if (n === 0) return null
-  return n === c.members.length ? 'not placed yet' : `${n} not placed yet`
+  return n === c.members.length
+    ? t('electrical.notPlacedYet', 'not placed yet', { ns: 'editor' })
+    : t('electrical.notPlacedSome', '{{count}} not placed yet', { ns: 'editor', count: n })
 }
 
 /** One half-row of the schedule: a slot and, on a breaker's first slot, its circuit. */
 function SlotCells({ slot, onEdit, side, linkVa, drop }: { readonly slot: PanelSlot | undefined; readonly onEdit: (c: PanelCircuit) => void; readonly side: 'left' | 'right'; readonly linkVa: ReadonlyMap<string, number>; readonly drop?: PanelDrop }) {
+  const t = useEditorTranslate()
   if (!slot) return <TableCell colSpan={5} />
   const c = slot.circuit
   const va = c ? linkVa.get(c.linkId) : undefined
@@ -99,12 +102,12 @@ function SlotCells({ slot, onEdit, side, linkVa, drop }: { readonly slot: PanelS
             {c.role === 'feeder' ? `Feeder to ${c.feeds?.name ?? 'spare'}${c.typicalCount ? ` (typical, ×${c.typicalCount})` : ''}` : c.description || `${c.members.length} device${c.members.length === 1 ? '' : 's'}`}
             {c.existing && (
               <span className="ml-1 font-normal text-muted-foreground no-underline" title={`Existing (${c.existing.phase}): keeps its panel and number; Rebalance leaves it alone`} data-testid={`panel-circuit-existing-${c.positions.join('-')}`}>
-                · existing
+                {t('electrical.existing_101', '· existing', { ns: 'editor' })}
               </span>
             )}
-            {notPlacedText(c) && (
+            {notPlacedText(c, t) && (
               <span className="ml-1 font-normal text-muted-foreground no-underline" data-testid={`panel-circuit-not-placed-${c.positions.join('-')}`}>
-                · {notPlacedText(c)}
+                · {notPlacedText(c, t)}
               </span>
             )}
           </Button>
@@ -182,9 +185,9 @@ export function PanelView({
   if (!s) {
     return (
       <section className="flex flex-col gap-2 p-3" aria-label={t('panel.panelView', 'Panel view', { ns: 'editor' })} data-testid="panel-view">
-        <p className="text-sm">That panel is gone (deleted, or undo took it back).</p>
+        <p className="text-sm">{t('electrical.thatPanelIsGoneDeletedOrUndoTookItBack', 'That panel is gone (deleted, or undo took it back).', { ns: 'editor' })}</p>
         <Button variant="outline" size="sm" onClick={onClose}>
-          Close
+          {t('electrical.close', 'Close', { ns: 'editor' })}
         </Button>
       </section>
     )
@@ -204,7 +207,7 @@ export function PanelView({
       <header className="flex flex-wrap items-center gap-2">
         <CircleDot className="size-4 text-muted-foreground" aria-hidden />
         <Select value={panelId} onValueChange={onPanel}>
-          <SelectTrigger size="sm" className="w-48" aria-label="Panel shown" data-testid="panel-view-select">
+          <SelectTrigger size="sm" className="w-48" aria-label={t('electrical.panelShown', 'Panel shown', { ns: 'editor' })} data-testid="panel-view-select">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -218,21 +221,21 @@ export function PanelView({
           </SelectContent>
         </Select>
         <Badge variant="outline">{s.system}</Badge>
-        {!hasPositions(s.kind) ? <Badge variant="outline">{[s.kva ? `${s.kva} kVA` : null, s.busA ? `${s.busA} A` : null, s.mainA ? `${s.mainA} A fuses` : null, s.supply ? `fed at ${s.supply}` : null].filter(Boolean).join(', ') || s.kind.replace(/_/g, ' ')}</Badge> : <Badge variant="outline">{s.busA ? `${s.busA} A bus` : 'no bus rating'}, {s.mainA ? `${s.mainA} A main` : 'main lugs'}</Badge>}
+        {!hasPositions(s.kind) ? <Badge variant="outline">{[s.kva ? `${s.kva} kVA` : null, s.busA ? `${s.busA} A` : null, s.mainA ? `${s.mainA} A fuses` : null, s.supply ? `fed at ${s.supply}` : null].filter(Boolean).join(', ') || s.kind.replace(/_/g, ' ')}</Badge> : <Badge variant="outline">{s.busA ? `${s.busA} A bus` : t('electrical.noBusRating', 'no bus rating', { ns: 'editor' })}, {s.mainA ? `${s.mainA} A main` : t('electrical.mainLugs', 'main lugs', { ns: 'editor' })}</Badge>}
         <span className="text-xs text-muted-foreground" data-testid="panel-view-supply">
-          Supply from: {s.fedBy ? `${s.fedBy.sourceName}${s.fedBy.positions.length > 0 ? ` via ${s.fedBy.ratingA ? `${s.fedBy.ratingA} A ` : ''}breaker ${s.fedBy.positions.join(',')}` : ''}` : 'not fed yet'}
+          {t('electrical.supplyFrom_217', 'Supply from:', { ns: 'editor' })} {s.fedBy ? `${s.fedBy.sourceName}${s.fedBy.positions.length > 0 ? ` via ${s.fedBy.ratingA ? `${s.fedBy.ratingA} A ` : ''}breaker ${s.fedBy.positions.join(',')}` : ''}` : t('electrical.notFedYet', 'not fed yet', { ns: 'editor' })}
         </span>
         {s.spaces !== null && <span className="text-xs text-muted-foreground">{s.freeSlots} of {s.spaces} slots free</span>}
         {onRebalance && hasPositions(s.kind) && s.circuits.length > 1 && (
-          <Button variant="outline" size="sm" onClick={() => onRebalance(panelId)} disabled={!canEdit} title={canEdit ? 'Even out the load on A, B and C' : (editBlocked ?? undefined)} data-testid="panel-view-rebalance">
+          <Button variant="outline" size="sm" onClick={() => onRebalance(panelId)} disabled={!canEdit} title={canEdit ? t('electrical.evenOutTheLoadOnABAndC', 'Even out the load on A, B and C', { ns: 'editor' }) : (editBlocked ?? undefined)} data-testid="panel-view-rebalance">
             <Scale data-icon="inline-start" />
-            Rebalance
+            {t('electrical.rebalance', 'Rebalance', { ns: 'editor' })}
           </Button>
         )}
         {!s.fedBy && (
           <Button variant="outline" size="sm" onClick={() => onFeed(panelId)} disabled={!canEdit} title={canEdit ? undefined : (editBlocked ?? undefined)}>
             <Unplug data-icon="inline-start" />
-            Feed {s.name}
+            {t('electrical.feed', 'Feed', { ns: 'editor' })} {s.name}
           </Button>
         )}
         <Button variant="ghost" size="icon-sm" className="ml-auto" aria-label={t('panel.closePanelView', 'Close panel view', { ns: 'editor' })} onClick={onClose}>
@@ -250,13 +253,13 @@ export function PanelView({
           </Field>
           <Button type="submit" size="sm" disabled={!canEdit || name.trim() === ''}>
             <Pencil data-icon="inline-start" />
-            Name it
+            {t('electrical.nameIt', 'Name it', { ns: 'editor' })}
           </Button>
         </form>
       )}
       {drop && hasPositions(s.kind) && dragLoads && dragLoads.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1 text-xs" data-testid="panel-view-drag-strip" aria-label="Drag onto a slot or a circuit">
-          <span className="text-muted-foreground">Drag onto a slot or a circuit:</span>
+        <div className="flex flex-wrap items-center gap-1 text-xs" data-testid="panel-view-drag-strip" aria-label={t('electrical.dragOntoASlotOrACircuit', 'Drag onto a slot or a circuit', { ns: 'editor' })}>
+          <span className="text-muted-foreground">{t('electrical.dragOntoASlotOrACircuit_254', 'Drag onto a slot or a circuit:', { ns: 'editor' })}</span>
           {dragLoads.map((d) => (
             <Badge
               key={d.ids.join(',')}
@@ -295,26 +298,26 @@ export function PanelView({
             <EmptyMedia variant="icon">
               <CircleDot />
             </EmptyMedia>
-            <EmptyTitle>No circuits on {s.name} yet</EmptyTitle>
+            <EmptyTitle>{t('electrical.noCircuitsOn', 'No circuits on', { ns: 'editor' })} {s.name} yet</EmptyTitle>
             <EmptyDescription>Select receptacles, lights or equipment (box select with B), then press Electrical › Add to circuit and choose {s.name}, or drag them here.</EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (
         <div className="min-h-40 flex-1 overflow-auto rounded-md border">
           <Table data-testid="panel-view-table">
-            <TableCaption className="sr-only">Slots of {s.name}: odd slots on the left, even on the right</TableCaption>
+            <TableCaption className="sr-only">{t('electrical.slotsOf', 'Slots of', { ns: 'editor' })} {s.name}: odd slots on the left, even on the right</TableCaption>
             <TableHeader>
               <TableRow>
                 <TableHead className="text-xs">#</TableHead>
-                <TableHead className="text-xs">Description</TableHead>
-                <TableHead className="text-xs">Bkr</TableHead>
+                <TableHead className="text-xs">{t('electrical.description', 'Description', { ns: 'editor' })}</TableHead>
+                <TableHead className="text-xs">{t('electrical.bkr', 'Bkr', { ns: 'editor' })}</TableHead>
                 <TableHead className="text-xs">P</TableHead>
                 <TableHead className="text-right text-xs">kVA</TableHead>
-                <TableHead className="w-8 text-center text-xs">Ph</TableHead>
+                <TableHead className="w-8 text-center text-xs">{t('electrical.ph', 'Ph', { ns: 'editor' })}</TableHead>
                 <TableHead className="text-right text-xs">kVA</TableHead>
                 <TableHead className="text-xs">P</TableHead>
-                <TableHead className="text-xs">Bkr</TableHead>
-                <TableHead className="text-xs">Description</TableHead>
+                <TableHead className="text-xs">{t('electrical.bkr', 'Bkr', { ns: 'editor' })}</TableHead>
+                <TableHead className="text-xs">{t('electrical.description', 'Description', { ns: 'editor' })}</TableHead>
                 <TableHead className="text-xs">#</TableHead>
               </TableRow>
             </TableHeader>
@@ -336,7 +339,7 @@ export function PanelView({
       )}
       {report?.estimates && report.estimates.length > 0 && (
         <div className="flex flex-col gap-1 text-xs" data-testid="panel-view-estimates">
-          <span className="font-medium">Also counted here, not on a circuit yet</span>
+          <span className="font-medium">{t('electrical.alsoCountedHereNotOnACircuitYet', 'Also counted here, not on a circuit yet', { ns: 'editor' })}</span>
           {report.estimates.map((e) => (
             <span key={e.loadIds.join(',')} data-testid="panel-view-estimate">
               {e.label}: <span className="tabular-nums">{kva(e.va)} kVA</span>
@@ -364,7 +367,7 @@ export function PanelView({
             data-testid="panel-view-count-estimates"
           >
             <Plus data-icon="inline-start" />
-            Count {unassigned.length === 1 ? 'it' : 'them'} on {s.name}
+            {t('electrical.count_361', 'Count', { ns: 'editor' })} {unassigned.length === 1 ? 'it' : 'them'} on {s.name}
           </Button>
           {countError && (
             <span className="text-danger-600" role="alert">
@@ -383,24 +386,25 @@ const SEVERITY_ICON = { error: CircleAlert, warning: TriangleAlert, info: Info }
 
 /** Totals from the aggregation engine: connected and NEC demand, per phase, what the panel can carry and why, and findings. */
 function PanelTotals({ report, nec, targets, canEdit }: { readonly report: ElectricalNodeReport | null; readonly nec: NecRules; readonly targets: CapacityTargets | undefined; readonly canEdit: boolean }) {
+  const t = useEditorTranslate()
   if (!report) return null
   const d = report.demand
   return (
     <footer className="flex flex-col gap-2 text-xs" data-testid="panel-view-totals">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <span data-testid="panel-view-connected">
-          Connected: <span className="font-medium tabular-nums">{kva(report.connectedVa)} kVA, {amps(report.connectedA)}</span>
+          {t('electrical.connected', 'Connected:', { ns: 'editor' })} <span className="font-medium tabular-nums">{kva(report.connectedVa)} kVA, {amps(report.connectedA)}</span>
         </span>
         <span data-testid="panel-view-demand">
-          {report.rules.placeholder ? 'Demand (no code)' : 'NEC demand'}: <span className="font-medium tabular-nums">{kva(d.demandVa)} kVA, {amps(report.demandA)}</span>
+          {report.rules.placeholder ? t('electrical.demandNoCode', 'Demand (no code)', { ns: 'editor' }) : t('electrical.necDemand', 'NEC demand', { ns: 'editor' })}: <span className="font-medium tabular-nums">{kva(d.demandVa)} kVA, {amps(report.demandA)}</span>
         </span>
         <span>
-          Sized for: <span className="font-medium tabular-nums">{kva(d.sizingVa)} kVA, {amps(report.sizingA)}</span>
+          {t('electrical.sizedFor', 'Sized for:', { ns: 'editor' })} <span className="font-medium tabular-nums">{kva(d.sizingVa)} kVA, {amps(report.sizingA)}</span>
           {d.minimumDeviceA ? ` (at least a ${d.minimumDeviceA} A device)` : ''}
         </span>
         {report.perPhase.map((p) => (
           <span key={p.phase} data-testid={`panel-view-phase-${p.phase}`}>
-            Phase {p.phase}: <span className="font-medium tabular-nums">{kva(p.va)} kVA, {amps(p.amps)}</span>
+            {t('electrical.phase', 'Phase', { ns: 'editor' })} {p.phase}: <span className="font-medium tabular-nums">{kva(p.va)} kVA, {amps(p.amps)}</span>
           </span>
         ))}
       </div>
@@ -410,12 +414,12 @@ function PanelTotals({ report, nec, targets, canEdit }: { readonly report: Elect
         </span>
         {nec.source !== 'project' && (
           <Select value={nec.picked ?? 'none'} onValueChange={(v) => nec.pick(v === 'none' ? null : (NEC_EDITIONS.find((e) => e === v) ?? null))}>
-            <SelectTrigger size="sm" className="w-44" aria-label="NEC edition for these totals" data-testid="panel-view-nec">
+            <SelectTrigger size="sm" className="w-44" aria-label={t('electrical.necEditionForTheseTotals', 'NEC edition for these totals', { ns: 'editor' })} data-testid="panel-view-nec">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectItem value="none">Connected loads only</SelectItem>
+                <SelectItem value="none">{t('electrical.connectedLoadsOnly', 'Connected loads only', { ns: 'editor' })}</SelectItem>
                 {NEC_EDITIONS.map((e) => (
                   <SelectItem key={e} value={e}>
                     NEC {e}

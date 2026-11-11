@@ -14,6 +14,7 @@ import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '../../
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../ui/select'
 import { ToggleGroup, ToggleGroupItem } from '../../ui/toggle-group'
 import type { SubmitCommand } from '../views-sheets/types'
+import { useEditorTranslate } from '../i18n/translate'
 
 const NEW = 'new'
 /** Let the model pick: the next free slots that best even out the panel's phases. */
@@ -47,6 +48,7 @@ export function AddToCircuitDialog({
   readonly onDone: (panelId: string) => void
   readonly onPlacePanel: () => void
 }) {
+  const t = useEditorTranslate()
   const els = model.elements
   const loads = memberIds.filter((id) => {
     const el = els[id]
@@ -72,7 +74,7 @@ export function AddToCircuitDialog({
   const moving = loads.filter((id) => electricalConnections(els, id).some((c) => c.circuit !== null)).length
   const only = loads.length === 1 ? els[loads[0] ?? ''] : undefined
   const noun = only?.kind === 'part' ? memberName(els, only) : `${loads.length} devices`
-  const why = !panelId ? 'Choose the panel it goes on.' : breakerBad ? 'The breaker is amps, a number above 0 (or leave it empty for the default).' : plan && !plan.ok ? plan.reason : null
+  const why = !panelId ? t('electrical.chooseThePanelItGoesOn', 'Choose the panel it goes on.', { ns: 'editor' }) : breakerBad ? t('electrical.theBreakerIsAmpsANumberAbove0OrLeaveItEmptyF', 'The breaker is amps, a number above 0 (or leave it empty for the default).', { ns: 'editor' }) : plan && !plan.ok ? plan.reason : null
 
   const send = (e: React.FormEvent) => {
     e.preventDefault()
@@ -80,7 +82,7 @@ export function AddToCircuitDialog({
     for (let i = 0; i < plan.commands.length; i++) {
       const command = plan.commands[i]
       if (!command) continue
-      const refusal = submit(command, i === plan.commands.length - 1 ? plan.label : 'take devices off their old circuit')
+      const refusal = submit(command, i === plan.commands.length - 1 ? plan.label : t('electrical.takeDevicesOffTheirOldCircuit', 'take devices off their old circuit', { ns: 'editor' }))
       if (refusal) {
         setSubmitError(refusal)
         return
@@ -96,7 +98,7 @@ export function AddToCircuitDialog({
           <DialogHeader>
             <DialogTitle>{moving > 0 ? `Change the circuit of ${noun}` : `Add ${noun} to a circuit`}</DialogTitle>
             <DialogDescription>
-              {moving > 0 ? `${moving === loads.length ? 'Everything selected is' : `${moving} of these are`} on a circuit now; they come off it first.` : 'Pick the panel. The free slots that best even out its phases are chosen for you; you can pick others.'} You can undo this.
+              {moving > 0 ? `${moving === loads.length ? 'Everything selected is' : `${moving} of these are`} on a circuit now; they come off it first.` : t('electrical.pickThePanelTheFreeSlotsThatBestEvenOutItsPh', 'Pick the panel. The free slots that best even out its phases are chosen for you; you can pick others.', { ns: 'editor' })} You can undo this.
             </DialogDescription>
           </DialogHeader>
           {panels.length === 0 ? (
@@ -105,20 +107,20 @@ export function AddToCircuitDialog({
                 <EmptyMedia variant="icon">
                   <Server />
                 </EmptyMedia>
-                <EmptyTitle>No panel to circuit to yet</EmptyTitle>
-                <EmptyDescription>Place a panelboard (Electrical › Panel), name it in its properties, then select these again and press Add to circuit.</EmptyDescription>
+                <EmptyTitle>{t('electrical.noPanelToCircuitToYet', 'No panel to circuit to yet', { ns: 'editor' })}</EmptyTitle>
+                <EmptyDescription>{t('electrical.placeAPanelboardElectricalPanelNameItInItsPr', 'Place a panelboard (Electrical › Panel), name it in its properties, then select these again and press Add to circuit.', { ns: 'editor' })}</EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
                 <Button type="button" variant="outline" onClick={onPlacePanel}>
                   <Server data-icon="inline-start" />
-                  Place a 120/208 V panel
+                  {t('electrical.placeA120208VPanel', 'Place a 120/208 V panel', { ns: 'editor' })}
                 </Button>
               </EmptyContent>
             </Empty>
           ) : (
             <FieldGroup>
               <Field>
-                <FieldLabel htmlFor="bm-circuit-panel">Panel</FieldLabel>
+                <FieldLabel htmlFor="bm-circuit-panel">{t('electrical.panel', 'Panel', { ns: 'editor' })}</FieldLabel>
                 <Select
                   value={panelId}
                   onValueChange={(v) => {
@@ -143,16 +145,16 @@ export function AddToCircuitDialog({
               </Field>
               {existing.length > 0 && (
                 <Field>
-                  <FieldLabel>Circuit</FieldLabel>
+                  <FieldLabel>{t('electrical.circuit', 'Circuit', { ns: 'editor' })}</FieldLabel>
                   <ToggleGroup type="single" variant="outline" value={circuit === NEW ? NEW : 'existing'} onValueChange={(v) => v && setCircuit(v === NEW ? NEW : (existing[0]?.linkId ?? NEW))} aria-label="New or existing circuit">
-                    <ToggleGroupItem value={NEW}>New circuit</ToggleGroupItem>
-                    <ToggleGroupItem value="existing">Add to one on {schedule?.name}</ToggleGroupItem>
+                    <ToggleGroupItem value={NEW}>{t('electrical.newCircuit', 'New circuit', { ns: 'editor' })}</ToggleGroupItem>
+                    <ToggleGroupItem value="existing">{t('electrical.addToOneOn', 'Add to one on', { ns: 'editor' })} {schedule?.name}</ToggleGroupItem>
                   </ToggleGroup>
                 </Field>
               )}
               {circuit !== NEW ? (
                 <Field>
-                  <FieldLabel htmlFor="bm-circuit-existing">Existing circuit</FieldLabel>
+                  <FieldLabel htmlFor="bm-circuit-existing">{t('electrical.existingCircuit', 'Existing circuit', { ns: 'editor' })}</FieldLabel>
                   <Select value={circuit} onValueChange={setCircuit}>
                     <SelectTrigger id="bm-circuit-existing">
                       <SelectValue />
@@ -161,7 +163,7 @@ export function AddToCircuitDialog({
                       <SelectGroup>
                         {existing.map((c) => (
                           <SelectItem key={c.linkId} value={c.linkId}>
-                            {c.name} · {c.description || 'no description'} · {c.members.length} on it
+                            {c.name} · {c.description || t('electrical.noDescription', 'no description', { ns: 'editor' })} · {c.members.length} on it
                           </SelectItem>
                         ))}
                       </SelectGroup>
@@ -172,14 +174,14 @@ export function AddToCircuitDialog({
                 panelId && (
                   <FieldGroup className="grid grid-cols-2 gap-3">
                     <Field>
-                      <FieldLabel htmlFor="bm-circuit-slots">Slots</FieldLabel>
+                      <FieldLabel htmlFor="bm-circuit-slots">{t('electrical.slots', 'Slots', { ns: 'editor' })}</FieldLabel>
                       <Select value={slotsKey} onValueChange={(key) => setSlotsPick({ panel: panelId, key })} disabled={choices.length === 0}>
                         <SelectTrigger id="bm-circuit-slots" data-testid="circuit-slots-select" aria-label="Slots">
-                          <SelectValue placeholder={choices.length === 0 ? 'No free slots' : 'Slots'} />
+                          <SelectValue placeholder={choices.length === 0 ? t('electrical.noFreeSlots', 'No free slots', { ns: 'editor' }) : t('electrical.slots', 'Slots', { ns: 'editor' })} />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectGroup>
-                            <SelectItem value={AUTO}>Balance the phases (recommended)</SelectItem>
+                            <SelectItem value={AUTO}>{t('electrical.balanceThePhasesRecommended', 'Balance the phases (recommended)', { ns: 'editor' })}</SelectItem>
                             {choices.map((c) => (
                               <SelectItem key={c.join(',')} value={c.join(',')}>
                                 {slotChoiceLabel(els, panelId, c)}
@@ -188,15 +190,15 @@ export function AddToCircuitDialog({
                           </SelectGroup>
                         </SelectContent>
                       </Select>
-                      <FieldDescription>{poles ? `${poles}-pole breaker` : 'These need different breakers'}</FieldDescription>
+                      <FieldDescription>{poles ? `${poles}-pole breaker` : t('electrical.theseNeedDifferentBreakers', 'These need different breakers', { ns: 'editor' })}</FieldDescription>
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="bm-circuit-breaker">Breaker (A)</FieldLabel>
-                      <Input id="bm-circuit-breaker" inputMode="numeric" placeholder="Default" value={breaker} onChange={(e) => setBreaker(e.target.value)} />
-                      <FieldDescription>Empty: the unit’s MOCP, else 20 A</FieldDescription>
+                      <FieldLabel htmlFor="bm-circuit-breaker">{t('electrical.breakerA', 'Breaker (A)', { ns: 'editor' })}</FieldLabel>
+                      <Input id="bm-circuit-breaker" inputMode="numeric" placeholder={t('electrical.default', 'Default', { ns: 'editor' })} value={breaker} onChange={(e) => setBreaker(e.target.value)} />
+                      <FieldDescription>{t('electrical.emptyTheUnitSMOCPElse20A', 'Empty: the unit’s MOCP, else 20 A', { ns: 'editor' })}</FieldDescription>
                     </Field>
                     <Field className="col-span-2">
-                      <FieldLabel htmlFor="bm-circuit-description">Description</FieldLabel>
+                      <FieldLabel htmlFor="bm-circuit-description">{t('electrical.description', 'Description', { ns: 'editor' })}</FieldLabel>
                       <Input id="bm-circuit-description" value={description} maxLength={120} onChange={(e) => setDescription(e.target.value)} />
                     </Field>
                   </FieldGroup>
@@ -213,7 +215,7 @@ export function AddToCircuitDialog({
                   <ItemContent>
                     <ItemTitle className="text-xs">{el?.kind === 'part' ? memberName(els, el) : id}</ItemTitle>
                     <ItemDescription className="text-xs">
-                      {conn?.voltage ? `${conn.voltage} V, ${conn.poles ?? 1} pole${(conn.poles ?? 1) === 1 ? '' : 's'}` : 'no voltage set'}
+                      {conn?.voltage ? `${conn.voltage} V, ${conn.poles ?? 1} pole${(conn.poles ?? 1) === 1 ? '' : 's'}` : t('electrical.noVoltageSet', 'no voltage set', { ns: 'editor' })}
                       {conn?.loadVa ? `, ${Math.round(conn.loadVa)} VA` : ''}
                       {conn?.circuit ? ` · now on ${conn.circuit.name}` : ''}
                     </ItemDescription>
@@ -226,14 +228,14 @@ export function AddToCircuitDialog({
             panels.length > 0 && (
               <Alert variant="destructive" data-testid="circuit-refusal">
                 <CircleAlert />
-                <AlertTitle>Can’t add this circuit</AlertTitle>
+                <AlertTitle>{t('electrical.canTAddThisCircuit', 'Can’t add this circuit', { ns: 'editor' })}</AlertTitle>
                 <AlertDescription>{why}</AlertDescription>
               </Alert>
             )
           ) : (
             plan?.ok && (
               <p className="text-sm" data-testid="circuit-summary">
-                Makes <span className="font-medium">{plan.summary}</span>
+                {t('electrical.makes', 'Makes', { ns: 'editor' })} <span className="font-medium">{plan.summary}</span>
               </p>
             )
           )}
@@ -244,11 +246,11 @@ export function AddToCircuitDialog({
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
+              {t('electrical.cancel', 'Cancel', { ns: 'editor' })}
             </Button>
             <Button type="submit" disabled={why !== null || panels.length === 0} data-testid="circuit-submit">
               <Cable data-icon="inline-start" />
-              {circuit === NEW ? 'Add to circuit' : 'Add to this circuit'}
+              {circuit === NEW ? t('electrical.addToCircuit', 'Add to circuit', { ns: 'editor' }) : t('electrical.addToThisCircuit', 'Add to this circuit', { ns: 'editor' })}
             </Button>
           </DialogFooter>
         </form>

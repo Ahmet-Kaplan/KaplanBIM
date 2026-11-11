@@ -54,13 +54,13 @@ export function ElectricalProperties({
           <ItemGroup className="gap-1">
             <Item size="sm">
               <ItemContent>
-                <ItemDescription className="text-xs">System</ItemDescription>
+                <ItemDescription className="text-xs">{t('electrical.system', 'System', { ns: 'editor' })}</ItemDescription>
                 <ItemTitle className="text-xs font-normal">{s.system}</ItemTitle>
               </ItemContent>
             </Item>
             <Item size="sm">
               <ItemContent>
-                <ItemDescription className="text-xs">Supply from</ItemDescription>
+                <ItemDescription className="text-xs">{t('electrical.supplyFrom', 'Supply from', { ns: 'editor' })}</ItemDescription>
                 <ItemTitle className="text-xs font-normal" data-testid="electrical-props-supply">
                   {s.fedBy ? `${s.fedBy.sourceName} (${s.fedBy.name})` : t('empty.notFedYet', 'Not fed yet', { ns: 'editor' })}
                 </ItemTitle>
@@ -68,7 +68,7 @@ export function ElectricalProperties({
             </Item>
             <Item size="sm">
               <ItemContent>
-                <ItemDescription className="text-xs">{hasPositions(s.kind) ? 'Circuits' : 'Feeds'}</ItemDescription>
+                <ItemDescription className="text-xs">{hasPositions(s.kind) ? t('electrical.circuits', 'Circuits', { ns: 'editor' }) : t('electrical.feeds_67', 'Feeds', { ns: 'editor' })}</ItemDescription>
                 <ItemTitle className="text-xs font-normal" data-testid="electrical-props-circuits">
                   {s.circuits.length === 0 ? t('empty.noneYet', 'None yet', { ns: 'editor' }) : s.circuits.slice(0, 8).map((c) => (c.role === 'feeder' ? `${c.name} (feeder)` : `${c.name} ${c.description}`.trim())).join(' · ')}
                   {s.circuits.length > 8 ? ` · and ${s.circuits.length - 8} more` : ''}
@@ -78,7 +78,7 @@ export function ElectricalProperties({
             {fault && (
               <Item size="sm">
                 <ItemContent>
-                  <ItemDescription className="text-xs">Fault current</ItemDescription>
+                  <ItemDescription className="text-xs">{t('electrical.faultCurrent', 'Fault current', { ns: 'editor' })}</ItemDescription>
                   <ItemTitle className={`text-xs font-normal${fault.passes === false ? ' text-danger-600' : ''}`} data-testid="electrical-props-fault">
                     {faultCurrentSummary(fault)}
                   </ItemTitle>
@@ -89,11 +89,11 @@ export function ElectricalProperties({
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" onClick={() => onPanelView(panelId)} data-testid="electrical-props-panel-view">
               <CircleDot data-icon="inline-start" />
-              Open panel schedule
+              {t('electrical.openPanelSchedule', 'Open panel schedule', { ns: 'editor' })}
             </Button>
             <Button variant="outline" size="sm" onClick={onFeed} data-testid="electrical-props-feed">
               <Unplug data-icon="inline-start" />
-              {s.fedBy ? 'Change feeder' : `Feed ${s.name}`}
+              {s.fedBy ? t('electrical.changeFeeder', 'Change feeder', { ns: 'editor' }) : `Feed ${s.name}`}
             </Button>
           </div>
           {panelPart?.kind === 'part' && <DedicatedSpaceForm key={panelId} model={model} part={panelPart} canEdit={editBlocked === null} editBlocked={editBlocked} submit={submit} />}
@@ -109,7 +109,7 @@ export function ElectricalProperties({
           <ItemGroup className="gap-1">
             <Item size="sm">
               <ItemContent>
-                <ItemDescription className="text-xs">Circuit</ItemDescription>
+                <ItemDescription className="text-xs">{t('electrical.circuit', 'Circuit', { ns: 'editor' })}</ItemDescription>
                 <ItemTitle className="text-xs font-normal" data-testid="electrical-props-circuit">
                   {circuit ? `${circuit.name} (panel ${circuit.sourceName})` : t('empty.notOnCircuit', 'Not on a circuit', { ns: 'editor' })}
                 </ItemTitle>
@@ -117,7 +117,7 @@ export function ElectricalProperties({
             </Item>
             <Item size="sm">
               <ItemContent>
-                <ItemDescription className="text-xs">Needs</ItemDescription>
+                <ItemDescription className="text-xs">{t('electrical.needs', 'Needs', { ns: 'editor' })}</ItemDescription>
                 <ItemTitle className="text-xs font-normal">
                   {conn?.voltage ? `${conn.voltage} V, ${conn.poles ?? 1} pole${(conn.poles ?? 1) === 1 ? '' : 's'}` : t('empty.noVoltageSet', 'No voltage set: set it above before circuiting', { ns: 'editor' })}
                   {conn?.loadVa ? `, ${Math.round(conn.loadVa)} VA` : ''}
@@ -129,13 +129,13 @@ export function ElectricalProperties({
           <div className="flex flex-wrap gap-2">
             <Button variant={circuit ? 'outline' : 'default'} size="sm" onClick={onAdd} disabled={addBlocked !== null} title={addBlocked ?? undefined} data-testid="electrical-props-add">
               <Cable data-icon="inline-start" />
-              {circuit ? 'Change circuit' : 'Add to circuit'}
+              {circuit ? t('electrical.changeCircuit', 'Change circuit', { ns: 'editor' }) : t('electrical.addToCircuit', 'Add to circuit', { ns: 'editor' })}
             </Button>
             {circuit && (
               <>
                 <Button variant="outline" size="sm" onClick={() => onEdit(circuit.linkId)}>
                   <Waypoints data-icon="inline-start" />
-                  Edit circuit
+                  {t('electrical.editCircuit', 'Edit circuit', { ns: 'editor' })}
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => onPanelView(circuit.sourceId)}>
                   <CircleDot data-icon="inline-start" />
@@ -153,12 +153,12 @@ export function ElectricalProperties({
     return (
       <>
         <p className="text-xs" data-testid="electrical-props-group">
-          {target.loads.length} device{target.loads.length === 1 ? '' : 's'} that take power: {circuited === 0 ? 'none on a circuit yet' : `${circuited} on a circuit`}.{target.panels.length > 0 ? ` ${target.panels.length} panel${target.panels.length === 1 ? '' : 's'} in the selection stay as they are.` : ''}
+          {target.loads.length} device{target.loads.length === 1 ? '' : 's'} that take power: {circuited === 0 ? t('electrical.noneOnACircuitYet', 'none on a circuit yet', { ns: 'editor' }) : `${circuited} on a circuit`}.{target.panels.length > 0 ? ` ${target.panels.length} panel${target.panels.length === 1 ? '' : 's'} in the selection stay as they are.` : ''}
         </p>
         <ConnectionTypePicker model={model} ids={target.loads} submit={submit} editBlocked={editBlocked} onManage={onManageTypes} />
         <Button size="sm" onClick={onAdd} disabled={addBlocked !== null} title={addBlocked ?? undefined} data-testid="electrical-props-add">
           <Cable data-icon="inline-start" />
-          {circuited === target.loads.length ? 'Change circuit' : 'Add to circuit'}
+          {circuited === target.loads.length ? t('electrical.changeCircuit', 'Change circuit', { ns: 'editor' }) : t('electrical.addToCircuit', 'Add to circuit', { ns: 'editor' })}
         </Button>
         {addBlocked && <p className="text-xs text-muted-foreground">{addBlocked}</p>}
       </>
@@ -166,9 +166,9 @@ export function ElectricalProperties({
   })()
   if (!body) return null
   return (
-    <section className="flex flex-col gap-2" aria-label="Electrical" data-testid="electrical-properties">
+    <section className="flex flex-col gap-2" aria-label={t('electrical.electrical', 'Electrical', { ns: 'editor' })} data-testid="electrical-properties">
       <Separator />
-      <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Electrical</span>
+      <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{t('electrical.electrical', 'Electrical', { ns: 'editor' })}</span>
       {body}
     </section>
   )

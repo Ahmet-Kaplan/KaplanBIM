@@ -15,6 +15,7 @@ import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle }
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../ui/select'
 import { ToggleGroup, ToggleGroupItem } from '../../ui/toggle-group'
 import type { SubmitCommand } from '../views-sheets/types'
+import { useEditorTranslate } from '../i18n/translate'
 
 /** Conductor sizes as drawings write them, smallest first. */
 export const WIRE_SIZES = ['14', '12', '10', '8', '6', '4', '3', '2', '1', '1/0', '2/0', '3/0', '4/0', '250', '300', '350', '400', '500'] as const
@@ -32,6 +33,7 @@ export interface FeederSizingContext {
 }
 
 export function EditCircuitDialog({ model, linkId, submit, onClose, sizing }: { readonly model: ModelState; readonly linkId: string; readonly submit: SubmitCommand; readonly onClose: () => void; readonly sizing?: FeederSizingContext }) {
+  const t = useEditorTranslate()
   const els = model.elements
   const link = els[linkId]
   const circuit = link?.kind === 'service_link' ? describeCircuit(els, link) : null
@@ -51,8 +53,8 @@ export function EditCircuitDialog({ model, linkId, submit, onClose, sizing }: { 
       <Dialog open onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>That circuit is gone</DialogTitle>
-            <DialogDescription>Someone deleted it, or undo took it back. Close this and pick another.</DialogDescription>
+            <DialogTitle>{t('electrical.thatCircuitIsGone', 'That circuit is gone', { ns: 'editor' })}</DialogTitle>
+            <DialogDescription>{t('electrical.someoneDeletedItOrUndoTookItBackCloseThisAnd', 'Someone deleted it, or undo took it back. Close this and pick another.', { ns: 'editor' })}</DialogDescription>
           </DialogHeader>
         </DialogContent>
       </Dialog>
@@ -81,7 +83,7 @@ export function EditCircuitDialog({ model, linkId, submit, onClose, sizing }: { 
   const fedId = circuit.role === 'feeder' ? circuit.feeds?.elementId : undefined
   const fedPart = fedId ? els[fedId] : undefined
   const fedInfo = fedPart?.kind === 'part' ? distributionOf(els, fedPart) : null
-  const sizeBlocked = !sizing || !sizing.edition ? 'Set the NEC edition in the Code Study to size feeders.' : !fedInfo ? 'This feeder serves nothing to size it for.' : lengthBad ? 'The length is feet, a number above 0.' : null
+  const sizeBlocked = !sizing || !sizing.edition ? t('electrical.setTheNECEditionInTheCodeStudyToSizeFeeders', 'Set the NEC edition in the Code Study to size feeders.', { ns: 'editor' }) : !fedInfo ? t('electrical.thisFeederServesNothingToSizeItFor', 'This feeder serves nothing to size it for.', { ns: 'editor' }) : lengthBad ? t('electrical.theLengthIsFeetANumberAbove0', 'The length is feet, a number above 0.', { ns: 'editor' }) : null
   const sizeIt = () => {
     if (!sizing || !fedInfo || !fedId) return
     const report = sizing.engine.report(model, fedId)
@@ -103,7 +105,7 @@ export function EditCircuitDialog({ model, linkId, submit, onClose, sizing }: { 
     ...(wireChanged ? { conductors: nextConductors } : {}),
     ...(circuit.role === 'feeder' && !lengthBad ? { lengthFt: lengthNum } : {}),
   })
-  const why = breakerBad ? 'The breaker is amps, a number above 0.' : lengthBad ? 'The length is feet, a number above 0.' : !plan.ok && plan.reason !== 'Nothing changed.' ? plan.reason : null
+  const why = breakerBad ? t('electrical.theBreakerIsAmpsANumberAbove0', 'The breaker is amps, a number above 0.', { ns: 'editor' }) : lengthBad ? 'The length is feet, a number above 0.' : !plan.ok && plan.reason !== t('electrical.nothingChanged', 'Nothing changed.', { ns: 'editor' }) ? plan.reason : null
 
   const save = (e: React.FormEvent) => {
     e.preventDefault()
@@ -136,41 +138,41 @@ export function EditCircuitDialog({ model, linkId, submit, onClose, sizing }: { 
         <DialogContent className="sm:max-w-lg" data-testid="edit-circuit-dialog">
           <form onSubmit={save} className="flex flex-col gap-4">
             <DialogHeader>
-              <DialogTitle>Circuit {circuit.name}</DialogTitle>
+              <DialogTitle>{t('electrical.circuit', 'Circuit', { ns: 'editor' })} {circuit.name}</DialogTitle>
               <DialogDescription>
                 {circuit.role === 'feeder' ? `Feeds ${circuit.feeds?.name ?? 'nothing (a spare)'}.` : `${circuit.members.length} on it, ${Math.round(load?.inventory.va ?? 0)} VA connected.`} Changes save together; you can undo them.
               </DialogDescription>
             </DialogHeader>
             <FieldGroup className="grid grid-cols-2 gap-3">
               <Field className="col-span-2">
-                <FieldLabel htmlFor="bm-edit-circuit-description">Description</FieldLabel>
+                <FieldLabel htmlFor="bm-edit-circuit-description">{t('electrical.description', 'Description', { ns: 'editor' })}</FieldLabel>
                 <Input id="bm-edit-circuit-description" value={description} maxLength={120} onChange={(e) => setDescription(e.target.value)} />
               </Field>
               <Field className="col-span-2">
-                <FieldLabel>On this renovation</FieldLabel>
+                <FieldLabel>{t('electrical.onThisRenovation', 'On this renovation', { ns: 'editor' })}</FieldLabel>
                 <ToggleGroup
                   type="single"
                   variant="outline"
                   value={circuit.existing ? 'existing' : 'new'}
                   onValueChange={(v) => (v === 'existing' || v === 'new') && setPhase(v === 'existing')}
                   disabled={!earlier}
-                  aria-label="New work or existing circuit"
+                  aria-label={t('electrical.newWorkOrExistingCircuit', 'New work or existing circuit', { ns: 'editor' })}
                   data-testid="edit-circuit-phase"
                 >
-                  <ToggleGroupItem value="new">New work</ToggleGroupItem>
-                  <ToggleGroupItem value="existing">Existing</ToggleGroupItem>
+                  <ToggleGroupItem value="new">{t('electrical.newWork', 'New work', { ns: 'editor' })}</ToggleGroupItem>
+                  <ToggleGroupItem value="existing">{t('electrical.existing', 'Existing', { ns: 'editor' })}</ToggleGroupItem>
                 </ToggleGroup>
                 <FieldDescription>
                   {!earlier
                     ? `You are drawing the ${org.phases[designing]?.entry.name ?? 'first'} phase, so nothing is earlier; switch the active phase to the one you are designing to mark existing circuits.`
                     : circuit.existing
                       ? `Existing (${circuit.existing.phase}): keeps its panel and circuit number, and Rebalance leaves it alone.`
-                      : 'Existing circuits keep their panel and circuit number, and Rebalance leaves them alone.'}
+                      : t('electrical.existingCircuitsKeepTheirPanelAndCircuitNumb', 'Existing circuits keep their panel and circuit number, and Rebalance leaves them alone.', { ns: 'editor' })}
                 </FieldDescription>
               </Field>
               {choices.length > 0 && (
                 <Field>
-                  <FieldLabel htmlFor="bm-edit-circuit-slots">Slots</FieldLabel>
+                  <FieldLabel htmlFor="bm-edit-circuit-slots">{t('electrical.slots', 'Slots', { ns: 'editor' })}</FieldLabel>
                   <Select value={slotsKey} onValueChange={setSlotsKey} disabled={circuit.existing !== undefined}>
                     <SelectTrigger id="bm-edit-circuit-slots" data-testid="edit-circuit-slots">
                       <SelectValue />
@@ -185,22 +187,22 @@ export function EditCircuitDialog({ model, linkId, submit, onClose, sizing }: { 
                       </SelectGroup>
                     </SelectContent>
                   </Select>
-                  {circuit.existing && <FieldDescription>An existing circuit keeps its number; mark it New work to move it.</FieldDescription>}
+                  {circuit.existing && <FieldDescription>{t('electrical.anExistingCircuitKeepsItsNumberMarkItNewWork', 'An existing circuit keeps its number; mark it New work to move it.', { ns: 'editor' })}</FieldDescription>}
                 </Field>
               )}
               <Field>
-                <FieldLabel htmlFor="bm-edit-circuit-breaker">Breaker (A)</FieldLabel>
+                <FieldLabel htmlFor="bm-edit-circuit-breaker">{t('electrical.breakerA', 'Breaker (A)', { ns: 'editor' })}</FieldLabel>
                 <Input id="bm-edit-circuit-breaker" inputMode="numeric" value={breaker} onChange={(e) => setBreaker(e.target.value)} data-testid="edit-circuit-breaker" />
               </Field>
               <Field>
-                <FieldLabel htmlFor="bm-edit-circuit-wire">Wire</FieldLabel>
+                <FieldLabel htmlFor="bm-edit-circuit-wire">{t('electrical.wire', 'Wire', { ns: 'editor' })}</FieldLabel>
                 <Select value={wire} onValueChange={setWire}>
                   <SelectTrigger id="bm-edit-circuit-wire">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
-                      <SelectItem value={DEFAULT_WIRE}>Default for the breaker</SelectItem>
+                      <SelectItem value={DEFAULT_WIRE}>{t('electrical.defaultForTheBreaker', 'Default for the breaker', { ns: 'editor' })}</SelectItem>
                       {WIRE_SIZES.map((w) => (
                         <SelectItem key={w} value={w}>
                           #{w}
@@ -209,16 +211,16 @@ export function EditCircuitDialog({ model, linkId, submit, onClose, sizing }: { 
                     </SelectGroup>
                   </SelectContent>
                 </Select>
-                <FieldDescription>Upsize for voltage drop here; it prints as the real size.</FieldDescription>
+                <FieldDescription>{t('electrical.upsizeForVoltageDropHereItPrintsAsTheRealSiz', 'Upsize for voltage drop here; it prints as the real size.', { ns: 'editor' })}</FieldDescription>
               </Field>
               {circuit.role === 'feeder' && (
                 <Field className="col-span-2">
-                  <FieldLabel htmlFor="bm-edit-circuit-length">Length (ft)</FieldLabel>
+                  <FieldLabel htmlFor="bm-edit-circuit-length">{t('electrical.lengthFt', 'Length (ft)', { ns: 'editor' })}</FieldLabel>
                   <div className="flex items-center gap-2">
                     <Input id="bm-edit-circuit-length" inputMode="decimal" className="w-28" value={lengthFt} onChange={(e) => setLengthFt(e.target.value)} aria-invalid={lengthBad} data-testid="edit-circuit-length" />
                     <Button type="button" variant="outline" size="sm" onClick={sizeIt} disabled={sizeBlocked !== null} title={sizeBlocked ?? undefined} data-testid="edit-circuit-size-it">
                       <Ruler data-icon="inline-start" />
-                      Size it
+                      {t('electrical.sizeIt', 'Size it', { ns: 'editor' })}
                     </Button>
                   </div>
                   <FieldDescription data-testid="edit-circuit-sizing">{sized ?? sizeBlocked ?? 'Sizes the breaker and conductors from what it feeds (NEC demand, continuous loads at 125%); the length also sets voltage drop and fault current.'}</FieldDescription>
@@ -226,27 +228,27 @@ export function EditCircuitDialog({ model, linkId, submit, onClose, sizing }: { 
               )}
               {wire !== DEFAULT_WIRE && (
                 <Field>
-                  <FieldLabel>Conductor</FieldLabel>
-                  <ToggleGroup type="single" variant="outline" value={material} onValueChange={(v) => (v === 'cu' || v === 'al') && setMaterial(v)} aria-label="Conductor material">
-                    <ToggleGroupItem value="cu">Copper</ToggleGroupItem>
-                    <ToggleGroupItem value="al">Aluminum</ToggleGroupItem>
+                  <FieldLabel>{t('electrical.conductor', 'Conductor', { ns: 'editor' })}</FieldLabel>
+                  <ToggleGroup type="single" variant="outline" value={material} onValueChange={(v) => (v === 'cu' || v === 'al') && setMaterial(v)} aria-label={t('electrical.conductorMaterial', 'Conductor material', { ns: 'editor' })}>
+                    <ToggleGroupItem value="cu">{t('electrical.copper', 'Copper', { ns: 'editor' })}</ToggleGroupItem>
+                    <ToggleGroupItem value="al">{t('electrical.aluminum', 'Aluminum', { ns: 'editor' })}</ToggleGroupItem>
                   </ToggleGroup>
                 </Field>
               )}
             </FieldGroup>
             {circuit.role === 'branch' && (
-              <ItemGroup className="max-h-48 gap-1 overflow-y-auto" aria-label="On this circuit">
-                {circuit.members.length === 0 && <p className="text-sm text-muted-foreground">Nothing on it: a spare. Select devices and press Add to circuit to use it.</p>}
+              <ItemGroup className="max-h-48 gap-1 overflow-y-auto" aria-label={t('electrical.onThisCircuit', 'On this circuit', { ns: 'editor' })}>
+                {circuit.members.length === 0 && <p className="text-sm text-muted-foreground">{t('electrical.nothingOnItASpareSelectDevicesAndPressAddToC', 'Nothing on it: a spare. Select devices and press Add to circuit to use it.', { ns: 'editor' })}</p>}
                 {circuit.members.map((m) => (
                   <Item key={m.elementId} size="sm" variant="outline">
                     <ItemContent>
                       <ItemTitle className="text-xs">{m.name}</ItemTitle>
-                      <ItemDescription className="text-xs">{memberVa.get(m.elementId) ? `${Math.round(memberVa.get(m.elementId) ?? 0)} VA` : 'no load set'}</ItemDescription>
+                      <ItemDescription className="text-xs">{memberVa.get(m.elementId) ? `${Math.round(memberVa.get(m.elementId) ?? 0)} VA` : t('electrical.noLoadSet', 'no load set', { ns: 'editor' })}</ItemDescription>
                     </ItemContent>
                     <ItemActions>
                       <Button type="button" variant="ghost" size="sm" onClick={() => takeOff(m.elementId, m.name)} aria-label={`Take ${m.name} off ${circuit.name}`}>
                         <X data-icon="inline-start" />
-                        Take off
+                        {t('electrical.takeOff_245', 'Take off', { ns: 'editor' })}
                       </Button>
                     </ItemActions>
                   </Item>
@@ -256,11 +258,11 @@ export function EditCircuitDialog({ model, linkId, submit, onClose, sizing }: { 
             {why && (
               <Alert variant="destructive" data-testid="edit-circuit-refusal">
                 <CircleAlert />
-                <AlertTitle>Can’t save this</AlertTitle>
+                <AlertTitle>{t('electrical.canTSaveThis', 'Can’t save this', { ns: 'editor' })}</AlertTitle>
                 <AlertDescription>{why}</AlertDescription>
               </Alert>
             )}
-            {plan.ok && <p className="text-sm text-muted-foreground">Saves as {plan.summary}</p>}
+            {plan.ok && <p className="text-sm text-muted-foreground">{t('electrical.savesAs', 'Saves as', { ns: 'editor' })} {plan.summary}</p>}
             {submitError && (
               <FieldDescription className="text-danger-600" role="alert">
                 {submitError}
@@ -269,15 +271,15 @@ export function EditCircuitDialog({ model, linkId, submit, onClose, sizing }: { 
             <DialogFooter className="sm:justify-between">
               <Button type="button" variant="ghost" onClick={() => setConfirmDelete(true)} data-testid="edit-circuit-delete">
                 <Trash2 data-icon="inline-start" />
-                Delete circuit…
+                {t('electrical.deleteCircuit_269', 'Delete circuit…', { ns: 'editor' })}
               </Button>
               <div className="flex gap-2">
                 <Button type="button" variant="outline" onClick={onClose}>
-                  Cancel
+                  {t('electrical.cancel', 'Cancel', { ns: 'editor' })}
                 </Button>
                 <Button type="submit" disabled={!plan.ok || why !== null} data-testid="edit-circuit-save">
                   <Save data-icon="inline-start" />
-                  {plan.ok ? 'Save' : 'No changes'}
+                  {plan.ok ? t('electrical.save', 'Save', { ns: 'editor' }) : t('electrical.noChanges', 'No changes', { ns: 'editor' })}
                 </Button>
               </div>
             </DialogFooter>
@@ -287,13 +289,13 @@ export function EditCircuitDialog({ model, linkId, submit, onClose, sizing }: { 
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete circuit {circuit.name}?</AlertDialogTitle>
+            <AlertDialogTitle>{t('electrical.deleteCircuit_288', 'Delete circuit', { ns: 'editor' })} {circuit.name}?</AlertDialogTitle>
             <AlertDialogDescription>
               {circuit.role === 'feeder' ? `${circuit.feeds?.name ?? 'The panel'} is left with no feeder.` : `${circuit.members.length} device${circuit.members.length === 1 ? '' : 's'} go back to no circuit, and the slots are freed.`} Undo brings it back.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep it</AlertDialogCancel>
+            <AlertDialogCancel>{t('electrical.keepIt', 'Keep it', { ns: 'editor' })}</AlertDialogCancel>
             <AlertDialogAction onClick={remove}>Delete circuit</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

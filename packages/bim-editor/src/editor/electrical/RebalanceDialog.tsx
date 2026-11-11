@@ -13,6 +13,7 @@ import { Field, FieldDescription, FieldLabel } from '../../ui/field'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../ui/select'
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table'
 import type { SubmitCommand } from '../views-sheets/types'
+import { useEditorTranslate } from '../i18n/translate'
 
 const va = (v: number) => `${Math.round(v).toLocaleString('en-US')} VA`
 
@@ -24,13 +25,14 @@ const va = (v: number) => `${Math.round(v).toLocaleString('en-US')} VA`
  * Esc or Cancel closes with nothing changed.
  */
 export function RebalanceDialog({ model, initialPanelId, submit, onClose, onDone }: { readonly model: ModelState; readonly initialPanelId: string | null; readonly submit: SubmitCommand; readonly onClose: () => void; readonly onDone: (panelId: string) => void }) {
+  const t = useEditorTranslate()
   const els = model.elements
   const panels = useMemo(() => distributionEquipment(els).filter((d) => hasPositions(d.kind)), [els])
   const [panelId, setPanelId] = useState<string>(() => (initialPanelId && panels.some((p) => p.id === initialPanelId) ? initialPanelId : (panels[0]?.id ?? '')))
   const [keep, setKeep] = useState<ReadonlySet<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
   const plan = useMemo(() => (panelId ? planRebalance(els, panelId, { keep: [...keep] }) : null), [els, panelId, keep])
-  const why = !panelId ? 'Choose the panel to balance.' : !plan ? 'That panel has no slots to balance.' : plan.command ? null : plan.message
+  const why = !panelId ? t('electrical.chooseThePanelToBalance', 'Choose the panel to balance.', { ns: 'editor' }) : !plan ? t('electrical.thatPanelHasNoSlotsToBalance', 'That panel has no slots to balance.', { ns: 'editor' }) : plan.command ? null : plan.message
   const kept = useMemo(() => [...keep], [keep])
 
   const apply = () => {
@@ -44,11 +46,11 @@ export function RebalanceDialog({ model, initialPanelId, submit, onClose, onDone
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-2xl" data-testid="rebalance-dialog">
         <DialogHeader>
-          <DialogTitle>Balance a panel&apos;s phases</DialogTitle>
-          <DialogDescription>Moves circuits between slots so A, B and C carry more even load. What is on each circuit doesn&apos;t change, and three-pole breakers and existing circuits (on a renovation) stay put. You can undo this.</DialogDescription>
+          <DialogTitle>{t('electrical.balanceAPanelAposSPhases', 'Balance a panel&apos;s phases', { ns: 'editor' })}</DialogTitle>
+          <DialogDescription>{t('electrical.movesCircuitsBetweenSlotsSoABAndCCarryMoreEv', 'Moves circuits between slots so A, B and C carry more even load. What is on each circuit doesn&apos;t change, and three-pole breakers and existing circuits (on a renovation) stay put. You can undo this.', { ns: 'editor' })}</DialogDescription>
         </DialogHeader>
         <Field>
-          <FieldLabel htmlFor="bm-rebalance-panel">Panel</FieldLabel>
+          <FieldLabel htmlFor="bm-rebalance-panel">{t('electrical.panel', 'Panel', { ns: 'editor' })}</FieldLabel>
           <Select
             value={panelId}
             onValueChange={(v) => {
@@ -73,13 +75,13 @@ export function RebalanceDialog({ model, initialPanelId, submit, onClose, onDone
         </Field>
         {plan && (
           <div className="flex flex-wrap items-center gap-2 text-xs" data-testid="rebalance-phases">
-            <span className="text-muted-foreground">Now</span>
+            <span className="text-muted-foreground">{t('electrical.now', 'Now', { ns: 'editor' })}</span>
             {plan.before.map((p) => (
               <Badge key={`b-${p.phase}`} variant="outline">
                 {p.phase} {va(p.va)}
               </Badge>
             ))}
-            <span className="text-muted-foreground">After</span>
+            <span className="text-muted-foreground">{t('electrical.after', 'After', { ns: 'editor' })}</span>
             {plan.after.map((p) => (
               <Badge key={`a-${p.phase}`} variant="secondary">
                 {p.phase} {va(p.va)}
@@ -90,13 +92,13 @@ export function RebalanceDialog({ model, initialPanelId, submit, onClose, onDone
         {plan && plan.moves.length + kept.length > 0 && (
           <div className="max-h-72 overflow-auto rounded-md border">
             <Table data-testid="rebalance-moves">
-              <TableCaption className="sr-only">Proposed slot moves</TableCaption>
+              <TableCaption className="sr-only">{t('electrical.proposedSlotMoves', 'Proposed slot moves', { ns: 'editor' })}</TableCaption>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Circuit</TableHead>
-                  <TableHead>Moves to</TableHead>
-                  <TableHead>Load</TableHead>
-                  <TableHead>Keep</TableHead>
+                  <TableHead>{t('electrical.circuit', 'Circuit', { ns: 'editor' })}</TableHead>
+                  <TableHead>{t('electrical.movesTo', 'Moves to', { ns: 'editor' })}</TableHead>
+                  <TableHead>{t('electrical.load', 'Load', { ns: 'editor' })}</TableHead>
+                  <TableHead>{t('electrical.keep', 'Keep', { ns: 'editor' })}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -134,7 +136,7 @@ export function RebalanceDialog({ model, initialPanelId, submit, onClose, onDone
         {why ? (
           <Alert data-testid="rebalance-why">
             <CircleAlert />
-            <AlertTitle>Nothing to apply</AlertTitle>
+            <AlertTitle>{t('electrical.nothingToApply', 'Nothing to apply', { ns: 'editor' })}</AlertTitle>
             <AlertDescription>{why}</AlertDescription>
           </Alert>
         ) : (
@@ -147,11 +149,11 @@ export function RebalanceDialog({ model, initialPanelId, submit, onClose, onDone
         )}
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            Cancel
+            {t('electrical.cancel', 'Cancel', { ns: 'editor' })}
           </Button>
           <Button onClick={apply} disabled={why !== null} title={why ?? undefined} data-testid="rebalance-apply">
             <Scale data-icon="inline-start" />
-            Apply {plan?.moves.length ?? 0} move{plan?.moves.length === 1 ? '' : 's'}
+            {t('electrical.apply', 'Apply', { ns: 'editor' })} {plan?.moves.length ?? 0} move{plan?.moves.length === 1 ? '' : 's'}
           </Button>
         </DialogFooter>
       </DialogContent>

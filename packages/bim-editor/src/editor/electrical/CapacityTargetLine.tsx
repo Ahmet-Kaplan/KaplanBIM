@@ -11,6 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem,
 import { Field, FieldDescription, FieldError, FieldLabel } from '../../ui/field'
 import { Input } from '../../ui/input'
 import type { CapacityTargets } from './use-capacity-targets'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
 
 /** Where the firm's targets are edited (Library › Design limits). */
 export const FIRM_DESIGN_LIMITS_HREF = '/settings/mutinybim-library'
@@ -22,7 +23,17 @@ export interface CapacityReading {
   readonly target: { readonly fraction: number; readonly layer: DesignLimitLayer; readonly limit: DesignLimit }
 }
 
-const LAYER_WORDS = { project: 'set for this project', firm: 'the firm’s target', addon: 'the default target' } as const
+/** Which layer a design limit was set on, in words — a `label(t)` accessor. */
+function layerWord(layer: DesignLimitLayer, t: Translate): string {
+  switch (layer) {
+    case 'project':
+      return t('electrical.setForThisProject', 'set for this project', { ns: 'editor' })
+    case 'firm':
+      return t('electrical.theFirmSTarget', 'the firm’s target', { ns: 'editor' })
+    case 'addon':
+      return t('electrical.theDefaultTarget', 'the default target', { ns: 'editor' })
+  }
+}
 
 /**
  * One capacity line against its design limit: "Spare capacity: 31 % (target
@@ -31,8 +42,9 @@ const LAYER_WORDS = { project: 'set for this project', firm: 'the firm’s targe
  * or for the firm.
  */
 export function CapacityTargetLine({ reading, targets, canEdit, testId }: { readonly reading: CapacityReading; readonly targets?: CapacityTargets; readonly canEdit: boolean; readonly testId: string }) {
+  const t = useEditorTranslate()
   const [editing, setEditing] = useState(false)
-  const t = Math.round(reading.target.fraction * 100)
+  const percent = Math.round(reading.target.fraction * 100)
   return (
     <div className="flex flex-col gap-1" data-testid={testId}>
       <div className="flex flex-wrap items-center gap-2">
@@ -41,13 +53,13 @@ export function CapacityTargetLine({ reading, targets, canEdit, testId }: { read
           {reading.text}
         </span>
         <span className="text-muted-foreground" data-testid={`${testId}-layer`}>
-          {targets?.status === 'loading' ? 'Loading the firm’s and project’s targets…' : `${t} % is ${LAYER_WORDS[reading.target.layer]}.`}
+          {targets?.status === 'loading' ? t('electrical.loadingTheFirmSAndProjectSTargets', 'Loading the firm’s and project’s targets…', { ns: 'editor' }) : `${t('electrical.percentIs', '{{percent}} % is {{layer}}.', { ns: 'editor', percent, layer: layerWord(reading.target.layer, t) })}`}
         </span>
         {targets && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="link" size="sm" className="h-auto p-0 text-xs" data-testid={`${testId}-change`}>
-                Change target…
+                {t('electrical.changeTarget', 'Change target…', { ns: 'editor' })}
                 <ChevronDown data-icon="inline-end" />
               </Button>
             </DropdownMenuTrigger>
@@ -55,10 +67,10 @@ export function CapacityTargetLine({ reading, targets, canEdit, testId }: { read
               <DropdownMenuLabel>Change the {reading.target.limit.label.toLowerCase()} target</DropdownMenuLabel>
               <DropdownMenuGroup>
                 <DropdownMenuItem disabled={!canEdit || targets.status !== 'ready'} onSelect={() => setEditing(true)} data-testid={`${testId}-change-project`}>
-                  {canEdit ? 'For this project only…' : 'For this project only (needs edit access to this model)'}
+                  {canEdit ? t('electrical.forThisProjectOnly', 'For this project only…', { ns: 'editor' }) : t('electrical.forThisProjectOnlyNeedsEditAccessToThisModel', 'For this project only (needs edit access to this model)', { ns: 'editor' })}
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild data-testid={`${testId}-change-firm`}>
-                  <Link href={FIRM_DESIGN_LIMITS_HREF}>For the firm, every project (Library › Design limits)</Link>
+                  <Link href={FIRM_DESIGN_LIMITS_HREF}>{t('electrical.forTheFirmEveryProjectLibraryDesignLimits', 'For the firm, every project (Library › Design limits)', { ns: 'editor' })}</Link>
                 </DropdownMenuItem>
               </DropdownMenuGroup>
             </DropdownMenuContent>
@@ -76,6 +88,7 @@ export function CapacityTargetLine({ reading, targets, canEdit, testId }: { read
 }
 
 function ProjectTargetDialog({ reading, targets, onClose, testId }: { readonly reading: CapacityReading; readonly targets: CapacityTargets; readonly onClose: () => void; readonly testId: string }) {
+  const t = useEditorTranslate()
   const [value, setValue] = useState(String(Math.round(reading.target.fraction * 100)))
   const [problem, setProblem] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -101,20 +114,20 @@ function ProjectTargetDialog({ reading, targets, onClose, testId }: { readonly r
       <DialogContent data-testid={`${testId}-dialog`}>
         <DialogHeader>
           <DialogTitle>{label} for this project</DialogTitle>
-          <DialogDescription>This project only. Other projects keep the firm’s target; change that in Library › Design limits.</DialogDescription>
+          <DialogDescription>{t('electrical.thisProjectOnlyOtherProjectsKeepTheFirmSTarg', 'This project only. Other projects keep the firm’s target; change that in Library › Design limits.', { ns: 'editor' })}</DialogDescription>
         </DialogHeader>
         <Field data-invalid={problem !== null}>
-          <FieldLabel htmlFor={`${testId}-target`}>Target (%)</FieldLabel>
+          <FieldLabel htmlFor={`${testId}-target`}>{t('electrical.target', 'Target (%)', { ns: 'editor' })}</FieldLabel>
           <Input id={`${testId}-target`} type="number" min={0} max={100} value={value} onChange={(e) => setValue(e.target.value)} aria-invalid={problem !== null} />
-          <FieldDescription>Now {Math.round(reading.target.fraction * 100)} % ({LAYER_WORDS[reading.target.layer]}).</FieldDescription>
+          <FieldDescription>{t('electrical.now', 'Now', { ns: 'editor' })} {Math.round(reading.target.fraction * 100)} % ({layerWord(reading.target.layer, t)}).</FieldDescription>
           {problem && <FieldError>{problem}</FieldError>}
         </Field>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            Cancel
+            {t('electrical.cancel', 'Cancel', { ns: 'editor' })}
           </Button>
           <Button onClick={() => void save()} disabled={saving} data-testid={`${testId}-save`}>
-            {saving ? 'Saving…' : 'Save for this project'}
+            {saving ? t('electrical.saving', 'Saving…', { ns: 'editor' }) : t('electrical.saveForThisProject', 'Save for this project', { ns: 'editor' })}
           </Button>
         </DialogFooter>
       </DialogContent>

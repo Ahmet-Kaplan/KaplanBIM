@@ -12,6 +12,7 @@ import { RadioGroup, RadioGroupItem } from '../../ui/radio-group'
 import type { SubmitCommand } from '../views-sheets/types'
 import { useEditorHost } from '@permitzip/bim-editor/host'
 import { loadFirmTypLabelFrom, type FirmTypLabel } from './firm-typ-label'
+import { useEditorTranslate } from '../i18n/translate'
 
 type Choice = { readonly kind: 'preset'; readonly presetId: string } | { readonly kind: 'firm' } | { readonly kind: 'project' }
 type FirmState = { readonly status: 'loading' } | { readonly status: 'ready'; readonly firm: FirmTypLabel | null } | { readonly status: 'error'; readonly message: string }
@@ -37,24 +38,25 @@ export function DraftingStandardTab({ model, canEdit, editBlocked, submit }: Pro
   const [custom, setCustom] = useState(stored?.source.kind === 'project' ? stored.typLabelTemplate : '{circuit} ({count}) TYP.')
   const [firm, setFirm] = useState<FirmState>({ status: 'loading' })
   const [error, setError] = useState<string | null>(null)
+  const t = useEditorTranslate()
   const library = useEditorHost().data.firmLibrary
 
   useEffect(() => {
     let live = true
-    loadFirmTypLabelFrom(library)
+    loadFirmTypLabelFrom(library, t)
       .then((f) => live && setFirm({ status: 'ready', firm: f }))
       .catch((err: unknown) => {
         console.error('[DraftingStandardTab] firm standard failed to load', err)
-        if (live) setFirm({ status: 'error', message: err instanceof Error ? err.message : 'the firm library did not answer' })
+        if (live) setFirm({ status: 'error', message: err instanceof Error ? err.message : t('electrical.theFirmLibraryDidNotAnswer', 'the firm library did not answer', { ns: 'editor' }) })
       })
     return () => {
       live = false
     }
-  }, [library])
+  }, [library, t])
 
   const firmTemplate = firm.status === 'ready' ? firm.firm : null
   const template = choice.kind === 'preset' ? (TYP_LABEL_PRESETS.find((p) => p.id === choice.presetId)?.template ?? TYP_LABEL_PRESETS[0].template) : choice.kind === 'firm' ? (firmTemplate?.template ?? '') : custom
-  const problem = choice.kind === 'firm' && !firmTemplate ? 'The firm has no typical-label standard to use.' : typLabelTemplateProblem(template)
+  const problem = choice.kind === 'firm' && !firmTemplate ? t('electrical.theFirmHasNoTypicalLabelStandardToUse', 'The firm has no typical-label standard to use.', { ns: 'editor' }) : typLabelTemplateProblem(template)
   const inUse = typLabelTemplateOf(model)
 
   const save = () => {
@@ -68,7 +70,7 @@ export function DraftingStandardTab({ model, canEdit, editBlocked, submit }: Pro
   return (
     <FieldGroup className="pt-3" data-testid="electrical-drafting-tab">
       <Field>
-        <FieldLabel>Label for a typical’s repeated home run</FieldLabel>
+        <FieldLabel>{t('electrical.labelForATypicalSRepeatedHomeRun', 'Label for a typical’s repeated home run', { ns: 'editor' })}</FieldLabel>
         <FieldDescription>
           When units fed from one shared panel are drawn on all copies, the first copy’s home run carries this label and the others draw the arrow only. Now in use: “{typLabelFrom(inUse, 'P2-1', 3)}”.
         </FieldDescription>
@@ -83,7 +85,7 @@ export function DraftingStandardTab({ model, canEdit, editBlocked, submit }: Pro
             <RadioGroupItem value="firm" id="typ-firm" disabled={!firmTemplate} data-testid="typ-firm" />
             <FieldLabel htmlFor="typ-firm" className="font-normal">
               {firm.status === 'loading'
-                ? 'The firm’s standard (loading…)'
+                ? t('electrical.theFirmSStandardLoading', 'The firm’s standard (loading…)', { ns: 'editor' })
                 : firm.status === 'error'
                   ? `The firm’s standard (couldn’t load it: ${firm.message})`
                   : firmTemplate
@@ -93,15 +95,15 @@ export function DraftingStandardTab({ model, canEdit, editBlocked, submit }: Pro
           </Field>
           <Field orientation="horizontal">
             <RadioGroupItem value="project" id="typ-project" data-testid="typ-project" />
-            <FieldLabel htmlFor="typ-project" className="font-normal">This project’s own</FieldLabel>
+            <FieldLabel htmlFor="typ-project" className="font-normal">{t('electrical.thisProjectSOwn', 'This project’s own', { ns: 'editor' })}</FieldLabel>
           </Field>
         </RadioGroup>
       </Field>
       {choice.kind === 'project' && (
         <Field>
-          <FieldLabel htmlFor="typ-custom">Label</FieldLabel>
+          <FieldLabel htmlFor="typ-custom">{t('electrical.label', 'Label', { ns: 'editor' })}</FieldLabel>
           <Input id="typ-custom" value={custom} onChange={(e) => setCustom(e.target.value)} disabled={!canEdit} data-testid="typ-custom" />
-          <FieldDescription>Use {'{circuit}'} for the home run’s tag and {'{count}'} for how many units carry it.</FieldDescription>
+          <FieldDescription>{t('electrical.use', 'Use', { ns: 'editor' })} {'{circuit}'} for the home run’s tag and {'{count}'} for how many units carry it.</FieldDescription>
         </Field>
       )}
       <Field>
@@ -114,7 +116,7 @@ export function DraftingStandardTab({ model, canEdit, editBlocked, submit }: Pro
       )}
       <div>
         <Button onClick={save} disabled={!canEdit || problem !== null} title={!canEdit ? (editBlocked ?? undefined) : (problem ?? undefined)} data-testid="typ-save">
-          <Save /> Save for this project
+          <Save /> {t('electrical.saveForThisProject', 'Save for this project', { ns: 'editor' })}
         </Button>
       </div>
     </FieldGroup>

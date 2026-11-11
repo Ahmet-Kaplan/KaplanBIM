@@ -8,6 +8,7 @@ import { Button } from '../../ui/button'
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '../../ui/field'
 import { Input } from '../../ui/input'
 import type { SubmitCommand } from '../views-sheets/types'
+import { useEditorTranslate } from '../i18n/translate'
 
 const MM_PER_FT = 304.8
 const ft = (mm: number) => String(Math.round((mm / MM_PER_FT) * 100) / 100)
@@ -28,6 +29,7 @@ export function dedicatedSpaceOverride(extra: Pick<ClearanceOverride, 'suspended
  * it show in Coordination with the clause.
  */
 export function DedicatedSpaceForm({ model, part, canEdit, editBlocked, submit }: { readonly model: ModelState; readonly part: PartInstance; readonly canEdit: boolean; readonly editBlocked: string | null; readonly submit: SubmitCommand }) {
+  const t = useEditorTranslate()
   const zone = partClearances(model, part).find((z) => z.excludes === 'foreign_systems')
   const [ceiling, setCeiling] = useState(zone?.suspendedCeilingMm !== undefined ? ft(zone.suspendedCeilingMm) : '')
   const [structure, setStructure] = useState(zone?.structureMm !== undefined ? ft(zone.structureMm) : '')
@@ -38,9 +40,9 @@ export function DedicatedSpaceForm({ model, part, canEdit, editBlocked, submit }
     const { id, override } = dedicatedSpaceOverride()
     return (
       <div className="flex flex-col gap-1" data-testid="dedicated-space">
-        <Button variant="outline" size="sm" disabled={!canEdit} title={canEdit ? 'Ducts and pipes are kept out of the space 6 ft above it (or to the structure), as NEC 110.26(E) requires' : (editBlocked ?? undefined)} onClick={() => send({ [id]: override }, `keep the space above ${name} clear`)} data-testid="dedicated-space-add">
+        <Button variant="outline" size="sm" disabled={!canEdit} title={canEdit ? t('electrical.ductsAndPipesAreKeptOutOfTheSpace6FtAboveItO', 'Ducts and pipes are kept out of the space 6 ft above it (or to the structure), as NEC 110.26(E) requires', { ns: 'editor' }) : (editBlocked ?? undefined)} onClick={() => send({ [id]: override }, `keep the space above ${name} clear`)} data-testid="dedicated-space-add">
           <ShieldCheck data-icon="inline-start" />
-          Keep the space above clear (NEC 110.26(E))
+          {t('electrical.keepTheSpaceAboveClearNEC11026E', 'Keep the space above clear (NEC 110.26(E))', { ns: 'editor' })}
         </Button>
         {error && (
           <span className="text-xs text-danger-600" role="alert">
@@ -68,18 +70,18 @@ export function DedicatedSpaceForm({ model, part, canEdit, editBlocked, submit }
       <FieldGroup className="grid grid-cols-2 gap-2">
         <Field>
           <FieldLabel htmlFor={`bm-ded-ceiling-${part.id}`} className="text-xs">
-            Suspended ceiling (ft above floor)
+            {t('electrical.suspendedCeilingFtAboveFloor', 'Suspended ceiling (ft above floor)', { ns: 'editor' })}
           </FieldLabel>
           <Input id={`bm-ded-ceiling-${part.id}`} inputMode="decimal" placeholder="none" value={ceiling} onChange={(e) => setCeiling(e.target.value)} disabled={!canEdit} data-testid="dedicated-space-ceiling" />
         </Field>
         <Field>
           <FieldLabel htmlFor={`bm-ded-structure-${part.id}`} className="text-xs">
-            Structure above (ft above floor)
+            {t('electrical.structureAboveFtAboveFloor', 'Structure above (ft above floor)', { ns: 'editor' })}
           </FieldLabel>
           <Input id={`bm-ded-structure-${part.id}`} inputMode="decimal" placeholder="from the model" value={structure} onChange={(e) => setStructure(e.target.value)} disabled={!canEdit} data-testid="dedicated-space-structure" />
         </Field>
       </FieldGroup>
-      {bad && <FieldDescription className="text-xs text-danger-600">Heights are feet above the floor, numbers above 0.</FieldDescription>}
+      {bad && <FieldDescription className="text-xs text-danger-600">{t('electrical.heightsAreFeetAboveTheFloorNumbersAbove0', 'Heights are feet above the floor, numbers above 0.', { ns: 'editor' })}</FieldDescription>}
       <div className="flex gap-2">
         <Button type="submit" size="sm" variant="outline" disabled={!canEdit || bad} title={canEdit ? undefined : (editBlocked ?? undefined)} data-testid="dedicated-space-save">
           <Save data-icon="inline-start" />
@@ -87,7 +89,7 @@ export function DedicatedSpaceForm({ model, part, canEdit, editBlocked, submit }
         </Button>
         <Button type="button" size="sm" variant="ghost" disabled={!canEdit} title={canEdit ? undefined : (editBlocked ?? undefined)} onClick={() => send({ [zone.id]: null }, `stop keeping the space above ${name} clear`)} data-testid="dedicated-space-remove">
           <Trash2 data-icon="inline-start" />
-          Remove
+          {t('electrical.remove', 'Remove', { ns: 'editor' })}
         </Button>
       </div>
       {error && (

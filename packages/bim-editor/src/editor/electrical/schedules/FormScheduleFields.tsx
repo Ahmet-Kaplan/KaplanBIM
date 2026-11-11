@@ -9,8 +9,9 @@ import { Field, FieldDescription, FieldLabel } from '../../../ui/field'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '../../../ui/select'
 import type { NecRules } from '../use-nec-rules'
 import type { FormScheduleReady, NewScheduleFormFieldsProps, NewScheduleFormSlot } from '../../schedules/new-schedule-plan'
-import { RULE_CHOICES, boundKindFor, isBoundKind, nextScheduleSheetNumber, scheduleChoiceLabel, uniqueScheduleName, withRules, type RuleChoice } from './schedule-plan'
+import { ruleChoices, boundKindFor, isBoundKind, nextScheduleSheetNumber, scheduleChoiceLabel, uniqueScheduleName, withRules, type RuleChoice } from './schedule-plan'
 import type { ScheduleTemplates } from './use-schedule-templates'
+import { useEditorTranslate } from '../../i18n/translate'
 
 const BUILTIN = 'builtin'
 const PLACE_PANEL_FIRST = 'Place a panel first: Electrical › Panel, then name it in its properties.'
@@ -29,6 +30,7 @@ interface Lent {
  * the sheet; this reports the form it would make, or why not yet.
  */
 function FormScheduleFields({ model, kind, onReady, nec, templates, initialPanelId }: NewScheduleFormFieldsProps & Lent) {
+  const t = useEditorTranslate()
   const equipment = useMemo(() => distributionEquipment(model.elements), [model])
   const [panelId, setPanelId] = useState<string>(() => initialPanelId ?? (equipment.length === 1 ? (equipment[0]?.id ?? '') : ''))
   const [templatePick, setTemplatePick] = useState<{ kind: FormScheduleKind; value: string } | null>(null)
@@ -50,7 +52,7 @@ function FormScheduleFields({ model, kind, onReady, nec, templates, initialPanel
     if (bound && equipment.length === 0) return { ok: false, reason: PLACE_PANEL_FIRST, suggestedName }
     if (bound && !chosen) return { ok: false, reason: 'Choose the panel or switchboard this schedule is for.', suggestedName }
     const base: FormScheduleDefinition = { kind: formKindNow, ...(chosen ? { elementId: chosen.id } : {}), template: firmNow?.template ?? builtinFormTemplate(formKindNow), ...(firmNow ? { templateSource: { name: firmNow.name, revision: firmNow.revision } } : {}) }
-    const subject = chosen ? `${scheduleChoiceLabel(formKindNow).toLowerCase()} ${chosen.name}` : scheduleChoiceLabel(formKindNow).toLowerCase()
+    const subject = chosen ? `${scheduleChoiceLabel(formKindNow, t).toLowerCase()} ${chosen.name}` : scheduleChoiceLabel(formKindNow, t).toLowerCase()
     return { ok: true, form: withRules(base, rule), suggestedName, subject }
   }, [model, kind, bound, equipment, panelId, templateValue, firm, rule])
 
@@ -60,7 +62,7 @@ function FormScheduleFields({ model, kind, onReady, nec, templates, initialPanel
     <>
       {bound && (
         <Field>
-          <FieldLabel htmlFor="bm-schedule-panel">Panel</FieldLabel>
+          <FieldLabel htmlFor="bm-schedule-panel">{t('electrical.panel', 'Panel', { ns: 'editor' })}</FieldLabel>
           <Select value={panelId} onValueChange={setPanelId} disabled={equipment.length === 0}>
             <SelectTrigger id="bm-schedule-panel" data-testid="schedule-panel-select">
               <SelectValue placeholder={equipment.length === 0 ? 'No panels yet' : 'Choose a panel or switchboard'} />
@@ -115,13 +117,13 @@ function FormScheduleFields({ model, kind, onReady, nec, templates, initialPanel
       )}
       <Field>
         <FieldLabel htmlFor="bm-schedule-rules">Demand figures</FieldLabel>
-        <Select value={rule} onValueChange={(v) => setRule(RULE_CHOICES.find((r) => r.value === v)?.value ?? 'none')}>
+        <Select value={rule} onValueChange={(v) => setRule(ruleChoices(t).find((r) => r.value === v)?.value ?? 'none')}>
           <SelectTrigger id="bm-schedule-rules" data-testid="schedule-rules-select">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
-              {RULE_CHOICES.map((r) => (
+              {ruleChoices(t).map((r) => (
                 <SelectItem key={r.value} value={r.value}>
                   {r.label}
                 </SelectItem>

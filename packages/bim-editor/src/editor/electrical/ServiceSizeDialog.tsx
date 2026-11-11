@@ -16,17 +16,50 @@ import type { NecRules } from './use-nec-rules'
 import type { ServiceLayoutSeed } from './ServiceLayoutDialog'
 import { CapacityTargetLine } from './CapacityTargetLine'
 import type { CapacityTargets } from './use-capacity-targets'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
 
 const SYSTEMS = {
-  '208-3': { voltage: 208, phases: 3, label: '120/208 V 3-phase', service: '208Y/120' },
-  '480-3': { voltage: 480, phases: 3, label: '277/480 V 3-phase', service: '480Y/277' },
-  '240-1': { voltage: 240, phases: 1, label: '120/240 V single-phase', service: '120/240' },
+  '208-3': { voltage: 208, phases: 3, service: '208Y/120' },
+  '480-3': { voltage: 480, phases: 3, service: '480Y/277' },
+  '240-1': { voltage: 240, phases: 1, service: '120/240' },
 } as const
+
+/** A system's name, in words — a `label(t)` accessor. */
+function systemWord(key: '208-3' | '480-3' | '240-1', t: Translate): string {
+  switch (key) {
+    case '208-3':
+      return t('electrical.system.208', '120/208 V 3-phase', { ns: 'editor' })
+    case '480-3':
+      return t('electrical.system.480', '277/480 V 3-phase', { ns: 'editor' })
+    case '240-1':
+      return t('electrical.system.240', '120/240 V single-phase', { ns: 'editor' })
+  }
+}
 type SystemKey = keyof typeof SYSTEMS
 const SYSTEM_KEYS: readonly SystemKey[] = ['208-3', '480-3', '240-1']
 const isSystem = (v: string): v is SystemKey => SYSTEM_KEYS.some((k) => k === v)
 
-const CLASS_WORD: Record<LoadClass, string> = { lighting: 'Lighting', receptacle: 'Receptacles', kitchen: 'Kitchen (220.56)', motor: 'Motor', hvac: 'HVAC', heating: 'Heating', cooling: 'Cooling', other: 'Other (100%)' }
+/** A load class in words — a `label(t)` accessor. */
+function classWord(cls: LoadClass, t: Translate): string {
+  switch (cls) {
+    case 'lighting':
+      return t('electrical.loadClass.lighting', 'Lighting', { ns: 'editor' })
+    case 'receptacle':
+      return t('electrical.loadClass.receptacle', 'Receptacles', { ns: 'editor' })
+    case 'kitchen':
+      return t('electrical.loadClass.kitchen', 'Kitchen (220.56)', { ns: 'editor' })
+    case 'motor':
+      return t('electrical.loadClass.motor', 'Motor', { ns: 'editor' })
+    case 'hvac':
+      return t('electrical.loadClass.hvac', 'HVAC', { ns: 'editor' })
+    case 'heating':
+      return t('electrical.loadClass.heating', 'Heating', { ns: 'editor' })
+    case 'cooling':
+      return t('electrical.loadClass.cooling', 'Cooling', { ns: 'editor' })
+    case 'other':
+      return t('electrical.loadClass.other', 'Other (100%)', { ns: 'editor' })
+  }
+}
 
 /**
  * Electrical › Service size: before any layout, paste the kitchen
@@ -43,6 +76,7 @@ const CLASS_WORD: Record<LoadClass, string> = { lighting: 'Lighting', receptacle
  * are circuited (82 kW = 342 A at 240 V on 7303).
  */
 export function ServiceSizeDialog({ nec, model, onClose, onStartLayout, capacityTargets, canEdit = false }: { readonly nec: NecRules; readonly model?: ModelState | null; readonly onClose: () => void; readonly onStartLayout?: (seed: ServiceLayoutSeed) => void; readonly capacityTargets?: CapacityTargets; readonly canEdit?: boolean }) {
+  const t = useEditorTranslate()
   const [textIn, setTextIn] = useState('')
   const [system, setSystem] = useState<SystemKey>('208-3')
   const [spare, setSpare] = useState('0')
@@ -84,18 +118,18 @@ export function ServiceSizeDialog({ nec, model, onClose, onStartLayout, capacity
       <DialogContent className="sm:max-w-4xl" data-testid="service-size-dialog">
         <DialogHeader>
           <DialogTitle>Service size from an equipment list</DialogTitle>
-          <DialogDescription>Paste the kitchen and mechanical schedules (from a spreadsheet, a CSV, or text copied out of a PDF). Check each row&apos;s load class; the size follows NEC Article 220. Nothing in the model changes.</DialogDescription>
+          <DialogDescription>{t('electrical.pasteTheKitchenAndMechanicalSchedulesFromASp', 'Paste the kitchen and mechanical schedules (from a spreadsheet, a CSV, or text copied out of a PDF). Check each row&apos;s load class; the size follows NEC Article 220. Nothing in the model changes.', { ns: 'editor' })}</DialogDescription>
         </DialogHeader>
         {!nec.necEdition && (
           <Alert>
             <CircleAlert />
-            <AlertTitle>No NEC edition</AlertTitle>
+            <AlertTitle>{t('electrical.noNECEdition', 'No NEC edition', { ns: 'editor' })}</AlertTitle>
             <AlertDescription>{nec.label}</AlertDescription>
           </Alert>
         )}
         <div className="flex flex-wrap gap-3">
           <Field className="min-w-48 flex-1">
-            <FieldLabel htmlFor="bm-service-system">Service</FieldLabel>
+            <FieldLabel htmlFor="bm-service-system">{t('electrical.service', 'Service', { ns: 'editor' })}</FieldLabel>
             <Select value={system} onValueChange={(v) => isSystem(v) && setSystem(v)}>
               <SelectTrigger id="bm-service-system" data-testid="service-system">
                 <SelectValue />
@@ -104,7 +138,7 @@ export function ServiceSizeDialog({ nec, model, onClose, onStartLayout, capacity
                 <SelectGroup>
                   {SYSTEM_KEYS.map((k) => (
                     <SelectItem key={k} value={k}>
-                      {SYSTEMS[k].label}
+                      {systemWord(k, t)}
                     </SelectItem>
                   ))}
                 </SelectGroup>
@@ -112,11 +146,11 @@ export function ServiceSizeDialog({ nec, model, onClose, onStartLayout, capacity
             </Select>
           </Field>
           <Field className="w-36">
-            <FieldLabel htmlFor="bm-service-spare">Spare capacity (%)</FieldLabel>
+            <FieldLabel htmlFor="bm-service-spare">{t('electrical.spareCapacity', 'Spare capacity (%)', { ns: 'editor' })}</FieldLabel>
             <Input id="bm-service-spare" type="number" min={0} max={100} value={spare} onChange={(e) => setSpare(e.target.value)} data-testid="service-spare" />
           </Field>
           <Field className="min-w-56 flex-1">
-            <FieldLabel htmlFor="bm-service-file">Or open a CSV or text file</FieldLabel>
+            <FieldLabel htmlFor="bm-service-file">{t('electrical.orOpenACSVOrTextFile', 'Or open a CSV or text file', { ns: 'editor' })}</FieldLabel>
             <Input id="bm-service-file" type="file" accept=".csv,.txt,.tsv,text/csv,text/plain" onChange={openFile} data-testid="service-file" />
             {fileError && (
               <FieldDescription className="text-danger-600" role="alert">
@@ -127,19 +161,19 @@ export function ServiceSizeDialog({ nec, model, onClose, onStartLayout, capacity
         </div>
         {model !== undefined && (
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="sm" onClick={fill} disabled={fromModel.length === 0} title={fromModel.length === 0 ? 'Nothing to fill yet: add planned equipment (Equipment list) or an estimate on a space first.' : 'Replace the list with the planned equipment and estimates already in the model'} data-testid="service-fill-from-model">
+            <Button variant="outline" size="sm" onClick={fill} disabled={fromModel.length === 0} title={fromModel.length === 0 ? t('electrical.nothingToFillYetAddPlannedEquipmentEquipment', 'Nothing to fill yet: add planned equipment (Equipment list) or an estimate on a space first.', { ns: 'editor' }) : t('electrical.replaceTheListWithThePlannedEquipmentAndEsti', 'Replace the list with the planned equipment and estimates already in the model', { ns: 'editor' })} data-testid="service-fill-from-model">
               <ListRestart data-icon="inline-start" />
               Fill from the model{fromModel.length > 0 ? ` (${fromModel.length})` : ''}
             </Button>
             {fromModel.length === 0 ? (
-              <FieldDescription>Nothing planned or estimated in the model yet: add planned equipment (Equipment list) or an estimate on a space first.</FieldDescription>
+              <FieldDescription>{t('electrical.nothingPlannedOrEstimatedInTheModelYetAddPla', 'Nothing planned or estimated in the model yet: add planned equipment (Equipment list) or an estimate on a space first.', { ns: 'editor' })}</FieldDescription>
             ) : (
               fillNote && <FieldDescription data-testid="service-fill-note">{fillNote}</FieldDescription>
             )}
           </div>
         )}
         <Field>
-          <FieldLabel htmlFor="bm-service-text">Equipment list</FieldLabel>
+          <FieldLabel htmlFor="bm-service-text">{t('electrical.equipmentList', 'Equipment list', { ns: 'editor' })}</FieldLabel>
           <Textarea id="bm-service-text" rows={5} value={textIn} onChange={(e) => setTextIn(e.target.value)} placeholder={'K-10\tSandwich prep refrigerator\t1\t120\t1\t4.2 A\nK-14\tFryer, electric\t2\t208\t3\t17 kW'} data-testid="service-text" />
         </Field>
         {rows.length > 0 && (
@@ -148,10 +182,10 @@ export function ServiceSizeDialog({ nec, model, onClose, onStartLayout, capacity
               <TableCaption className="sr-only">Equipment read from the list</TableCaption>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Item</TableHead>
-                  <TableHead>Qty</TableHead>
-                  <TableHead>Load</TableHead>
-                  <TableHead>Class</TableHead>
+                  <TableHead>{t('electrical.item', 'Item', { ns: 'editor' })}</TableHead>
+                  <TableHead>{t('electrical.qty', 'Qty', { ns: 'editor' })}</TableHead>
+                  <TableHead>{t('electrical.load', 'Load', { ns: 'editor' })}</TableHead>
+                  <TableHead>{t('electrical.class', 'Class', { ns: 'editor' })}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -176,13 +210,13 @@ export function ServiceSizeDialog({ nec, model, onClose, onStartLayout, capacity
                           <SelectGroup>
                             {LOAD_CLASSES.map((c) => (
                               <SelectItem key={c} value={c}>
-                                {CLASS_WORD[c]}
+                                {classWord(c, t)}
                               </SelectItem>
                             ))}
                           </SelectGroup>
                         </SelectContent>
                       </Select>
-                      <span className="block text-muted-foreground">{classes.has(r.line) ? 'you chose it' : r.classBasis}</span>
+                      <span className="block text-muted-foreground">{classes.has(r.line) ? t('electrical.youChoseIt', 'you chose it', { ns: 'editor' }) : r.classBasis}</span>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -195,7 +229,7 @@ export function ServiceSizeDialog({ nec, model, onClose, onStartLayout, capacity
           <Alert data-testid="service-result">
             <Gauge />
             <AlertTitle>
-              Service: {result.detail.label} ({Math.round(result.detail.requiredA)} A needed)
+              {t('electrical.service_186', 'Service:', { ns: 'editor' })} {result.detail.label} ({Math.round(result.detail.requiredA)} A needed)
             </AlertTitle>
             <AlertDescription>
               <p className="font-medium" data-testid="service-connected">
@@ -210,18 +244,18 @@ export function ServiceSizeDialog({ nec, model, onClose, onStartLayout, capacity
                   </li>
                 ))}
               </ol>
-              <p className="text-muted-foreground">An early estimate: confirm with the utility, and with the full calculation once the design has panels.</p>
+              <p className="text-muted-foreground">{t('electrical.anEarlyEstimateConfirmWithTheUtilityAndWithT', 'An early estimate: confirm with the utility, and with the full calculation once the design has panels.', { ns: 'editor' })}</p>
             </AlertDescription>
           </Alert>
         )}
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            Close
+            {t('electrical.close', 'Close', { ns: 'editor' })}
           </Button>
           {onStartLayout && result?.detail.serviceA && (
             <Button onClick={() => result.detail.serviceA && onStartLayout({ serviceA: result.detail.serviceA, system: sys.service })} data-testid="service-start-layout">
               <Network data-icon="inline-start" />
-              Start a {result.detail.serviceA} A service layout
+              {t('electrical.startA', 'Start a', { ns: 'editor' })} {result.detail.serviceA} A service layout
             </Button>
           )}
         </DialogFooter>

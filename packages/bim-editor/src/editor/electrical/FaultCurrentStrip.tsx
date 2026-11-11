@@ -9,13 +9,14 @@ import { Button } from '../../ui/button'
 import { Field, FieldDescription, FieldLabel } from '../../ui/field'
 import { Input } from '../../ui/input'
 import type { SubmitCommand } from '../views-sheets/types'
+import { englishOnly, useEditorTranslate, type Translate } from '../i18n/translate'
 
 /** The verdict a panel header shows for its fault current: OK, below, or not known (and why). */
-export function faultVerdict(node: ModelFaultNode | null): { readonly tone: 'ok' | 'fail' | 'unknown'; readonly label: string } {
-  if (!node || node.availableA === null) return { tone: 'unknown', label: 'Fault current not known' }
-  if (node.passes === false) return { tone: 'fail', label: 'Rating below available' }
-  if (node.passes === null) return { tone: 'unknown', label: 'No rating stated' }
-  return { tone: 'ok', label: 'AIC OK' }
+export function faultVerdict(node: ModelFaultNode | null, t: Translate = englishOnly): { readonly tone: 'ok' | 'fail' | 'unknown'; readonly label: string } {
+  if (!node || node.availableA === null) return { tone: 'unknown', label: t('electrical.faultcurrentstrip', 'Fault current not known', { ns: 'editor' }) }
+  if (node.passes === false) return { tone: 'fail', label: t('electrical.faultcurrentstrip_16', 'Rating below available', { ns: 'editor' }) }
+  if (node.passes === null) return { tone: 'unknown', label: t('electrical.faultcurrentstrip_17', 'No rating stated', { ns: 'editor' }) }
+  return { tone: 'ok', label: t('electrical.faultcurrentstrip_18', 'AIC OK', { ns: 'editor' }) }
 }
 
 /**
@@ -25,6 +26,7 @@ export function faultVerdict(node: ModelFaultNode | null): { readonly tone: 'ok'
  * nothing feeds) or a transformer's %Z (on a transformer).
  */
 export function FaultCurrentStrip({ model, panelId, canEdit, editBlocked, submit }: { readonly model: ModelState; readonly panelId: string; readonly canEdit: boolean; readonly editBlocked: string | null; readonly submit: SubmitCommand }) {
+  const t = useEditorTranslate()
   const els = model.elements
   const node = useMemo(() => faultCurrentAt(els, panelId), [els, panelId])
   const [open, setOpen] = useState(false)
@@ -69,7 +71,7 @@ export function FaultCurrentStrip({ model, panelId, canEdit, editBlocked, submit
           {node.trail.map((t) => (
             <li key={t}>{t}</li>
           ))}
-          <li className="list-none">Point-to-point method (Eaton Bussmann). Motor contribution is not included; a full short-circuit study governs. Checked against NEC 110.9.</li>
+          <li className="list-none">{t('electrical.pointToPointMethodEatonBussmannMotorContribu', 'Point-to-point method (Eaton Bussmann). Motor contribution is not included; a full short-circuit study governs. Checked against NEC 110.9.', { ns: 'editor' })}</li>
         </ol>
       )}
       {showEntry && (
@@ -79,7 +81,7 @@ export function FaultCurrentStrip({ model, panelId, canEdit, editBlocked, submit
               {isTransformer ? `${info.name} impedance (%Z, from its nameplate)` : `Available fault current at ${info.name} (A, from the utility)`}
             </FieldLabel>
             <Input id={`bm-fault-${panelId}`} inputMode="decimal" placeholder={isTransformer ? '5.75' : '22000'} value={value} onChange={(e) => setValue(e.target.value)} disabled={!canEdit} aria-invalid={bad} data-testid="panel-view-fault-input" />
-            {bad && <FieldDescription className="text-danger-600">{isTransformer ? 'Impedance is a percent above 0 and at most 20.' : 'Amps, a number above 0.'}</FieldDescription>}
+            {bad && <FieldDescription className="text-danger-600">{isTransformer ? t('electrical.impedanceIsAPercentAbove0AndAtMost20', 'Impedance is a percent above 0 and at most 20.', { ns: 'editor' }) : t('electrical.ampsANumberAbove0', 'Amps, a number above 0.', { ns: 'editor' })}</FieldDescription>}
           </Field>
           <Button type="submit" size="sm" variant="outline" disabled={!canEdit || bad || value.trim() === ''} title={canEdit ? undefined : (editBlocked ?? undefined)} data-testid="panel-view-fault-save">
             <Save data-icon="inline-start" />
