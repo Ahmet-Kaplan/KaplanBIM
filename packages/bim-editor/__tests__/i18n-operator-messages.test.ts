@@ -28,7 +28,17 @@
  *      name it.
  */
 import { englishOnly } from "../src/editor/i18n/translate";
-import { connectionProblem, editsPausedMessage, operatorMessage, problemForDenied, type ConnectionProblemKind } from "../src/editor/operator-messages";
+import type { SaveState } from "@permitzip/bim-sync";
+import {
+  connectionProblem,
+  editingOffReason,
+  editsPausedMessage,
+  operatorMessage,
+  problemForDenied,
+  statusBadge,
+  type ConnectionProblemKind,
+  type EditingOffCause,
+} from "../src/editor/operator-messages";
 import { FIRST_LEVEL, toolBlocker, type ToolReadinessInput } from "../src/editor/tool-readiness";
 import { captionsUnder, editorSourceCaptions } from "./helpers/editor-source-captions";
 import { translateFor } from "./helpers/editor-i18n";
@@ -91,7 +101,7 @@ const REFUSALS: Readonly<Record<(typeof CODES)[number], { readonly english: stri
   wrong_kind: { english: "That piece can't be changed this way.", turkish: "O eleman bu şekilde değiştirilemez." },
   outside_host: {
     english: "The branch can't slide past the end of the trunk.",
-    turkish: "Branşman, ana hatın ucunu geçecek şekilde kaydırılamaz.",
+    turkish: "Branşman, ana hattın ucunu geçecek şekilde kaydırılamaz.",
   },
   tap_spacing: {
     english: "Too close to another branch takeoff. Keep them at least a takeoff width apart.",
@@ -207,7 +217,7 @@ const PROBLEMS: Readonly<Record<ConnectionProblemKind, ProblemWords>> = {
   },
   sign_in_refused: {
     title: "Model sunucusu oturum açmanızı reddetti",
-    message: "Oturumu kapatıp yeniden açın, sonra tekrar deneyin. Sürüyorsa yazılım ekibine bildirin.",
+    message: "Oturumu kapatıp yeniden açın, sonra tekrar deneyin. Sorun sürüyorsa yazılım ekibine bildirin.",
     englishTitle: "The model server refused your sign-in",
     englishMessage: "Sign out and back in, then try again. If it keeps happening, tell the software team.",
   },
@@ -310,10 +320,12 @@ test("the paused-edit sentence is unchanged in English", () => {
 // Why a tool can't act yet
 // ---------------------------------------------------------------------------
 
+const READ_ONLY_REASON = "Live editing isn't connected for this project, so views and sheets can't be made here yet.";
+
 const TOOL: ToolReadinessInput = {
   tool: "place",
   canEdit: true,
-  blockedReason: null,
+  blockedReason: READ_ONLY_REASON,
   editPaused: null,
   levelCount: 2,
   partChosen: false,
@@ -339,8 +351,14 @@ test("a tool's refusal keeps its message, its fix and the reason it was given", 
   expect(noLevel?.message).toContain("Parçalar");
   expect(noLevel?.message).toContain("Bağlı modelin katları");
   expect(toolBlocker({ ...TOOL, tool: "route", levelCount: 0 }, TR)?.message).toContain("Kanallar ve borular");
-  // The refusals that carry someone else's words still carry them.
-  expect(toolBlocker({ ...TOOL, canEdit: false, blockedReason: "a reason from the host" }, TR)?.message).toBe("a reason from the host");
+  // A read-only tool says the surface's own sentence — the one wording every `blockedReason`
+  // surface shows — in the language the editor is drawn in. The sentence as rendered, not the key.
+  const readOnly = toolBlocker({ ...TOOL, canEdit: false, blockedReason: editingOffReason("read_only", TR) }, TR);
+  expect(readOnly?.message).toBe("Bu proje için canlı düzenleme bağlı değil, bu yüzden görünümler ve paftalar burada henüz oluşturulamaz.");
+  expect(readOnly?.message).not.toMatch(/Live editing|permission/u);
+  expect(toolBlocker({ ...TOOL, canEdit: false, blockedReason: editingOffReason("no_access", TR) }, TR)?.message).toBe(
+    "Görüntüleyebilirsiniz, ama bu modelde düzenleme yetkiniz yok. Proje yöneticisinden izin isteyin.",
+  );
   const route = toolBlocker({ ...TOOL, tool: "route", routeSizeProblem: "Width must be a number.", routeSystemKnown: false }, TR);
   expect(route?.message).toContain("Width must be a number.");
   expect(route?.message).toContain("Soldaki boyut geçerli olana kadar çizim yapılamaz");
@@ -357,9 +375,32 @@ test("a tool's refusal keeps its message, its fix and the reason it was given", 
   ]);
 });
 
+/** Why editing is off, in both languages (§8 status vocabulary + §0.7 polite plural). */
+const EDITING_OFF: Readonly<Record<EditingOffCause, { readonly english: string; readonly turkish: string }>> = {
+  read_only: {
+    english: "Live editing isn't connected for this project, so views and sheets can't be made here yet.",
+    turkish: "Bu proje için canlı düzenleme bağlı değil, bu yüzden görünümler ve paftalar burada henüz oluşturulamaz.",
+  },
+  no_access: {
+    english: "You can look, but you don't have editing access to this model. Ask a project lead.",
+    turkish: "Görüntüleyebilirsiniz, ama bu modelde düzenleme yetkiniz yok. Proje yöneticisinden izin isteyin.",
+  },
+  connecting: { english: "Connecting to the model server…", turkish: "Model sunucusuna bağlanılıyor…" },
+};
+
+test("why a view is read-only is one sentence, in Turkish, with a next step", () => {
+  for (const cause of Object.keys(EDITING_OFF) as EditingOffCause[]) {
+    expect({ cause, text: editingOffReason(cause, TR) }).toEqual({ cause, text: EDITING_OFF[cause].turkish });
+    expect({ cause, text: editingOffReason(cause, EN) }).toEqual({ cause, text: EDITING_OFF[cause].english });
+    expect(editingOffReason(cause, TR)).not.toBe(editingOffReason(cause, EN));
+  }
+  // Each keeps its "what to do next" half.
+  expect(editingOffReason("no_access", TR)).toContain("izin isteyin");
+});
+
 test("a tool's refusal is unchanged in English", () => {
   expect(toolBlocker({ ...TOOL, canEdit: false }, EN)?.title).toBe("Can't place parts here");
-  expect(toolBlocker({ ...TOOL, canEdit: false }, EN)?.message).toBe("Live editing isn't connected, so nothing can be added.");
+  expect(toolBlocker({ ...TOOL, canEdit: false }, EN)?.message).toBe(READ_ONLY_REASON);
   expect(toolBlocker({ ...TOOL, editPaused: "any reason" }, EN)?.title).toBe("Can't place parts while reconnecting");
   expect(toolBlocker({ ...TOOL, modelToolsOff: true }, EN)?.title).toBe("Open a plan on this sheet first");
   expect(toolBlocker({ ...TOOL, modelToolsOff: true }, EN)?.message).toContain("on this sheet");
@@ -401,6 +442,7 @@ const EMPTY_STATES: readonly Caption[] = [
   },
   { key: "empty.notDemolished", english: "Not demolished", turkish: "Yıkılmadı" },
   { key: "empty.notFedYet", english: "Not fed yet", turkish: "Henüz beslenmiyor" },
+  { key: "empty.noneConnectedYet", english: "None connected yet", turkish: "Henüz bağlı yok" },
   { key: "empty.notOnCircuit", english: "Not on a circuit", turkish: "Devrede değil" },
   {
     key: "empty.noVoltageSet",
@@ -438,6 +480,7 @@ const EMPTY_SITES: Readonly<Record<string, number>> = {
   "empty.mixed": 2,
   "empty.allLevels": 2,
   "empty.notDemolished": 2,
+  "empty.noneConnectedYet": 2,
   // The parameter field draws the project's default in its button, its picker and its placeholder.
   "empty.fromProject": 3,
 };
@@ -480,10 +523,42 @@ test("every empty state is unchanged in English", () => {
 // The guards: no placeholder on a screen, no caption only in the JSON
 // ---------------------------------------------------------------------------
 
+/** The status bar's own states, one per shape `statusBadge` can take (§8's status vocabulary). */
+const BADGE_STATES: readonly { readonly why: string; readonly label: (t: typeof TR) => string }[] = (() => {
+  const saved: SaveState = { pending: 0, retrying: 0, message: null };
+  const kept: SaveState = { pending: 3, retrying: 0, message: null };
+  const retrying: SaveState = { pending: 0, retrying: 2, message: null };
+  const noModel = { kind: "no_model", title: "t", message: "m", retryable: false } as const;
+  const unreachable = { kind: "unreachable", title: "t", message: "m", retryable: true } as const;
+  const deviceOffline = { kind: "device_offline", title: "t", message: "m", retryable: true } as const;
+  const quiet = { kind: "quiet", title: "t", message: "m", retryable: true } as const;
+  return [
+    { why: "live, everything saved", label: (t) => statusBadge("live", saved, null, null, t).label },
+    { why: "read-only", label: (t) => statusBadge("read_only", saved, null, null, t).label },
+    { why: "no live model yet", label: (t) => statusBadge("connecting", saved, noModel, null, t).label },
+    { why: "denied", label: (t) => statusBadge("denied", saved, null, null, t).label },
+    { why: "offline with edits kept", label: (t) => statusBadge("offline", kept, unreachable, null, t).label },
+    { why: "offline with nothing kept", label: (t) => statusBadge("offline", saved, null, null, t).label },
+    { why: "offline, edits kept, no reason yet", label: (t) => statusBadge("offline", kept, null, null, t).label },
+    { why: "this computer is offline", label: (t) => statusBadge("connecting", saved, deviceOffline, null, t).label },
+    { why: "the line has gone quiet", label: (t) => statusBadge("connecting", saved, quiet, null, t).label },
+    { why: "pointer edits are paused", label: (t) => statusBadge("live", saved, null, "Reconnecting to the model server", t).label },
+    { why: "degraded with no text from the server", label: (t) => statusBadge("degraded", saved, null, null, t).label },
+    { why: "edits the server refused, being retried", label: (t) => statusBadge("live", retrying, null, null, t).label },
+    { why: "saving", label: (t) => statusBadge("live", { pending: 1, retrying: 0, message: null }, null, null, t).label },
+    { why: "catching up with others", label: (t) => statusBadge("catching_up", saved, null, null, t).label },
+    { why: "connecting", label: (t) => statusBadge("connecting", saved, null, null, t).label },
+  ];
+})();
+
 /**
  * Every message function, in every language a host can give it — including
  * `englishOnly`, which returns its English argument verbatim. A `{{n}}` that
  * survives this is a `{{n}}` a person would read.
+ *
+ * `translateFor('en')` interpolates inside i18next, so it cannot prove that the
+ * `withValues` calls are still there; `englishOnly` can, which is why all three
+ * translators are run and the badge's whole state matrix is in here too.
  */
 test("no message function can print a placeholder", () => {
   const translations = [TR, EN, englishOnly];
@@ -503,6 +578,8 @@ test("no message function can print a placeholder", () => {
     for (const queued of [0, 1, 2, 3, 11]) {
       for (const deviceOffline of [false, true]) said.push(editsPausedMessage(queued, deviceOffline, translate));
     }
+    for (const state of BADGE_STATES) said.push(state.label(translate));
+    for (const cause of Object.keys(EDITING_OFF) as EditingOffCause[]) said.push(editingOffReason(cause, translate));
     for (const input of [
       TOOL,
       { ...TOOL, canEdit: false },
@@ -536,6 +613,13 @@ function captions(): readonly Caption[] {
   return [...refusals, ...problems, ...PAUSED, ...EMPTY_STATES];
 }
 
+/**
+ * The surface's own refusal sentences. The three read-only causes are proved above as rendered
+ * Turkish strings (`EDITING_OFF`); the two that only the ribbon can show are listed here so a
+ * `blocked.*` key cannot appear in the source without this file knowing.
+ */
+const BLOCKED_KEYS: readonly string[] = ["blocked.readOnly", "blocked.noAccess", "blocked.connecting", "blocked.merge", "blocked.branches"];
+
 /** The one connection caption no kind reaches directly: the server's own reason, quoted inside our sentence. */
 const SERVER_SAID: Caption = { key: "connection.serverSaid", english: "The model server said: {{reason}}", turkish: "Model sunucusu şunu söyledi: {{reason}}" };
 
@@ -553,8 +637,8 @@ test("the English in these tables is the English the source says", () => {
 });
 
 test("no operator, tool or empty-state caption in the source is missing from these tables", () => {
-  const listed = new Set([...captions().map((caption) => caption.key), SERVER_SAID.key, ...toolCaptionKeys()]);
-  const inSource = captionsUnder(editorSourceCaptions(), ["operator.", "connection.", "paused.", "tool.", "empty."]);
+  const listed = new Set([...captions().map((caption) => caption.key), SERVER_SAID.key, ...toolCaptionKeys(), ...BLOCKED_KEYS]);
+  const inSource = captionsUnder(editorSourceCaptions(), ["operator.", "connection.", "paused.", "tool.", "empty.", "blocked."]);
   expect(inSource.filter((key) => !listed.has(key))).toEqual([]);
 });
 
@@ -570,7 +654,6 @@ function toolCaptionKeys(): readonly string[] {
     "tool.doing.move",
     "tool.doing.split",
     "tool.readOnlyTitle",
-    "tool.readOnlyMessage",
     "tool.pausedTitle",
     "tool.noModelViewTitle",
     "tool.noModelViewMessage",

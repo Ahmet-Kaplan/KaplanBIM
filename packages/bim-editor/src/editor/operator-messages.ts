@@ -136,6 +136,30 @@ export function connectionProblem(kind: ConnectionProblemKind, t: Translate, ser
   return { kind, ...problemWords(kind, t, serverReason) }
 }
 
+/** Why editing is off in this view. A cause, not prose: one place words it. */
+export type EditingOffCause = 'read_only' | 'no_access' | 'connecting'
+
+/**
+ * Why this view can't be edited, in one sentence: the cause **and** what can be
+ * done about it.
+ *
+ * This is the single wording for the read-only half of the surface — the tool
+ * notice, the ribbon's disabled reasons, the properties panels and the toast all
+ * show this same string, so translating it once translates all of them. (There
+ * used to be a second, competing sentence in `tool-readiness.ts`; it was deleted
+ * rather than left to drift.)
+ */
+export function editingOffReason(cause: EditingOffCause, t: Translate): string {
+  switch (cause) {
+    case 'read_only':
+      return t('blocked.readOnly', "Live editing isn't connected for this project, so views and sheets can't be made here yet.", { ns: 'editor' })
+    case 'no_access':
+      return t('blocked.noAccess', "You can look, but you don't have editing access to this model. Ask a project lead.", { ns: 'editor' })
+    case 'connecting':
+      return t('blocked.connecting', 'Connecting to the model server…', { ns: 'editor' })
+  }
+}
+
 /** Map the model server's refusal to a problem. */
 export function problemForDenied(reason: string, t: Translate): ConnectionProblem {
   if (reason === NO_SUCH_MODEL) return connectionProblem('no_model', t)

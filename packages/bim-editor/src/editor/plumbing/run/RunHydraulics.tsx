@@ -178,7 +178,7 @@ function SystemSummary({ report }: { report: Exclude<PipeSystemReport, { kind: '
   const rows: [string, string][] =
     report.kind === 'water'
       ? [
-          [`${report.systemName}: critical fixture`, report.critical ? `${report.critical.label}, ${n(report.critical.pressure)} psi` : 'None connected yet'],
+          [`${report.systemName}: critical fixture`, report.critical ? `${report.critical.label}, ${n(report.critical.pressure)} psi` : t('empty.noneConnectedYet', 'None connected yet', { ns: 'editor' })],
           ['Needs', report.minFixturePsi !== null ? `${report.minFixturePsi} psi` : t('empty.notSet', 'Not set', { ns: 'editor' })],
         ]
       : report.kind === 'drainage'
@@ -187,7 +187,7 @@ function SystemSummary({ report }: { report: Exclude<PipeSystemReport, { kind: '
           ? report.zones.map((z): [string, string] => [z.label, `${z.pass ? 'Within' : 'Over'} its ${z.allowableDropInWc} in. w.c. drop over ${n(z.longestFt, 1)} ft`])
           : [
               [`${report.systemName}: longest run`, `${n(report.longestRunFt, 1)} ft`],
-              ['Worst outlet', report.critical ? `${report.critical.label}, ${n(report.critical.pressure, 3)} in. w.c. (${report.allowableDropInWc} allowed drop)` : 'None connected yet'],
+              ['Worst outlet', report.critical ? `${report.critical.label}, ${n(report.critical.pressure, 3)} in. w.c. (${report.allowableDropInWc} allowed drop)` : t('empty.noneConnectedYet', 'None connected yet', { ns: 'editor' })],
             ]
   return (
     <div className="flex flex-col gap-1" data-testid="pipe-system-summary">

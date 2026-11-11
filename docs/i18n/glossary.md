@@ -373,6 +373,11 @@ Modelin **ret cümleleri** (18 kod), **bağlantı sorunları**, **araç engeller
 | Totals appear once the model is connected. | **Model bağlandığında toplamlar görünür.** | Boş toplam listesi |
 | No change to save. / No change to put back. | **Kaydedilecek değişiklik yok.** / **Geri konacak değişiklik yok.** | Devre dışı düğmenin sebebi (`title`) |
 | All levels | **Tüm katlar** | §8 |
+| None connected yet | **Henüz bağlı yok** | Hidrolik özetin boş hâli; §8 *No … yet* ailesi |
+| Live editing isn't connected for this project, so views and sheets can't be made here yet. | **Bu proje için canlı düzenleme bağlı değil, bu yüzden görünümler ve paftalar burada henüz oluşturulamaz.** | Salt okunur görünümün **tek** gerekçesi: araç uyarısı, ribbon'ın devre dışı sebepleri, özellik panelleri ve toast aynı cümleyi gösterir (`editingOffReason()`), ikinci bir söylem tutulmaz |
+| You can look, but you don't have editing access to this model. Ask a project lead. | **Görüntüleyebilirsiniz, ama bu modelde düzenleme yetkiniz yok. Proje yöneticisinden izin isteyin.** | §8 *Bu modeli düzenleme yetkiniz yok* + "ne yapmalı" adımı |
+| Connecting to the model server… | **Model sunucusuna bağlanılıyor…** | §8 |
+| This model server doesn't merge branches yet. / …doesn't open branches yet, so the design can't be updated here. | **Bu model sunucusu henüz dalları birleştirmiyor.** / **Bu model sunucusu henüz dal açmıyor, bu yüzden tasarım burada güncellenemez.** | Sunucunun yetmediği yer; §9/Ç8 *branch* = **dal** (tasarım dalı) |
 
 
 ---

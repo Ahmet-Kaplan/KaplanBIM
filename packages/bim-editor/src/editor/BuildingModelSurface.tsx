@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { RefreshCw, Wind, X, ArrowLeft } from 'lucide-react'
 import { AUTO_TAG_CATEGORIES, ORGANIZATION_ZONE, elementsOfKind, planAutoTags, runLabel, type RunFitting, type RunSegment, SYSTEM_KINDS, displayContextOf, documentIndex, viewCamera3d, type Aabb3, normalizeLevelName, organizationOf, sheetDependsOn, sheetViewports, type Actor, type DisplayContext, type GroupVisibility, type ModelState, type PartInstance, type PartTypeDefinition, type SectionCut, type Sheet, type Vec2, type ViewElement, originPointPosition, viewFloorMm, viewModelLevel, canonicalViewLevel, modelLevels, viewRotationDeg, type OriginPoint, diagramKindLabel, type StoredDiagramKind, type ScheduleCategory, type ElementId, type WorkFrame, asElementId, type AuthorRef, type BranchRef, parseBranchModelId, type SubmittalCommand, matchingPlanCrop, projectParametersOf } from '@permitzip/bim-kernel'
 import type { ConnectionStatus, Presence, SaveState } from '@permitzip/bim-sync'
-import { type ConnectionProblem } from './operator-messages'
+import { editingOffReason, type ConnectionProblem } from './operator-messages'
 import { SHEET_FIRM_NAME, type SheetTitle } from '../contracts/building-model/sheet-title'
 import { panButtonOf } from '@permitzip/bim-viewer-3d/pan-buttons'
 import type { LoadedReference, ModelViewer3D, Pick as ViewerPick } from '@permitzip/bim-viewer-3d'
@@ -872,12 +872,14 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
 
   const status: ConnectionStatus | 'read_only' = config && !config.authority ? 'read_only' : connection
   const canEdit = status !== 'read_only' && model !== null && problem?.kind !== 'no_access' && status !== 'denied'
+  // One wording, translated once: the tool notice, the ribbon's disabled reasons, the properties
+  // panels and the toast all show this same sentence (`editingOffReason` in `operator-messages.ts`).
   const blockedReason =
     status === 'read_only' || problem?.kind === 'no_model'
-      ? "Live editing isn't connected for this project, so views and sheets can't be made here yet."
+      ? editingOffReason('read_only', t)
       : problem?.kind === 'no_access' || status === 'denied'
-        ? "You can look, but you don't have editing access to this model. Ask a project lead."
-        : 'Connecting to the model server…'
+        ? editingOffReason('no_access', t)
+        : editingOffReason('connecting', t)
 
   // Branches, versions, responsibilities, merges and change orders (round 8b) ride the same model socket.
   const syncChannel = sessionChrome.channel
@@ -903,7 +905,12 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
   const { personChose } = useFollowThreadBranchFrom({ agent: host.agent, threadBranch: host.data.threadBranch }, { projectId, pageBranch, navigate: openBranch })
   const onBranch = sessionChrome.branch
   const showBranches = syncChannel !== null && (onBranch !== null || (socketLive && sessionChrome.branchesAvailable))
-  const mergeBlocked = !canEdit ? blockedReason : syncChannel && !sessionChrome.mergeAvailable ? "This model server doesn't merge branches yet." : null
+  const mergeBlocked =
+    !canEdit
+      ? blockedReason
+      : syncChannel && !sessionChrome.mergeAvailable
+        ? t('blocked.merge', "This model server doesn't merge branches yet.", { ns: 'editor' })
+        : null
   /** Manage › Copies: one copy question to the model server. */
   const askCopies = useCallback((msg: LineageRequest) => (syncChannel ? syncChannel.lineageRequest(msg) : Promise.reject(new Error('Not connected to the model server yet. Try again in a moment.'))), [syncChannel])
   const requestMergePreview = useCallback(async (): Promise<MergePreview> => {
@@ -3873,7 +3880,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
                             model={shown}
                             elementId={selection.element.id}
                             canEdit={canEdit && showBranches}
-                            blockedReason={canEdit ? "This model server doesn't open branches yet, so the design can't be updated here." : blockedReason}
+                            blockedReason={canEdit ? t('blocked.branches', "This model server doesn't open branches yet, so the design can't be updated here.", { ns: 'editor' }) : blockedReason}
                             onUpdateDesign={() => setStartFrom({ key: 'now', nonce: Date.now() })}
                           />
                         )
@@ -3909,7 +3916,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
                     modelId={config?.authority?.modelId ?? shown.modelId}
                     model={shown}
                     canEdit={canEdit}
-                    blockedReason={blockedReason ?? "Changing the checklist needs edit access to this project's model; ask a project lead."}
+                    blockedReason={blockedReason}
                     actorName={userName}
                     submit={(command, label) => submitWithUndo(command, label)}
                     onSelect={(ids) => void sessionRef.current?.selectGroup('box', ids, null)}

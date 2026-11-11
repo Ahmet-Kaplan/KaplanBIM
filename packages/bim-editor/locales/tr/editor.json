@@ -151,7 +151,7 @@
   "operator": {
     "element_not_found": "O eleman başka biri tarafından kaldırıldı. Görünümünüz güncellendi.",
     "wrong_kind": "O eleman bu şekilde değiştirilemez.",
-    "outside_host": "Branşman, ana hatın ucunu geçecek şekilde kaydırılamaz.",
+    "outside_host": "Branşman, ana hattın ucunu geçecek şekilde kaydırılamaz.",
     "tap_spacing": "Başka bir branşman ayrımına çok yakın. Aralarında en az bir ayrım genişliği bırakın.",
     "min_straight_length": "Bir kanal hattı en kısa düz uzunluğundan daha kısa kalır.",
     "anchored_would_move": "Bu, yerine sabitlenmiş kanalı hareket ettirir.",
@@ -187,7 +187,7 @@
     },
     "sign_in_refused": {
       "title": "Model sunucusu oturum açmanızı reddetti",
-      "message": "Oturumu kapatıp yeniden açın, sonra tekrar deneyin. Sürüyorsa yazılım ekibine bildirin."
+      "message": "Oturumu kapatıp yeniden açın, sonra tekrar deneyin. Sorun sürüyorsa yazılım ekibine bildirin."
     },
     "no_model": {
       "title": "Bu proje için canlı düzenleme henüz kurulmadı",
@@ -214,7 +214,6 @@
       "split": "bölme"
     },
     "readOnlyTitle": "Burada {{doing}} işlemi yapılamaz",
-    "readOnlyMessage": "Canlı düzenleme bağlı değil, bu yüzden hiçbir şey eklenemez.",
     "pausedTitle": "Yeniden bağlanırken {{doing}} işlemi yapılamaz",
     "noModelViewTitle": "Önce bu paftada bir plan açın",
     "noModelViewMessage": "Çalışmak için {{sheet}} üzerindeki bir plana veya kesite çift tıklayın. O zamana kadar tıklamalarınız {{doing}} işlemini yapmaz.",
@@ -257,6 +256,14 @@
     "noChangeToSave": "Kaydedilecek değişiklik yok.",
     "noChangeToPutBack": "Geri konacak değişiklik yok.",
     "notSetAria": "ayarlanmadı",
-    "fromProjectAria": "projeden, {{name}}"
+    "fromProjectAria": "projeden, {{name}}",
+    "noneConnectedYet": "Henüz bağlı yok"
+  },
+  "blocked": {
+    "readOnly": "Bu proje için canlı düzenleme bağlı değil, bu yüzden görünümler ve paftalar burada henüz oluşturulamaz.",
+    "noAccess": "Görüntüleyebilirsiniz, ama bu modelde düzenleme yetkiniz yok. Proje yöneticisinden izin isteyin.",
+    "connecting": "Model sunucusuna bağlanılıyor…",
+    "merge": "Bu model sunucusu henüz dalları birleştirmiyor.",
+    "branches": "Bu model sunucusu henüz dal açmıyor, bu yüzden tasarım burada güncellenemez."
   }
 }

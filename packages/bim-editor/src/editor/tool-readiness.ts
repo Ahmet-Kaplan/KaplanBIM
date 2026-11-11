@@ -32,8 +32,13 @@ export interface ToolBlocker {
 export interface ToolReadinessInput {
   readonly tool: string
   readonly canEdit: boolean
-  /** Why editing is off, when it is (shown as is). */
-  readonly blockedReason: string | null
+  /**
+   * Why editing is off, when it is — worded once by the surface
+   * (`editingOffReason()` in `operator-messages.ts`) and shown here as it is.
+   * Required, not optional: a read-only tool that can't say why leaves the person
+   * with a sentence and no next step.
+   */
+  readonly blockedReason: string
   /** Why pointer edits are paused while the live connection is down (`ModelSession.editPausedReason`), or null. */
   readonly editPaused?: string | null
   readonly levelCount: number
@@ -84,7 +89,7 @@ export function toolBlocker(input: ToolReadinessInput, t: Translate): ToolBlocke
     return {
       id: 'read-only',
       title: withValues(t('tool.readOnlyTitle', "Can't {{doing}} here", { doing, ns: 'editor' }), { doing }),
-      message: input.blockedReason ?? t('tool.readOnlyMessage', "Live editing isn't connected, so nothing can be added.", { ns: 'editor' }),
+      message: input.blockedReason,
       fixes: [],
     }
   }
