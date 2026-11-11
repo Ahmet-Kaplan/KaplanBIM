@@ -107,8 +107,15 @@ const MESSAGE_FIELD = `(?<![\\w$.])(?:${PROSE_FIELDS.join("|")})\\s*:\\s*(`;
 
 const FIELD_LITERAL = new RegExp(`${MESSAGE_FIELD}${QUOTED_LITERAL})`, "g");
 
-/** `code: "already_exists"`, the refusal code a `message:` field belongs to. */
-const CODE_FIELD = /(?<![\w$.])code\s*:\s*(['"])([^'"]*)\1/g;
+/**
+ * `code: "already_exists"`, the refusal code a `message:` field belongs to.
+ *
+ * The name has to look like a kernel error code (`lower_snake_case`). Packs also use
+ * `code:` for other things — a citation object carries `code: "FHWA HEC-22, Urban
+ * Drainage Design Manual"` and `code: "Air balance"` — and counting those as refusal
+ * codes made the report's "coded sentences" figure a count of *citations* as well.
+ */
+const CODE_FIELD = /(?<![\w$.])code\s*:\s*(['"])([a-z][a-z0-9_]*(?:\.[a-z0-9_]+)*)\1/g;
 
 /** Turns a matched JS string literal body back into the text it stands for. */
 function unescapeLiteral(body) {
@@ -387,22 +394,34 @@ export function catalogDocument(catalog) {
 /**
  * What the shipped Turkish map covers, measured — never asserted.
  *
- * `matchable` is the denominator the mechanism can reach at all; `templates` is
- * the whole catalogue, and the difference between them is the tail that cannot be
- * keyed by any template (see the file header).
+ * Four readings, because one number would flatter the work:
+ *
+ *   • `matchable` — the templates a `{0}` slot can key at all. This is the population
+ *     the mechanism can translate, and the target is stated against it;
+ *   • `templates` — the whole catalogue. The difference from `matchable` is the tail
+ *     no template can key (see the file header);
+ *   • `coded` — templates that carry an error code, i.e. the sentences a refusal can
+ *     reach the screen with. Not "refusals": a coded sentence can also be a citation
+ *     the packs attach to a rule;
+ *   • `top10` / `top50` — how much of what a person meets *most* is covered. The
+ *     catalogue is in frequency order, so this is reach, not breadth. It is the
+ *     honest reading of "the templates that reach the screen", and it is low: the
+ *     most-repeated sentences are the ones that name things.
  */
 export function proseCoverage(catalog, map) {
   const translated = (rows) => rows.filter((row) => Object.hasOwn(map, row.template)).length;
   const matchable = catalog.templates.filter((row) => row.matchable);
-  const refusals = catalog.templates.filter((row) => row.codes.length > 0);
+  const coded = catalog.templates.filter((row) => row.codes.length > 0);
   return {
     templates: catalog.templates.length,
     templatesTranslated: translated(catalog.templates),
     matchable: matchable.length,
     matchableTranslated: translated(matchable),
-    refusals: refusals.length,
-    refusalsTranslated: translated(refusals),
+    coded: coded.length,
+    codedTranslated: translated(coded),
     unmatchable: catalog.templates.length - matchable.length,
+    top10: translated(catalog.templates.slice(0, 10)),
+    top50: translated(catalog.templates.slice(0, 50)),
   };
 }
 
@@ -438,13 +457,16 @@ export function main(argv = process.argv.slice(2), root = REPO_ROOT) {
       `(${catalog.totals.literals} cümle, ${catalog.totals.files} dosya)`,
   );
   console.log(
-    `  eşlenebilir (matchable) ${coverage.matchable}: çevrildi ${coverage.matchableTranslated} (${percent(coverage.matchableTranslated, coverage.matchable)}%)`,
+    `  eşlenebilir (matchable) ${coverage.matchable}: çevrildi ${coverage.matchableTranslated} (${percent(coverage.matchableTranslated, coverage.matchable)}%) — hedef ≥ %80`,
   );
   console.log(`  şablon eşlenemez ${coverage.unmatchable}: ad/çoğul interpolasyonu taşıyor, İngilizce kalır`);
   console.log(
     `  tüm katalog ${coverage.templatesTranslated}/${coverage.templates} (${percent(coverage.templatesTranslated, coverage.templates)}%)`,
   );
-  console.log(`  reddetme cümleleri ${coverage.refusalsTranslated}/${coverage.refusals} (${percent(coverage.refusalsTranslated, coverage.refusals)}%)`);
+  console.log(`  kodlu cümleler ${coverage.codedTranslated}/${coverage.coded} (${percent(coverage.codedTranslated, coverage.coded)}%)`);
+  console.log(
+    `  erişim (en sık): ilk 10 ${coverage.top10}/10, ilk 50 ${coverage.top50}/50 — hedef ≥ %80 BURADA TUTMUYOR`,
+  );
   if (scan.unreadable.length > 0) {
     console.log(`  okunamayan ${scan.unreadable.length} dosya:`);
     for (const file of scan.unreadable) console.log(`    ${file.id} — ${file.error}`);

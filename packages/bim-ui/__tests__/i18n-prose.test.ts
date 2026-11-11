@@ -73,6 +73,27 @@ test("a unit wins over the bare number inside it, longest unit first", () => {
   expect(normalizeProse("1500 m³/h").slots).toEqual(["1500 m³/h"]);
 });
 
+test("`in` is inches only where it is not a preposition", () => {
+  // `in` is both a unit and the commonest English preposition. Read as a unit, it
+  // swallowed the preposition and left a template that no longer says what happened:
+  // `12 in the model` became `{0} the model`, and four kernel sentences were
+  // catalogued that way (`There is no fitting type {0} the library`, `No system {0}
+  // this model.`, `… keep it to {2} your own words`, `{0} is {1} the export, but …`).
+  // The catalogue test in `tools/i18n` fails if one comes back.
+  expect(normalizeProse("12 in the model")).toEqual({ template: "{0} in the model", slots: ["12"] });
+  expect(normalizeProse("3 in the run")).toEqual({ template: "{0} in the run", slots: ["3"] });
+  expect(normalizeProse("keep it to 40 in your own words")).toEqual({ template: "keep it to {0} in your own words", slots: ["40"] });
+  // And the measurements, which must still absorb the unit with it.
+  expect(normalizeProse("0.5 in. w.c.")).toEqual({ template: "{0} w.c.", slots: ["0.5 in."] });
+  expect(normalizeProse("1,5 in per joint")).toEqual({ template: "{0} per joint", slots: ["1,5 in"] });
+  expect(normalizeProse("12 in wide")).toEqual({ template: "{0} wide", slots: ["12 in"] });
+});
+
+test("a negative measurement keeps its sign and its unit", () => {
+  expect(normalizeProse("-3 ft of pipe")).toEqual({ template: "{0} of pipe", slots: ["-3 ft"] });
+  expect(normalizeProse("an offset of -0.25 in.")).toEqual({ template: "an offset of {0}", slots: ["-0.25 in."] });
+});
+
 test("a unit is not read out of a word", () => {
   // `m` is a unit, `m`+`iles` is a word: slicing `3 miles` into `3 m` would build a
   // template nothing can match and show `{0}iles of pipe` in the review bundle. The
@@ -103,6 +124,19 @@ test("a sentence with no number is its own template", () => {
 test("translateProse fills slots in order", () => {
   const tr = { [LEG_KEY]: LEG_TR };
   expect(translateProse(LEG, "tr", fakeT(tr))).toBe("3. bacak 0.51 ft uzunluğunda, ama oradaki dirsek ve geçiş 1.27 ft gerektiriyor");
+});
+
+test("slot text keeps the separators the sentence came with (spec Ç-C(b), decided)", () => {
+  // The kernel formats a number with `String(n)`; the packs use `toLocaleString("en-US")`.
+  // So a slot arrives English-formatted — `1,500 VA`, `0.51 ft` — and the Turkish
+  // sentence keeps it. Reformatting here would mean parsing a slot that is sometimes an
+  // id, a revision or a date, at a layer with no unit or precision information; §7's
+  // display profile owns that decision (task 3.4 report, §4, "what remains English").
+  // Pinned, so the behaviour is a decision rather than drift.
+  const tr = { "That is {0} long and carries {1}": "Bu {0} uzunluğunda ve {1} taşıyor" };
+  expect(translateProse("That is 0.51 ft long and carries 1,500 VA", "tr", fakeT(tr))).toBe(
+    "Bu 0.51 ft uzunluğunda ve 1,500 VA taşıyor",
+  );
 });
 
 test("an unknown sentence is returned unchanged, never as a template key", () => {
@@ -152,17 +186,24 @@ test("every template the mechanism can match is translated, and the tail is coun
   const translated = (entries: readonly CatalogEntry[]): number => entries.filter((entry) => trProse[entry.template] !== undefined).length;
   const share = (part: number, whole: number): string => `${part}/${whole} (${whole === 0 ? "0.0" : ((part / whole) * 100).toFixed(1)}%)`;
 
+  // The reach reading, printed with the rest: the target is met on what the mechanism
+  // can key and *not* met on what a person meets most (the top 10 and top 50 by
+  // frequency are all name-carrying, so no template can key them).
+  const top = (count: number): number => translated(catalog.templates.slice(0, count));
   const report =
     `matchable ${share(translated(matchable), matchable.length)}, ` +
-    `refusals ${share(translated(refused), refused.length)}, ` +
+    `reach top10 ${top(10)}/10, top50 ${top(50)}/50, ` +
+    `coded ${share(translated(refused), refused.length)}, ` +
     `catalogue ${share(translated(catalog.templates), catalog.templates.length)}`;
 
-  // The brief's target, on the denominator it can be met on: 80% of what reaches
-  // the screen and can be keyed. It ships at 100%, so a new sentence that arrives
-  // without a translation has room to land before the guard fails.
-  expect({ report, atLeast: translated(matchable) / matchable.length >= 0.8 }).toEqual({ report, atLeast: true });
-  // A floor on the catalogue, so an empty prose.json cannot pass the line above.
-  expect(translated(catalog.templates)).toBeGreaterThanOrEqual(120);
+  // Pinned, not floored. A `>= 80%` floor let a regression from 241 to 193 pass, which
+  // is 48 sentences losing their Turkish without a red test.
+  expect({ report, matchable: translated(matchable), templates: translated(catalog.templates) }).toEqual({
+    report,
+    matchable: 241,
+    templates: 241,
+  });
+  expect(matchable).toHaveLength(241);
 });
 
 test("no prose value carries an i18next placeholder or a slot its key does not have", () => {

@@ -236,9 +236,11 @@ describe("the prose coverage table", () => {
       templatesTranslated: 1,
       matchable: 2,
       matchableTranslated: 1,
-      refusals: 3,
-      refusalsTranslated: 1,
+      coded: 3,
+      codedTranslated: 1,
       unmatchable: 1,
+      top10: 1,
+      top50: 1,
       untranslatedMatchable: ["Revision {0} is not in the recent history, so it can't be undone here"],
     });
   });
@@ -256,6 +258,20 @@ describe("the prose coverage table", () => {
     expect(markdown).toContain("| — Şablon eşlenemez (ad/çoğul interpolasyonu) | — | 1 | — |");
     // The sentence nobody translated is listed, not merely subtracted.
     expect(markdown).toContain("Revision {0} is not in the recent history");
+  });
+
+  it("shows the template itself as the English of a prose row", () => {
+    // The key *is* the English sentence (a template), so a dash there would read as a
+    // missing default rather than as the design. 243 rows said "—" before this.
+    const model = collectBundle({
+      files: [localeFile(PROSE_MAP, { "That end is already connected": "Bu uç zaten bağlı" })],
+      proseKeys: ["That end is already connected"],
+      date: "2026-11-10",
+      stage: 3,
+    });
+    expect(model.counts.noEnglish).toBe(0);
+    const prose = model.sections.find((section) => section.namespace === "prose");
+    expect(prose.rows).toEqual([{ key: "That end is already connected", english: "That end is already connected", values: ["Bu uç zaten bağlı"], orphaned: false, empty: false }]);
   });
 
   it("does not call a prose template orphaned, because the catalogue is its reference", () => {

@@ -22,8 +22,80 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { refusalWords } from "../src/editor/operator-messages";
+import { englishOnly, withValues } from "../src/editor/i18n/translate";
+import { operatorMessage, refusalWords } from "../src/editor/operator-messages";
 import { translateFor } from "./helpers/editor-i18n";
+
+const REPO_ROOT = join(__dirname, "../../..");
+
+/** The catalogue the extractor writes: every sentence each code can carry. */
+interface CatalogRow {
+  readonly template: string;
+  readonly codes: readonly string[];
+  readonly matchable: boolean;
+}
+const catalogue: { readonly templates: readonly CatalogRow[] } = JSON.parse(
+  readFileSync(join(REPO_ROOT, "docs/i18n/prose-templates.json"), "utf8"),
+) as { readonly templates: readonly CatalogRow[] };
+
+/** Every code the model can refuse an edit with (`CommandError['code']`). */
+const CODES = [
+  "element_not_found",
+  "wrong_kind",
+  "outside_host",
+  "tap_spacing",
+  "min_straight_length",
+  "anchored_would_move",
+  "unsupported_geometry",
+  "profile_incompatible",
+  "disconnected",
+  "invalid_value",
+  "already_exists",
+  "in_use",
+  "stale_base",
+  "conflict",
+  "forbidden",
+  "has_dependents",
+  "undo_refused",
+  "locked",
+] as const;
+
+/**
+ * A noun that names one particular screen, and the English the kernel would have to
+ * use for that screen to be the subject. A generic sentence may name one only when
+ * *every* sentence behind that code is about it.
+ *
+ * `locked`, backed by exactly one sentence — an element lock during a trace — used to
+ * send the reader to `Manage › Groups & phases`; `in_use`, backed by nineteen
+ * sentences about groups, phases, circuits and load points, sent them to a sheet.
+ * Both were confidently wrong, which is worse than vague: the English they replaced
+ * was accurate.
+ */
+const SCREEN_NOUNS: readonly (readonly [string, string])[] = [
+  ["pafta", "sheet"],
+  ["grup", "group"],
+  ["faz", "phase"],
+  ["devre", "circuit"],
+  ["pano", "panel"],
+  ["görünüm", "view"],
+  ["ızgara", "grid"],
+  ["bölge", "zone"],
+  ["oda", "room"],
+  ["mekan", "space"],
+  ["kolon", "stack"],
+  ["armatür", "fixture"],
+  ["şalter", "breaker"],
+  ["yük noktası", "load point"],
+  ["kat", "level"],
+  ["duvar", "wall"],
+  ["tavan", "ceiling"],
+];
+
+/** True when `word` stands alone in `text` (Turkish suffixes are on the left of it only). */
+function namesWord(text: string, word: string): boolean {
+  const escaped = word.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  return new RegExp(String.raw`(?<![\p{L}])${escaped}(?![\p{L}])`, "iu").test(text);
+}
 
 const TR = translateFor("tr");
 const EN = translateFor("en");
@@ -59,7 +131,7 @@ test("a sentence a template can key is preferred to the generic one", () => {
 test("a sentence no template can key falls back to the translated code, never to English", () => {
   const shown = refusalWords("has_dependents", '2 elements are in "Level 1". Choose a group to move them to, then delete.', "tr", TR);
   // The generic sentence says less — and says it in Turkish, which is the point.
-  expect(shown).toContain("Hiçbir şey silinmedi");
+  expect(shown).toContain("Bağlı elemanlar var");
   expect(shown).not.toContain("elements");
 });
 
@@ -88,13 +160,178 @@ test("the session and the surface say why editing is off in a translated sentenc
   const bare: string[] = [];
   for (const id of files) {
     for (const line of readFileSync(join(__dirname, "../../..", id), "utf8").split("\n")) {
-      if (!line.includes("isn't connected")) continue;
+      // `isn.t connected` on purpose: the apostrophe arrives as `'`, as the JSX entity
+      // `&apos;`, and as the typographic `\u2019`. The first version of this guard
+      // matched only the ASCII form, so a whole JSX alert sailed past it.
+      if (!/isn.t connected/iu.test(line)) continue;
       // A comment explaining the family is not a sentence on a screen.
       if (/^\s*(?:\*|\/\*|\/\/)/u.test(line)) continue;
-      // `t('session.…', '…', { ns: 'editor' })`, with or without more values after it.
-      if (/t\('session\.[A-Za-z]+', "[^"]*", \{ ns: 'editor'/u.test(line)) continue;
+      // The key has to be on the same line, before the sentence: `t('session.…', "…"`
+      // with any options after it (on this line or the next).
+      const at = line.indexOf(
+        line.match(/isn.t connected/iu)?.[0] ?? "",
+      );
+      if (/t\(\s*'session\.[A-Za-z]+',\s*"[^"]*$/u.test(line.slice(0, at))) continue;
       bare.push(`${id}: ${line.trim()}`);
     }
   }
   expect(bare).toEqual([]);
+});
+
+test("every keyed sentence in those two files has a Turkish string, and the count is pinned", () => {
+  // A site added without its Turkish, or a site quietly reverted to a bare literal,
+  // has to fail here rather than in review.
+  const turkish = JSON.parse(readFileSync(join(REPO_ROOT, "packages/bim-editor/locales/tr/editor.json"), "utf8")) as Record<
+    string,
+    Record<string, string> | string
+  >;
+  const files = ["packages/bim-editor/src/editor/model-session.ts", "packages/bim-editor/src/editor/BuildingModelSurface.tsx"];
+  const used = new Map<string, number>();
+  for (const id of files) {
+    const text = readFileSync(join(REPO_ROOT, id), "utf8");
+    // `t(\n  'session.…'` is a call too: the alert's sentences wrap.
+    for (const match of text.matchAll(/t\(\s*'(session\.[A-Za-z]+)'/gu)) {
+      const key = match[1] ?? "";
+      used.set(key, (used.get(key) ?? 0) + 1);
+    }
+  }
+  const session = (turkish.session ?? {}) as Record<string, string>;
+  const missing = [...used.keys()].filter((key) => {
+    const leaf = key.slice("session.".length);
+    return session[leaf] === undefined || session[leaf].trim() === "";
+  });
+  expect(missing).toEqual([]);
+  // The pinned counts: the read-only alert (`viewOnlyTitle`, `viewOnlyBody`), the two
+  // "couldn't select" toasts and the rest of the family this task keyed. Changing a
+  // count means changing a call site — update it deliberately.
+  expect(Object.fromEntries([...used].sort())).toEqual({
+    "session.boxDragCount": 1,
+    "session.boxNothingInside": 1,
+    "session.boxSelectedInside": 1,
+    "session.boxSelectedTouching": 1,
+    "session.boxTouchesNothing": 1,
+    "session.changeNotSaved": 1,
+    "session.inheritCancelled": 1,
+    "session.inheritHint": 1,
+    "session.levelNotAdded": 1,
+    "session.modelNotOpen": 1,
+    "session.notConnected": 7,
+    "session.notConnectedDeleted": 1,
+    "session.notConnectedDuct": 1,
+    "session.notConnectedLevel": 1,
+    "session.notConnectedMoved": 2,
+    "session.notConnectedNudged": 1,
+    "session.notConnectedResized": 1,
+    "session.notConnectedRouted": 1,
+    "session.notConnectedSaved": 5,
+    "session.notConnectedSplit": 1,
+    "session.notConnectedUndone": 1,
+    "session.nothingToRedo": 1,
+    "session.nothingToUndo": 1,
+    "session.selectFailed": 1,
+    "session.selectHint": 1,
+    "session.viewOnlyBody": 1,
+    "session.viewOnlyTitle": 1,
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The generic sentence has to be true for every sentence it stands in for
+// ---------------------------------------------------------------------------
+
+/**
+ * Everything wrong with one code's generic sentence, given the sentences it stands in
+ * for. Split out of its test so the guard can be proven to fire (below): a guard that
+ * never fires is worse than none.
+ */
+function genericSentenceDefects(
+  code: string,
+  generic: string,
+  genericEnglish: string,
+  backing: readonly { readonly template: string }[],
+): string[] {
+  const defects: string[] = [];
+  for (const [turkish, english] of SCREEN_NOUNS) {
+    const said = namesWord(generic, turkish) || namesWord(genericEnglish, english);
+    if (!said) continue;
+    // "Every sentence agrees" means: there is at least one, and all of them name it.
+    const everySentenceSaysIt = backing.length > 0 && backing.every((row) => namesWord(row.template, english));
+    if (everySentenceSaysIt) continue;
+    const howMany = backing.filter((row) => namesWord(row.template, english)).length;
+    defects.push(`${code}: "${generic}" names "${turkish}" but only ${howMany} of ${backing.length} of its sentences mention "${english}"`);
+  }
+  return defects;
+}
+
+test("no generic refusal names a screen that only some of its sentences are about", () => {
+  const defects = CODES.flatMap((code) =>
+    genericSentenceDefects(
+      code,
+      operatorMessage(code, TR),
+      operatorMessage(code, EN),
+      catalogue.templates.filter((row) => row.codes.includes(code)),
+    ),
+  );
+  expect(defects).toEqual([]);
+});
+
+test("the cause-neutrality guard fires on the two sentences the review found", () => {
+  const backing = (code: string): readonly { template: string }[] => catalogue.templates.filter((row) => row.codes.includes(code));
+
+  // Before this fix: `locked` sent the reader to `Manage › Groups & phases` while its
+  // only sentence is an element lock during a trace.
+  expect(
+    genericSentenceDefects(
+      "locked",
+      "Bu, kilitli bir grupta. Önce Yönet › Gruplar ve fazlar bölümünden grubun kilidini açın.",
+      "That is in a locked group. Unlock the group in Manage › Groups & phases first.",
+      backing("locked"),
+    ),
+  ).not.toEqual([]);
+
+  // And `in_use` sent them to a sheet, while all nineteen sentences are about groups,
+  // phases, circuits and load points.
+  expect(
+    genericSentenceDefects(
+      "in_use",
+      "Bu hâlâ bir paftada kullanımda. Önce paftadan kaldırın.",
+      "That's still placed on a sheet. Remove it from the sheet first.",
+      backing("in_use"),
+    ),
+  ).not.toEqual([]);
+
+  // The sentences that ship now are clean, and a noun every sentence agrees with is
+  // allowed: `undo_refused` says only what all five of its sentences say.
+  expect(genericSentenceDefects("locked", operatorMessage("locked", TR), operatorMessage("locked", EN), backing("locked"))).toEqual([]);
+  expect(
+    genericSentenceDefects("min_straight_length", "Bir parça çok kısa kalır.", "A piece would be too short.", [
+      { template: "A piece would be too short" },
+      { template: "A piece would be too short here" },
+    ]),
+  ).toEqual([]);
+});
+
+// ---------------------------------------------------------------------------
+// Placeholders, under a translator that returns its English verbatim
+// ---------------------------------------------------------------------------
+
+test("no placeholder reaches the screen through englishOnly", () => {
+  // `englishOnly` is the translator a host without an i18next instance hands the
+  // session: it returns the English argument *including* `{{placeholders}}`. Every
+  // sentence with a hole in it therefore has to be repaired by `withValues` — the
+  // defect that has slipped through this project twice (a queued-edit count printed
+  // as `{{n}}`).
+  const sentences = [
+    ["session.changeNotSaved", "Your change wasn't saved. {{reason}}", { reason: "That end is already connected" }],
+    ["session.levelNotAdded", "Level 1 wasn't added: {{reason}}", { reason: "That end is already connected" }],
+    ["session.boxSelectedInside", "{{count}} selected: {{mode}} the box.", { count: 3, mode: "fully inside" }],
+    ["session.boxSelectedTouching", "{{count}} selected: {{mode}} the box.", { count: 1, mode: "touching" }],
+    ["session.selectFailed", "Couldn't select {{label}}: live editing isn't connected.", { label: "Fan 3" }],
+    ["session.selectHint", "Couldn't select {{label}}. It may have nothing drawn yet; find it in the Loads list.", { label: "Fan 3" }],
+    ["session.boxDragCount", "{{count}} in the box.", { count: 2 }],
+  ] as const;
+  const leaked = sentences
+    .map(([key, english, values]) => ({ key, shown: withValues(englishOnly(key, english), values) }))
+    .filter(({ shown }) => /\{\{|\}\}/u.test(shown));
+  expect(leaked).toEqual([]);
 });

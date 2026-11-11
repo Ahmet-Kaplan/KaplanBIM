@@ -141,7 +141,7 @@ describe("buildCatalog", () => {
 });
 
 describe("proseCoverage", () => {
-  it("reports the translated share of what can be matched, and the tail", () => {
+  it("reports the translated share of what can be matched, the tail, and reach", () => {
     const catalog = buildCatalog([
       file("a.ts", 'refuse("locked", "That is in a locked group", []);'),
       file("b.ts", 'const e = { code: "locked", message: `That end of ${label} is locked` };'),
@@ -154,9 +154,11 @@ describe("proseCoverage", () => {
       templatesTranslated: 1,
       matchable: 1,
       matchableTranslated: 1,
-      refusals: 2,
-      refusalsTranslated: 1,
+      coded: 2,
+      codedTranslated: 1,
       unmatchable: 1,
+      top10: 1,
+      top50: 1,
     });
   });
 });
@@ -168,6 +170,25 @@ describe("the committed catalogue", () => {
     expect(COMMITTED.totals.templates).toBeGreaterThan(500);
     // Nothing may be dropped silently: matched + unmatched is the whole catalogue.
     expect(COMMITTED.totals.matchable + COMMITTED.totals.unmatchable).toBe(COMMITTED.totals.templates);
+  });
+
+  it("keeps the preposition the unit `in` used to swallow", () => {
+    // `in` is a unit *and* the commonest English preposition. Read as a unit it took the
+    // preposition with it, and four sentences were catalogued as `{0} the library`,
+    // `{0} this model`, `{2} your own words`, `{1} the export` — templates that no
+    // longer say what happened, and that a translator would render as nonsense.
+    //
+    // Asserted as the four sentences, not as a pattern over every template: a determiner
+    // after a slot is perfectly normal (`A wall branch is wider than its trunk`), so a
+    // pattern would have to know which slot held an `in`, which is exactly the thing
+    // that was wrong. `i18n-prose.test.ts` pins the normaliser directly.
+    const templates = COMMITTED.templates.map((row) => row.template);
+    expect(templates).toContain("There is no fitting type {0} in the library");
+    expect(templates).toContain("No system {0} in this model.");
+    expect(templates).toContain("Rule {0}'s title is {1} characters; keep it to {2} in your own words");
+    expect(templates.some((template) => template.startsWith("{0} is {1} in the export"))).toBe(true);
+    // The malformed forms are gone.
+    expect(templates.filter((template) => /\{\d+\} (?:the library|this model\.)|keep it to \{\d+\} your own words|\{\d+\} the export/u.test(template))).toEqual([]);
   });
 
   it("is what the sources would produce right now", () => {

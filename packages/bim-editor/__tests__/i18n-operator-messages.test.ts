@@ -94,60 +94,30 @@ const CODES = [
  * reader in the polite plural (*deneyin*, *kaldırın*).
  */
 const REFUSALS: Readonly<Record<(typeof CODES)[number], { readonly english: string; readonly turkish: string }>> = {
-  element_not_found: {
-    english: "That piece was removed by someone else. The view has been refreshed.",
-    turkish: "O eleman başka biri tarafından kaldırıldı. Görünümünüz güncellendi.",
-  },
+  element_not_found: { english: "That piece could not be found. Pick it again from the model.", turkish: "O eleman bulunamadı. Modelden yeniden seçin." },
   wrong_kind: { english: "That piece can't be changed this way.", turkish: "O eleman bu şekilde değiştirilemez." },
-  outside_host: {
-    english: "The branch can't slide past the end of the trunk.",
-    turkish: "Branşman, ana hattın ucunu geçecek şekilde kaydırılamaz.",
-  },
+  outside_host: { english: "That would leave the element it belongs to. Move it back inside, then try again.", turkish: "Bu, ait olduğu elemanın dışına çıkıyor. İçeri taşıyıp tekrar deneyin." },
   tap_spacing: {
     english: "Too close to another branch takeoff. Keep them at least a takeoff width apart.",
     turkish: "Başka bir branşman ayrımına çok yakın. Aralarında en az bir ayrım genişliği bırakın.",
   },
-  min_straight_length: {
-    english: "A duct run would get shorter than its minimum straight length.",
-    turkish: "Bir kanal hattı en kısa düz uzunluğundan daha kısa kalır.",
-  },
-  anchored_would_move: {
-    english: "That would move ductwork that is pinned in place.",
-    turkish: "Bu, yerine sabitlenmiş kanalı hareket ettirir.",
-  },
-  unsupported_geometry: {
-    english: "That change isn't supported for this shape of run yet.",
-    turkish: "Bu hat biçimi için bu değişiklik henüz desteklenmiyor.",
-  },
+  min_straight_length: { english: "That would leave a piece shorter than its minimum straight length.", turkish: "Bu, bir parçayı en kısa düz uzunluğundan kısa bırakır." },
+  anchored_would_move: { english: "That would move what it is attached to. Detach it first.", turkish: "Bu, bağlı olduğu şeyi hareket ettirir. Önce bağlantısını kesin." },
+  unsupported_geometry: { english: "The model can't build that shape yet. Change the route and try again.", turkish: "Model bu biçimi henüz kuramıyor. Güzergâhı değiştirip tekrar deneyin." },
   profile_incompatible: {
     english: "That size doesn't fit the fittings it connects to.",
     turkish: "Bu boyut, bağlandığı bağlantı parçalarına uymuyor.",
   },
-  disconnected: { english: "That would disconnect the ductwork.", turkish: "Bu, kanalın bağlantısını koparır." },
-  invalid_value: { english: "Enter a positive size.", turkish: "Pozitif bir boyut girin." },
-  already_exists: {
-    english: "Something with that name or number already exists. Pick another.",
-    turkish: "Bu adda veya numarada bir kayıt zaten var. Başka birini seçin.",
-  },
-  in_use: {
-    english: "That's still placed on a sheet. Remove it from the sheet first.",
-    turkish: "Bu hâlâ bir paftada kullanımda. Önce paftadan kaldırın.",
-  },
-  stale_base: {
-    english: "Someone else changed this at the same time. Your view has been updated; try again.",
-    turkish: "Aynı anda başka biri bunu değiştirdi. Görünümünüz güncellendi; tekrar deneyin.",
-  },
-  conflict: {
-    english: "Someone else changed this at the same time. Your view has been updated; try again.",
-    turkish: "Aynı anda başka biri bunu değiştirdi. Görünümünüz güncellendi; tekrar deneyin.",
-  },
+  disconnected: { english: "The ends could not be joined. Check that they face each other.", turkish: "Uçlar birleştirilemedi. Birbirine baktıklarını kontrol edin." },
+  invalid_value: { english: "That value isn't valid. Check it and try again.", turkish: "Bu değer geçerli değil. Kontrol edip tekrar deneyin." },
+  already_exists: { english: "That is already there or clashes with something else. Choose another.", turkish: "Bu zaten var ya da başka bir şeyle çakışıyor. Başka birini seçin." },
+  in_use: { english: "That is still in use, so it can't be changed. Take it out of use first.", turkish: "Bu hâlâ kullanımda, bu yüzden değiştirilemedi. Önce kullanımdan çıkarın." },
+  stale_base: { english: "Someone else changed this at the same time. Reload before trying again.", turkish: "Aynı anda başka biri bunu değiştirdi. Tekrar denemeden önce yenileyin." },
+  conflict: { english: "Someone else changed this at the same time, so nothing was saved. Check it and try again.", turkish: "Aynı anda başka biri bunu değiştirdi, bu yüzden hiçbir şey kaydedilmedi. Kontrol edip tekrar deneyin." },
   forbidden: { english: "You don't have permission to edit this model.", turkish: "Bu modeli düzenleme yetkiniz yok." },
-  has_dependents: { english: "Other things depend on this. Nothing was deleted.", turkish: "Buna bağlı elemanlar var. Hiçbir şey silinmedi." },
+  has_dependents: { english: "Other things depend on this, so nothing changed. Detach them or move them first.", turkish: "Bağlı elemanlar var, bu yüzden hiçbir şey değişmedi. Önce onları ayırın ya da taşıyın." },
   undo_refused: { english: "That change can't be undone now.", turkish: "Bu değişiklik artık geri alınamıyor." },
-  locked: {
-    english: "That is in a locked group. Unlock the group in Manage › Groups & phases first.",
-    turkish: "Bu, kilitli bir grupta. Önce Yönet › Gruplar ve fazlar bölümünden grubun kilidini açın.",
-  },
+  locked: { english: "That is locked, so it couldn't be changed. Unlock it and try again.", turkish: "Kilitli olduğu için değiştirilemedi. Kilidi açıp tekrar deneyin." },
 };
 
 test("the model refuses an edit with 18 codes, and every one is translated", () => {
@@ -169,11 +139,19 @@ test("no refusal falls back to English in tr", () => {
   }
 });
 
-test("a refusal that names a place in the app names it in Turkish too", () => {
-  // `Manage › Groups & phases` is the breadcrumb the message tells the reader to go to.
-  expect(operatorMessage("locked", TR)).toContain("Gruplar ve fazlar");
-  // The one that says nothing was lost must still say nothing was lost.
-  expect(operatorMessage("has_dependents", TR)).toContain("Hiçbir şey silinmedi");
+test("a refusal sent to every sentence of a code stays true for all of them", () => {
+  // These sentences are what a person reads when the kernel's own sentence could not
+  // be translated (`refusalWords`), and the code covers many different sentences:
+  // `locked` is an element lock during a trace, `in_use` is groups, phases, circuits
+  // and load points — never a sheet. A specific-but-wrong sentence (sent to
+  // `Manage › Groups & phases`, or "remove it from the sheet") is worse than a
+  // neutral one, so the wording names the code's own vocabulary and no screen.
+  expect(operatorMessage("locked", TR)).toContain("Kilitli");
+  expect(operatorMessage("locked", TR)).not.toContain("Gruplar");
+  expect(operatorMessage("in_use", TR)).toContain("kullanımda");
+  expect(operatorMessage("in_use", TR)).not.toContain("pafta");
+  expect(operatorMessage("has_dependents", TR)).toContain("Bağlı elemanlar var");
+  expect(operatorMessage("has_dependents", TR)).toContain("hiçbir şey değişmedi");
 });
 
 // ---------------------------------------------------------------------------

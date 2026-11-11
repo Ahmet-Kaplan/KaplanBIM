@@ -156,7 +156,7 @@ import { useSheetImagesFrom } from '@permitzip/bim-editor/editor/views-sheets/us
 import { addOns, loadAddOns } from '../contracts/building-model/add-ons'
 
 import { MemoRibbon, useStableCommands, useStableRibbonTabs } from './ribbon/stable-ribbon'
-import { useEditorLanguage, useEditorTranslate } from './i18n/translate'
+import { useEditorLanguage, useEditorTranslate, withValues } from './i18n/translate'
 import { useModelPacks } from './state/use-model-packs'
 import { buildingModelQuickCommands, buildingModelRibbon, PROJECTION_SHORTCUT, type BoxCategory, type BuildingModelTool, type RibbonSelection } from './building-model-ribbon'
 import { OrientationControls } from './orientation/OrientationControls'
@@ -2436,13 +2436,13 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
             claimEmptyClick: () => sessionRef.current?.takeEmptyClick() ?? false,
             selectBox: (ids, mode) => {
               const session = sessionRef.current
-              if (!session) return "The model isn't open yet."
+              if (!session) return t('session.modelNotOpen', "The model isn't open yet.", { ns: 'editor' })
               const categories = new Set((Object.keys(boxFilter) as BoxCategory[]).filter((c) => boxFilter[c]))
               void session
                 .selectBoxIds(ids, mode, categories)
                 .then(setToolHint)
                 .catch((err: unknown) => console.error('[BuildingModelSurface] box select in the drawing failed', err))
-              return `${ids.length} in the box.`
+              return withValues(t('session.boxDragCount', '{{count}} in the box.', { ns: 'editor' }), { count: ids.length })
             },
             moveBy: (ids, delta) => sessionRef.current?.moveGroupBy(ids, { x: delta.x, y: delta.y }, delta.z) ?? t('session.notConnectedMoved', "Live editing isn't connected, so nothing can be moved.", { ns: 'editor' }),
             submit: submitWithUndo,
@@ -3134,7 +3134,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
     }
     void (ids.length === 1 ? session.selectElement(first) : session.selectGroup('box', ids, null)).catch((err: unknown) => {
       console.error('[BuildingModelSurface] selecting from the Loads breakdown failed', { ids, err })
-      toast.error(`Couldn't select ${label}. It may have nothing drawn yet; find it in the Loads list.`)
+      toast.error(t('session.selectHint', "Couldn't select {{label}}. It may have nothing drawn yet; find it in the Loads list.", { ns: 'editor', label }))
     })
   }
   const headerStatus = (
@@ -3293,7 +3293,15 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
             onUseArchitectLevels: canEdit ? () => setLevelRequest('architect') : undefined,
             onInherit: () => {
               setInheritArmed((on) => !on)
-              setToolHint(inheritArmed ? 'Inherit cancelled.' : 'Click a pipe, a fitting or a part: the route takes its height there, and its size, system and slope.')
+              setToolHint(
+                inheritArmed
+                  ? t('session.inheritCancelled', 'Inherit cancelled.', { ns: 'editor' })
+                  : t(
+                      'session.inheritHint',
+                      'Click a pipe, a fitting or a part: the route takes its height there, and its size, system and slope.',
+                      { ns: 'editor' },
+                    ),
+              )
             },
           }
         : null,
@@ -3738,8 +3746,12 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
             <div className="absolute bottom-3 left-3 max-w-sm">
               <Alert>
                 <Wind />
-                <AlertTitle>View only</AlertTitle>
-                <AlertDescription>Live editing isn&apos;t connected for this project yet, so ductwork, views and sheets can&apos;t be changed here.</AlertDescription>
+                <AlertTitle>{t('session.viewOnlyTitle', 'View only', { ns: 'editor' })}</AlertTitle>
+                <AlertDescription>
+                  {t('session.viewOnlyBody', "Live editing isn't connected for this project yet, so ductwork, views and sheets can't be changed here.", {
+                    ns: 'editor',
+                  })}
+                </AlertDescription>
               </Alert>
             </div>
           )}

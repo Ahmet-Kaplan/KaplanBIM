@@ -27,29 +27,34 @@ import { withValues, type Translate } from './i18n/translate'
 /** What a person sees when the model refuses an edit: what stopped it, in drawing terms, not element ids. */
 const MESSAGES: Record<CommandError['code'], (t: Translate) => string> = {
   element_not_found: (t) =>
-    t('operator.element_not_found', 'That piece was removed by someone else. The view has been refreshed.', { ns: 'editor' }),
+    t('operator.element_not_found', 'That piece could not be found. Pick it again from the model.', { ns: 'editor' }),
   wrong_kind: (t) => t('operator.wrong_kind', "That piece can't be changed this way.", { ns: 'editor' }),
-  outside_host: (t) => t('operator.outside_host', "The branch can't slide past the end of the trunk.", { ns: 'editor' }),
+  outside_host: (t) =>
+    t('operator.outside_host', 'That would leave the element it belongs to. Move it back inside, then try again.', { ns: 'editor' }),
   tap_spacing: (t) =>
     t('operator.tap_spacing', 'Too close to another branch takeoff. Keep them at least a takeoff width apart.', { ns: 'editor' }),
   min_straight_length: (t) =>
-    t('operator.min_straight_length', 'A duct run would get shorter than its minimum straight length.', { ns: 'editor' }),
-  anchored_would_move: (t) => t('operator.anchored_would_move', 'That would move ductwork that is pinned in place.', { ns: 'editor' }),
+    t('operator.min_straight_length', 'That would leave a piece shorter than its minimum straight length.', { ns: 'editor' }),
+  anchored_would_move: (t) =>
+    t('operator.anchored_would_move', 'That would move what it is attached to. Detach it first.', { ns: 'editor' }),
   unsupported_geometry: (t) =>
-    t('operator.unsupported_geometry', "That change isn't supported for this shape of run yet.", { ns: 'editor' }),
+    t('operator.unsupported_geometry', "The model can't build that shape yet. Change the route and try again.", { ns: 'editor' }),
   profile_incompatible: (t) => t('operator.profile_incompatible', "That size doesn't fit the fittings it connects to.", { ns: 'editor' }),
-  disconnected: (t) => t('operator.disconnected', 'That would disconnect the ductwork.', { ns: 'editor' }),
-  invalid_value: (t) => t('operator.invalid_value', 'Enter a positive size.', { ns: 'editor' }),
-  already_exists: (t) => t('operator.already_exists', 'Something with that name or number already exists. Pick another.', { ns: 'editor' }),
-  in_use: (t) => t('operator.in_use', "That's still placed on a sheet. Remove it from the sheet first.", { ns: 'editor' }),
+  disconnected: (t) => t('operator.disconnected', 'The ends could not be joined. Check that they face each other.', { ns: 'editor' }),
+  invalid_value: (t) => t('operator.invalid_value', "That value isn't valid. Check it and try again.", { ns: 'editor' }),
+  already_exists: (t) =>
+    t('operator.already_exists', 'That is already there or clashes with something else. Choose another.', { ns: 'editor' }),
+  in_use: (t) =>
+    t('operator.in_use', "That is still in use, so it can't be changed. Take it out of use first.", { ns: 'editor' }),
   stale_base: (t) =>
-    t('operator.stale_base', 'Someone else changed this at the same time. Your view has been updated; try again.', { ns: 'editor' }),
-  conflict: (t) => t('operator.conflict', 'Someone else changed this at the same time. Your view has been updated; try again.', { ns: 'editor' }),
+    t('operator.stale_base', 'Someone else changed this at the same time. Reload before trying again.', { ns: 'editor' }),
+  conflict: (t) =>
+    t('operator.conflict', 'Someone else changed this at the same time, so nothing was saved. Check it and try again.', { ns: 'editor' }),
   forbidden: (t) => t('operator.forbidden', "You don't have permission to edit this model.", { ns: 'editor' }),
-  has_dependents: (t) => t('operator.has_dependents', 'Other things depend on this. Nothing was deleted.', { ns: 'editor' }),
+  has_dependents: (t) =>
+    t('operator.has_dependents', 'Other things depend on this, so nothing changed. Detach them or move them first.', { ns: 'editor' }),
   undo_refused: (t) => t('operator.undo_refused', "That change can't be undone now.", { ns: 'editor' }),
-  locked: (t) =>
-    t('operator.locked', 'That is in a locked group. Unlock the group in Manage › Groups & phases first.', { ns: 'editor' }),
+  locked: (t) => t('operator.locked', "That is locked, so it couldn't be changed. Unlock it and try again.", { ns: 'editor' }),
 }
 
 export function operatorMessage(code: CommandError['code'], t: Translate): string {

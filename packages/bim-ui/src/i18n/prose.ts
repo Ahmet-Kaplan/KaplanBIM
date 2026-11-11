@@ -30,6 +30,15 @@
  * namespace, for exactly that reason. A `{{name}}` in a prose value would never be
  * filled by anyone, so the guards forbid one.
  */
+// Read as data, not as an i18next namespace: a template never goes through `t()` by
+// key, so i18next's interpolation, key separators (a template may contain a full stop)
+// and namespace loading are all out of the picture.
+//
+// **Cost, before the map grows:** this import puts the whole map in every bundle that
+// imports the kit, `en` included — 37 KB of JSON today (~28 KB gzipped with the rest
+// of the kit). A map several times this size should become a dynamic `import()` behind
+// the first untranslated sentence, or a per-language asset; today the size is smaller
+// than the logic that would defer it.
 import trProseMap from "../../locales/tr/prose.json";
 import type { MutinyLanguage } from "./index";
 
@@ -79,6 +88,7 @@ const UNITS: readonly string[] = [
   "gal",
   "yd",
   "ft",
+  "in.",
   "in",
   "km",
   "cm",
@@ -102,6 +112,41 @@ const UNITS: readonly string[] = [
 ].sort((left, right) => right.length - left.length);
 
 /**
+ * The words that make `in` a preposition rather than inches: `12 in the model`
+ * holds twelve of something *in* the model, not twelve inches.
+ *
+ * A closed list of determiners, not a general "followed by a word" rule, because
+ * `1,5 in per joint` and `12 in wide` *are* inches and a general rule would refuse
+ * them. The two directions are not equally bad: a wrongly absorbed `in` keeps the
+ * word inside the slot (the sentence still reads back identically, and the template
+ * is merely odd), while a wrongly rejected one drops a measurement into the prose.
+ */
+const DETERMINERS = "the|a|an|this|that|these|those|its|their|your|our|my|his|her";
+
+/**
+ * One unit as the regex spells it: the symbol, then the guards that keep it from
+ * eating the sentence around it.
+ *
+ * Every unit carries `(?![\p{L}\d])` so it is not read out of a word (`3 miles` is
+ * not `3 m` + `iles`). `in` carries a second one — `(?!\s+<determiner>)` — because it
+ * is also an English preposition: without it `12 in the model` became the slot
+ * `12 in` and the template `{0} the model`, which deleted the preposition from four
+ * catalogue sentences — `There is no fitting type {0} the library`, `No system {0}
+ * this model.`, `… keep it to {2} your own words`, `{0} is {1} the export, but …`.
+ * `tools/i18n/__tests__/extract-prose.test.mjs` fails if one comes back.
+ */
+function unitPattern(unit: string): string {
+  const symbol = unit.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  // `String.raw` is not decoration: in a plain template literal `\p{L}` loses its
+  // backslash and becomes the character class `[p{L}d]`, and `\b` becomes a backspace.
+  if (unit !== "in") return String.raw`${symbol}(?![\p{L}\d])`;
+  return String.raw`${symbol}(?![\p{L}\d])(?!\s+(?:${DETERMINERS})\b)`;
+}
+
+/** Every unit as one regex alternation, longest symbol first. */
+const UNIT_PATTERN = UNITS.map(unitPattern).join("|");
+
+/**
  * A date, a date and time, or a time. Read before the numbers inside it, so
  * `2026-11-10` is one slot and not three, and `14:35` is not `14` and `35`.
  */
@@ -111,11 +156,12 @@ const DATE_OR_TIME =
   String.raw`|\d{1,2}:\d{2}(?::\d{2})?(?:\s*[AaPp]\.?[Mm]\.?)?`;
 
 /** A number with its unit: one slot, because the unit is half of what the number means. */
-// The number part has to contain a digit: `[.,]+` alone would match the comma of
+// The number part has to contain a digit: `[\d.,]+` alone would match the comma of
 // "it is, so the point's" and swallow the comma and the leading `s` of `so` as
-// "a distance in seconds". The unit part must not run into a word, or `3 miles`
-// would be read as `3 m` and leave `iles` outside the slot.
-const NUMBER_WITH_UNIT = String.raw`[\d.,]*\d[\d.,]*\s*(?:${UNITS.join("|")})(?![\p{L}\d])`;
+// "a distance in seconds". The leading `-?` takes a negative measurement (`-3 ft`)
+// with its unit instead of leaving the unit behind in the sentence text, and each
+// unit's trailing guards come from `unitPattern`.
+const NUMBER_WITH_UNIT = String.raw`-?[\d.,]*\d[\d.,]*\s*(?:${UNIT_PATTERN})`;
 
 /** A number on its own: a count, an id, a revision. */
 const BARE_NUMBER = String.raw`-?\d+(?:[.,]\d+)?`;
@@ -127,9 +173,8 @@ const BARE_NUMBER = String.raw`-?\d+(?:[.,]\d+)?`;
  * `{1}`: a template no runtime sentence can ever match.
  *
  * `(?<!\{)…(?!\})` keeps an existing slot out of the next pass, so normalising a
- * template is a no-op and a lookup can be repeated safely. A unit is not read out
- * of a word (`(?![\p{L}\d])`), so `3 miles` stays `3 miles` instead of becoming
- * `3 m` + `iles`.
+ * template is a no-op and a lookup can be repeated safely. Each unit's guards — the
+ * word guard, and `in`'s extra determiner guard — are spelled out in `unitPattern`.
  */
 const TOKEN = new RegExp(String.raw`(?<!\{)(?:${DATE_OR_TIME}|${NUMBER_WITH_UNIT}|${BARE_NUMBER})(?!\})`, "gu");
 

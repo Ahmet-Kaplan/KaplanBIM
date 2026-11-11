@@ -419,7 +419,7 @@
       "matchable": true
     },
     {
-      "template": "No system {0} this model.",
+      "template": "No system {0} in this model.",
       "count": 2,
       "sources": [
         "packages/bim-pack-mechanical/src/calc/mechanical/plugins.ts:99",
@@ -563,7 +563,7 @@
       "matchable": false
     },
     {
-      "template": "There is no fitting type {0} the library",
+      "template": "There is no fitting type {0} in the library",
       "count": 2,
       "sources": [
         "packages/bim-kernel/src/routing/fitting-commands.ts:283",
@@ -1611,7 +1611,7 @@
       "matchable": false
     },
     {
-      "template": "A building drain serving a water closet is {0}. at least.",
+      "template": "A building drain serving a water closet is {0} at least.",
       "count": 1,
       "sources": [
         "packages/bim-pack-plumbing/src/calc/plumbing/drainage-checks.ts:190"
@@ -2262,9 +2262,7 @@
       "sources": [
         "packages/bim-pack-structural/src/calc.ts:18"
       ],
-      "codes": [
-        "AISC Steel Construction Manual"
-      ],
+      "codes": [],
       "kinds": [
         "text"
       ],
@@ -2276,9 +2274,7 @@
       "sources": [
         "packages/bim-pack-plumbing/src/calc/packs/hunter/curves.ts:41"
       ],
-      "codes": [
-        "ASHRAE modified Hunter curve"
-      ],
+      "codes": [],
       "kinds": [
         "text"
       ],
@@ -2290,9 +2286,7 @@
       "sources": [
         "packages/bim-pack-mechanical/src/calc/mechanical/pressurization.ts:29"
       ],
-      "codes": [
-        "Air balance"
-      ],
+      "codes": [],
       "kinds": [
         "text"
       ],
@@ -3102,9 +3096,7 @@
       "sources": [
         "packages/bim-pack-electrical/src/calc/fault-current.ts:19"
       ],
-      "codes": [
-        "Eaton Bussmann"
-      ],
+      "codes": [],
       "kinds": [
         "text"
       ],
@@ -3904,9 +3896,7 @@
       "sources": [
         "packages/bim-pack-civil/src/citations.ts:43"
       ],
-      "codes": [
-        "FHWA HEC-22, Urban Drainage Design Manual"
-      ],
+      "codes": [],
       "kinds": [
         "text"
       ],
@@ -3944,9 +3934,7 @@
       "sources": [
         "packages/bim-pack-civil/src/citations.ts:61"
       ],
-      "codes": [
-        "Civil pack design criteria"
-      ],
+      "codes": [],
       "kinds": [
         "text"
       ],
@@ -5116,9 +5104,7 @@
       "sources": [
         "packages/bim-pack-civil/src/citations.ts:25"
       ],
-      "codes": [
-        "FHWA HEC-22, Urban Drainage Design Manual"
-      ],
+      "codes": [],
       "kinds": [
         "text"
       ],
@@ -5273,7 +5259,7 @@
       "matchable": true
     },
     {
-      "template": "Rule {0}'s summary is {1} characters; keep it to {2} your own words. Cite the section instead of quoting it",
+      "template": "Rule {0}'s summary is {1} characters; keep it to {2} in your own words. Cite the section instead of quoting it",
       "count": 1,
       "sources": [
         "packages/bim-kernel/src/graph/conformance.ts:63"
@@ -5299,7 +5285,7 @@
       "matchable": false
     },
     {
-      "template": "Rule {0}'s title is {1} characters; keep it to {2} your own words",
+      "template": "Rule {0}'s title is {1} characters; keep it to {2} in your own words",
       "count": 1,
       "sources": [
         "packages/bim-kernel/src/graph/conformance.ts:62"
@@ -5733,7 +5719,7 @@
       "matchable": false
     },
     {
-      "template": "Slope sanitary piping {0}/{1}. per foot unless noted otherwise.",
+      "template": "Slope sanitary piping {0}/{1} per foot unless noted otherwise.",
       "count": 1,
       "sources": [
         "packages/bim-pack-plumbing/src/keynotes.ts:20"
@@ -6377,7 +6363,7 @@
       "matchable": false
     },
     {
-      "template": "The drawn {0}. is smaller than the required {1}.",
+      "template": "The drawn {0} is smaller than the required {1}",
       "count": 1,
       "sources": [
         "packages/bim-pack-plumbing/src/calc/plumbing/code-calcs.ts:392"
@@ -7103,7 +7089,7 @@
       "matchable": false
     },
     {
-      "template": "The {0} carries {1} cfh; over the {2} longest run it would drop {3}. w.c., more than the {4}. allowed; go up a size",
+      "template": "The {0} carries {1} cfh; over the {2} longest run it would drop {3} w.c., more than the {4} allowed; go up a size",
       "count": 1,
       "sources": [
         "packages/bim-pack-plumbing/src/routing/pipe/hydraulics.ts:903"
@@ -7115,7 +7101,7 @@
       "matchable": false
     },
     {
-      "template": "The {0} carries {1} cfh; over {2}'s {3} longest run it would drop {4}. w.c., more than the {5}. allowed there; go up a size",
+      "template": "The {0} carries {1} cfh; over {2}'s {3} longest run it would drop {4} w.c., more than the {5} allowed there; go up a size",
       "count": 1,
       "sources": [
         "packages/bim-pack-plumbing/src/routing/pipe/hydraulics.ts:995"
@@ -9071,7 +9057,7 @@
       "matchable": false
     },
     {
-      "template": "{0} DFU on a {1}. drain at {2}/ft; {3}",
+      "template": "{0} DFU on a {1} drain at {2}/ft; {3}",
       "count": 1,
       "sources": [
         "packages/bim-pack-plumbing/src/calc/plumbing/drainage-checks.ts:189"
@@ -12047,6 +12033,18 @@
       "matchable": false
     },
     {
+      "template": "{0} is {1} in the export, but the export gives no size; it was kept with no size",
+      "count": 1,
+      "sources": [
+        "packages/bim-kernel/src/library/revit-convert.ts:407"
+      ],
+      "codes": [],
+      "kinds": [
+        "message"
+      ],
+      "matchable": false
+    },
+    {
       "template": "{0} is {1} long; {2} is past its end",
       "count": 1,
       "sources": [
@@ -12069,18 +12067,6 @@
       "codes": [
         "mixed_material"
       ],
-      "kinds": [
-        "message"
-      ],
-      "matchable": false
-    },
-    {
-      "template": "{0} is {1} the export, but the export gives no size; it was kept with no size",
-      "count": 1,
-      "sources": [
-        "packages/bim-kernel/src/library/revit-convert.ts:407"
-      ],
-      "codes": [],
       "kinds": [
         "message"
       ],
@@ -13267,7 +13253,7 @@
       "matchable": false
     },
     {
-      "template": "{0} sees {1}. w.c. of drop from the meter, more than the {2}. allowed",
+      "template": "{0} sees {1} w.c. of drop from the meter, more than the {2} allowed",
       "count": 1,
       "sources": [
         "packages/bim-pack-plumbing/src/routing/pipe/hydraulics.ts:904"
@@ -13279,7 +13265,7 @@
       "matchable": false
     },
     {
-      "template": "{0} sees {1}. w.c. of drop from the start of {2}, more than the {3}. allowed",
+      "template": "{0} sees {1} w.c. of drop from the start of {2}, more than the {3} allowed",
       "count": 1,
       "sources": [
         "packages/bim-pack-plumbing/src/routing/pipe/hydraulics.ts:1006"
@@ -14313,7 +14299,7 @@
       "matchable": false
     },
     {
-      "template": "{0}/ft is below Table {1}'s {2}/ft for {3}.",
+      "template": "{0}/ft is below Table {1}'s {2}/ft for {3}",
       "count": 1,
       "sources": [
         "packages/bim-pack-plumbing/src/calc/plumbing/code-calcs.ts:364"
@@ -14325,7 +14311,7 @@
       "matchable": false
     },
     {
-      "template": "{0}/ft is below the {1}/ft least slope for a {2}. drain.",
+      "template": "{0}/ft is below the {1}/ft least slope for a {2} drain.",
       "count": 1,
       "sources": [
         "packages/bim-pack-plumbing/src/calc/plumbing/drainage-checks.ts:131"
@@ -14503,7 +14489,7 @@
       "matchable": false
     },
     {
-      "template": "{0}: the equation needs {1}. inside diameter, more than the largest size listed.",
+      "template": "{0}: the equation needs {1} inside diameter, more than the largest size listed.",
       "count": 1,
       "sources": [
         "packages/bim-pack-plumbing/src/calc/plumbing/code-calcs.ts:584"

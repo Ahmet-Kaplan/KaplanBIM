@@ -49,6 +49,8 @@ export const DEFAULT_NAMESPACE = "common";
  */
 export const PROSE_CATALOG_ID = "docs/i18n/prose-templates.json";
 export const PROSE_MAP_ID = "packages/bim-ui/locales/tr/prose.json";
+/** The namespace `prose.json` lands in (the file is named after it). */
+export const PROSE_NAMESPACE = "prose";
 
 /** Qualifier inside a coverage id. A NUL byte cannot appear in a namespace or a key. */
 const QUALIFIER = "\u0000";
@@ -326,28 +328,34 @@ export function flattenLocaleFiles(files, { kind = "locale" } = {}) {
 /**
  * What the prose map covers, measured against the catalogue the extractor wrote.
  *
- * Two denominators, both reported:
+ * Four readings, because one number would flatter the work:
  *
- *  - `matchable`: the templates a `{0}` slot can key at all, which is what the
- *    translation target is stated against;
+ *  - `matchable`: the templates a `{0}` slot can key at all — the population the
+ *    mechanism can translate, and the denominator the target is stated against;
  *  - `templates`: every sentence the kernel and the packs write, whose difference
  *    from the first is the tail that cannot be keyed — a sentence built from a name
  *    (`2 elements are in "Level 1"`) carries words that came from an interpolation,
- *    so no template can match it.
+ *    so no template can match it;
+ *  - `coded`: templates carrying an error code, i.e. what a refusal can reach the
+ *    screen with. Not "refusals": a coded sentence can also be a citation;
+ *  - `top10` / `top50`: reach. The catalogue is in frequency order, so this is how
+ *    much of what a person meets *most* is covered, and it is low.
  */
 export function proseReport(catalog, map) {
   if (catalog === undefined || !Array.isArray(catalog.templates)) return undefined;
   const translated = (rows) => rows.filter((row) => Object.hasOwn(map, row.template));
   const matchable = catalog.templates.filter((row) => row.matchable === true);
-  const refusals = catalog.templates.filter((row) => Array.isArray(row.codes) && row.codes.length > 0);
+  const coded = catalog.templates.filter((row) => Array.isArray(row.codes) && row.codes.length > 0);
   return {
     templates: catalog.templates.length,
     templatesTranslated: translated(catalog.templates).length,
     matchable: matchable.length,
     matchableTranslated: translated(matchable).length,
-    refusals: refusals.length,
-    refusalsTranslated: translated(refusals).length,
+    coded: coded.length,
+    codedTranslated: translated(coded).length,
     unmatchable: catalog.templates.length - matchable.length,
+    top10: translated(catalog.templates.slice(0, 10)).length,
+    top50: translated(catalog.templates.slice(0, 50)).length,
     // Listed, so a sentence that arrives without a translation is visible in the
     // review rather than merely counted.
     untranslatedMatchable: matchable.filter((row) => !Object.hasOwn(map, row.template)).map((row) => row.template).sort(compare),
@@ -377,12 +385,21 @@ export function collectBundle({ files = [], sourceStrings = {}, sourceKeys, sour
 
   const { entries, nonStrings, unreadable } = flattenLocaleFiles(files);
   const referenced = new Set([...Object.keys(sourceStrings), ...(sourceKeys ?? [])]);
+  // In the prose namespace the English *is* the key: the template came out of an
+  // English sentence, so the catalogue's key is the sentence the Turkish replaces.
+  // Without this every row showed "—" under English and counted as having no
+  // English default, which read as a gap in the report rather than as the design.
   // The prose templates are referenced by the catalogue, not by a call the scan can
   // see; marking them here keeps the review from calling 241 translated sentences
   // orphaned. They are deliberately *not* added to `referenced`: that set also drives
   // the missing list, and only the matchable tail can be translated at all.
   const proseReferences = new Set(proseKeys ?? []);
-  const knownEnglish = (namespace, key) => (Object.hasOwn(sourceStrings, qualify(namespace, key)) ? sourceStrings[qualify(namespace, key)] : undefined);
+  const knownEnglish = (namespace, key) =>
+    namespace === PROSE_NAMESPACE
+      ? key
+      : Object.hasOwn(sourceStrings, qualify(namespace, key))
+        ? sourceStrings[qualify(namespace, key)]
+        : undefined;
 
   // Group by namespace, then by key: two packages that both ship `common.json`
   // are one section, and a key that appears in both shows both values.
@@ -506,10 +523,18 @@ export function renderBundle({ date, stage, counts, uncertainNamespaces = 0, pro
     lines.push("Kernel ve ticaret paketleri İngilizce cümle yazar (`CommandError.message`); kernel i18n'e bağlanamadığı için çeviri cümlenin **gösterildiği yerde** yapılır: cümle `{0}`, `{1}` yuvalarına normalize edilir, şablon `packages/bim-ui/locales/tr/prose.json`'da aranır, yuvalar sırayla doldurulur. Şablon yoksa cümle İngilizce kalır — asla anahtar/şablon gösterilmez.", "");
     lines.push("| Ölçü | Çevrildi | Toplam | Oran |", "|------|----------|--------|------|");
     lines.push(`| Eşlenebilir şablon (**hedef ≥ %80**) | ${prose.matchableTranslated} | ${prose.matchable} | ${percent(prose.matchableTranslated, prose.matchable)}% |`);
-    lines.push(`| Reddetme cümlesi | ${prose.refusalsTranslated} | ${prose.refusals} | ${percent(prose.refusalsTranslated, prose.refusals)}% |`);
+    lines.push(`| Erişim: en sık ilk 10 şablon | ${prose.top10} | 10 | ${percent(prose.top10, 10)}% |`);
+    lines.push(`| Erişim: en sık ilk 50 şablon | ${prose.top50} | 50 | ${percent(prose.top50, 50)}% |`);
+    lines.push(`| Kodlu cümleler (code taşıyan) | ${prose.codedTranslated} | ${prose.coded} | ${percent(prose.codedTranslated, prose.coded)}% |`);
     lines.push(`| Tüm katalog | ${prose.templatesTranslated} | ${prose.templates} | ${percent(prose.templatesTranslated, prose.templates)}% |`);
     lines.push(`| — Şablon eşlenemez (ad/çoğul interpolasyonu) | — | ${prose.unmatchable} | — |`);
     lines.push("");
+    lines.push(
+      `**Hedef nerede tutuyor, nerede tutmuyor.** ≥ %80 hedefi **erişilebilir** paydada tutuyor ` +
+        `(${prose.matchableTranslated}/${prose.matchable}); **erişimde tutmuyor** (ilk 10: ${prose.top10}/10, ilk 50: ${prose.top50}/50). ` +
+        "En sık geçen cümleler ad taşıdığı için hiçbir şablon onları eşleyemez; kalan fark kernel'in cümle yerine kod taşımasıyla kapanır, daha büyük bir haritayla değil.",
+      "",
+    );
     lines.push(`**Şablon eşlenemez** demek: cümle bir ad ya da çoğul taşıyor (\`2 elements are in "Level 1"\`, \`\${n === 1 ? "is" : "are"}\`), yani çalışma anındaki metin kaynak şablondan **kelime kelime** ayrılıyor ve hiçbir \`{n}\` yuvası onun yerini tutamaz. Bu kuyruk bilerek İngilizce kalır; kapanması için kernel'in cümle yerine **hata kodu** taşıması gerekir. Sayı burada, sessizce düşürülmüyor.`, "");
     if (prose.untranslatedMatchable.length === 0) {
       lines.push("Eşlenebilir her şablonun Türkçesi var.", "");

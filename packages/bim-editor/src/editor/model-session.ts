@@ -16,7 +16,7 @@ import { unavailableWords } from '@permitzip/bim-editor/host/unavailable'
 import type { RevitElementParameters, RevitParametersResponse, UnplacedElementsResponse, UnplacedElementView } from '../contracts/building-model/revit-parameters-contract'
 import type { MutinyLanguage } from '@permitzip/bim-ui'
 import { connectionProblem, editsPausedMessage, problemForDenied, refusalWords, type ConnectionProblem } from './operator-messages'
-import type { Translate } from './i18n/translate'
+import { withValues, type Translate } from './i18n/translate'
 import { ALIGN_SNAP_MM, GRID_MM, MM_PER_FT, MM_PER_IN, POINT_SNAP_MM, defaultHeightMm, describeElement, feetInches, newElementId, partLabel, snapHint, snapPoint, snapTargets, type SnapTarget } from './placement'
 import { linkedSnapNear } from './linked-reference/linked-reference-store'
 import { isStarterLevelRace, starterLevelCommand } from './levels/starter-level'
@@ -1600,10 +1600,17 @@ export class ModelSession {
   private async finishBoxSelect(ids: readonly string[], mode: 'window' | 'crossing'): Promise<string> {
     if (ids.length === 0) {
       await this.clearSelection()
-      return mode === 'window' ? 'Nothing lies fully inside the box. Drag right to left to pick what it touches.' : 'The box touches nothing of the kinds selected in Filter.'
+      return mode === 'window'
+        ? this.t('session.boxNothingInside', 'Nothing lies fully inside the box. Drag right to left to pick what it touches.', { ns: 'editor' })
+        : this.t('session.boxTouchesNothing', 'The box touches nothing of the kinds selected in Filter.', { ns: 'editor' })
     }
     await this.selectGroup('box', ids, null)
-    return `${ids.length} selected (${mode === 'window' ? 'fully inside' : 'touching'} the box).`
+    // One full sentence per mode, not a sentence with the mode word spliced in: the two
+    // modes put the count and the phrase in different places in Turkish. Both call
+    // sites are literal so `npm run i18n:review` can see them.
+    return mode === 'window'
+      ? withValues(this.t('session.boxSelectedInside', '{{count}} selected: fully inside the box.', { ns: 'editor' }), { count: ids.length })
+      : withValues(this.t('session.boxSelectedTouching', '{{count}} selected: touching the box.', { ns: 'editor' }), { count: ids.length })
   }
 
   /** Move every movable piece of the group by `delta` (plan mm) and `dzMm` up (parts only; runs change height with Change height) in one edit. */
@@ -2042,7 +2049,7 @@ export class ModelSession {
     const command = this.nudgeCommand(view, ids, delta)
     if (typeof command === 'string') return command
     const res = kernel.executeCommand(view, command)
-    if (!res.ok) return `${res.error.message}.`
+    if (!res.ok) return refusalWords(res.error.code, res.error.message, this.language, this.t)
     if (this.nudge) clearTimeout(this.nudge.timer)
     this.nudge = { ids: [...ids], delta, command, timer: setTimeout(() => this.flushNudge(), NUDGE_SETTLE_MS) }
     this.preview = res.model
@@ -2234,12 +2241,11 @@ export class ModelSession {
     if (request.command.type === 'ensure_starter_level') {
       // Not an edit of yours to undo; a lost race (another person's open made it) says nothing.
       if (outcome.status === 'rejected' && !isStarterLevelRace(request.command, outcome.error.code)) {
-        this.events.onActivity(
-          this.t('session.levelNotAdded', "Level 1 wasn't added: {{reason}}", {
-            ns: 'editor',
-            reason: refusalWords(outcome.error.code, outcome.error.message, this.language, this.t),
-          }),
-        )
+        // `withValues` fills `{{reason}}` even under `englishOnly`, which returns its
+        // English argument verbatim, braces and all: the defect that has slipped
+        // through this project twice. `editsPausedMessage` does the same.
+        const reason = refusalWords(outcome.error.code, outcome.error.message, this.language, this.t)
+        this.events.onActivity(withValues(this.t('session.levelNotAdded', "Level 1 wasn't added: {{reason}}", { ns: 'editor' }), { reason }))
       }
       return
     }
@@ -2247,9 +2253,14 @@ export class ModelSession {
       const notUnderstood = this.notUnderstood.delete(request.idempotencyKey)
       // The kernel's sentence when it can be said in the person's language, else the
       // editor's sentence for that code — never English on a Turkish screen.
-      const message = notUnderstood ? outcome.error.message : refusalWords(outcome.error.code, outcome.error.message, this.language, this.t)
+      // `notUnderstood` is the client saying it could not read the command, not the
+      // kernel refusing it — but the person still needs the words, so it goes through
+      // the same composition rather than past it in English.
+      const message = refusalWords(outcome.error.code, outcome.error.message, this.language, this.t)
       this.events.onActivity(
-        notUnderstood ? message : this.t('session.changeNotSaved', "Your change wasn't saved. {{reason}}", { ns: 'editor', reason: message }),
+        notUnderstood
+          ? message
+          : withValues(this.t('session.changeNotSaved', "Your change wasn't saved. {{reason}}", { ns: 'editor' }), { reason: message }),
       )
       this.events.onRefused?.(message)
       this.emitUndoState()
@@ -2307,7 +2318,11 @@ export class ModelSession {
   private step(direction: 'undo' | 'redo'): string | null {
     const stack = direction === 'undo' ? this.undoStack : this.redoStack
     const entry = stack.pop()
-    if (!entry || !this.client) return direction === 'undo' ? 'Nothing to undo.' : 'Nothing to redo.'
+    if (!entry || !this.client) {
+      return direction === 'undo'
+        ? this.t('session.nothingToUndo', 'Nothing to undo.', { ns: 'editor' })
+        : this.t('session.nothingToRedo', 'Nothing to redo.', { ns: 'editor' })
+    }
     // An undo puts back what that revision changed.
     const undone = this.client.committed(entry.revision)
     const res = this.sendToClient(this.client, { type: 'undo', revision: entry.revision }, undone ? touchedIds(undone.elements.map((e) => e.id), undone) : null)
