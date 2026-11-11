@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { buildSheetSceneFor, buildViewScene, withCategoryRegistry, type CategoryRegistry, type ModelState, type SheetScene, type ViewBackgrounds, type ViewFrame } from '@permitzip/bim-kernel'
 import type { SheetTitle } from '../../contracts/building-model/sheet-title'
+import { useEditorTranslate } from '../i18n/translate'
 
 export type DrawingTarget = { readonly kind: 'sheet'; readonly sheetId: string } | { readonly kind: 'detail'; readonly viewId: string }
 
@@ -18,6 +19,8 @@ export interface DrawnScene {
  * firm class draw; absent, the built-in categories.
  */
 export function useDrawnScene(model: ModelState, target: DrawingTarget, title: SheetTitle, backgrounds: ViewBackgrounds | undefined, categories?: CategoryRegistry): DrawnScene {
+  const t = useEditorTranslate()
+
   const kind = target.kind
   const id = target.kind === 'sheet' ? target.sheetId : target.viewId
   return useMemo(() => {
@@ -33,7 +36,7 @@ export function useDrawnScene(model: ModelState, target: DrawingTarget, title: S
       return categories ? withCategoryRegistry(categories, draw) : draw()
     } catch (err) {
       console.error('[DrawingCanvas] drawing failed', { kind, id, err })
-      return { scene: null, frame: null, error: kind === 'sheet' ? 'This sheet no longer exists.' : 'This view no longer exists.' }
+      return { scene: null, frame: null, error: kind === 'sheet' ? t('drawnScene.sheetGone', 'This sheet no longer exists.', { ns: 'editor' }) : t('drawnScene.viewGone', 'This view no longer exists.', { ns: 'editor' }) }
     }
   }, [model, kind, id, title, backgrounds, categories])
 }

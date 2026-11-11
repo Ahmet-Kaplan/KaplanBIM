@@ -141,17 +141,19 @@ export function CoordinatesDialog({ site, initialTab, initialMode, editBlocked, 
   const angleDeg = parseDeg(angle)
   const angleChanged = angleDeg !== null && normalizeWorkingAngleDeg(angleDeg) !== modelAngle
   const changed = originChanged || siteChanged || northChanged || angleChanged
-  const saveBlocked = editBlocked ?? (changed ? null : 'Change a value to save.')
+  const saveBlocked = editBlocked ?? (changed ? null : t('coordinates.changeToSave', 'Change a value to save.', { ns: 'editor' }))
 
   const pointCommand = (which: Exclude<OriginPoint, 'internal_origin'>, v: PointValues): { command: Command; label: string } | string | null => {
     if (mode === 'move_point') {
       const [x, y, z] = [parseFt(v.x), parseFt(v.y), parseFt(v.z)]
-      if (x === null || y === null || z === null) return 'Type the position in this model in feet: east, north and height.'
+      if (x === null || y === null || z === null)
+        return t('coordinates.typeModelPosition', 'Type the position in this model in feet: east, north and height.', { ns: 'editor' })
       const command = moveOriginCommand(which, mode, { position: { x, y, z } })
       return command ? { command, label: moveOriginLabel(which, mode) } : null
     }
     const [ns, ew, elev] = [parseFt(v.ns), parseFt(v.ew), parseFt(v.elev)]
-    if (ns === null || ew === null || elev === null) return 'Type the site coordinates in feet: north–south, east–west and elevation.'
+    if (ns === null || ew === null || elev === null)
+      return t('coordinates.typeSiteCoordinates', 'Type the site coordinates in feet: north–south, east–west and elevation.', { ns: 'editor' })
     const command = moveOriginCommand(which, mode, { shared: { northSouth: ns, eastWest: ew, elevation: elev } })
     return command ? { command, label: moveOriginLabel(which, mode) } : null
   }

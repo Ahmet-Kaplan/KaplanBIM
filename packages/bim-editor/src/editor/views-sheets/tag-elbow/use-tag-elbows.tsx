@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import type { Command, DrawingItem, ModelState, Vec2, ViewElement } from '@permitzip/bim-kernel'
 import { TagElbowGrip } from './TagElbowGrip'
 import { planSpreadTags, spreadBlocked, straightenBlocked, straightenLeaderCommand, tagMoveCommand, type TagCommand } from './tag-elbow-commands'
+import { useEditorTranslate } from '../../i18n/translate'
 
 export interface TagMenuAction {
   readonly blocked: string | null
@@ -52,6 +53,8 @@ export interface TagElbows {
  * leader) and the command a dropped tag sends.
  */
 export function useTagElbows(input: TagElbowsInput): TagElbows {
+  const t = useEditorTranslate()
+
   const { model, view, items, selectedIds, editBlocked, send, select, toPaper, toStored, paperOf, paperMmPerPx } = input
   const primary = useMemo(() => items.find((i) => i.id === selectedIds[0]) ?? null, [items, selectedIds])
   const sendTag = useCallback((c: TagCommand) => send(c.command, c.label), [send])
@@ -67,7 +70,7 @@ export function useTagElbows(input: TagElbowsInput): TagElbows {
     if (!send(plan.command, 'spread tags')) return
     if (plan.needHand.length > 0) {
       select(plan.needHand)
-      toast.warning(plan.message, { description: [plan.needHand.length === 1 ? 'It is selected: drag it where it reads best.' : 'They are selected: drag each where it reads best.', plan.detail].filter(Boolean).join(' ') })
+      toast.warning(plan.message, { description: [plan.needHand.length === 1 ? t('tag.spreadOneSelected', 'It is selected: drag it where it reads best.', { ns: 'editor' }) : t('tag.spreadSomeSelected', 'They are selected: drag each where it reads best.', { ns: 'editor' }), plan.detail].filter(Boolean).join(' ') })
     } else toast.success(plan.message, plan.detail ? { description: plan.detail } : {})
   }, [model, view, selectedIds, spreadWhy, send, select])
 

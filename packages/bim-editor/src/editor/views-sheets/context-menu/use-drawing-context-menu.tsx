@@ -74,7 +74,7 @@ export function useDrawingContextMenu(opts: DrawingContextMenuOptions): {
       canSelect: Boolean(opts.modelEdit),
       canCreateSimilar: Boolean(opts.onCreateSimilar && opts.modelEdit),
       canAddView: Boolean(opts.onAddView),
-    })
+    }, t)
     lastTarget.current = target
     setShown({ at: { x: e.clientX - r.left, y: e.clientY - r.top }, menu })
   }

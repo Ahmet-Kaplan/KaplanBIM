@@ -103,6 +103,19 @@ const CAPTIONS: readonly Caption[] = [
   { key: "schedule.newWindow.whatItLists", english: "What it lists", turkish: "Neyi listeler" },
   { key: "schedule.pipeLoad.put", english: "Put on the pipe end", turkish: "Boru ucuna koy" },
   { key: "schedule.end.start", english: "Start", turkish: "Başlangıç" },
+  // The four the `tr` alias hid from both guards, and from every locale file.
+  { key: "schedule.formOnlyTitle", english: "{{name}} is laid out by its form", turkish: "{{name}} kendi formuyla düzenlenir" },
+  {
+    key: "schedule.formOnlyOnSheet",
+    english: "It is drawn on {{number}} · {{title}}; open that sheet to read it and change it (its template and rules are in its properties).",
+    turkish: "{{number}} · {{title}} paftasında çizilir; okumak ve değiştirmek için o paftayı açın (şablonu ve kuralları özelliklerinde).",
+  },
+  {
+    key: "schedule.formOnlyNotPlaced",
+    english: "Put it on a sheet from its properties (Place on sheet), then open that sheet to read it.",
+    turkish: "Özelliklerinden (Paftaya yerleştir) bir paftaya koyun, sonra okumak için o paftayı açın.",
+  },
+  { key: "schedule.openSheetNumber", english: "Open {{number}}", turkish: "{{number}} paftasını aç" },
   { key: "calc.calculation", english: "Calculation", turkish: "Hesap" },
   { key: "calc.governingCell", english: "Governing cell", turkish: "Belirleyici hücre" },
   { key: "calc.place", english: "Place", turkish: "Yerleştir" },
@@ -121,6 +134,10 @@ const SITES: Readonly<Record<string, number>> = {
   "schedule.priceWith.title": 2,
   "schedule.elements": 2,
   "schedule.oneElement": 2,
+  "schedule.formOnlyTitle": 1,
+  "schedule.formOnlyOnSheet": 1,
+  "schedule.formOnlyNotPlaced": 1,
+  "schedule.openSheetNumber": 1,
   "view.noLimit": 2,
   "view.projection": 2,
   "titleBlock.default": 2,
@@ -134,6 +151,8 @@ const VALUES: Readonly<Record<string, Readonly<Record<string, string | number>>>
   "schedule.loading": { name: "Pompa çizelgesi" },
   "schedule.elements": { n: 3 },
   "calc.insertTitle": { number: "M-101" },
+  "schedule.formOnlyTitle": { name: "Pompa çizelgesi" },
+  "schedule.formOnlyOnSheet": { number: "M-101", title: "Pompa listesi" },
 };
 
 const fill = (template: string, values: Readonly<Record<string, string | number>> | undefined): string =>

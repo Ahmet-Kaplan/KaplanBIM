@@ -625,7 +625,11 @@ test("the English in these tables is the English the source says", () => {
 
 test("no operator, tool or empty-state caption in the source is missing from these tables", () => {
   const listed = new Set([...captions().map((caption) => caption.key), SERVER_SAID.key, ...toolCaptionKeys(), ...BLOCKED_KEYS]);
-  const inSource = captionsUnder(editorSourceCaptions(), ["operator.", "connection.", "paused.", "tool.", "empty.", "blocked."]);
+  // `tool.readiness` keys are this file's; the palette words (`tool.arc`, `tool.line` …)
+  // are `i18n-views-sheets.test.tsx`'s, which pins them with their own site counts.
+  const inSource = captionsUnder(editorSourceCaptions(), ["operator.", "connection.", "paused.", "empty.", "blocked."]).concat(
+    captionsUnder(editorSourceCaptions(), ["tool."]).filter((key) => !/^tool\.(arc|batt|callout|circle|cloud|component|dimension|keynote|line|note|polygon|polyline|rect|region|repeat|select|selectAndMove|spline|tag|text)$/u.test(key)),
+  );
   expect(inSource.filter((key) => !listed.has(key))).toEqual([]);
 });
 

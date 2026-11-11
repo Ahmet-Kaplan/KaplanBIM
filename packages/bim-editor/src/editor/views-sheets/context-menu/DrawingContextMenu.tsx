@@ -81,7 +81,7 @@ export function DrawingContextMenu({ at, menu, onClose, onRun }: Props) {
                 setConfirming(null)
               }}
             >
-              {confirming?.confirm?.confirmLabel ?? 'Confirm'}
+              {confirming?.confirm?.confirmLabel ?? t('drawing.confirm', 'Confirm', { ns: 'editor' })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

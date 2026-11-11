@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { asElementId, drawDetailItem, modifyCommand, resolveNote, type DrawingItem, type Primitive, type Vec2 } from '@permitzip/bim-kernel'
 import { newId, type SubmitCommand } from '../types'
 import type { SnapPoint } from '../annotation-tools'
+import { englishOnly, type Translate } from '../../i18n/translate'
 import {
   PICK_ELEMENT_OPS,
   clickDimension,
@@ -45,6 +46,8 @@ export interface DraftInputContext {
   readonly send: (command: Parameters<SubmitCommand>[0], label: string) => boolean
   readonly onSaved: (selectId: string | null) => void
   readonly onRefused: (reason: string) => void
+  /** The language the prompts, the snap words and the refusals are said in. */
+  readonly t?: Translate
 }
 
 export interface DraftInput {
@@ -65,6 +68,7 @@ export interface DraftInput {
 }
 
 export function useDraftInput(ctx: DraftInputContext): DraftInput {
+  const t = ctx.t ?? englishOnly
   const [clicks, setClicks] = useState<Constrained[]>([])
   const [hover, setHover] = useState<Constrained | null>(null)
   const { tool, settings, pending } = ctx
@@ -73,7 +77,19 @@ export function useDraftInput(ctx: DraftInputContext): DraftInput {
 
   const constrain = useCallback(
     (at: Vec2, from: Vec2 | null, opts: { nearest?: boolean; anchors?: boolean; pickElement?: boolean } = {}) =>
-      constrainPoint({ at, from, items: ctx.items, toPaper: ctx.toPaper, settings: ctx.settings, reachMm: ctx.reachMm, trackBaseDeg: ctx.trackBaseDeg ?? 0, ...(opts.anchors ? { anchors: ctx.anchors } : {}), ...(opts.nearest ? { nearest: true } : {}), ...(opts.pickElement ? { pickElement: true } : {}) }),
+      constrainPoint({
+        at,
+        from,
+        items: ctx.items,
+        toPaper: ctx.toPaper,
+        settings: ctx.settings,
+        reachMm: ctx.reachMm,
+        trackBaseDeg: ctx.trackBaseDeg ?? 0,
+        t,
+        ...(opts.anchors ? { anchors: ctx.anchors } : {}),
+        ...(opts.nearest ? { nearest: true } : {}),
+        ...(opts.pickElement ? { pickElement: true } : {}),
+      }),
     [ctx.items, ctx.toPaper, ctx.settings, ctx.reachMm, ctx.anchors, ctx.trackBaseDeg],
   )
 
@@ -88,8 +104,17 @@ export function useDraftInput(ctx: DraftInputContext): DraftInput {
       const itemId = newId(shapeTool === 'dimension' ? 'dim' : 'item')
       const command =
         shapeTool === 'dimension'
-          ? dimensionCommand({ paper: pts, settings: ctx.settings, toStored: ctx.toStored, items: ctx.items, ownerId: ctx.ownerId, itemId })
-          : shapeCommand({ tool: shapeTool, paper: pts.map((c) => c.at), settings: ctx.settings, toStored: ctx.toStored, storedPerPaperMm: ctx.storedPerPaperMm, ownerId: ctx.ownerId, itemId })
+          ? dimensionCommand({ paper: pts, settings: ctx.settings, toStored: ctx.toStored, items: ctx.items, ownerId: ctx.ownerId, itemId, t })
+          : shapeCommand({
+              tool: shapeTool,
+              paper: pts.map((c) => c.at),
+              settings: ctx.settings,
+              toStored: ctx.toStored,
+              storedPerPaperMm: ctx.storedPerPaperMm,
+              ownerId: ctx.ownerId,
+              itemId,
+              t,
+            })
       reset()
       if (typeof command === 'string') {
         ctx.onRefused(command)
@@ -110,17 +135,17 @@ export function useDraftInput(ctx: DraftInputContext): DraftInput {
         reset()
         if (op === 'trim_extend_multiple' && picks[0]) setClicks([picks[0]])
       }
-      const req = modifyRequest(op, picks, ctx.params, ctx.toStored, ctx.selectedIds)
+      const req = modifyRequest(op, picks, ctx.params, ctx.toStored, ctx.selectedIds, t)
       if (typeof req === 'string') {
         again()
-        if (!stays && modifyPicks(op, ctx.params).length === 0) ctx.setPending(null)
+        if (!stays && modifyPicks(op, ctx.params, t).length === 0) ctx.setPending(null)
         ctx.onRefused(req)
         return
       }
       const made = modifyCommand(ctx.items, req.ids, req.operation, ctx.ownerId, newId('mod'))
       again()
       if (!made.ok) {
-        if (!stays && modifyPicks(op, ctx.params).length === 0) ctx.setPending(null)
+        if (!stays && modifyPicks(op, ctx.params, t).length === 0) ctx.setPending(null)
         ctx.onRefused(made.reason)
         return
       }
@@ -129,13 +154,13 @@ export function useDraftInput(ctx: DraftInputContext): DraftInput {
           ctx.setPending(null)
           if (!keepsSelection(req.operation, ctx.items, req.ids)) ctx.onSaved(null)
         }
-      } else if (!stays && modifyPicks(op, ctx.params).length === 0) ctx.setPending(null)
+      } else if (!stays && modifyPicks(op, ctx.params, t).length === 0) ctx.setPending(null)
     },
     [pending, ctx, reset],
   )
 
   // Pin and Unpin take no clicks: they act on the selection as soon as they are picked.
-  const instantOp = pending?.kind === 'modify' && modifyPicks(pending.op, ctx.params).length === 0 ? pending.op : null
+  const instantOp = pending?.kind === 'modify' && modifyPicks(pending.op, ctx.params, t).length === 0 ? pending.op : null
   useEffect(() => {
     if (instantOp) runModify([])
     // Only when an instant operation is picked; runModify changes identity every render.
@@ -150,12 +175,12 @@ export function useDraftInput(ctx: DraftInputContext): DraftInput {
       reset()
       ctx.setPending(null)
       if (!note || !resolved) {
-        ctx.onRefused('That note is gone.')
+        ctx.onRefused(t('draft.noteGone', 'That note is gone.', { ns: 'editor' }))
         return
       }
       const existing = [...(note.note?.leader ? [note.note.leader] : []), ...(note.note?.leaders ?? [])]
       if (existing.length >= 9) {
-        ctx.onRefused('A note takes up to 9 leaders. Remove one first.')
+        ctx.onRefused(t('draft.noteMaxLeaders', 'A note takes up to 9 leaders. Remove one first.', { ns: 'editor' }))
         return
       }
       const [first, second] = picks.map((c) => ctx.toStored(c.at))
@@ -166,20 +191,20 @@ export function useDraftInput(ctx: DraftInputContext): DraftInput {
     [pending, ctx, reset],
   )
 
-  const picksNeeded = pending?.kind === 'modify' ? modifyPicks(pending.op, ctx.params).length : pending?.kind === 'leader' ? (pending.elbow ? 2 : 1) : 0
+  const picksNeeded = pending?.kind === 'modify' ? modifyPicks(pending.op, ctx.params, t).length : pending?.kind === 'leader' ? (pending.elbow ? 2 : 1) : 0
 
   const down = useCallback(
     (raw: Vec2) => {
       const last = clicks[clicks.length - 1]?.at ?? null
       if (pending?.kind === 'modify') {
         if (ctx.selectedIds.length === 0 && !PICK_ELEMENT_OPS.has(pending.op)) {
-          ctx.onRefused(modifyPrompt(pending.op, 0, 0, ctx.params))
+          ctx.onRefused(modifyPrompt(pending.op, 0, 0, ctx.params, t))
           return
         }
         const needsItem = pickNeedsItem(pending.op, clicks.length)
         const c = constrain(raw, last, { pickElement: needsItem })
         if (needsItem && !c.itemId) {
-          ctx.onRefused('Click right on a drawn line, arc or circle.')
+          ctx.onRefused(t('draft.clickOnDrawnLine', 'Click right on a drawn line, arc or circle.', { ns: 'editor' }))
           return
         }
         const next = [...clicks, c]
@@ -246,17 +271,37 @@ export function useDraftInput(ctx: DraftInputContext): DraftInput {
   const apply = useCallback(() => runModify(clicks), [runModify, clicks])
 
   const prompt = useMemo(() => {
-    if (pending?.kind === 'modify') return modifyPrompt(pending.op, clicks.length, ctx.selectedIds.length, ctx.params)
-    if (pending?.kind === 'leader') return `${pending.elbow && clicks.length === 0 ? 'Click where the leader bends' : 'Click what the leader points at'}. Esc cancels.`
-    if (shapeTool) return `${shapePrompt(shapeTool, settings, clicks.length)}${hover?.snapLabel ? `  Snapped to the ${hover.snapLabel}.` : hover?.tracking ? `  Tracking ${Math.round(hover.tracking.angleDeg)}°.` : ''}`
+    if (pending?.kind === 'modify') return modifyPrompt(pending.op, clicks.length, ctx.selectedIds.length, ctx.params, t)
+    if (pending?.kind === 'leader')
+      return pending.elbow && clicks.length === 0
+        ? t('draft.prompt.leaderBends', 'Click where the leader bends. Esc cancels.', { ns: 'editor' })
+        : t('draft.prompt.leaderPointsAt', 'Click what the leader points at. Esc cancels.', { ns: 'editor' })
+    if (shapeTool) {
+      const head = shapePrompt(shapeTool, settings, clicks.length, t)
+      const tail = hover?.snapLabel
+        ? `  ${t('draft.snappedTo', 'Snapped to the {{what}}.', { ns: 'editor', what: hover.snapLabel })}`
+        : hover?.tracking
+          ? `  ${t('draft.tracking', 'Tracking {{deg}}°.', { ns: 'editor', deg: Math.round(hover.tracking.angleDeg) })}`
+          : ''
+      return head + tail
+    }
     return null
-  }, [pending, clicks.length, ctx.selectedIds.length, ctx.params, shapeTool, settings, hover])
+  }, [pending, clicks.length, ctx.selectedIds.length, ctx.params, shapeTool, settings, hover, t])
 
   const preview = useMemo(() => {
     const prims: Primitive[] = []
     const pts = [...clicks.map((c) => c.at), ...(hover ? [hover.at] : [])]
     if (shapeTool && shapeTool !== 'dimension' && pts.length > 0) {
-      const draft = shapeCommand({ tool: shapeTool, paper: pts, settings, toStored: ctx.toStored, storedPerPaperMm: ctx.storedPerPaperMm, ownerId: ctx.ownerId, itemId: 'draft-preview' })
+      const draft = shapeCommand({
+        tool: shapeTool,
+        paper: pts,
+        settings,
+        toStored: ctx.toStored,
+        storedPerPaperMm: ctx.storedPerPaperMm,
+        ownerId: ctx.ownerId,
+        itemId: 'draft-preview',
+        t,
+      })
       const need = clicksFor(shapeTool, settings)
       const enough = 'fixed' in need ? pts.length >= need.fixed : pts.length >= need.min
       const adds = typeof draft === 'string' || !enough ? [] : draft.type === 'batch_documents' ? draft.commands : [draft]

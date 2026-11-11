@@ -65,7 +65,14 @@ export function SheetFigureDialog({ mode, sheet, model, images, submit, onClose,
   const preview = useMemo(() => (mode === 'chart' && chart ? evaluateFigure(model, { kind: 'chart', chart }) : null), [mode, chart, model])
   const paper = sheetPaper(sheet)
   const fileProblem = mode === 'picture' && file && !isMime(file.type) ? `${file.name} is not a PNG or JPEG picture; sheets print those two.` : null
-  const blocked = mode === 'chart' ? (chart ? null : 'This MutinyBIM has no charts to place.') : !file ? 'Choose a PNG or JPEG picture first.' : fileProblem
+  const blocked =
+    mode === 'chart'
+      ? chart
+        ? null
+        : t('sheetFigure.noCharts', 'This MutinyBIM has no charts to place.', { ns: 'editor' })
+      : !file
+        ? t('sheetFigure.chooseAPicture', 'Choose a PNG or JPEG picture first.', { ns: 'editor' })
+        : fileProblem
 
   const place = async (e: React.FormEvent) => {
     e.preventDefault()

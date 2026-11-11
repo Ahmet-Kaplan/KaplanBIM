@@ -17,7 +17,41 @@ import { useEditorTranslate, type Translate } from '../../i18n/translate'
  * agents send.
  */
 
-const SHAPE_WORD: Record<string, string> = { line: 'detail line', rect: 'rectangle', cloud: 'revision cloud', arc: 'arc', circle: 'circle', polyline: 'polyline', spline: 'spline', region: 'region', component: 'component', repeat: 'repeating detail', batt: 'insulation run', dimension: 'dimension', tag: 'tag', text: 'note' }
+/** What a drawn item is, in the language on screen (§2.4: açıklama, ölçü, etiket, detay çizgisi). */
+function shapeWord(shape: string, t: Translate): string {
+  switch (shape) {
+    case 'line':
+      return t('draft.shape.detailLine', 'detail line', { ns: 'editor' })
+    case 'rect':
+      return t('draft.shape.rectangle', 'rectangle', { ns: 'editor' })
+    case 'cloud':
+      return t('draft.shape.revisionCloud', 'revision cloud', { ns: 'editor' })
+    case 'arc':
+      return t('draft.shape.arc', 'arc', { ns: 'editor' })
+    case 'circle':
+      return t('draft.shape.circle', 'circle', { ns: 'editor' })
+    case 'polyline':
+      return t('draft.shape.polyline', 'polyline', { ns: 'editor' })
+    case 'spline':
+      return t('draft.shape.spline', 'spline', { ns: 'editor' })
+    case 'region':
+      return t('draft.shape.region', 'region', { ns: 'editor' })
+    case 'component':
+      return t('draft.shape.component', 'component', { ns: 'editor' })
+    case 'repeat':
+      return t('draft.shape.repeat', 'repeating detail', { ns: 'editor' })
+    case 'batt':
+      return t('draft.shape.batt', 'insulation run', { ns: 'editor' })
+    case 'dimension':
+      return t('draft.shape.dimension', 'dimension', { ns: 'editor' })
+    case 'tag':
+      return t('draft.shape.tag', 'tag', { ns: 'editor' })
+    case 'text':
+      return t('draft.shape.note', 'note', { ns: 'editor' })
+    default:
+      return shape
+  }
+}
 const STYLED = new Set(['line', 'rect', 'arc', 'circle', 'polyline', 'spline', 'region'])
 
 function batch(commands: ViewCommand[], label: string): ViewCommand | BatchCommand | null {
@@ -53,7 +87,12 @@ export function DetailSelectionProperties({
   const n = items.length
   const first = items[0]
   if (!first) return null
-  const what = n === 1 ? (first.component ? (detailComponent(first.component.symbolId)?.name ?? 'Component') : (SHAPE_WORD[first.shape] ?? first.shape)) : `${n} drawn items`
+  const what =
+    n === 1
+      ? first.component
+        ? (detailComponent(first.component.symbolId)?.name ?? shapeWord('component', t))
+        : shapeWord(first.shape, t)
+      : t('draft.someDrawnItems', '{{n}} drawn items', { ns: 'editor', n })
   const styled = items.filter((i) => STYLED.has(i.shape) && !i.fill?.masking)
   const styleIds = new Set(styled.map((i) => detailLineStyleOf(i.lineStyle) ?? 'custom'))
   const styleId = styleIds.size === 1 ? [...styleIds][0] : undefined

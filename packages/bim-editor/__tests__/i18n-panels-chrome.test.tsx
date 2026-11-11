@@ -248,6 +248,9 @@ const SITES: Readonly<Record<string, number>> = {
   "panel.changeOrders": 2,
   "panel.copies": 2,
   "panel.linkedModels": 4,
+  // The model rows the drawing canvas names in its empty state too.
+  "panel.threeDModel": 2,
+  "panel.topDownPlan": 2,
   "panel.notPlacedYet": 2,
   "panel.properties": 3,
   "panel.questions": 4,

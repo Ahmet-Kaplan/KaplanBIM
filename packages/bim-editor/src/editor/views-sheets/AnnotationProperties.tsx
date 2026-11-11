@@ -218,16 +218,37 @@ function DimensionFields({ dim, prints, canEdit, onDim }: { dim: DimSpec; prints
       <Field>
         <FieldLabel>{t('dimension.ends', 'Ends', { ns: 'editor' })}</FieldLabel>
         <ToggleGroup type="single" size="sm" variant="outline" value={style.terminator} disabled={!canEdit} onValueChange={(v) => v && set({ style: { ...dim.style, terminator: TERMINATORS.find((t) => t === v) ?? style.terminator } })}>
-          {TERMINATORS.map((t) => (
-            <ToggleGroupItem key={t} value={t} aria-label={`${t} ends`}>
-              {t === 'tick' ? 'Tick' : t === 'arrow' ? 'Arrow' : 'Dot'}
+          {TERMINATORS.map((terminator) => (
+            <ToggleGroupItem
+              key={terminator}
+              value={terminator}
+              aria-label={t('dimension.endsNamed', '{{name}} ends', { ns: 'editor', name: terminatorLabel(terminator, t) })}
+            >
+              {terminatorLabel(terminator, t)}
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
-        <FieldDescription>Text is {(style.textSizeMm / 25.4).toFixed(3)}&quot; tall on paper at any view scale.</FieldDescription>
+        <FieldDescription>
+          {t('dimension.textHeightOnPaper', 'Text is {{height}}″ tall on paper at any view scale.', {
+            ns: 'editor',
+            height: (style.textSizeMm / 25.4).toFixed(3),
+          })}
+        </FieldDescription>
       </Field>
     </>
   )
+}
+
+/** What a dimension's end mark looks like, in the language on screen. */
+function terminatorLabel(terminator: (typeof TERMINATORS)[number], t: Translate): string {
+  switch (terminator) {
+    case 'tick':
+      return t('dimension.terminator.tick', 'Tick', { ns: 'editor' })
+    case 'arrow':
+      return t('dimension.terminator.arrow', 'Arrow', { ns: 'editor' })
+    case 'dot':
+      return t('dimension.terminator.dot', 'Dot', { ns: 'editor' })
+  }
 }
 
 const NO_STYLE = 'none'

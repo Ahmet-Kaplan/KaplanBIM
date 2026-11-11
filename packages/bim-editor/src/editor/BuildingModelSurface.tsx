@@ -160,7 +160,7 @@ import { newViewDisplay, useViewDisplayPrefsFrom } from './views-sheets/use-view
 import { useViewCameraMemoryFrom } from './views-sheets/use-view-camera-memory'
 import { cameraMemoryKey, framingSignature } from './views-sheets/view-camera-memory'
 import { FREE_3D_KEY } from '../contracts/building-model/view-camera-prefs'
-import { VIEW_TYPE_LABEL, newId, type CreatableViewType, type OpenItem, type SubmitCommand } from './views-sheets/types'
+import { newId, viewTypeLabel, type CreatableViewType, type OpenItem, type SubmitCommand } from './views-sheets/types'
 import { useSheetImagesFrom } from '@permitzip/bim-editor/editor/views-sheets/use-sheet-images'
 import { addOns, loadAddOns } from '../contracts/building-model/add-ons'
 
@@ -2400,7 +2400,15 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
   )
   const backSheet = returnSheet && open.kind === 'view' ? (index?.sheets.find((s) => s.id === returnSheet) ?? null) : null
   const openTitle =
-    open.kind === 'model' ? (open.mode === 'plan' ? 'Top-down plan' : '3D model') : openSheet ? `${openSheet.number} · ${openSheet.title}` : openView ? `${openView.name} · ${VIEW_TYPE_LABEL[openView.viewType]}` : ''
+    open.kind === 'model'
+      ? open.mode === 'plan'
+        ? t('panel.topDownPlan', 'Top-down plan', { ns: 'editor' })
+        : t('panel.threeDModel', '3D model', { ns: 'editor' })
+      : openSheet
+        ? `${openSheet.number} · ${openSheet.title}`
+        : openView
+          ? `${openView.name} · ${viewTypeLabel(openView.viewType, t)}`
+          : ''
 
   useEffect(() => {
     viewerColorsRef.current = mutinyTheme.viewer

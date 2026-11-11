@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { isReferencePlan, type Level, type SheetReference, type ViewBackgrounds, type ViewElement } from '@permitzip/bim-kernel'
 import type { EditorDataHost } from '@permitzip/bim-editor-host'
 import { backgroundCutFor, sheetReferenceOf, type ViewBackgroundCut } from '../../contracts/building-model/view-background-request'
+import { useEditorTranslate } from '../i18n/translate'
 
 /**
  * Linked-model backgrounds for the drawing views on screen: each plan's cut of
@@ -148,7 +149,11 @@ export function useViewBackgroundsFrom(
   projectId: string,
   views: readonly ViewElement[],
   levels: readonly Level[] = NO_LEVELS,
-): { backgrounds: ViewBackgrounds; states: Readonly<Record<string, BackgroundState>> } {
+): {
+  backgrounds: ViewBackgrounds
+  states: Readonly<Record<string, BackgroundState>>
+} {
+  const t = useEditorTranslate()
   const keyed = useMemo(() => views.flatMap((v) => {
     const req = backgroundCutFor(v, levels)
     return req ? [{ viewId: v.id, req, key: JSON.stringify(req) }] : []
@@ -174,7 +179,14 @@ export function useViewBackgroundsFrom(
         })
         .catch((err: unknown) => {
           console.error('[useViewBackgrounds] linked-model background failed', { projectId, req, err })
-          if (live) setSlots((prev) => ({ ...prev, [key]: { kind: 'error', message: err instanceof Error ? err.message : 'The linked models could not be cut for this view.' } }))
+          if (live)
+            setSlots((prev) => ({
+              ...prev,
+              [key]: {
+                kind: 'error',
+                message: err instanceof Error ? err.message : t('view.couldNotCut', 'The linked models could not be cut for this view.', { ns: 'editor' }),
+              },
+            }))
         })
     }
     return () => {

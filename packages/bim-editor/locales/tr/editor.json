@@ -272,7 +272,27 @@
       "addFirstLevel": "{{name}} katını {{at}} yüksekliğinde ekle",
       "addLevel": "Kat ekle…",
       "useArchitectLevels": "Mimarın katlarını kullan"
-    }
+    },
+    "arc": "Yay",
+    "batt": "Yalıtım",
+    "callout": "Detay balonu",
+    "circle": "Daire",
+    "cloud": "Revizyon bulutu",
+    "component": "Detay bileşeni",
+    "dimension": "Ölçü",
+    "keynote": "Anahtar not",
+    "line": "Çizgi",
+    "note": "Nota",
+    "polygon": "Çokgen",
+    "polyline": "Çizgiler (zincir)",
+    "rect": "Dikdörtgen",
+    "region": "Dolgulu veya maskeleme bölgesi",
+    "repeat": "Tekrarlanan detay",
+    "select": "Seç",
+    "selectAndMove": "Seç ve taşı",
+    "spline": "Eğri",
+    "tag": "Etiket",
+    "text": "Metin"
   },
   "empty": {
     "noneYet": "Henüz yok",
@@ -513,7 +533,17 @@
     "gripAria": "Kırpma kutusu {{face}}. Taşımak için sürükleyin veya ok tuşlarına basın. Shift karşı tarafı da taşır.",
     "gripTitle": "{{face}} taşımak için sürükleyin (Shift: iki taraf, Alt: yakalama yok)",
     "moveGripWhat": "3B kırpma kutusunun {{face}} tarafını taşı",
-    "straightAt": "Doğrudan {{face}} tarafına bakıyorsunuz. Sürüklemek için görünümü biraz çevirin veya ölçüsünü özelliklerine yazın."
+    "straightAt": "Doğrudan {{face}} tarafına bakıyorsunuz. Sürüklemek için görünümü biraz çevirin veya ölçüsünü özelliklerine yazın.",
+    "alreadySquareEdge": "Kırpma kutusu zaten o kenara göre dik.",
+    "alreadySquareWorkingAngle": "Kırpma kutusu zaten çalışma açısına göre dik.",
+    "localOnly": "Kırpma yalnızca burada, bu sekmede. Saklamak için 3B kırpma kutusunu açın.",
+    "localOnlyWhy": "Kırpma yalnızca burada, bu sekmede. {{reason}}",
+    "nothingLoaded": "Henüz kırpılacak bir şey yüklenmedi.",
+    "selectSomething": "Önce bir şey seçin: bir kanal, bir parça, bir hat veya bağlı bir eleman.",
+    "sizeUnreadableBox": "O elemanın ölçüsü okunamadı, bu yüzden kutu ona sığdırılamıyor. Bunun yerine kutunun yüzlerini sürükleyin.",
+    "sizeUnreadableView": "O elemanın ölçüsü okunamadı, bu yüzden üzerine bir görünüm çerçevelenemiyor. Bunun yerine bir kanal veya parça seçin.",
+    "turnOnFirst": "Önce 3B kırpma kutusunu açın.",
+    "worksIn3d": "3B'de çalışır: 3B modeli veya bir 3B görünümü açın."
   },
   "orientation": {
     "aboveNorthEast": "Yukarıdan, kuzeydoğudan",
@@ -570,7 +600,12 @@
     "samePoint": "Aynı nokta. Kenar boyunca ikinci bir noktaya tıklayın.",
     "samePoints": "İki nokta aynı; kenar boyunca daha ileride ikinci bir nokta seçin.",
     "thatEdge": "o kenar",
-    "ballAria": "Yönlendirme topu. O taraftan bakmak için bir noktaya tıklayın; yörüngede döndürmek için topu sürükleyin."
+    "ballAria": "Yönlendirme topu. O taraftan bakmak için bir noktaya tıklayın; yörüngede döndürmek için topu sürükleyin.",
+    "clickAlongEdge": "Bir duvara ya da bir bina kenarı boyunca iki noktaya tıklayın. Esc iptal eder.",
+    "clickForCropBox": "Kırpma kutusunu ona göre dikleştirmek için bir duvara ya da bir bina kenarı boyunca iki noktaya tıklayın.",
+    "lookFromBelow": "Alttan bak",
+    "lookFromSide": "{{side}} yönünden bak",
+    "lookFromTop": "Üstten bak"
   },
   "projectInfo": {
     "cancel": "Vazgeç",
@@ -603,7 +638,8 @@
     "readFailed": "Antetler okunamadı ({{reason}}).",
     "titleBlock": "Antet",
     "saving": "Kaydediliyor…",
-    "unknownError": "bilinmeyen hata"
+    "unknownError": "bilinmeyen hata",
+    "libraryService": "Antet kitaplığı"
   },
   "view": {
     "detail": {
@@ -778,7 +814,18 @@
     "depthBelowBottomFt": "Altın altındaki derinlik (ft)",
     "done": "Bitti",
     "editingNamed": "{{name}} düzenleniyor",
-    "finishEditingHint": "Bitirmek için Esc veya dışına çift tıklayın"
+    "finishEditingHint": "Bitirmek için Esc veya dışına çift tıklayın",
+    "couldNotCut": "Bağlı modeller bu görünüm için kesilemedi.",
+    "cropBoxDragging": "Kırpma kutusu {{width}} × {{height}} ft. Kaydetmek için bırakın, iptal için Esc.",
+    "cropBoxOf": "{{name}} görünümünün kırpma kutusu",
+    "type": {
+      "ceilingPlan": "Tavan planı",
+      "detail": "Detay görünümü (yalnız çizim)",
+      "floorPlan": "Kat planı",
+      "schedule": "Çizelge",
+      "section": "Kesit",
+      "threeD": "3B görünüm"
+    }
   },
   "diagram": {
     "addFutureSpace": "Gelecek boşluk ekle",
@@ -936,7 +983,10 @@
     "viewOwnAngle": "{{name}} kendi açısını kullanıyor: {{angle}}.",
     "whatToSet": "Neyin ayarlanacağı",
     "workingAngleDegrees": "Çalışma açısı (saat yönünün tersine derece)",
-    "workingAngleWhy": "Çizdiğiniz yönleri binaya uyacak şekilde çevirir. Güzergâh yakalamaları, yerleştirme ızgarası, çizim orto ve kutup adımları ile yeni kırpma kutuları ona uyar. Hiçbir şey taşınmaz ve şantiye koordinatları değişmez."
+    "workingAngleWhy": "Çizdiğiniz yönleri binaya uyacak şekilde çevirir. Güzergâh yakalamaları, yerleştirme ızgarası, çizim orto ve kutup adımları ile yeni kırpma kutuları ona uyar. Hiçbir şey taşınmaz ve şantiye koordinatları değişmez.",
+    "changeToSave": "Kaydetmek için bir değeri değiştirin.",
+    "typeModelPosition": "Bu modeldeki konumu fit olarak yazın: doğu, kuzey ve yükseklik.",
+    "typeSiteCoordinates": "Şantiye koordinatlarını fit olarak yazın: kuzey–güney, doğu–batı ve kot."
   },
   "arrange": {
     "arrange": "Düzenle",
@@ -1032,7 +1082,44 @@
     "zoomInWhy": "Yakınlaştır (+). Kaydır: orta tuşla sürükle, Boşluk + sürükle veya boş kâğıdı sürükle. Sığdır: F ya da orta düğmeye çift tıkla.",
     "zoomOut": "Uzaklaştır",
     "zoomOutWhy": "Uzaklaştır (−). Tekerlek veya iki parmak, 3B'deki gibi imlecin bulunduğu yerde yakınlaştırır.",
-    "zoomToFit": "Sığdırarak göster"
+    "zoomToFit": "Sığdırarak göster",
+    "boundaryCancelled": "Sınır düzenlemesi iptal edildi. Bölge olduğu gibi kaldı.",
+    "deleteWhat": "{{n}} öğeyi sil",
+    "drawInsideFrame": "{{name}} çerçevesinin içine çizin ya da görünüm düzenlemesini bitirmek için Esc'e basın.",
+    "drawingEllipsis": "Çiziliyor…",
+    "hint": {
+      "activeDetail": "Taşımak için çizilmiş her şeyi sürükleyin. Görünümün içine çizmek için bir araç seçin. Kırpma kutusunu değiştirmek için çerçeve kenarlarını sürükleyin.",
+      "activeDraw": "Görünümün içinde {{tool}} çizmek için sürükleyin. Durdurmak için Esc.",
+      "activeModelView": "Seçmek için tıklayın, daha fazlası için Tab, kutuyla seçmek için Shift+sürükle, taşımak için seçimi sürükleyin. Kırpmak için çerçeve kenarlarını sürükleyin. Güzergâh, Böl ve bir planda eklentinin çizim araçları burada çalışır; diğer model araçları görünümü tek başına açar ve sizi buraya geri getirir.",
+      "activeText": "Notanın başlayacağı yerin içine tıklayın ya da genişliğini ayarlamak için karşıya sürükleyin.",
+      "detailDrawing": "Taşımak için çizilmiş her şeyi sürükleyin (Esc iptal eder). Çizgi, metin ve ölçü çizmek için bir araç seçin. Kırpmak için kırpma kutusunun kenarlarını sürükleyin.",
+      "drawTool": "{{tool}} çizmek için sürükleyin. Durdurmak için Esc.",
+      "editingNote": "Nota düzenleniyor: gördüğünüz basılan şeydir. ⌘B / ⌘I / ⌘U, ⌘⇧8 madde, ⌘⇧7 numara, Shift+Enter yeni satır. Yeniden sarmak için yan tutamacı sürükleyin. Esc veya dışına tıklamak kaydeder.",
+      "keynote": "Bir elemana anahtar not vermek için tıklayın {{key}}: anahtarı ve bir anahtar not etiketi alır, paftanın anahtar not listesi onu gösterir. Durdurmak için Esc.",
+      "modelView": "Seçmek için tıklayın, daha fazlası için Tab, kutuyla seçmek için Shift+sürükle, taşımak için seçimi sürükleyin. Kırpmak için kırpma kutusunun kenarlarını sürükleyin.",
+      "note": "Notanın başlayacağı yere tıklayın ya da genişliğini ayarlamak için karşıya sürükleyin. Yazın, sonra kaydetmek için Esc veya dışına tıklayın.",
+      "printedView": "Bu görünümün paftada nasıl yazdırıldığı. Kırpmak için kırpma kutusunun kenarlarını sürükleyin.",
+      "sheet": "Görünümleri panelden paftaya sürükleyin. Taşımak için bir görüntü alanını ya da çizilmiş herhangi bir şeyi sürükleyin, kırpmak için görüntü alanının kenarlarını. Görünümü paftada düzenlemek için çift tıklayın."
+    },
+    "keynoteWhere": "Anahtar notu vermek için bir hatta ya da parçaya tıklayın.",
+    "noteAddLeaderHow": "Sonra çizim üzerine tıklayın. Kılavuzu taşımak için tutamaçlarını sürükleyin.",
+    "noteDiscarded": "Değişiklikler atıldı. Nota olduğu gibi kaldı.",
+    "noteMaxLeaders": "Bir nota en çok 9 kılavuz alır.",
+    "nudgeIt": "bunu kaydır",
+    "nudgePinned": "Sabitlenmiş. Önce sabitlemeyi kaldırın (Değiştir > Sabitlemeyi kaldır), sonra kaydırın.",
+    "nudgeSelectFirst": "Ok tuşlarıyla kaydırmak için bir etiket, nota veya çizgi seçin.",
+    "nudgeThem": "bunları kaydır",
+    "nudgeWhat": "{{n}} öğeyi kaydır",
+    "orthoOff": "Orto kapalı.",
+    "orthoOn": "Orto açık: çizgiler kâğıda göre dik kalır.",
+    "pickKeynoteFirst": "(önce bir tane seçin)",
+    "pickKeynoteFirstHint": "Önce bir anahtar not seçin veya yazın (çizimin üstündeki çubuk), sonra uygulandığı elemana tıklayın.",
+    "pinnedUnpinFirst": "Sabitlenmiş. Önce sabitlemeyi kaldırın (Değiştir > Sabitlemeyi kaldır).",
+    "regionThreeCorners": "Bir bölge için en az üç köşe gerekir.",
+    "someItems": "{{n}} öğe",
+    "tagIt": "etiketle",
+    "tagWhere": "Etiketlemek için bir hatta ya da parçaya, etiket vermek için bir odanın veya mekanın içine tıklayın.",
+    "taggingLike": "Seçili etiket gibi etiketleniyor. Sonraki elemana tıklayın; Esc durdurur."
   },
   "circuits": {
     "allUnits": "Tüm ünitelerde devreleme göster",
@@ -1101,7 +1188,14 @@
       "metres": "Metre",
       "millimetres": "Milimetre"
     },
-    "units": "Birimler"
+    "units": "Birimler",
+    "endsNamed": "{{name}} uç biçimi",
+    "terminator": {
+      "arrow": "Ok",
+      "dot": "Nokta",
+      "tick": "Çentik"
+    },
+    "textHeightOnPaper": "Metin, her görünüm ölçeğinde kâğıtta {{height}}″ yüksek."
   },
   "draft": {
     "angleCCW": "Açı (°, saat yönünün tersine)",
@@ -1208,11 +1302,197 @@
     "ungroup": "gruplamayı çöz",
     "ungroupButton": "Grubu çöz",
     "ungroupWhat": "{{n}} öğenin grubunu çöz",
-    "unpinFirst": "Önce sabitlemeyi kaldırın (Değiştir › Sabitlemeyi kaldır)."
+    "unpinFirst": "Önce sabitlemeyi kaldırın (Değiştir › Sabitlemeyi kaldır).",
+    "clickOnDrawnLine": "Çizilmiş bir çizgiye, yaya veya daireye tam üzerinden tıklayın.",
+    "editsLoadWithDrawing": "Çizim düzenlemeleri çizimle birlikte yüklenir. Bir pafta, detay görünümü, plan veya kesit açın.",
+    "letterDotlessI": "ı",
+    "letterDottedI": "i",
+    "modifyNextPick": "{{name}} {{count}}: {{step}}. Esc iptal eder.",
+    "modifySelectFirst": "{{name}}: önce çizilmiş öğeleri seçin (Shift+tıklama daha fazlasını ekler), sonra {{name}} seçeneğini yeniden seçin.",
+    "modifyStep": "{{name}}: {{step}}. Esc bitirir.",
+    "need": {
+      "alignPoints": "Hizalanacak noktaya, sonra çizgi üzerinde iki noktaya tıklayın.",
+      "baseThenNextCopy": "Önce taban noktaya, sonra sonraki kopyanın gideceği yere tıklayın.",
+      "baseThenWhere": "Önce taban noktaya, sonra gideceği yere tıklayın.",
+      "boundaryThenEach": "Önce sınıra, sonra kısaltılacak veya uzatılacak her çizgiye tıklayın.",
+      "boundaryThenLine": "Önce sınıra, sonra kısaltılacak veya uzatılacak çizgiye tıklayın.",
+      "differentLine": "Sınırdan farklı bir çizgi seçin.",
+      "length": "{{what}} değerini uzunluk olarak yazın, örneğin 6\" veya 1'-6\".",
+      "mirrorPoints": "Aynalama çizgisi üzerinde iki noktaya tıklayın.",
+      "number": "{{what}} için bir sayı yazın.",
+      "offsetPoints": "Ölçüm alınacak noktaya, sonra kaydırmanın gideceği yere tıklayın.",
+      "onALine": "Çizilmiş bir çizgiye veya yaya tam üzerinden tıklayın.",
+      "pickComponent": "Önce kitaplıktan bir bileşen seçin.",
+      "polygonCorner": "Önce merkeze, sonra ondan uzakta bir köşeye tıklayın.",
+      "radiusAboveZero": "Sıfırdan büyük bir yarıçap yazın (Kısalt/Uzat köşe yapar).",
+      "regionCorners": "Bir bölge için en az üç köşe gerekir.",
+      "sameLineTwice": "Aradaki parçayı silmek için aynı çizgiye iki kez tıklayın.",
+      "secondSplit": "İkinci bölme noktasında çizgiye yeniden tıklayın.",
+      "sides": "Kenar sayısını 3 ile 64 arasında yazın (“{{typed}}” değil).",
+      "splitWhere": "Çizginin veya yayın bölüneceği yere tıklayın.",
+      "theBasePoint": "Taban noktaya tıklayın.",
+      "theCentre": "Merkeze tıklayın.",
+      "twoDifferentPoints": "Kaydırma mesafesini göstermek için iki farklı noktaya tıklayın.",
+      "twoLines": "Çizilmiş iki çizgiye tam üzerinden tıklayın.",
+      "twoLinesToRound": "Köşeyi yuvarlatmak için iki çizgiye tıklayın.",
+      "twoPartsToKeep": "Her birinde kalacak tarafa iki çizgiye tıklayın.",
+      "twoPoints": "En az iki noktaya tıklayın."
+    },
+    "notOnModelYet": "{{name}} bugün çizilmiş çizgilerde ve notalarda çalışır. Bir pafta, detay görünümü veya planın çizimini açın ve değiştirilecek olanı seçin. Parçalar ve hatlar buradan taşınır, döner ve bölünür.",
+    "noteGone": "O nota artık yok.",
+    "noteMaxLeaders": "Bir nota en çok 9 kılavuz alır. Önce birini kaldırın.",
+    "oneItem": "1 öğe",
+    "op": {
+      "align": "Hizala",
+      "array": "Dizi",
+      "copy": "Kopyala",
+      "filletArc": "Yuvarlat",
+      "mirror": "Aynala",
+      "move": "Taşı",
+      "offset": "Kaydır",
+      "pin": "Sabitle",
+      "polarArray": "Açısal dizi",
+      "rotate": "Döndür",
+      "scale": "Ölçekle",
+      "split": "Elemanı böl",
+      "splitGap": "Aralıklı böl",
+      "trimCorner": "Köşeye kadar kısalt/uzat",
+      "trimMultiple": "Çoklu kısalt/uzat",
+      "trimSingle": "Tek kısalt/uzat",
+      "unpin": "Sabitlemeyi kaldır"
+    },
+    "pick": {
+      "alignFirst": "Hizalanacak çizginin ilk noktasına tıklayın",
+      "alignOnSelection": "Seçimde hizalanacak noktaya tıklayın",
+      "alignSecond": "O çizginin ikinci noktasına tıklayın",
+      "arrayCentre": "Dizinin merkezine tıklayın",
+      "basePoint": "Taban noktaya tıklayın",
+      "basePointStays": "Yerinde kalacak taban noktaya tıklayın",
+      "centreToTurn": "Dönüş merkezine tıklayın",
+      "filletFirst": "İlk çizgiye tıklayın",
+      "filletSecond": "İkinci çizgiye tıklayın",
+      "mirrorFirst": "Aynalama çizgisinin ilk noktasına tıklayın",
+      "mirrorSecond": "Aynalama çizgisinin ikinci noktasına tıklayın",
+      "nextCopyGoes": "Sonraki kopyanın gideceği yere tıklayın",
+      "offsetMeasureFrom": "Kaydırmanın ölçüleceği noktaya tıklayın",
+      "offsetSide": "Kaydırılacak tarafa tıklayın",
+      "splitFirst": "Çizginin veya yayın ilk bölme yerine tıklayın",
+      "splitGapWhere": "Çizginin veya yayın aralık verilecek yerine tıklayın",
+      "splitSecondGone": "Aynı yere bir kez daha tıklayın (aradaki parça gider)",
+      "splitWhere": "Çizginin veya yayın bölüneceği yere tıklayın",
+      "trimBoundary": "Kısaltılacak veya uzatılacak sınıra tıklayın",
+      "trimEach": "Kısaltılacak veya uzatılacak her çizgiye, kalacak taraftan tıklayın",
+      "trimFirstKeep": "İlk çizgiye veya yaya, kalacak taraftan tıklayın",
+      "trimSecondKeep": "İkincisine, kalacak taraftan tıklayın",
+      "trimTarget": "Kısaltılacak veya uzatılacak çizgiye, kalacak taraftan tıklayın",
+      "whereCopyGoes": "Kopyanın gideceği yere tıklayın",
+      "whereItGoes": "Gideceği yere tıklayın",
+      "whereOffsetGoes": "Kaydırmanın gideceği yere tıklayın"
+    },
+    "pressApply": "Uygula'ya basın",
+    "prompt": {
+      "angleCorner": "Açının açıldığı köşeye tıklayın",
+      "angleFirstSide": "İlk kenar üzerinde bir noktaya tıklayın",
+      "angleSecondSide": "İkinci kenar üzerinde bir noktaya tıklayın",
+      "arcCentre": "Yayın merkezine tıklayın",
+      "arcEnd": "Bittiği yere tıklayın (saat yönünün tersine)",
+      "arcEndPlain": "Bittiği yere tıklayın",
+      "arcStart": "Yayın başladığı yere tıklayın",
+      "battEnd": "Bittiği yere tıklayın",
+      "battStart": "Yalıtımın başladığı yere tıklayın",
+      "centreOrCurve": "Merkeze (ya da bir yaya veya daireye) tıklayın",
+      "circleCentre": "Merkeze tıklayın",
+      "circlePoint": "Daire üzerinde bir noktaya tıklayın",
+      "componentWhere": "Bileşenin gideceği yere (sol alt köşesi) tıklayın",
+      "firstPoint": "İlk noktaya tıklayın",
+      "leaderBends": "Kılavuzun kırılacağı yere tıklayın. Esc iptal eder.",
+      "leaderPointsAt": "Kılavuzun işaret edeceği şeye tıklayın. Esc iptal eder.",
+      "pointOnCurve": "Eğri üzerinde bir noktaya tıklayın",
+      "pointToLabel": "Etiketlenecek noktaya tıklayın",
+      "polygonCentre": "Merkeze tıklayın",
+      "polygonCorner": "Bir köşeye (ya da dıştan teğette kenarın ortasına) tıklayın",
+      "polylineNext": "Sonraki noktaya tıklayın. Her parça kendi çizgisidir, bir öncekine eklenir. Kapatmak için ilk noktaya yeniden, bitirmek için Enter'a basın",
+      "regionClose": "Sonraki köşeye tıklayın. Enter veya çift tıklama kapatır",
+      "regionFirstCorner": "İlk köşeye tıklayın",
+      "regionNextCorner": "Sonraki köşeye tıklayın",
+      "repeatEnd": "Bittiği yere tıklayın",
+      "repeatStart": "Tekrarın başladığı yere tıklayın",
+      "splineNext": "Sonraki noktaya tıklayın. Enter veya çift tıklama bitirir",
+      "whereLabelGoes": "Etiketin gideceği yere tıklayın"
+    },
+    "promptWithCancel": "{{prompt}}. Esc iptal eder.",
+    "selectDrawnFirst": "Önce çizilmiş öğeleri seçin (Shift+tıklama daha fazlasını ekler).",
+    "shape": {
+      "arc": "yay",
+      "batt": "yalıtım hattı",
+      "circle": "daire",
+      "component": "bileşen",
+      "detailLine": "detay çizgisi",
+      "dimension": "ölçü",
+      "note": "nota",
+      "polyline": "çoklu çizgi",
+      "rectangle": "dikdörtgen",
+      "region": "bölge",
+      "repeat": "tekrarlanan detay",
+      "revisionCloud": "revizyon bulutu",
+      "spline": "eğri",
+      "tag": "etiket"
+    },
+    "snapWord": {
+      "center": "merkez",
+      "endpoint": "uç nokta",
+      "intersection": "kesişim",
+      "midpoint": "orta nokta",
+      "nearest": "en yakın nokta",
+      "perpendicular": "dik"
+    },
+    "snappedTo": "{{what}} öğesine yakalandı.",
+    "someDrawnItems": "{{n}} çizilmiş öğe",
+    "someItems": "{{n}} öğe",
+    "tracking": "{{deg}}° izleniyor.",
+    "what": {
+      "angle": "açı",
+      "angleTheArraySpans": "dizinin kapsadığı açı",
+      "arcRadius": "yay yarıçapı",
+      "chain": "Bir çizgi zinciri çiz",
+      "closedChain": "Kapalı bir çizgi zinciri çiz",
+      "count": "adet",
+      "gap": "aralık",
+      "offsetDistance": "kaydırma mesafesi",
+      "scaleFactor": "ölçek çarpanı"
+    }
   },
   "drawing": {
     "cancel": "Vazgeç",
-    "elementGone": "O eleman artık modelde değil. Yeniden sağ tıklayın."
+    "elementGone": "O eleman artık modelde değil. Yeniden sağ tıklayın.",
+    "addView": "Görünüm ekle…",
+    "addViewHow": "Yerleştirmek için bir görünümü veya çizelgeyi Görünümler ve paftalar bölümünden paftaya sürükleyin.",
+    "alreadyHidden": "{{name}} bu görünümde zaten gizli.",
+    "confirm": "Onayla",
+    "createSimilar": "Benzerini oluştur",
+    "createSimilarUnavailable": "Benzerini oluştur bu çizimden henüz başlatılamıyor. 3B görünümde seçip C ardından S tuşlarına basın.",
+    "drawing": "Çizim",
+    "hideInView": "Görünümde gizle",
+    "hideInViewHint": "Bu görünümde {{name}} kategorisindeki her şey gizli kalır.",
+    "modelElement": "Model elemanı",
+    "noHideableCategory": "Bu elemanın, bu görünümün gizleyebileceği bir kategorisi yok.",
+    "openItToChange": "Neyi gösterdiğini değiştirmek için paftadaki görünüme çift tıklayın (veya açın).",
+    "openSchedule": "Çizelgeyi aç",
+    "openView": "Görünümü aç",
+    "properties": "Özellikler",
+    "propertiesHint": "Onu seçer ve özelliklerini gösterir.",
+    "removeFromSheet": "Paftadan kaldır…",
+    "removeFromSheetButton": "Paftadan kaldır",
+    "removeNamedTitle": "{{name}} bu paftadan kaldırılsın mı?",
+    "removeScheduleWhy": "Çizelge Görünümler ve paftalar bölümünde kalır; yalnızca bu paftadaki yeri gider. Geri Al onu geri getirir.",
+    "removeViewWhy": "Görünüm Görünümler ve paftalar bölümünde kalır; yalnızca bu paftadaki yeri gider. Geri Al onu geri getirir.",
+    "scheduleStays": "Çizelgenin kendisi Görünümler ve paftalar bölümünde kalır.",
+    "selectLike": "Bunun gibi olanların tümünü seç",
+    "selectLikeHint": "Bu görünümde {{n}}",
+    "selectUnavailable": "Bu çizimden seçim burada kullanılamıyor. Seçmek için planı veya kesiti açın.",
+    "sheet": "Pafta",
+    "viewStays": "Görünümün kendisi Görünümler ve paftalar bölümünde kalır.",
+    "zoomToFit": "Sığdırarak göster"
   },
   "drawingSet": {
     "modelNotOpen": "Model henüz açılmayı bitirmedi. Yüklenmesini bekleyip yeniden deneyin.",
@@ -1264,7 +1544,9 @@
     "rowNeeds": "Revizyon satırı için bir numara, bir tarih ve bir açıklama gerekir.",
     "someSheets": "({{n}} pafta)",
     "title": "Seti yayınla",
-    "verifyPages": "Doğrulama sayfaları"
+    "verifyPages": "Doğrulama sayfaları",
+    "defaultName": "Ruhsat için yayın",
+    "noIssuedSheetLinks": "Bu uygulama yayınlanmış paftaların yayınlanmış kopyalarını tutmaz, bu yüzden burada açılacak Doğrulama sayfası yok. Setin kaydı, yayınlanan PDF'tir."
   },
   "keynote": {
     "keynote": "Anahtar not",
@@ -1272,7 +1554,8 @@
     "notInTable": "{{key}}: henüz bir anahtar not tablosunda değil; paftanın listesi bunu söyleyecek.",
     "orType": "veya yazın",
     "pickAKeynote": "Bir anahtar not seçin",
-    "pickOrType": "Bir anahtar seçin veya yazın, sonra uygulandığı elemanlara tıklayın."
+    "pickOrType": "Bir anahtar seçin veya yazın, sonra uygulandığı elemanlara tıklayın.",
+    "placeWhat": "anahtar not listesini yerleştir"
   },
   "note": {
     "alignLeft": "Sola hizala",
@@ -1298,7 +1581,8 @@
     "textHeight": "Metin yüksekliği",
     "textStyle": "Metin stili",
     "tick": "Çentik",
-    "underline": "Altı çizili"
+    "underline": "Altı çizili",
+    "selectOrEdit": "Nota. Seçmek için tıklayın, metni düzenlemek için yeniden veya çift tıklayın. Taşımak için sürükleyin."
   },
   "parameter": {
     "today": "Bugün"
@@ -1332,7 +1616,8 @@
   "printedPdf": {
     "couldNotDraw": "Yazdırılan PDF çizilemedi: {{message}} Alttaki önizleme aynı çizimdir.",
     "rev": "Yazdırılan PDF, Rev {{revision}}",
-    "updating": "Yazdırılan PDF güncelleniyor…"
+    "updating": "Yazdırılan PDF güncelleniyor…",
+    "couldNotDrawShort": "PDF çizilemedi."
   },
   "revisions": {
     "addRevision": "Revizyon ekle",
@@ -1360,7 +1645,9 @@
     "dragThisEnd": "Bu ucu taşımak için sürükleyin",
     "dragWhereCuts": "Kesitin geçtiği yer boyunca plan üzerinde sürükleyin. İptal için Esc.",
     "lookOtherWay": "Diğer yöne bakmak için tıklayın",
-    "sectionName": "Kesit adı"
+    "sectionName": "Kesit adı",
+    "dragCutLine": "Kesit için bir kesit çizgisi sürükleyin",
+    "sectionMarks": "Kesit işaretleri"
   },
   "selection": {
     "copy": "Kopyala",
@@ -1372,7 +1659,18 @@
     "straightenLeader": "Kılavuzu düzelt"
   },
   "set": {
-    "sheetsLegend": "Paftalar ({{total}} paftadan {{picked}}, yazdırma sırasına göre)"
+    "sheetsLegend": "Paftalar ({{total}} paftadan {{picked}}, yazdırma sırasına göre)",
+    "cancel": "Vazgeç",
+    "checking": "Set denetleniyor…",
+    "couldNotCheck": "Set denetlenemedi. Yeniden deneyin.",
+    "done": "Bitti",
+    "editsNotSaved": "Düzenlemeleriniz 30 saniye sonra hâlâ kaydedilmedi. Durum “Tüm değişiklikler kaydedildi” diyene kadar bekleyip yeniden deneyin.",
+    "issuing": "Set yayınlanıyor",
+    "linkWorksFor": "Bağlantı {{n}} dakika çalışır.",
+    "oneUnsaved": "Değişikliklerinizden 1 tanesi henüz kaydedilmedi; kaydedilince set yazdırılır.",
+    "printing": "Set yazdırılıyor",
+    "setsService": "Set yazdırma ve yayınlama",
+    "someUnsaved": "Değişikliklerinizden {{n}} tanesi henüz kaydedilmedi; kaydedilince set yazdırılır."
   },
   "sheetDialog": {
     "blankPrintsProject": "Boş alan, her pafta için bir kez doldurulan proje bilgilerini yazdırır",
@@ -1431,7 +1729,13 @@
     "titleBlock": "Antet",
     "titleBlockAnsiB": "ANSI B, 17\" x 11\"",
     "titleBlockArchD": "ARCH D, 36\" x 24\"",
-    "waitingTitleBlocks": "Firmanın antetlerinin yüklenmesi bekleniyor"
+    "waitingTitleBlocks": "Firmanın antetlerinin yüklenmesi bekleniyor",
+    "couldNotSave": "Bu kaydedilemedi. Yeniden deneyin.",
+    "defaultSheetName": "Mekanik plan",
+    "levelFallback": "Kat",
+    "suggestCeilingPlan": "{{level}} tavan planı",
+    "suggestFloorPlan": "{{level}} mekanik plan",
+    "suggestThreeD": "3B - Mekanik"
   },
   "sheetFigure": {
     "cancel": "Vazgeç",
@@ -1448,7 +1752,9 @@
     "placeAPicture": "Resim yerleştir",
     "placeOnSheet": "Paftaya yerleştir",
     "titleOptional": "Başlık (isteğe bağlı)",
-    "uploading": "Yükleniyor…"
+    "uploading": "Yükleniyor…",
+    "chooseAPicture": "Önce bir PNG veya JPEG resim seçin.",
+    "noCharts": "Bu MutinyBIM'de yerleştirilecek grafik yok."
   },
   "tag": {
     "allTagsUseIt": "Bu türdeki tüm etiketler onu kullanıyor",
@@ -1496,7 +1802,27 @@
     },
     "thisTagCrowded": "Bu etiket {{what}}.",
     "useOnMore": "Burada {{n}} {{kind}} etiketinde daha kullan",
-    "wordsFromElement": "Sözler elemanda gelir ve o değiştikçe değişir."
+    "wordsFromElement": "Sözler elemanda gelir ve o değiştikçe değişir.",
+    "bendTheLeader": "kılavuzu kır",
+    "elbowGrip": "Kılavuzu kırmak için sürükleyin; Esc geri koyar",
+    "moveIt": "taşı",
+    "moveOutOnElbow": "etiketi kırıklı kılavuzla dışa taşı",
+    "moveTheTag": "etiketi taşı",
+    "noHandPlacedBend": "Kılavuzunda düzeltilecek elle konmuş kırık yok.",
+    "nothingToSpread": "Dağıtılacak bir şey yok: seçilen her etiket yerinde kalıyor",
+    "oneKept": "1 tanesi olduğu gibi tutuldu: {{reasons}}",
+    "oneTag": "1 etiket",
+    "selectATagFirst": "Önce bir etiket seçin.",
+    "selectTwoOrMore": "İki veya daha fazla etiket seçin",
+    "someKept": "{{n}} tanesi olduğu gibi tutuldu: {{reasons}}",
+    "someTags": "{{n}} etiket",
+    "spreadInPlans": "Etiketler planlarda ve kesitlerde dağıtılır. Birini ya da paftadaki görünümü açın.",
+    "spreadOneNeedsHand": "{{tags}} dağıtıldı; 1 tanesi elle yerleştirilmeli: yakınında boş yer yok",
+    "spreadOneSelected": "Seçildi: en iyi okunduğu yere sürükleyin.",
+    "spreadSomeNeedHand": "{{tags}} dağıtıldı; {{n}} tanesi elle yerleştirilmeli: yakınlarında boş yer yok",
+    "spreadSomeSelected": "Seçildiler: her birini en iyi okunduğu yere sürükleyin.",
+    "spreadWhat": "{{tags}} dağıtıldı",
+    "straightenTheLeader": "kılavuzu düzelt"
   },
   "viewDisplay": {
     "loadFailed": "Her görünüm için canlı model mi yazdırılan çizim mi seçiminiz yüklenemedi. Siz sayfayı yenileyene kadar görünümler canlı modelde açılır.",
@@ -1508,5 +1834,40 @@
     "loadFailed": "Her 3B görünümü nerede bıraktığınız yüklenemedi, bu yüzden siz sayfayı yenileyene kadar kendi kameralarıyla açılırlar.",
     "remembering": "Her 3B görünümü nerede bıraktığınızı hatırlama",
     "saveFailed": "Bu 3B görünümde nerede olduğunuz bir dahaki sefere için kaydedilemedi; kendi kamerasıyla açılacak."
+  },
+  "agent": {
+    "connectThroughToolServer": "Kendi yapay zekânızı bu modelin araç sunucusu üzerinden bağlayın, sonra onlardan yapmasını isteyin.",
+    "connectYourOwn": "Kendi yapay zekânızı bu modele bağlayın, sonra onlardan yapmasını isteyin.",
+    "howToConnect": "Yapay zekâ nasıl bağlanır",
+    "needsConnectedAi": "Paftaları, görünümleri ve çizelgeleri bir ajanla oluşturmak için bağlı bir yapay zekâ gerekir ve {{host}} içinde yerleşik bir tane yok."
+  },
+  "copy": {
+    "copiedMany": "{{n}} parça kopyalandı. Gidecekleri yeri gösterip Ctrl+V'ye (Mac'te ⌘V) basın; kopyalandıkları yükseklikte imlecin altına inerler.",
+    "copiedOne": "1 parça kopyalandı. Gideceği yeri gösterip Ctrl+V'ye (Mac'te ⌘V) basın; kopyalandığı yükseklikte imlecin altına iner.",
+    "selectFirst": "Önce kopyalanacak cihazları veya ekipmanı seçin.",
+    "tooMany": "Bu {{n}} parça; bir seferde en çok {{max}} kopyalayın.",
+    "whatCopies": "Kopyalama şimdilik cihazlarda, armatürlerde ve ekipmanda çalışıyor; kanallar, borular ve notalar sonra."
+  },
+  "drawnScene": {
+    "sheetGone": "Bu pafta artık yok.",
+    "viewGone": "Bu görünüm artık yok."
+  },
+  "grip": {
+    "dimArcRadius": "Yay yarıçapını değiştirmek için sürükleyin",
+    "dimDragsToPoint": "Bir noktaya sürükleyin; üzerine indiği şeyi izler.",
+    "dimFollowsModel": "Modeli izler. Sabit bir nokta ölçmek için onu dışına sürükleyin.",
+    "dimLine": "Ölçü çizgisini taşımak için sürükleyin",
+    "frameCorner": "Boyutlandırmak için sürükleyin; karşı köşe yerinde kalır",
+    "frameTooSmall": "Çok küçük: çerçeveyi her yönde en az 5 mm tutun.",
+    "leaderElbow": "Kırığı sürükleyin",
+    "leaderTip": "Oku, işaret ettiği şeye sürükleyin",
+    "lineEnd": "Bu ucu sürükleyin; ona bağlı çizgiler izler",
+    "tagHead": "Etiketi taşımak için sürükleyin; sözleri elemanda kalır"
+  },
+  "sheetImages": {
+    "addingPictures": "Projeye resim ekleme",
+    "cannotAddFiles": "Bu projenin çalışma alanına dosya ekleyemezsiniz; bir proje yöneticisinden isteyin.",
+    "pictureGone": "Resim artık çalışma alanında değil",
+    "picturesOnSheets": "Paftalardaki resimler"
   }
 }

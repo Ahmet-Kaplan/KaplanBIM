@@ -194,51 +194,166 @@ interface Props {
 }
 
 /** Detailing: drawn the same on a sheet, in a detail view and over a plan or section. */
-const DRAFT_EXTRA: ReadonlyArray<{ tool: Tool; label: string; icon: React.ReactNode }> = [
-  { tool: 'arc', label: 'Arc', icon: <Rainbow /> },
-  { tool: 'circle', label: 'Circle', icon: <Circle /> },
-  { tool: 'polyline', label: 'Lines (chain)', icon: <Waypoints /> },
-  { tool: 'polygon', label: 'Polygon', icon: <Hexagon /> },
-  { tool: 'spline', label: 'Spline', icon: <Spline /> },
-  { tool: 'region', label: 'Filled or masking region', icon: <PaintBucket /> },
-  { tool: 'component', label: 'Detail component', icon: <Puzzle /> },
-  { tool: 'repeat', label: 'Repeating detail', icon: <Repeat /> },
-  { tool: 'batt', label: 'Insulation', icon: <Waves /> },
+/** The words a tool palette uses. Every caption is asked for where it is drawn. */
+type ToolWord =
+  | 'arc'
+  | 'circle'
+  | 'polyline'
+  | 'polygon'
+  | 'spline'
+  | 'region'
+  | 'component'
+  | 'repeat'
+  | 'batt'
+  | 'select'
+  | 'selectAndMove'
+  | 'text'
+  | 'note'
+  | 'line'
+  | 'rect'
+  | 'cloud'
+  | 'dimension'
+  | 'tag'
+  | 'keynote'
+  | 'callout'
+
+/** One tool's name, in the language on screen (§2.4: tag → etiket, callout → detay balonu, dimension → ölçü). */
+export function toolWord(word: ToolWord, t: Translate): string {
+  switch (word) {
+    case 'arc':
+      return t('tool.arc', 'Arc', { ns: 'editor' })
+    case 'circle':
+      return t('tool.circle', 'Circle', { ns: 'editor' })
+    case 'polyline':
+      return t('tool.polyline', 'Lines (chain)', { ns: 'editor' })
+    case 'polygon':
+      return t('tool.polygon', 'Polygon', { ns: 'editor' })
+    case 'spline':
+      return t('tool.spline', 'Spline', { ns: 'editor' })
+    case 'region':
+      return t('tool.region', 'Filled or masking region', { ns: 'editor' })
+    case 'component':
+      return t('tool.component', 'Detail component', { ns: 'editor' })
+    case 'repeat':
+      return t('tool.repeat', 'Repeating detail', { ns: 'editor' })
+    case 'batt':
+      return t('tool.batt', 'Insulation', { ns: 'editor' })
+    case 'select':
+      return t('tool.select', 'Select', { ns: 'editor' })
+    case 'selectAndMove':
+      return t('tool.selectAndMove', 'Select and move', { ns: 'editor' })
+    case 'text':
+      return t('tool.text', 'Text', { ns: 'editor' })
+    case 'note':
+      return t('tool.note', 'Note', { ns: 'editor' })
+    case 'line':
+      return t('tool.line', 'Line', { ns: 'editor' })
+    case 'rect':
+      return t('tool.rect', 'Rectangle', { ns: 'editor' })
+    case 'cloud':
+      return t('tool.cloud', 'Revision cloud', { ns: 'editor' })
+    case 'dimension':
+      return t('tool.dimension', 'Dimension', { ns: 'editor' })
+    case 'tag':
+      return t('tool.tag', 'Tag', { ns: 'editor' })
+    case 'keynote':
+      return t('tool.keynote', 'Keynote', { ns: 'editor' })
+    case 'callout':
+      return t('tool.callout', 'Callout', { ns: 'editor' })
+  }
+}
+
+
+/** A tool id as the word its label uses, so a sentence can name the tool the person is holding. */
+function toolWordOf(tool: string): ToolWord {
+  switch (tool) {
+    case 'cloud':
+      return 'cloud'
+    case 'dimension':
+      return 'dimension'
+    case 'tag':
+      return 'tag'
+    case 'line':
+      return 'line'
+    case 'rect':
+      return 'rect'
+    case 'arc':
+      return 'arc'
+    case 'circle':
+      return 'circle'
+    case 'polyline':
+      return 'polyline'
+    case 'polygon':
+      return 'polygon'
+    case 'spline':
+      return 'spline'
+    case 'region':
+      return 'region'
+    case 'component':
+      return 'component'
+    case 'repeat':
+      return 'repeat'
+    case 'batt':
+      return 'batt'
+    case 'keynote':
+      return 'keynote'
+    case 'callout':
+      return 'callout'
+    case 'text':
+      return 'text'
+    default:
+      return 'select'
+  }
+}
+
+const DRAFT_EXTRA: ReadonlyArray<{ tool: Tool; word: ToolWord; icon: React.ReactNode }> = [
+  { tool: 'arc', word: 'arc', icon: <Rainbow /> },
+  { tool: 'circle', word: 'circle', icon: <Circle /> },
+  { tool: 'polyline', word: 'polyline', icon: <Waypoints /> },
+  { tool: 'polygon', word: 'polygon', icon: <Hexagon /> },
+  { tool: 'spline', word: 'spline', icon: <Spline /> },
+  { tool: 'region', word: 'region', icon: <PaintBucket /> },
+  { tool: 'component', word: 'component', icon: <Puzzle /> },
+  { tool: 'repeat', word: 'repeat', icon: <Repeat /> },
+  { tool: 'batt', word: 'batt', icon: <Waves /> },
 ]
 
-const SHEET_TOOLS: ReadonlyArray<{ tool: Tool; label: string; icon: React.ReactNode }> = [
-  { tool: 'select', label: 'Select and move', icon: <MousePointer2 /> },
-  { tool: 'text', label: 'Note', icon: <Type /> },
-  { tool: 'line', label: 'Line', icon: <Minus /> },
-  { tool: 'rect', label: 'Rectangle', icon: <Square /> },
-  { tool: 'cloud', label: 'Revision cloud', icon: <Cloud /> },
+const SHEET_TOOLS: ReadonlyArray<{ tool: Tool; word: ToolWord; icon: React.ReactNode }> = [
+  { tool: 'select', word: 'selectAndMove', icon: <MousePointer2 /> },
+  { tool: 'text', word: 'note', icon: <Type /> },
+  { tool: 'line', word: 'line', icon: <Minus /> },
+  { tool: 'rect', word: 'rect', icon: <Square /> },
+  { tool: 'cloud', word: 'cloud', icon: <Cloud /> },
   ...DRAFT_EXTRA,
 ]
 
-const DETAIL_TOOLS: ReadonlyArray<{ tool: Tool; label: string; icon: React.ReactNode }> = [
-  { tool: 'select', label: 'Select', icon: <MousePointer2 /> },
-  { tool: 'line', label: 'Line', icon: <Minus /> },
-  { tool: 'rect', label: 'Rectangle', icon: <Square /> },
-  { tool: 'text', label: 'Text', icon: <Type /> },
-  { tool: 'dimension', label: 'Dimension', icon: <MoveHorizontal /> },
-  { tool: 'cloud', label: 'Revision cloud', icon: <Cloud /> },
+const DETAIL_TOOLS: ReadonlyArray<{ tool: Tool; word: ToolWord; icon: React.ReactNode }> = [
+  { tool: 'select', word: 'select', icon: <MousePointer2 /> },
+  { tool: 'line', word: 'line', icon: <Minus /> },
+  { tool: 'rect', word: 'rect', icon: <Square /> },
+  { tool: 'text', word: 'text', icon: <Type /> },
+  { tool: 'dimension', word: 'dimension', icon: <MoveHorizontal /> },
+  { tool: 'cloud', word: 'cloud', icon: <Cloud /> },
   ...DRAFT_EXTRA,
 ]
 
 /** Annotating the model: notes, dimensions that snap to and follow elements, tags, linework and clouds. */
-const ANNOTATE_EXTRA: ReadonlyArray<{ tool: Tool; label: string; icon: React.ReactNode }> = [
-  { tool: 'text', label: 'Text', icon: <Type /> },
-  { tool: 'dimension', label: 'Dimension', icon: <MoveHorizontal /> },
-  { tool: 'tag', label: 'Tag', icon: <Tag /> },
-  { tool: 'keynote', label: 'Keynote', icon: <KeyRound /> },
-  { tool: 'callout', label: 'Callout', icon: <SquareDashed /> },
-  { tool: 'line', label: 'Line', icon: <Minus /> },
-  { tool: 'cloud', label: 'Revision cloud', icon: <Cloud /> },
+const ANNOTATE_EXTRA: ReadonlyArray<{ tool: Tool; word: ToolWord; icon: React.ReactNode }> = [
+  { tool: 'text', word: 'text', icon: <Type /> },
+  { tool: 'dimension', word: 'dimension', icon: <MoveHorizontal /> },
+  { tool: 'tag', word: 'tag', icon: <Tag /> },
+  { tool: 'keynote', word: 'keynote', icon: <KeyRound /> },
+  { tool: 'callout', word: 'callout', icon: <SquareDashed /> },
+  { tool: 'line', word: 'line', icon: <Minus /> },
+  { tool: 'cloud', word: 'cloud', icon: <Cloud /> },
   ...DRAFT_EXTRA,
 ]
 
 /** A plan or section on a sheet: select and move parts, plus annotation. */
-const MODEL_VIEW_TOOLS: ReadonlyArray<{ tool: Tool; label: string; icon: React.ReactNode }> = [{ tool: 'select', label: 'Select and move', icon: <MousePointer2 /> }, ...ANNOTATE_EXTRA]
+const MODEL_VIEW_TOOLS: ReadonlyArray<{ tool: Tool; word: ToolWord; icon: React.ReactNode }> = [
+  { tool: 'select', word: 'selectAndMove', icon: <MousePointer2 /> },
+  ...ANNOTATE_EXTRA,
+]
 
 /** A plan or section drawing opened on its own: the same tools as on a sheet. */
 const VIEW_DRAWING_TOOLS = MODEL_VIEW_TOOLS
@@ -361,7 +476,8 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
   const index = useMemo(() => documentIndex(model), [model])
   const sheet = target.kind === 'sheet' ? model.elements[target.sheetId] : undefined
   const titleView = target.kind === 'detail' ? model.elements[target.viewId] : undefined
-  const printTitle = sheet?.kind === 'sheet' ? `${sheet.number} ${sheet.title}` : titleView?.kind === 'view' ? titleView.name : 'Drawing'
+  const printTitle =
+    sheet?.kind === 'sheet' ? `${sheet.number} ${sheet.title}` : titleView?.kind === 'view' ? titleView.name : t('drawing.drawing', 'Drawing', { ns: 'editor' })
   const placed = useMemo<PlacedFrame[]>(() => {
     if (sheet?.kind !== 'sheet' || sheet.deleted) return []
     return sheetViewports(model, sheet).map(({ viewport, view }) => {
@@ -535,6 +651,7 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
       setSelection(id ? { kind: 'item', id } : null)
     },
     onRefused: (reason) => toast(reason),
+    t,
   })
 
   const activate = useCallback((viewportId: string) => {
@@ -647,7 +764,7 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
       return
     }
     setNoteEdit(null)
-    toast('Changes discarded. The note is as it was.')
+    toast(t('canvas.noteDiscarded', 'Changes discarded. The note is as it was.', { ns: 'editor' }))
   }, [noteEdit])
 
   const startBoundary = useCallback(
@@ -655,7 +772,7 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
       const item = items.find((i) => i.id === itemId && i.shape === 'region')
       if (!item) return
       if (item.pinned) {
-        toast("It's pinned. Unpin it first (Modify > Unpin).")
+        toast(t('canvas.pinnedUnpinFirst', 'It’s pinned. Unpin it first (Modify > Unpin).', { ns: 'editor' }))
         return
       }
       setTool('select')
@@ -673,7 +790,7 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
       }
       setTagLike(like)
       setTool('tag')
-      toast('Tagging like the selected tag. Click the next element; Esc stops.')
+      toast(t('canvas.taggingLike', 'Tagging like the selected tag. Click the next element; Esc stops.', { ns: 'editor' }))
     },
     [canEdit, blockedReason, setTool],
   )
@@ -684,12 +801,12 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
 
   const cancelBoundary = useCallback(() => {
     setBoundary(null)
-    toast('Boundary edit cancelled. The region is as it was.')
+    toast(t('canvas.boundaryCancelled', 'Boundary edit cancelled. The region is as it was.', { ns: 'editor' }))
   }, [])
   const finishBoundary = useCallback(() => {
     if (!boundary) return
     if (boundary.points.length < 3) {
-      toast('A region needs at least three corners.')
+      toast(t('canvas.regionThreeCorners', 'A region needs at least three corners.', { ns: 'editor' }))
       return
     }
     if (send({ type: 'update_drawing_item', itemId: boundary.itemId, points: boundary.points.map(toStored) }, 'change the region boundary')) {
@@ -720,7 +837,7 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
         } else if (e.key === 'Escape') cancelBoundary()
         else if ((e.key === 'Delete' || e.key === 'Backspace') && boundary.picked !== null) {
           e.preventDefault()
-          if (boundary.points.length <= 3) toast('A region needs at least three corners.')
+          if (boundary.points.length <= 3) toast(t('canvas.regionThreeCorners', 'A region needs at least three corners.', { ns: 'editor' }))
           else setBoundary({ ...boundary, points: boundary.points.filter((_, i) => i !== boundary.picked), picked: null })
         }
         return
@@ -748,17 +865,29 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
         }
         const origin = toStored({ x: 0, y: 0 })
         const moved = toStored(step)
-        const edits = nudgeEdits(items, selectedIds, { x: moved.x - origin.x, y: moved.y - origin.y })
+        const edits = nudgeEdits(items, selectedIds, { x: moved.x - origin.x, y: moved.y - origin.y }, t)
         if (!edits.ok) toast(edits.reason)
-        else if (edits.commands.length === 1 && edits.commands[0]) send(edits.commands[0], 'nudge it')
-        else send({ type: 'batch_documents', label: `Nudge ${edits.commands.length} items`, commands: edits.commands }, 'nudge them')
+        else if (edits.commands.length === 1 && edits.commands[0]) send(edits.commands[0], t('canvas.nudgeIt', 'nudge it', { ns: 'editor' }))
+        else
+          send(
+            {
+              type: 'batch_documents',
+              label: t('canvas.nudgeWhat', 'nudge {{n}} items', { ns: 'editor', n: edits.commands.length }),
+              commands: edits.commands,
+            },
+            t('canvas.nudgeThem', 'nudge them', { ns: 'editor' }),
+          )
         return
       }
       if (e.key === 'Escape' && draftInput.cancel()) return
       if (e.key === 'F8') {
         e.preventDefault()
         draft.setSettings({ ...draft.settings, ortho: !draft.settings.ortho, ...(draft.settings.ortho ? {} : { polarDeg: null }) })
-        toast(draft.settings.ortho ? 'Ortho off.' : 'Ortho on: lines stay square to the paper.')
+        toast(
+          draft.settings.ortho
+            ? t('canvas.orthoOff', 'Ortho off.', { ns: 'editor' })
+            : t('canvas.orthoOn', 'Ortho on: lines stay square to the paper.', { ns: 'editor' }),
+        )
         return
       }
       if (e.key === 'Enter' && selection?.kind === 'item' && tool === 'select') {
@@ -784,8 +913,15 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
         e.preventDefault()
         if (selection.kind === 'item') {
           const ids = selectedIds
-          const command = ids.length > 1 ? { type: 'batch_documents' as const, label: `Delete ${ids.length} items`, commands: ids.map((itemId) => ({ type: 'delete_drawing_item' as const, itemId })) } : { type: 'delete_drawing_item' as const, itemId: selection.id }
-          if (send(command, 'delete')) {
+          const command =
+            ids.length > 1
+              ? {
+                  type: 'batch_documents' as const,
+                  label: t('canvas.deleteWhat', 'delete {{n}} items', { ns: 'editor', n: ids.length }),
+                  commands: ids.map((itemId) => ({ type: 'delete_drawing_item' as const, itemId })),
+                }
+              : { type: 'delete_drawing_item' as const, itemId: selection.id }
+          if (send(command, t('canvas.delete', 'delete', { ns: 'editor' }))) {
             setSelection(null)
             setAlsoPicked([])
           }
@@ -890,13 +1026,13 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
       return
     }
     if (active && !insideRect(active.rect, at)) {
-      toast(`Draw inside ${active.view.name}'s frame, or press Esc to finish editing the view.`)
+      toast(t('canvas.drawInsideFrame', 'Draw inside {{name}}’s frame, or press Esc to finish editing the view.', { ns: 'editor', name: active.view.name }))
       return
     }
     if (tool === 'tag') {
       const hit = annotatedView ? tagTargetAt(model, annotatedView, toPaperPoint, at, TAG_REACH_MM / Math.max(zoom, 0.25)) : null
       if (!annotatedView || !hit) {
-        toast('Click on a run or a part to tag it, or inside a room or space to label it.')
+        toast(t('canvas.tagWhere', 'Click on a run or a part to tag it, or inside a room or space to label it.', { ns: 'editor' }))
         return
       }
       // The head goes where you clicked; a leader when that's away from the element. A room or space tag sits where you clicked inside it.
@@ -904,18 +1040,21 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
       const head = hit.floor || away ? at : { x: hit.at.x + 6, y: hit.at.y - 4 }
       const id = newId('tag')
       const spec = tagLike ? tagSpecLike(model, tagLike, hit.elementId, { floor: hit.floor === true }) : tagSpecFor(model, hit.elementId, away)
-      if (send({ type: 'add_drawing_item', itemId: id, ownerId, shape: 'tag', points: [toStored(head)], tag: spec }, 'tag it')) setSelection({ kind: 'item', id })
+      if (send({ type: 'add_drawing_item', itemId: id, ownerId, shape: 'tag', points: [toStored(head)], tag: spec }, t('canvas.tagIt', 'tag it', { ns: 'editor' })))
+        setSelection({ kind: 'item', id })
       return
     }
     if (tool === 'keynote') {
       const key = cleanKey(keynoteKey)
       if (!key) {
-        toast('Pick or type a keynote first (the bar over the drawing), then click the element it applies to.')
+        toast(
+          t('canvas.pickKeynoteFirstHint', 'Pick or type a keynote first (the bar over the drawing), then click the element it applies to.', { ns: 'editor' }),
+        )
         return
       }
       const hit = annotatedView ? tagTargetAt(model, annotatedView, toPaperPoint, at, TAG_REACH_MM / Math.max(zoom, 0.25)) : null
       if (!annotatedView || !hit || hit.floor) {
-        toast('Click on a run or a part to give it the keynote.')
+        toast(t('canvas.keynoteWhere', 'Click on a run or a part to give it the keynote.', { ns: 'editor' }))
         return
       }
       const away = Math.hypot(at.x - hit.at.x, at.y - hit.at.y) > 6
@@ -998,7 +1137,7 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
     if (d.kind === 'grip') {
       const item = items.find((i) => i.id === d.id)
       if (!item) return
-      const command = gripCommand({ model, view: annotatedView, item, grip: d.grip, to: d.to, snap: d.grip.kind === 'dim-point' ? nearestSnap(snaps, d.to, snapReach) : null, toPaper: toPaperPoint, toStored, items, ownerId, idPrefix: newId('grip') })
+      const command = gripCommand({ model, view: annotatedView, item, grip: d.grip, to: d.to, snap: d.grip.kind === 'dim-point' ? nearestSnap(snaps, d.to, snapReach) : null, toPaper: toPaperPoint, toStored, items, ownerId, idPrefix: newId('grip'), t })
       if (typeof command === 'string') toast(command)
       else if (command) send(command, d.grip.kind === 'frame-corner' ? `resize ${item.figure?.kind === 'image' ? 'picture' : 'chart'}` : d.grip.kind === 'tag-head' ? 'move the tag' : d.grip.kind.startsWith('leader') ? 'move the leader' : d.grip.kind === 'detail-end' ? 'drag the end' : 'change the dimension')
       return
@@ -1173,34 +1312,65 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
   }
 
   if (drawn.error || !drawn.scene) {
-    return <div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">{drawn.error ?? 'Drawing…'}</div>
+    return (
+      <div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">
+        {drawn.error ?? t('canvas.drawingEllipsis', 'Drawing…', { ns: 'editor' })}
+      </div>
+    )
   }
 
   const toolHint = draftInput.prompt
     ? draftInput.prompt
     : tool === 'keynote' && !noteEdit
-    ? `Click an element to give it keynote ${cleanKey(keynoteKey) ?? '(pick one first)'}: it gets the key and a keynote tag, and the sheet's keynote list shows it. Esc to stop.`
-    : noteEdit
-    ? 'Editing the note: what you see is what prints. ⌘B / ⌘I / ⌘U, ⌘⇧8 bullets, ⌘⇧7 numbers, Shift+Enter new line. Drag a side grip to re-wrap. Esc or click outside saves.'
-    : active
-    ? tool === 'select'
-      ? activeDrafting
-        ? 'Drag anything drawn to move it. Pick a tool to draw inside the view. Drag the frame edges to change its crop box.'
-        : 'Click to select, Tab for more, Shift+drag to box select, drag a selection to move it. Drag the frame edges to crop. Route, Split and an add-on’s drawing tools (in a plan) work here; the other model tools open the view by itself and bring you back.'
-      : tool === 'text'
-        ? 'Click inside the view where the note starts, or drag across to set its width.'
-        : `Drag inside the view to draw a ${tool}. Esc to stop.`
-    : tool === 'select'
-      ? target.kind === 'sheet'
-        ? 'Drag views from the panel onto the sheet. Drag a viewport or anything drawn to move it, a viewport’s edges to crop it. Double-click a view to edit it here on the sheet.'
-        : drafting
-          ? 'Drag anything drawn to move it (Esc cancels). Pick a tool to draw lines, text and dimensions. Drag the crop box edges to crop.'
-          : modelView
-            ? 'Click to select, Tab for more, Shift+drag to box select, drag a selection to move it. Drag the crop box edges to crop.'
-            : 'How this view prints on a sheet. Drag the crop box edges to crop.'
-      : tool === 'text'
-        ? 'Click where the note starts, or drag across to set its width. Type, then Esc or click outside to save.'
-        : `Drag to draw a ${tool === 'cloud' ? 'revision cloud' : tool}. Esc to stop.`
+      ? t(
+          'canvas.hint.keynote',
+          'Click an element to give it keynote {{key}}: it gets the key and a keynote tag, and the sheet’s keynote list shows it. Esc to stop.',
+          { ns: 'editor', key: cleanKey(keynoteKey) ?? t('canvas.pickKeynoteFirst', '(pick one first)', { ns: 'editor' }) },
+        )
+      : noteEdit
+        ? t(
+            'canvas.hint.editingNote',
+            'Editing the note: what you see is what prints. ⌘B / ⌘I / ⌘U, ⌘⇧8 bullets, ⌘⇧7 numbers, Shift+Enter new line. Drag a side grip to re-wrap. Esc or click outside saves.',
+            { ns: 'editor' },
+          )
+        : active
+          ? tool === 'select'
+            ? activeDrafting
+              ? t('canvas.hint.activeDetail', 'Drag anything drawn to move it. Pick a tool to draw inside the view. Drag the frame edges to change its crop box.', {
+                  ns: 'editor',
+                })
+              : t(
+                  'canvas.hint.activeModelView',
+                  'Click to select, Tab for more, Shift+drag to box select, drag a selection to move it. Drag the frame edges to crop. Route, Split and an add-on’s drawing tools (in a plan) work here; the other model tools open the view by itself and bring you back.',
+                  { ns: 'editor' },
+                )
+            : tool === 'text'
+              ? t('canvas.hint.activeText', 'Click inside the view where the note starts, or drag across to set its width.', { ns: 'editor' })
+              : t('canvas.hint.activeDraw', 'Drag inside the view to draw a {{tool}}. Esc to stop.', { ns: 'editor', tool: toolWord(toolWordOf(tool), t).toLowerCase() })
+          : tool === 'select'
+            ? target.kind === 'sheet'
+              ? t(
+                  'canvas.hint.sheet',
+                  'Drag views from the panel onto the sheet. Drag a viewport or anything drawn to move it, a viewport’s edges to crop it. Double-click a view to edit it here on the sheet.',
+                  { ns: 'editor' },
+                )
+              : drafting
+                ? t(
+                    'canvas.hint.detailDrawing',
+                    'Drag anything drawn to move it (Esc cancels). Pick a tool to draw lines, text and dimensions. Drag the crop box edges to crop.',
+                    { ns: 'editor' },
+                  )
+                : modelView
+                  ? t('canvas.hint.modelView', 'Click to select, Tab for more, Shift+drag to box select, drag a selection to move it. Drag the crop box edges to crop.', {
+                      ns: 'editor',
+                    })
+                  : t('canvas.hint.printedView', 'How this view prints on a sheet. Drag the crop box edges to crop.', { ns: 'editor' })
+            : tool === 'text'
+              ? t('canvas.hint.note', 'Click where the note starts, or drag across to set its width. Type, then Esc or click outside to save.', { ns: 'editor' })
+              : t('canvas.hint.drawTool', 'Drag to draw a {{tool}}. Esc to stop.', {
+                  ns: 'editor',
+                  tool: toolWord(toolWordOf(tool), t).toLowerCase(),
+                })
 
   /** The open view drawing's crop box on paper (the frame of its printed drawing). */
   const showOwnCrop = target.kind === 'detail' && frame && openView && openView.props?.cropView !== false && openView.props?.showCropBox !== false
@@ -1272,15 +1442,22 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
       <div className="relative flex min-w-0 flex-1 flex-col">
         <div className="flex flex-wrap items-center gap-2 border-b bg-background/95 px-2 py-1.5">
           {!onToolChange && (
-          <ToggleGroup type="single" size="sm" variant="outline" value={tool} onValueChange={(v) => v && setTool(tools.find((t) => t.tool === v)?.tool ?? 'select')} aria-label={t('canvas.drawingTools', 'Drawing tools', { ns: 'editor' })}>
-            {tools.map((t) => (
-              <Tooltip key={t.tool}>
+          <ToggleGroup
+            type="single"
+            size="sm"
+            variant="outline"
+            value={tool}
+            onValueChange={(v) => v && setTool(tools.find((entry) => entry.tool === v)?.tool ?? 'select')}
+            aria-label={t('canvas.drawingTools', 'Drawing tools', { ns: 'editor' })}
+          >
+            {tools.map((entry) => (
+              <Tooltip key={entry.tool}>
                 <TooltipTrigger asChild>
-                  <ToggleGroupItem value={t.tool} aria-label={t.label} disabled={t.tool !== 'select' && !canEdit}>
-                    {t.icon}
+                  <ToggleGroupItem value={entry.tool} aria-label={toolWord(entry.word, t)} disabled={entry.tool !== 'select' && !canEdit}>
+                    {entry.icon}
                   </ToggleGroupItem>
                 </TooltipTrigger>
-                <TooltipContent>{t.tool !== 'select' && !canEdit ? blockedReason : t.label}</TooltipContent>
+                <TooltipContent>{entry.tool !== 'select' && !canEdit ? blockedReason : toolWord(entry.word, t)}</TooltipContent>
               </Tooltip>
             ))}
           </ToggleGroup>
@@ -1368,7 +1545,11 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
           }}
         >
           {drawingMenu.element}
-          <SelectionContextMenu at={tagMenuAt} onClose={() => setTagMenuAt(null)} selectionLabel={selectedIds.length === 1 ? 'Tag' : `${selectedIds.length} items`} tags={tagElbows.menu} />
+          <SelectionContextMenu at={tagMenuAt} onClose={() => setTagMenuAt(null)} selectionLabel={
+            selectedIds.length === 1
+              ? t('canvas.tag', 'Tag', { ns: 'editor' })
+              : t('canvas.someItems', '{{n}} items', { ns: 'editor', n: selectedIds.length })
+          } tags={tagElbows.menu} />
           <div
             className={`bg-white shadow-sm ring-1 ${dropHint ? 'ring-2 ring-primary' : 'ring-border'}`}
             ref={paperRef}
@@ -1635,7 +1816,7 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
               )}
               {selectedItem && selectedIds.length === 1 && tool === 'select' && !draftInput.active && !noteEdit && !moveDelta && !boundary && (
                 <g data-testid="annotation-grips">
-                  {annotationGrips(model, annotatedView, selectedItem, toPaperPoint).map((g) => {
+                  {annotationGrips(model, annotatedView, selectedItem, toPaperPoint, t).map((g) => {
                     const at = drag?.kind === 'grip' && drag.grip.key === g.key ? drag.to : g.at
                     const r = 1.1 / Math.max(zoom, 0.25)
                     return (
@@ -2221,7 +2402,16 @@ function ItemProperties({
   onDelete: () => void
 }) {
   const t = useEditorTranslate()
-  const label = item.shape === 'text' ? 'Note' : item.shape === 'cloud' ? 'Revision cloud' : item.shape === 'rect' ? 'Rectangle' : item.shape === 'dimension' ? 'Dimension' : 'Line'
+  const label =
+    item.shape === 'text'
+      ? toolWord('note', t)
+      : item.shape === 'cloud'
+        ? toolWord('cloud', t)
+        : item.shape === 'rect'
+          ? toolWord('rect', t)
+          : item.shape === 'dimension'
+            ? toolWord('dimension', t)
+            : toolWord('line', t)
   const resolved = item.shape === 'text' ? resolveNote(item) : null
   return (
     <div className="flex flex-col gap-3" data-testid="item-properties">
@@ -2366,7 +2556,11 @@ function NoteLeaders({ item, canEdit, onAdd, onChange }: { item: DrawingItem; ca
           {t('canvas.withABend', 'With a bend', { ns: 'editor' })}
         </Button>
       </div>
-      <FieldDescription>{leaders.length >= 9 ? 'A note takes up to 9 leaders.' : 'Then click on the drawing. Drag a leader’s grips to move it.'}</FieldDescription>
+      <FieldDescription>
+        {leaders.length >= 9
+          ? t('canvas.noteMaxLeaders', 'A note takes up to 9 leaders.', { ns: 'editor' })
+          : t('canvas.noteAddLeaderHow', 'Then click on the drawing. Drag a leader’s grips to move it.', { ns: 'editor' })}
+      </FieldDescription>
     </Field>
   )
 }

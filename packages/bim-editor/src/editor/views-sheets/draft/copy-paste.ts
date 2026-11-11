@@ -1,4 +1,5 @@
 import type { Command, ModelState, Vec2 } from '@permitzip/bim-kernel'
+import { englishOnly, type Translate } from '../../i18n/translate'
 
 /**
  * Copy and paste of placed parts (U4), on drawings: Ctrl/Cmd+C remembers the
@@ -20,14 +21,16 @@ export interface PartClip {
 export const MAX_CLIP = 200
 
 /** The selection as a clip, or why there is nothing to copy (in words for the hint line). */
-export function clipOf(model: ModelState, selectedIds: readonly string[]): PartClip | string {
-  if (selectedIds.length === 0) return 'Select the devices or equipment to copy first.'
+export function clipOf(model: ModelState, selectedIds: readonly string[], t: Translate = englishOnly): PartClip | string {
+  if (selectedIds.length === 0) return t('copy.selectFirst', 'Select the devices or equipment to copy first.', { ns: 'editor' })
   const parts = selectedIds.flatMap((id) => {
     const el = model.elements[id]
     return el?.kind === 'part' && !el.planned ? [el] : []
   })
-  if (parts.length === 0) return 'Copy works on devices, fixtures and equipment for now; ducts, pipes and notes copy later.'
-  if (parts.length > MAX_CLIP) return `That is ${parts.length} parts; copy at most ${MAX_CLIP} at once.`
+  if (parts.length === 0)
+    return t('copy.whatCopies', 'Copy works on devices, fixtures and equipment for now; ducts, pipes and notes copy later.', { ns: 'editor' })
+  if (parts.length > MAX_CLIP)
+    return t('copy.tooMany', 'That is {{n}} parts; copy at most {{max}} at once.', { ns: 'editor', n: parts.length, max: MAX_CLIP })
   const anchor = { x: parts.reduce((s, p) => s + p.position.x, 0) / parts.length, y: parts.reduce((s, p) => s + p.position.y, 0) / parts.length }
   const heightOf = (p: (typeof parts)[number]) => {
     const level = model.elements[p.levelId]
@@ -48,9 +51,19 @@ export function pasteCommand(clip: PartClip, at: Vec2, newId: (sourceId: string,
 }
 
 /** What the hint line says after a copy. */
-export function copiedHint(clip: PartClip): string {
+export function copiedHint(clip: PartClip, t: Translate = englishOnly): string {
   const n = clip.ids.length
-  return `Copied ${n} ${n === 1 ? 'part' : 'parts'}. Point where they go and press Ctrl+V (⌘V on a Mac); they land under the pointer at the height they were copied from.`
+  return n === 1
+    ? t(
+        'copy.copiedOne',
+        'Copied 1 part. Point where it goes and press Ctrl+V (⌘V on a Mac); it lands under the pointer at the height it was copied from.',
+        { ns: 'editor' },
+      )
+    : t(
+        'copy.copiedMany',
+        'Copied {{n}} parts. Point where they go and press Ctrl+V (⌘V on a Mac); they land under the pointer at the height they were copied from.',
+        { ns: 'editor', n },
+      )
 }
 
 let tabClip: PartClip | null = null

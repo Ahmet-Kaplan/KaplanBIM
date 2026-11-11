@@ -1,6 +1,7 @@
 import { DEFAULT_FIELD_BLOCK_WIDTH_MM, KEYNOTE_FIELD, sheetPaper, type Command, type KeynoteRow, type KeynoteTableSnapshot, type Sheet, type Vec2 } from '@permitzip/bim-kernel'
 import { builtinLibraryBundle, keynoteTableItemSchema, type KeynoteTableItem } from '@permitzip/bim-library'
 import { newId, type SubmitCommand } from './types'
+import { englishOnly, type Translate } from '../i18n/translate'
 
 /**
  * Annotate › Keynote and Sheets › Keynote list. Keynote tables come from the
@@ -82,10 +83,26 @@ export function keynoteListCorner(sheet: Sheet): Vec2 {
 }
 
 /** Sheets › Live table › Keynote list: the open sheet's list of the keynotes on its views. Returns the new item id, or why not. */
-export function placeKeynoteList(sheet: Sheet, submit: SubmitCommand, at: Vec2 = keynoteListCorner(sheet)): { readonly itemId: string } | { readonly refusal: string } {
+export function placeKeynoteList(
+  sheet: Sheet,
+  submit: SubmitCommand,
+  at: Vec2 = keynoteListCorner(sheet),
+  t: Translate = englishOnly,
+): { readonly itemId: string } | { readonly refusal: string } {
   const table = keynoteTableForSheets()
   if (!table) return { refusal: 'There are no keynote tables in this model yet: turn on an add-on that ships keynote tables, or add your firm’s in Settings › MutinyBIM library.' }
   const itemId = newId('blk')
-  const refusal = submit({ type: 'add_field_block', itemId, sheetId: sheet.id, at, block: { template: 'Keynotes', title: 'KEYNOTES', table: { kind: 'keynotes', sheetId: sheet.id, table: { ...table, keynotes: [...table.keynotes] } } } }, 'place keynote list')
+  const refusal = submit(
+    {
+      type: 'add_field_block',
+      itemId,
+      sheetId: sheet.id,
+      at,
+      // `template` and `title` are the block's own stored data (the sheet prints the
+      // title), so they stay as they are; only the undo label is a caption.
+      block: { template: 'Keynotes', title: 'KEYNOTES', table: { kind: 'keynotes', sheetId: sheet.id, table: { ...table, keynotes: [...table.keynotes] } } },
+    },
+    t('keynote.placeWhat', 'place keynote list', { ns: 'editor' }),
+  )
   return refusal ? { refusal } : { itemId }
 }

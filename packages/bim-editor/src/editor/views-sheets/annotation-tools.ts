@@ -18,6 +18,7 @@ import {
   type Vec2,
   type ViewElement,
 } from '@permitzip/bim-kernel'
+import { englishOnly, type Translate } from '../i18n/translate'
 
 /**
  * The Annotate tools' geometry: where a click snaps to (element ends, middles,
@@ -230,13 +231,20 @@ export type NudgeCommand = { readonly type: 'update_drawing_item'; readonly item
  * coordinates: model mm in a view, paper mm on a sheet), or why not. A tag
  * moves its head; the kernel carries a hand-placed elbow with it.
  */
-export function nudgeEdits(items: readonly DrawingItem[], ids: readonly string[], delta: Vec2): { readonly ok: true; readonly commands: NudgeCommand[] } | { readonly ok: false; readonly reason: string } {
+export function nudgeEdits(
+  items: readonly DrawingItem[],
+  ids: readonly string[],
+  delta: Vec2,
+  t: Translate = englishOnly,
+): { readonly ok: true; readonly commands: NudgeCommand[] } | { readonly ok: false; readonly reason: string } {
   const picked = ids.flatMap((id) => {
     const it = items.find((i) => i.id === id)
     return it && !it.deleted ? [it] : []
   })
-  if (picked.length === 0) return { ok: false, reason: 'Select a tag, note or line to nudge it with the arrow keys.' }
-  if (picked.some((it) => it.pinned)) return { ok: false, reason: "It's pinned. Unpin it first (Modify > Unpin), then nudge it." }
+  if (picked.length === 0)
+    return { ok: false, reason: t('canvas.nudgeSelectFirst', 'Select a tag, note or line to nudge it with the arrow keys.', { ns: 'editor' }) }
+  if (picked.some((it) => it.pinned))
+    return { ok: false, reason: t('canvas.nudgePinned', "It's pinned. Unpin it first (Modify > Unpin), then nudge it.", { ns: 'editor' }) }
   return { ok: true, commands: picked.map((it) => ({ type: 'update_drawing_item', itemId: it.id, points: it.points.map((p) => ({ x: p.x + delta.x, y: p.y + delta.y })) })) }
 }
 

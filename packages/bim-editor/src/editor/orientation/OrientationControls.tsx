@@ -61,7 +61,7 @@ function threeQuarterLabel(view: { readonly key: string }, t: Translate): string
 }
 
 /** A side of the model, in the language on screen: the viewer's own label is English. */
-function sideLabel(side: Side, t: Translate): string {
+export function sideLabel(side: Side, t: Translate): string {
   switch (side) {
     case 'top':
       return t('orientation.side.top', 'Top', { ns: 'editor' })
@@ -103,7 +103,7 @@ interface Props {
   readonly onProjectionChange: (projection: Projection) => void
 }
 
-export const PROJECTION_LABEL: Record<Projection, string> = { perspective: 'Perspective', orthographic: 'Orthographic' }
+export { projectionLabel }
 export const otherProjection = (p: Projection): Projection => (p === 'orthographic' ? 'perspective' : 'orthographic')
 
 /**

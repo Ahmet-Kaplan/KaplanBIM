@@ -5,6 +5,7 @@ import type { ReissueCheck } from '@permitzip/bim-sheets'
 import type { EditorDataAnswer, EditorDataHost } from '@permitzip/bim-editor-host'
 import { EditorServiceUnavailableError } from '@permitzip/bim-editor/host/unavailable'
 import type { IssueCheckResult, IssueSetResult, PrintSetResult, SetHistory } from '../../contracts/bim/drawing-set-results'
+import { englishOnly, type Translate } from '../i18n/translate'
 
 /**
  * The browser's side of Print set and Issue set: the Building Model asks the
@@ -34,18 +35,34 @@ async function answer<T>(res: EditorDataAnswer, doing: string): Promise<T> {
 
 type DrawingSetsPort = EditorDataHost['drawingSets']
 
-function portOf(port: DrawingSetsPort): NonNullable<DrawingSetsPort> {
-  if (!port) throw new EditorServiceUnavailableError('Printing and issuing sets')
+function portOf(port: DrawingSetsPort, t: Translate): NonNullable<DrawingSetsPort> {
+  if (!port)
+    throw new EditorServiceUnavailableError(t('set.setsService', 'Printing and issuing sets', { ns: 'editor' }))
   return port
 }
 
-export async function fetchSetStatusFrom(port: DrawingSetsPort, projectId: string, modelId: string, sheets?: readonly string[]): Promise<SetStatus> {
-  return answer<SetStatus>(await portOf(port).status({ projectId, modelId, ...(sheets ? { sheets } : {}) }), 'Checking the set')
+export async function fetchSetStatusFrom(
+  port: DrawingSetsPort,
+  projectId: string,
+  modelId: string,
+  sheets?: readonly string[],
+  t: Translate = englishOnly,
+): Promise<SetStatus> {
+  return answer<SetStatus>(
+    await portOf(port, t).status({ projectId, modelId, ...(sheets ? { sheets } : {}) }),
+    t('set.checking', 'Checking the set', { ns: 'editor' }),
+  )
 }
 
-export async function printSetFrom(port: DrawingSetsPort, projectId: string, modelId: string, input: { sheets?: readonly string[]; title?: string }): Promise<PrintSetResult> {
-  const res = await portOf(port).print({ projectId, modelId, input })
-  return answer<PrintSetResult>(res, 'Printing the set')
+export async function printSetFrom(
+  port: DrawingSetsPort,
+  projectId: string,
+  modelId: string,
+  input: { sheets?: readonly string[]; title?: string },
+  t: Translate = englishOnly,
+): Promise<PrintSetResult> {
+  const res = await portOf(port, t).print({ projectId, modelId, input })
+  return answer<PrintSetResult>(res, t('set.printing', 'Printing the set', { ns: 'editor' }))
 }
 
 export async function issueSetFrom(
@@ -53,7 +70,8 @@ export async function issueSetFrom(
   projectId: string,
   modelId: string,
   input: { name: string; expectedRevision: number; sheets?: readonly string[]; addRevision?: SheetRevision; acceptChangesSincePrint?: boolean },
+  t: Translate = englishOnly,
 ): Promise<IssueSetResult> {
-  const res = await portOf(port).issue({ projectId, modelId, input })
-  return answer<IssueSetResult>(res, 'Issuing the set')
+  const res = await portOf(port, t).issue({ projectId, modelId, input })
+  return answer<IssueSetResult>(res, t('set.issuing', 'Issuing the set', { ns: 'editor' }))
 }

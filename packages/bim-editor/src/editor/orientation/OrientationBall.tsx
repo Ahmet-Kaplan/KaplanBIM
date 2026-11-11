@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import type { ModelViewer3D } from '@permitzip/bim-viewer-3d'
-import { orientationFor, projectAxis, SIDE_LABEL, type ModelAxis, type Orientation, type Side } from '@permitzip/bim-viewer-3d/light'
+import { orientationFor, projectAxis, type ModelAxis, type Orientation, type Side } from '@permitzip/bim-viewer-3d/light'
 import { Button } from '../../ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip'
 import { cn } from '../../ui/cn'
 import { useEditorTranslate } from '../i18n/translate'
+import type { Translate } from '../i18n/translate'
+import { sideLabel } from './OrientationControls'
 
 const SIZE = 72
 const CENTRE = SIZE / 2
@@ -40,7 +42,12 @@ export const BALL_DOTS: readonly Dot[] = [
   { side: 'bottom', axis: 'z', sign: -1, label: 'Dn' },
 ]
 
-export const lookFromLabel = (side: Side) => (side === 'top' ? 'Look from the top' : side === 'bottom' ? 'Look from below' : `Look from the ${side}`)
+export const lookFromLabel = (side: Side, t: Translate): string =>
+  side === 'top'
+    ? t('orientation.lookFromTop', 'Look from the top', { ns: 'editor' })
+    : side === 'bottom'
+      ? t('orientation.lookFromBelow', 'Look from below', { ns: 'editor' })
+      : t('orientation.lookFromSide', 'Look from the {{side}}', { ns: 'editor', side: sideLabel(side, t).toLowerCase() })
 
 const DOT_CLASS = 'border-(--mutiny-border) bg-(--mutiny-panel) text-(--mutiny-text) hover:bg-(--mutiny-subtle) hover:text-(--mutiny-text) dark:hover:bg-(--mutiny-subtle)'
 const NORTH_DOT_CLASS =
@@ -213,7 +220,7 @@ export function OrientationBall({ viewer }: Props) {
               }}
               type="button"
               variant="ghost"
-              aria-label={lookFromLabel(dot.side)}
+              aria-label={lookFromLabel(dot.side, t)}
               data-testid={`orientation-ball-${dot.side}`}
               onClick={(e) => {
                 // A drag that ends over a dot is an orbit, not a pick. Keyboard clicks (detail 0) always pick.
@@ -229,7 +236,7 @@ export function OrientationBall({ viewer }: Props) {
               {dot.label}
             </Button>
           </TooltipTrigger>
-          <TooltipContent>{`${lookFromLabel(dot.side)} (${SIDE_LABEL[dot.side]})`}</TooltipContent>
+          <TooltipContent>{`${lookFromLabel(dot.side, t)} (${sideLabel(dot.side, t)})`}</TooltipContent>
         </Tooltip>
       ))}
     </div>

@@ -442,6 +442,35 @@ Aşama 4 (Task 4.1–4.2) çizelgeleri, hesap sayfalarını, paftaları, görün
 | Layout / plan north / true north up | **yerleşim** / *plan kuzeyi* / *gerçek kuzey yukarı* | §2.3 |
 | Snap to (verb) | **yakalanmak** ("… öğesine yakalandı") | |
 
+### 5.3 Aşama 4 ikinci düzeltme turunda eklenen sözcükler (2026-11-10)
+
+Çizim araçları, modify komutları, çizim seti ve etiket kılavuzlarının tamamı çevrilirken bunlar gerekti.
+
+| EN | TR | Not |
+|----|----|-----|
+| Move / Copy / Rotate / Mirror / Scale / Align / Offset | **Taşı / Kopyala / Döndür / Aynala / Ölçekle / Hizala / Kaydır** | §3 komutları |
+| Array / Radial array | **Dizi / Açısal dizi** | |
+| Trim/Extend (to corner / single / multiple) | **Kısalt/Uzat** (*köşeye kadar / tek / çoklu*) | §3 *Trim* = Kısalt, *Extend* = Uzat |
+| Split element / Split with gap | **Elemanı böl / Aralıklı böl** | |
+| Fillet arc | **Yuvarlat** | §3 *Fillet* = Yuvarlat |
+| Pin / Unpin | **Sabitle / Sabitlemeyi kaldır** | |
+| Nudge (arrow keys) | **kaydır** | Ok tuşlarıyla |
+| Base point / centre | **taban nokta / merkez** | |
+| Snap word: endpoint / midpoint / centre / intersection / perpendicular / nearest | **uç nokta / orta nokta / merkez / kesişim / dik / en yakın nokta** | Yakalama ipucu ve izleme satırı |
+| Grip | **tutamak** | Sürükleme tutamacı |
+| Chain of lines / closed chain | **çizgi zinciri / kapalı çizgi zinciri** | |
+| Repeating detail / insulation run | **tekrarlanan detay / yalıtım hattı** | |
+| Draw / drafting prompt | **"… tıklayın"** cümlesi | §0/7 kibar çoğul emir |
+| Spread tags | **Etiketleri dağıt** | Bir tutamaçla; "dağıt" §3 |
+| Straighten leader / bend the leader | **Kılavuzu düzelt / kılavuzu kır** | Kılavuz = leader (§2.4 *Annotation*) |
+| Elbow | **kırık** | Kılavuzun elle konan kırığı |
+| Verify pages / issued drawings | **doğrulama sayfaları / yayınlanmış çizimler** | §6 *Issue* = yayın |
+| Print and issuing sets | **Set yazdırma ve yayınlama** | Hizmet adı; `unavailableWords` cümlesine girer |
+| Title block library | **Antet kitaplığı** | §2.4 *Title block* = antet |
+| Pictures on sheets | **Paftalardaki resimler** | Hizmet adı |
+| Drawing / sheet paper | **Çizim / pafta** | §2.4 |
+| Keynote list | **anahtar not listesi** | §2.4 *Keynote* = anahtar not |
+
 ---
 
 ## 6. Maliyet ve ticari terimler

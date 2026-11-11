@@ -18,7 +18,7 @@ import {
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '../../ui/empty'
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '../../ui/item'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip'
-import { VIEW_DRAG_TYPE, VIEW_TYPE_LABEL, sameOpen, type CreatableViewType, type OpenItem } from './types'
+import { VIEW_DRAG_TYPE, sameOpen, viewTypeLabel, type CreatableViewType, type OpenItem } from './types'
 import { useEditorTranslate, type Translate } from '../i18n/translate'
 
 export type PanelRequest =
@@ -441,10 +441,10 @@ function ViewRow({
 
         <TooltipContent>
           {onSheet
-            ? t('panel.viewOnSheet', '{{type}}. On sheet {{number}}.', { ns: 'editor', type: VIEW_TYPE_LABEL[view.viewType], number: onSheet })
+            ? t('panel.viewOnSheet', '{{type}}. On sheet {{number}}.', { ns: 'editor', type: viewTypeLabel(view.viewType, t), number: onSheet })
             : canEdit
-              ? t('panel.viewOpenOrDrag', '{{type}}. Open it, or drag it onto an open sheet.', { ns: 'editor', type: VIEW_TYPE_LABEL[view.viewType] })
-              : VIEW_TYPE_LABEL[view.viewType]}
+              ? t('panel.viewOpenOrDrag', '{{type}}. Open it, or drag it onto an open sheet.', { ns: 'editor', type: viewTypeLabel(view.viewType, t) })
+              : viewTypeLabel(view.viewType, t)}
         </TooltipContent>
 
       </Tooltip>

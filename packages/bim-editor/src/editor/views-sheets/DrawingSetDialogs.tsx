@@ -19,7 +19,7 @@ import { fetchSetStatusFrom, issueSetFrom, printSetFrom, type SetStatus } from '
 import type { SubmitCommand } from './types'
 import { useEditorHost, useOptionalEditorHost } from '@permitzip/bim-editor/host'
 import { IssueBlockedNotice } from '../code-change/IssueBlockedNotice'
-import { useEditorTranslate } from '../i18n/translate'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
 
 /**
  * A person's drawing-set workflow in Views & Sheets: arrange a sheet's views,
@@ -304,13 +304,22 @@ export interface SaveState {
   readonly waitForSaved: (ms: number) => Promise<boolean>
 }
 
-async function saveFirst(save: SaveState): Promise<string | null> {
+async function saveFirst(save: SaveState, t: Translate): Promise<string | null> {
   if (save.pending === 0) return null
-  return (await save.waitForSaved(30_000)) ? null : "Your edits still aren't saved after 30 seconds. Wait until the status says All changes saved, then try again."
+  return (await save.waitForSaved(30_000))
+    ? null
+    : t('set.editsNotSaved', "Your edits still aren't saved after 30 seconds. Wait until the status says All changes saved, then try again.", {
+        ns: 'editor',
+      })
 }
 
 /** Where a host lists an issued set's Verify pages, when this one has none. */
-const NO_ISSUED_SHEET_LINKS = 'This app keeps no published copies of issued sheets, so there are no Verify pages to open here. The issued PDF is the record of the set.'
+const noIssuedSheetLinks = (t: Translate): string =>
+  t(
+    'issue.noIssuedSheetLinks',
+    'This app keeps no published copies of issued sheets, so there are no Verify pages to open here. The issued PDF is the record of the set.',
+    { ns: 'editor' },
+  )
 
 function when(iso: string): string {
   const d = new Date(iso)
@@ -335,7 +344,7 @@ export function PrintSetDialog({ projectId, modelId, model, save, onCancel }: { 
         : t('print.drawingSet', 'Drawing the set…', { ns: 'editor' }),
     )
     try {
-      const notSaved = await saveFirst(save)
+      const notSaved = await saveFirst(save, t)
       if (notSaved) return setError(notSaved)
       setBusy(t('print.drawingSet', 'Drawing the set…', { ns: 'editor' }))
       const result = await printSetFrom(drawingSets, projectId, modelId, { sheets: pickedList(sheets, picked) })
@@ -393,19 +402,29 @@ export function PrintSetDialog({ projectId, modelId, model, save, onCancel }: { 
                 {t('print.openThePdf', 'Open the PDF', { ns: 'editor' })}
               </a>
             </Button>
-            <p className="text-xs text-muted-foreground">The link works for {Math.round(printed.expiresInSeconds / 60)} minutes.</p>
+            <p className="text-xs text-muted-foreground">
+              {t('set.linkWorksFor', 'The link works for {{n}} minutes.', { ns: 'editor', n: Math.round(printed.expiresInSeconds / 60) })}
+            </p>
           </div>
         ) : (
           <SheetPicker sheets={sheets} picked={picked} onChange={setPicked} />
         )}
-        {save.pending > 0 && !printed && <p className="text-xs text-muted-foreground">{save.pending} of your changes {save.pending === 1 ? "isn't" : "aren't"} saved yet; the set prints once they are.</p>}
+        {save.pending > 0 && !printed && (
+          <p className="text-xs text-muted-foreground">
+            {save.pending === 1
+              ? t('set.oneUnsaved', '1 of your changes isn’t saved yet; the set prints once it is.', { ns: 'editor' })
+              : t('set.someUnsaved', '{{n}} of your changes aren’t saved yet; the set prints once they are.', { ns: 'editor', n: save.pending })}
+          </p>
+        )}
         {error && <p className="text-sm text-danger-600" role="alert">{error}</p>}
         <DialogFooter>
-          <Button variant="outline" onClick={onCancel} disabled={busy !== null}>{printed ? 'Done' : 'Cancel'}</Button>
+          <Button variant="outline" onClick={onCancel} disabled={busy !== null}>
+            {printed ? t('set.done', 'Done', { ns: 'editor' }) : t('set.cancel', 'Cancel', { ns: 'editor' })}
+          </Button>
           {!printed && (
             <Button onClick={() => void run()} disabled={busy !== null || picked.size === 0} data-testid="print-set-confirm">
               {busy ? <Spinner data-icon="inline-start" /> : <Printer data-icon="inline-start" />}
-              {busy ?? 'Print set'}
+              {busy ?? t('print.title', 'Print the set', { ns: 'editor' })}
             </Button>
           )}
         </DialogFooter>
@@ -433,13 +452,15 @@ export function IssueSetDialog({ projectId, modelId, model, save, canIssue, bloc
   const sheets = useMemo(() => setOrder(elementsOfKind(model.elements, 'sheet').filter((e) => !e.deleted)), [model])
   const [picked, setPicked] = useState<Set<string>>(() => new Set(sheets.map((s) => s.id)))
   const [status, setStatus] = useState<SetStatus | null>(null)
-  const [loading, setLoading] = useState<string | null>(save.pending > 0 ? 'Waiting for your edits to save…' : 'Checking the set…')
+  const [loading, setLoading] = useState<string | null>(() =>
+    save.pending > 0 ? t('print.waitingEdits', 'Waiting for your edits to save…', { ns: 'editor' }) : t('set.checking', 'Checking the set…', { ns: 'editor' }),
+  )
   const [error, setError] = useState<string | null>(null)
-  const [name, setName] = useState('Issued for permit')
+  const [name, setName] = useState(() => t('issue.defaultName', 'Issued for permit', { ns: 'editor' }))
   const [addRow, setAddRow] = useState(true)
   const [revNumber, setRevNumber] = useState(() => nextRevisionNumber(sheets))
   const [revDate, setRevDate] = useState(today)
-  const [revText, setRevText] = useState('ISSUED FOR PERMIT')
+  const [revText, setRevText] = useState(() => t('revisions.placeholder', 'ISSUED FOR PERMIT', { ns: 'editor' }))
   const [accepted, setAccepted] = useState(false)
   const [issued, setIssued] = useState<Extract<IssueSetResult, { status: 'issued' | 'already_issued' }> | null>(null)
   const [verifyIssue, setVerifyIssue] = useState<string | null>(null)
@@ -452,7 +473,7 @@ export function IssueSetDialog({ projectId, modelId, model, save, canIssue, bloc
   /** Check again (after a refusal, or when the sheets picked change). */
   const recheck = () => {
     setError(null)
-    setLoading('Checking the set…')
+    setLoading(t('set.checking', 'Checking the set…', { ns: 'editor' }))
     setCheckRun((n) => n + 1)
   }
 
@@ -460,7 +481,7 @@ export function IssueSetDialog({ projectId, modelId, model, save, canIssue, bloc
     let live = true
     const run = async () => {
       try {
-        const notSaved = await saveFirst({ pending, waitForSaved })
+        const notSaved = await saveFirst({ pending, waitForSaved }, t)
         if (!live) return
         if (notSaved) {
           setError(notSaved)
@@ -473,7 +494,8 @@ export function IssueSetDialog({ projectId, modelId, model, save, canIssue, bloc
         setAccepted(false)
       } catch (err) {
         console.error('[IssueSetDialog] checking the set failed', err)
-        if (live) setError(err instanceof Error ? err.message : "The set couldn't be checked. Try again.")
+        if (live)
+          setError(err instanceof Error ? err.message : t('set.couldNotCheck', 'The set couldn’t be checked. Try again.', { ns: 'editor' }))
       } finally {
         if (live) setLoading(null)
       }
@@ -559,7 +581,9 @@ export function IssueSetDialog({ projectId, modelId, model, save, canIssue, bloc
             {IssuedSheetLinks ? (
               <IssuedSheetLinks modelRef={projectId} issueId={issued.issueId} />
             ) : (
-              <p className="text-xs text-muted-foreground" data-testid="issued-sheet-links-unavailable">{NO_ISSUED_SHEET_LINKS}</p>
+              <p className="text-xs text-muted-foreground" data-testid="issued-sheet-links-unavailable">
+                {noIssuedSheetLinks(t)}
+              </p>
             )}
           </div>
         ) : loading ? (

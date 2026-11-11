@@ -10,7 +10,7 @@ import { agentDrawingPrompt } from '../../contracts/building-model/agent-drawing
 import type { SaveState } from './DrawingSetDialogs'
 import type { PanelRequest } from './ViewsSheetsPanel'
 import type { SubmitCommand } from './types'
-import { useEditorTranslate, type Translate } from '../i18n/translate'
+import { englishOnly, useEditorTranslate, type Translate } from '../i18n/translate'
 
 const ArrangeSheetDialog = dynamic(() => import('./DrawingSetDialogs').then((m) => m.ArrangeSheetDialog), { ssr: false })
 const RevisionsDialog = dynamic(() => import('./DrawingSetDialogs').then((m) => m.RevisionsDialog), { ssr: false })
@@ -19,11 +19,22 @@ const IssueSetDialog = dynamic(() => import('./DrawingSetDialogs').then((m) => m
 const IfcExportDialog = dynamic(() => import('../ifc-export/IfcExportDialog').then((m) => m.IfcExportDialog), { ssr: false })
 
 /** Where the host has no agent that takes a drafted request: what to do instead, and where to connect an AI when the host has such a page. */
-function noAgentToMakeDrawings(host: Pick<EditorHost, 'shell' | 'capabilities'>): void {
+function noAgentToMakeDrawings(host: Pick<EditorHost, 'shell' | 'capabilities'>, t: Translate): void {
   const href = host.shell.connectAgentHref ?? null
-  const message = `Making sheets, views and schedules with an agent needs a connected AI, and ${host.capabilities.hostName} has none built in.`
-  const description = href ? 'Connect your own AI to this model, then ask it to make them.' : 'Connect your own AI to this model through its tool server, then ask it to make them.'
-  toast.info(message, href ? { description, action: { label: 'How to connect an AI', onClick: () => window.open(href, '_blank', 'noopener') } } : { description })
+  const message = t(
+    'agent.needsConnectedAi',
+    'Making sheets, views and schedules with an agent needs a connected AI, and {{host}} has none built in.',
+    { ns: 'editor', host: host.capabilities.hostName },
+  )
+  const description = href
+    ? t('agent.connectYourOwn', 'Connect your own AI to this model, then ask it to make them.', { ns: 'editor' })
+    : t('agent.connectThroughToolServer', 'Connect your own AI to this model through its tool server, then ask it to make them.', { ns: 'editor' })
+  toast.info(
+    message,
+    href
+      ? { description, action: { label: t('agent.howToConnect', 'How to connect an AI', { ns: 'editor' }), onClick: () => window.open(href, '_blank', 'noopener') } }
+      : { description },
+  )
 }
 
 /** "Make sheets, views and schedules with the agent": a new Cmd+J thread on this project with the drafted prompt in its composer, unsent. */
@@ -31,10 +42,11 @@ export function openAgentToMakeDrawings(
   host: Pick<EditorHost, 'agent' | 'shell' | 'capabilities'>,
   model: ModelState,
   project: { readonly projectId: string; readonly projectName: string; readonly projectNumber: string | null },
+  t: Translate = englishOnly,
 ): void {
   const agent = host.agent
   if (!agent || !agent.seedComposer) {
-    noAgentToMakeDrawings(host)
+    noAgentToMakeDrawings(host, t)
     return
   }
   const levels = elementsOfKind(model.elements, 'level')
@@ -97,7 +109,7 @@ export function DrawingSetRequests({
   // Make with the agent: no dialog here; Cmd+J opens with the drafted request, and this request is done.
   useEffect(() => {
     if (request?.kind !== 'agent_make') return
-    if (model) openAgentToMakeDrawings(host, model, { projectId, projectName, projectNumber })
+    if (model) openAgentToMakeDrawings(host, model, { projectId, projectName, projectNumber }, t)
     else toast.error(t('drawingSet.modelNotOpen', 'The model hasn’t finished opening yet. Wait for it to load, then try again.', { ns: 'editor' }))
     onDone()
   }, [host, request, model, projectId, projectName, projectNumber, onDone])

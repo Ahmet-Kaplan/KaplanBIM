@@ -3,6 +3,7 @@
 import type { TitleBlockRow } from '@permitzip/bim-kernel'
 import type { EditorDataAnswer, EditorDataHost } from '@permitzip/bim-editor-host'
 import { EditorServiceUnavailableError } from '@permitzip/bim-editor/host/unavailable'
+import { englishOnly, type Translate } from '../i18n/translate'
 
 /** A title block from the firm library, as the sheet dialog and Settings list it. */
 export interface TitleBlockChoice {
@@ -28,17 +29,17 @@ async function readError(res: EditorDataAnswer): Promise<string> {
 }
 
 type TitleBlocksPort = EditorDataHost['titleBlocks']
-const TITLE_BLOCKS = 'The title block library'
-
-export async function loadTitleBlocksFrom(port: TitleBlocksPort): Promise<TitleBlockList> {
-  if (!port) throw new EditorServiceUnavailableError(TITLE_BLOCKS)
+export async function loadTitleBlocksFrom(port: TitleBlocksPort, t: Translate = englishOnly): Promise<TitleBlockList> {
+  if (!port)
+    throw new EditorServiceUnavailableError(t('titleBlock.libraryService', 'The title block library', { ns: 'editor' }))
   const res = await port.list()
   if (!res.ok) throw new Error(await readError(res))
   return (await res.json()) as TitleBlockList
 }
 
-export async function makeDefaultTitleBlockFrom(port: TitleBlocksPort, id: string): Promise<void> {
-  if (!port) throw new EditorServiceUnavailableError(TITLE_BLOCKS)
+export async function makeDefaultTitleBlockFrom(port: TitleBlocksPort, id: string, t: Translate = englishOnly): Promise<void> {
+  if (!port)
+    throw new EditorServiceUnavailableError(t('titleBlock.libraryService', 'The title block library', { ns: 'editor' }))
   const res = await port.makeDefault({ id })
   if (!res.ok) throw new Error(await readError(res))
 }

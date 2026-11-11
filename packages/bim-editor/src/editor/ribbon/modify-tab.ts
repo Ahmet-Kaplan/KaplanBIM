@@ -24,7 +24,8 @@ import {
   X,
 } from 'lucide-react'
 import type { RibbonCommand, RibbonGroup, RibbonTab } from './types'
-import { MODIFY_LABEL, PICK_ELEMENT_OPS, type ModifyOpName } from '../views-sheets/draft/draft-input'
+import { modifyLabel, PICK_ELEMENT_OPS, type ModifyOpName } from '../views-sheets/draft/draft-input'
+import type { Translate } from '../i18n/translate'
 import type { BuildingModelRibbonContext } from '../building-model-ribbon'
 import { englishOnly } from '../i18n/translate'
 import { TOOL_SHORTCUTS } from './tool-shortcuts'
@@ -88,31 +89,36 @@ function target(ctx: BuildingModelRibbonContext): Target {
   return 'model'
 }
 
-function drawnReason(ctx: BuildingModelRibbonContext, op: ModifyOpName): string | null {
-  if (!ctx.draft) return 'Drawing edits load with the drawing. Open a sheet, a detail view, a plan or a section.'
+function drawnReason(ctx: BuildingModelRibbonContext, op: ModifyOpName, t: Translate): string | null {
+  if (!ctx.draft)
+    return t('draft.editsLoadWithDrawing', 'Drawing edits load with the drawing. Open a sheet, a detail view, a plan or a section.', { ns: 'editor' })
   if (ctx.editBlocked) return ctx.editBlocked
   // Trim/Extend, Split and Fillet Arc start with nothing selected: you click the lines.
   if (PICK_ELEMENT_OPS.has(op)) return null
   const selected = ctx.draft.selectedIds.length
-  if (selected === 0) return 'Select drawn items first (Shift+click adds more).'
+  if (selected === 0) return t('draft.selectDrawnFirst', 'Select drawn items first (Shift+click adds more).', { ns: 'editor' })
   return null
 }
 
 /** Verbs that work on drawn items only today. */
-function notOnModelYet(op: ModifyOpName): string {
-  return `${MODIFY_LABEL[op]} works on drawn lines and notes today. Open a sheet, a detail view or a plan's drawing and select what to change. Parts and runs move, turn and split from here.`
+function notOnModelYet(op: ModifyOpName, t: Translate): string {
+  return t('draft.notOnModelYet', '{{name}} works on drawn lines and notes today. Open a sheet, a detail view or a plan’s drawing and select what to change. Parts and runs move, turn and split from here.', {
+    ns: 'editor',
+    name: modifyLabel(op, t),
+  })
 }
 
 function draftOp(ctx: BuildingModelRibbonContext, op: ModifyOpName): RibbonCommand {
+  const t = ctx.t ?? englishOnly
   const draft = ctx.draft
   const where = target(ctx)
   return {
     id: `draft-${op}`,
-    label: MODIFY_LABEL[op],
+    label: modifyLabel(op, t),
     icon: MODIFY_ICON[op],
     description: MODIFY_WHAT[op],
     keywords: ['modify', 'edit', op.replace('_', ' ')],
-    disabledReason: where === 'drawn' ? drawnReason(ctx, op) : notOnModelYet(op),
+    disabledReason: where === 'drawn' ? drawnReason(ctx, op, t) : notOnModelYet(op, t),
     pressed: draft?.pending?.kind === 'modify' && draft.pending.op === op,
     run: () => {
       if (!draft) return

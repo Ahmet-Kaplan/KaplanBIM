@@ -1,5 +1,6 @@
 import { elementsOfKind, elementViewCategory, VIEW_CATEGORY_LABELS, viewLevelElements, type BimElement, type ModelState, type ViewCategory, type ViewElement } from '@permitzip/bim-kernel'
 import { similarStartFor } from '../../create-similar'
+import { englishOnly, type Translate } from '../../i18n/translate'
 
 /**
  * Right-click on a printed drawing or a sheet (the product owner, C6: "Right-click also
@@ -49,9 +50,12 @@ export interface DrawingMenuContext {
   readonly canAddView: boolean
 }
 
-const SELECT_UNAVAILABLE = "Selecting from this drawing isn't available here. Open the plan or section to select."
-const CREATE_SIMILAR_UNAVAILABLE = "Create similar can't start from this drawing yet. Select it in the 3D view and press C then S."
-const ADD_VIEW_HOW = 'Drag a view or schedule from Views and sheets onto the sheet to place it.'
+const selectUnavailable = (t: Translate): string =>
+  t('drawing.selectUnavailable', "Selecting from this drawing isn't available here. Open the plan or section to select.", { ns: 'editor' })
+const createSimilarUnavailable = (t: Translate): string =>
+  t('drawing.createSimilarUnavailable', "Create similar can't start from this drawing yet. Select it in the 3D view and press C then S.", { ns: 'editor' })
+const addViewHow = (t: Translate): string =>
+  t('drawing.addViewHow', 'Drag a view or schedule from Views and sheets onto the sheet to place it.', { ns: 'editor' })
 
 function live(el: BimElement | undefined): el is BimElement {
   return el !== undefined && !('deleted' in el && el.deleted)
@@ -86,66 +90,107 @@ export function hideInViewPatch(model: ModelState, view: ViewElement, el: BimEle
 }
 
 /** The element in words, for the menu's title ("SD-9", a part's type name, or its category). */
-export function elementTitle(model: ModelState, el: BimElement): string {
+export function elementTitle(model: ModelState, el: BimElement, t: Translate): string {
   if ('mark' in el && typeof el.mark === 'string' && el.mark) return el.mark
   if (el.kind === 'part') {
     const type = model.elements[el.typeId]
     if (type?.kind === 'part_type') return type.definition.typeName
   }
   const category = elementViewCategory(model.elements, el)
-  return category ? VIEW_CATEGORY_LABELS[category] : 'Model element'
+  return category ? VIEW_CATEGORY_LABELS[category] : t('drawing.modelElement', 'Model element', { ns: 'editor' })
 }
 
-const ZOOM_FIT: DrawingMenuItem = { id: 'zoom_fit', label: 'Zoom to fit', hint: 'F', groupStart: true }
+const zoomFit = (t: Translate): DrawingMenuItem => ({ id: 'zoom_fit', label: t('drawing.zoomToFit', 'Zoom to fit', { ns: 'editor' }), hint: 'F', groupStart: true })
 
-export function drawingMenuItems(target: DrawingMenuTarget, ctx: DrawingMenuContext): DrawingMenu {
+export function drawingMenuItems(target: DrawingMenuTarget, ctx: DrawingMenuContext, translate: Translate = englishOnly): DrawingMenu {
+  const t = translate
   if (target.kind === 'viewport') {
     const schedule = target.view.viewType === 'schedule'
     return {
       title: target.view.name,
       items: [
-        { id: 'open_view', label: schedule ? 'Open schedule' : 'Open view' },
+        {
+          id: 'open_view',
+          label: schedule ? t('drawing.openSchedule', 'Open schedule', { ns: 'editor' }) : t('drawing.openView', 'Open view', { ns: 'editor' }),
+        },
         {
           id: 'remove_from_sheet',
-          label: 'Remove from sheet…',
-          hint: `The ${schedule ? 'schedule' : 'view'} itself stays in Views and sheets.`,
+          label: t('drawing.removeFromSheet', 'Remove from sheet…', { ns: 'editor' }),
+          hint: schedule
+            ? t('drawing.scheduleStays', 'The schedule itself stays in Views and sheets.', { ns: 'editor' })
+            : t('drawing.viewStays', 'The view itself stays in Views and sheets.', { ns: 'editor' }),
           ...(ctx.canEdit ? {} : { disabledReason: ctx.blockedReason }),
-          confirm: { title: `Remove ${target.view.name} from this sheet?`, description: `The ${schedule ? 'schedule' : 'view'} stays in Views and sheets; only its place on this sheet goes. Undo brings it back.`, confirmLabel: 'Remove from sheet' },
+          confirm: {
+            title: t('drawing.removeNamedTitle', 'Remove {{name}} from this sheet?', { ns: 'editor', name: target.view.name }),
+            description: schedule
+              ? t('drawing.removeScheduleWhy', 'The schedule stays in Views and sheets; only its place on this sheet goes. Undo brings it back.', { ns: 'editor' })
+              : t('drawing.removeViewWhy', 'The view stays in Views and sheets; only its place on this sheet goes. Undo brings it back.', { ns: 'editor' }),
+            confirmLabel: t('drawing.removeFromSheetButton', 'Remove from sheet', { ns: 'editor' }),
+          },
         },
-        ZOOM_FIT,
+        zoomFit(t),
       ],
     }
   }
   if (target.kind === 'paper') {
     const items: DrawingMenuItem[] = []
-    if (ctx.onSheet) items.push({ id: 'add_view', label: 'Add view…', ...(!ctx.canEdit ? { disabledReason: ctx.blockedReason } : ctx.canAddView ? {} : { disabledReason: ADD_VIEW_HOW }) })
-    items.push({ ...ZOOM_FIT, groupStart: items.length > 0 })
-    return { title: ctx.onSheet ? 'Sheet' : (ctx.view?.name ?? 'Drawing'), items }
+    if (ctx.onSheet)
+      items.push({
+        id: 'add_view',
+        label: t('drawing.addView', 'Add view…', { ns: 'editor' }),
+        ...(!ctx.canEdit ? { disabledReason: ctx.blockedReason } : ctx.canAddView ? {} : { disabledReason: addViewHow(t) }),
+      })
+    items.push({ ...zoomFit(t), groupStart: items.length > 0 })
+    return {
+      title: ctx.onSheet ? t('drawing.sheet', 'Sheet', { ns: 'editor' }) : (ctx.view?.name ?? t('drawing.drawing', 'Drawing', { ns: 'editor' })),
+      items,
+    }
   }
 
   const el = ctx.model.elements[target.elementId]
-  if (!live(el)) return { title: 'Drawing', items: [{ ...ZOOM_FIT, groupStart: false }] }
+  if (!live(el)) return { title: t('drawing.drawing', 'Drawing', { ns: 'editor' }), items: [{ ...zoomFit(t), groupStart: false }] }
   const like = likeThisIds(ctx.model, ctx.view, el)
   const hide = ctx.view ? hideInViewPatch(ctx.model, ctx.view, el) : null
   const similar = similarStartFor(el)
   const hideWhy = !ctx.canEdit
     ? ctx.blockedReason
     : !ctx.view
-      ? 'Double-click the view on the sheet (or open it) to change what it shows.'
+      ? t('drawing.openItToChange', 'Double-click the view on the sheet (or open it) to change what it shows.', { ns: 'editor' })
       : !hide
-        ? "This element has no category this view can hide."
+        ? t('drawing.noHideableCategory', 'This element has no category this view can hide.', { ns: 'editor' })
         : ctx.view.props?.hiddenCategories?.includes(hide.category)
-          ? `${hide.label} is already hidden in this view.`
+          ? t('drawing.alreadyHidden', '{{name}} is already hidden in this view.', { ns: 'editor', name: hide.label })
           : null
-  const similarWhy = !ctx.canEdit ? ctx.blockedReason : similar.kind === 'refused' ? similar.reason : !ctx.canCreateSimilar ? CREATE_SIMILAR_UNAVAILABLE : null
+  const similarWhy = !ctx.canEdit
+    ? ctx.blockedReason
+    : similar.kind === 'refused'
+      ? similar.reason
+      : !ctx.canCreateSimilar
+        ? createSimilarUnavailable(t)
+        : null
   return {
-    title: elementTitle(ctx.model, el),
+    title: elementTitle(ctx.model, el, t),
     items: [
-      { id: 'properties', label: 'Properties', hint: 'Selects it and shows its properties.', ...(ctx.canSelect ? {} : { disabledReason: SELECT_UNAVAILABLE }) },
-      { id: 'select_like', label: 'Select all like this', hint: `${like.length} in this view`, ...(ctx.canSelect ? {} : { disabledReason: SELECT_UNAVAILABLE }) },
-      { id: 'hide_in_view', label: 'Hide in view', ...(hide ? { hint: `Hides every ${hide.label} in this view.` } : {}), ...(hideWhy ? { disabledReason: hideWhy } : {}) },
-      { id: 'create_similar', label: 'Create similar', hint: 'C S', ...(similarWhy ? { disabledReason: similarWhy } : {}) },
-      ZOOM_FIT,
+      {
+        id: 'properties',
+        label: t('drawing.properties', 'Properties', { ns: 'editor' }),
+        hint: t('drawing.propertiesHint', 'Selects it and shows its properties.', { ns: 'editor' }),
+        ...(ctx.canSelect ? {} : { disabledReason: selectUnavailable(t) }),
+      },
+      {
+        id: 'select_like',
+        label: t('drawing.selectLike', 'Select all like this', { ns: 'editor' }),
+        hint: t('drawing.selectLikeHint', '{{n}} in this view', { ns: 'editor', n: like.length }),
+        ...(ctx.canSelect ? {} : { disabledReason: selectUnavailable(t) }),
+      },
+      {
+        id: 'hide_in_view',
+        label: t('drawing.hideInView', 'Hide in view', { ns: 'editor' }),
+        ...(hide ? { hint: t('drawing.hideInViewHint', 'Hides every {{name}} in this view.', { ns: 'editor', name: hide.label }) } : {}),
+        ...(hideWhy ? { disabledReason: hideWhy } : {}),
+      },
+      { id: 'create_similar', label: t('drawing.createSimilar', 'Create similar', { ns: 'editor' }), hint: 'C S', ...(similarWhy ? { disabledReason: similarWhy } : {}) },
+      zoomFit(t),
     ],
   }
 }

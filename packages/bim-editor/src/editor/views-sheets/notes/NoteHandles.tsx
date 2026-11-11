@@ -1,6 +1,7 @@
 'use client'
 
 import { boxToPaper, textBlockCorners, type TextBlock, type Vec2 } from '@permitzip/bim-kernel'
+import { useEditorTranslate } from '../../i18n/translate'
 
 export type NoteEdge = 'left' | 'right' | 'bottom'
 
@@ -31,6 +32,8 @@ export function NoteHandles({
   onEdit: () => void
   onGrab: (edge: NoteEdge, e: React.PointerEvent<SVGRectElement>) => void
 }) {
+  const t = useEditorTranslate()
+
   const corners = textBlockCorners(block)
   const points = corners.map((c) => `${c.x.toFixed(3)},${c.y.toFixed(3)}`).join(' ')
   const { width, height } = block.layout
@@ -57,7 +60,7 @@ export function NoteHandles({
         }}
         data-testid={`note-hit-${block.itemId}`}
       >
-        <title>{lockedBy ? `${lockedBy}. You can edit it when they finish.` : canEdit ? 'Note. Click to select, click again or double-click to edit the text. Drag to move.' : blockedReason}</title>
+        <title>{lockedBy ? `${lockedBy}. You can edit it when they finish.` : canEdit ? t('note.selectOrEdit', 'Note. Click to select, click again or double-click to edit the text. Drag to move.', { ns: 'editor' }) : blockedReason}</title>
       </polygon>
       {(selected || editing) &&
         canEdit &&

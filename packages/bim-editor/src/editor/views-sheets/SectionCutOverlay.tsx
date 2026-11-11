@@ -157,7 +157,7 @@ export function SectionCutOverlay({ viewer, elevationMm, drawing, sections, sugg
         onPointerMove={onPointerMove}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
-        aria-label={drawing ? 'Drag a cut line for the section' : 'Section marks'}
+        aria-label={drawing ? t('section.dragCutLine', 'Drag a cut line for the section', { ns: 'editor' }) : t('section.sectionMarks', 'Section marks', { ns: 'editor' })}
         data-testid="section-overlay"
       >
         {existing.map(({ view, a: p, b: q, m, d, depthMm }) => (

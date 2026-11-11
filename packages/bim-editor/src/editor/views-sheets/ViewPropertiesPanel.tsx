@@ -38,7 +38,7 @@ import { Alert, AlertDescription, AlertTitle } from '../../ui/alert'
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table'
 import { ToggleGroup, ToggleGroupItem } from '../../ui/toggle-group'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip'
-import { VIEW_TYPE_LABEL, type SubmitCommand } from './types'
+import { viewTypeLabel, type SubmitCommand } from './types'
 import type { BackgroundNote, BackgroundState } from './view-backgrounds'
 import { Crop3dFields, type Crop3dControls } from './Crop3dFields'
 import { CircuitGraphicsFields } from './CircuitGraphicsFields'
@@ -289,7 +289,7 @@ export function ViewPropertiesPanel({ view: saved, canEdit, blockedReason, submi
     <div className="flex flex-col gap-3" data-testid="view-properties">
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 flex-col">
-          <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{VIEW_TYPE_LABEL[view.viewType]}</span>
+          <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{viewTypeLabel(view.viewType, t)}</span>
           <span className="truncate text-sm font-medium">{view.name}</span>
 
           {props.level && view.viewType !== 'detail' && (

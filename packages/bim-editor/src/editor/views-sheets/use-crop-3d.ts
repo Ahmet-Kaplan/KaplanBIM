@@ -5,6 +5,7 @@ import { boxAroundAabb, boxTurnedTo, viewCropBox3d, workingAngleFromEdge, workin
 import type { ModelViewer3D } from '@permitzip/bim-viewer-3d'
 import type { Selection } from '../model-session'
 import { newId, type SubmitCommand } from './types'
+import { useEditorTranslate } from '../i18n/translate'
 
 /**
  * The 3D crop box of whatever 3D picture is in the canvas: an open saved 3D
@@ -79,6 +80,7 @@ function selectedIds(selection: Selection | null): readonly string[] | null {
 
 export function useCrop3d(args: Args): Crop3d {
   const { viewer, model, views, openView3d, free3d, selection, userId, userName, canEdit, blockedReason, submit, onOpenView, notify } = args
+  const t = useEditorTranslate()
   const working = useMemo(() => workingViewOf(views, userId), [views, userId])
   const view = openView3d ?? (free3d ? working : null)
   const active = openView3d !== null || free3d
@@ -129,11 +131,11 @@ export function useCrop3d(args: Args): Crop3d {
         const base = box ?? null
         if (!base) {
           void extent().then((e) => {
-            if (!e) return notify('There is nothing loaded to crop yet.', 'info')
+            if (!e) return notify(t('crop3d.nothingLoaded', 'There is nothing loaded to crop yet.', { ns: 'editor' }), 'info')
             setLocal({ key: localKey, box: boxAroundAabb(e, model ? workingAngleOf(model, view) : 0), on: change.enabled ?? true, shown: change.show ?? true })
           })
         } else setLocal({ key: localKey, box: base, on: change.enabled ?? on, shown: change.show ?? shown })
-        notify(`Cropping here only, in this tab. ${blockedReason}`, 'info')
+        notify(t('crop3d.localOnlyWhy', 'Cropping here only, in this tab. {{reason}}', { ns: 'editor', reason: blockedReason }), 'info')
         return
       }
       if (!view) {
@@ -149,7 +151,13 @@ export function useCrop3d(args: Args): Crop3d {
   const setBox = useCallback(
     (next: CropBox3d, label: string): string | null => {
       if (!canEdit || !view) {
-        if (!localHere) notify(canEdit ? 'Cropping here only, in this tab. Turn on the 3D crop box to keep it.' : `Cropping here only, in this tab. ${blockedReason}`, 'info')
+        if (!localHere)
+          notify(
+            canEdit
+              ? t('crop3d.localOnly', 'Cropping here only, in this tab. Turn on the 3D crop box to keep it.', { ns: 'editor' })
+              : t('crop3d.localOnlyWhy', 'Cropping here only, in this tab. {{reason}}', { ns: 'editor', reason: blockedReason }),
+            'info',
+          )
         setLocal({ key: localKey, box: next, on, shown })
         return null
       }
@@ -159,9 +167,9 @@ export function useCrop3d(args: Args): Crop3d {
   )
 
   const selectionBlocked = !active
-    ? 'Works in 3D: open the 3D model or a 3D view.'
+    ? t('crop3d.worksIn3d', 'Works in 3D: open the 3D model or a 3D view.', { ns: 'editor' })
     : !selection
-      ? 'Select something first: a duct, a part, a run or a linked element.'
+      ? t('crop3d.selectSomething', 'Select something first: a duct, a part, a run or a linked element.', { ns: 'editor' })
       : null
 
   /** What the selection covers: authored ids, or a linked element's box from the viewer. */
@@ -175,7 +183,11 @@ export function useCrop3d(args: Args): Crop3d {
   const toSelection = useCallback(async () => {
     if (selectionBlocked) return notify(selectionBlocked, 'info')
     const target = await selectionTarget()
-    if (!target) return notify("That element's size couldn't be read, so the box can't be fitted to it. Drag the box's faces instead.", 'error')
+    if (!target)
+      return notify(
+        t('crop3d.sizeUnreadableBox', 'That element’s size couldn’t be read, so the box can’t be fitted to it. Drag the box’s faces instead.', { ns: 'editor' }),
+        'error',
+      )
     if (!canEdit) return notify(`Crop to selection saves the box on the view. ${blockedReason}`, 'info')
     if (!view) {
       const refusal = await createWorking(target, { enabled: true, show: true })
@@ -208,7 +220,11 @@ export function useCrop3d(args: Args): Crop3d {
     if (selectionBlocked) return notify(selectionBlocked, 'info')
     if (!canEdit) return notify(blockedReason, 'info')
     const target = await selectionTarget()
-    if (!target) return notify("That element's size couldn't be read, so a view can't be framed on it. Select a duct or part instead.", 'error')
+    if (!target)
+      return notify(
+        t('crop3d.sizeUnreadableView', 'That element’s size couldn’t be read, so a view can’t be framed on it. Select a duct or part instead.', { ns: 'editor' }),
+        'error',
+      )
     const taken = new Set(views.map((v) => v.name.toLowerCase()))
     let name = '3D of selection'
     for (let n = 2; taken.has(name.toLowerCase()); n++) name = `3D of selection ${n}`
@@ -228,16 +244,28 @@ export function useCrop3d(args: Args): Crop3d {
   }, [selectionBlocked, canEdit, blockedReason, selectionTarget, views, submit, onOpenView, notify])
 
   const workingAngleDeg = model ? workingAngleOf(model, view) : 0
-  const alignBlocked = !active ? 'Works in 3D: open the 3D model or a 3D view.' : !box ? 'Turn on the 3D crop box first.' : null
+  const alignBlocked = !active
+    ? t('crop3d.worksIn3d', 'Works in 3D: open the 3D model or a 3D view.', { ns: 'editor' })
+    : !box
+      ? t('crop3d.turnOnFirst', 'Turn on the 3D crop box first.', { ns: 'editor' })
+      : null
 
   /** Turn the box: saved on the view with edit access, else kept in this tab. */
   const turnBox = useCallback(
     (angleDeg: number, align: 'working_angle' | { from: Vec2; to: Vec2 }, label: string): string | null => {
       if (alignBlocked || !box) return alignBlocked
-      if (Math.abs(box.rotationDeg - angleDeg) < 1e-6) return align === 'working_angle' ? 'The crop box is already square to the working angle.' : 'The crop box is already square to that edge.'
+      if (Math.abs(box.rotationDeg - angleDeg) < 1e-6)
+        return align === 'working_angle'
+          ? t('crop3d.alreadySquareWorkingAngle', 'The crop box is already square to the working angle.', { ns: 'editor' })
+          : t('crop3d.alreadySquareEdge', 'The crop box is already square to that edge.', { ns: 'editor' })
       if (!canEdit || !view) {
         setLocal({ key: localKey, box: boxTurnedTo(box, angleDeg), on, shown })
-        notify(canEdit ? 'Cropping here only, in this tab. Turn on the 3D crop box to keep it.' : `Cropping here only, in this tab. ${blockedReason}`, 'info')
+        notify(
+          canEdit
+            ? t('crop3d.localOnly', 'Cropping here only, in this tab. Turn on the 3D crop box to keep it.', { ns: 'editor' })
+            : t('crop3d.localOnlyWhy', 'Cropping here only, in this tab. {{reason}}', { ns: 'editor', reason: blockedReason }),
+          'info',
+        )
         return null
       }
       return submit({ type: 'set_3d_crop_box', viewId: view.id, align }, label)
@@ -248,7 +276,7 @@ export function useCrop3d(args: Args): Crop3d {
   const alignToEdge = useCallback(
     (from: Vec2, to: Vec2) => {
       const angle = workingAngleFromEdge(from, to)
-      if (angle === null) return 'The two points are the same; pick a second point further along the edge.'
+      if (angle === null) return t('orientation.samePoints', 'The two points are the same; pick a second point further along the edge.', { ns: 'editor' })
       return turnBox(angle, { from, to }, 'align the 3D crop box to an edge')
     },
     [turnBox],

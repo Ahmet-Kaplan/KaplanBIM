@@ -20,7 +20,7 @@ import { Label } from '../../ui/label'
 import { RadioGroup, RadioGroupItem } from '../../ui/radio-group'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '../../ui/select'
 import { Spinner } from '../../ui/spinner'
-import { VIEW_TYPE_LABEL, type CreatableViewType } from './types'
+import { viewTypeLabel, type CreatableViewType } from './types'
 import { useEditorHost } from '@permitzip/bim-editor/host'
 import { loadTitleBlocksFrom, type TitleBlockChoice } from './title-blocks-client'
 import { ParameterInput } from './ParameterInput'
@@ -102,6 +102,7 @@ function useLibraryTitleBlocks(): { readonly choices: readonly TitleBlockChoice[
 type Save = () => string | null | Promise<string | null>
 
 function useSave(onDone: () => void) {
+  const t = useEditorTranslate()
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const run = async (save: Save) => {
@@ -113,7 +114,7 @@ function useSave(onDone: () => void) {
       else onDone()
     } catch (err) {
       console.error('[ViewsSheetsDialogs] save failed', err)
-      setError(err instanceof Error ? err.message : "That couldn't be saved. Try again.")
+      setError(err instanceof Error ? err.message : t('sheetDialog.couldNotSave', 'That couldn’t be saved. Try again.', { ns: 'editor' }))
     } finally {
       setBusy(false)
     }
@@ -154,8 +155,14 @@ export function NewViewDialog({
   const t = useEditorTranslate()
   const needsLevel = viewType === 'floor_plan' || viewType === 'ceiling_plan'
   const [level, setLevel] = useState(levels[0] ?? '')
-  const suggested = (lvl: string) =>
-    viewType === 'floor_plan' ? `${lvl || 'Level'} Mechanical plan` : viewType === 'ceiling_plan' ? `${lvl || 'Level'} Ceiling plan` : viewType === 'three_d' ? '3D - Mechanical' : 'Detail'
+  // A suggested name for a new view: the level's name in front of what kind of view it is (§2.3 kat, §2.4 görünüm).
+  const suggested = (lvl: string) => {
+    const level = lvl || t('sheetDialog.levelFallback', 'Level', { ns: 'editor' })
+    if (viewType === 'floor_plan') return t('sheetDialog.suggestFloorPlan', '{{level}} Mechanical plan', { ns: 'editor', level })
+    if (viewType === 'ceiling_plan') return t('sheetDialog.suggestCeilingPlan', '{{level}} Ceiling plan', { ns: 'editor', level })
+    if (viewType === 'three_d') return t('sheetDialog.suggestThreeD', '3D - Mechanical', { ns: 'editor' })
+    return t('view.type.detail', 'Detail view (drawing-only)', { ns: 'editor' })
+  }
   const [name, setName] = useState(suggested(levels[0] ?? ''))
   const [nameTouched, setNameTouched] = useState(false)
   const [scale, setScale] = useState(viewType === 'detail' ? 8 : 48)
@@ -170,7 +177,7 @@ export function NewViewDialog({
       <DialogContent>
         <form onSubmit={submit} className="flex flex-col gap-4">
           <DialogHeader>
-            <DialogTitle>{t('sheetDialog.newViewTitle', 'New {{kind}}', { ns: 'editor', kind: VIEW_TYPE_LABEL[viewType].toLowerCase() })}</DialogTitle>
+            <DialogTitle>{t('sheetDialog.newViewTitle', 'New {{kind}}', { ns: 'editor', kind: viewTypeLabel(viewType, t).toLowerCase() })}</DialogTitle>
             <DialogDescription>
               {viewType === 'detail'
                 ? t('sheetDialog.newDetailWhy', 'A drawing-only view: draw lines, text and dimensions, then place it on a sheet.', { ns: 'editor' })
@@ -272,7 +279,7 @@ export function SheetDialog({
 }) {
   const t = useEditorTranslate()
   const [number, setNumber] = useState(sheet?.number ?? suggestedNumber)
-  const [name, setName] = useState(sheet?.title ?? 'Mechanical plan')
+  const [name, setName] = useState(sheet?.title ?? t('sheetDialog.defaultSheetName', 'Mechanical plan', { ns: 'editor' }))
   const [titleBlock, setTitleBlock] = useState<TitleBlockType>(sheet?.props?.titleBlock ?? 'arch_d_mutinybim')
   const library = useLibraryTitleBlocks()
   const keptRow = sheet?.props?.titleBlockRow ?? null

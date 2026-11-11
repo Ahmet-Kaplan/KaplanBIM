@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { paperMapping, tagElbowLeader, tagTarget, type DrawingItem, type ModelState, type Vec2, type ViewElement } from '@permitzip/bim-kernel'
 import { elbowGripCommand, type TagCommand } from './tag-elbow-commands'
+import { useEditorTranslate } from '../../i18n/translate'
 
 const GRIP_PX = 9
 const SELECTION = 'var(--mutiny-selection)'
@@ -32,6 +33,8 @@ interface Props {
  * the drag puts it back; nothing is sent until the button comes up.
  */
 export function TagElbowGrip({ model, view, item, toPaper, toStored, paperOf, paperMmPerPx, editBlocked, send }: Props) {
+  const t = useEditorTranslate()
+
   const [drag, setDrag] = useState<{ readonly pointerId: number; readonly to: Vec2 } | null>(null)
 
   useEffect(() => {
@@ -68,7 +71,7 @@ export function TagElbowGrip({ model, view, item, toPaper, toStored, paperOf, pa
         strokeWidth={1.5 * paperMmPerPx}
         className={editBlocked ? 'cursor-not-allowed' : 'cursor-move'}
         role="button"
-        aria-label={editBlocked ? `Leader bend (${editBlocked})` : 'Drag to bend the leader; Esc puts it back'}
+        aria-label={editBlocked ? `Leader bend (${editBlocked})` : t('tag.elbowGrip', 'Drag to bend the leader; Esc puts it back', { ns: 'editor' })}
         data-testid="tag-elbow-grip"
         onPointerDown={(e) => {
           if (e.button !== 0 || editBlocked) return

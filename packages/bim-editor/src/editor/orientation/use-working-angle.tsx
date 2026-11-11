@@ -6,6 +6,7 @@ import { workFrameOf, type Command, type ModelState, type Vec2, type ViewElement
 import type { ModelViewer3D } from '@permitzip/bim-viewer-3d'
 import { viewerEdgePicker, type EdgeHit, type EdgePicker } from './edge-pick'
 import type { WorkingAngleTarget } from './WorkingAnglePick'
+import { useEditorTranslate } from '../i18n/translate'
 
 const WorkingAnglePick = dynamic(() => import('./WorkingAnglePick').then((m) => m.WorkingAnglePick), { ssr: false })
 
@@ -46,6 +47,7 @@ export interface WorkingAngle {
  * view, or the 3D crop box) as an overlay on the live view.
  */
 export function useWorkingAngle({ viewer, model, openView, applyFrame, workPlaneMm, drawingShown, submit, alignCropToEdge, onHint, surfaceEdges, currentModel }: Args): WorkingAngle {
+  const t = useEditorTranslate()
   const frame = useMemo(() => workFrameOf(model ?? { elements: {} }, openView), [model, openView])
   useEffect(() => {
     applyFrame(frame)
@@ -55,9 +57,13 @@ export function useWorkingAngle({ viewer, model, openView, applyFrame, workPlane
   const startPick = useCallback(
     (target: WorkingAngleTarget) => {
       setPicking(target)
-      onHint(target.kind === 'crop' ? 'Click a wall, or two points along a building edge, to square the crop box to it.' : 'Click a wall, or two points along a building edge. Esc cancels.')
+      onHint(
+        target.kind === 'crop'
+          ? t('orientation.clickForCropBox', 'Click a wall, or two points along a building edge, to square the crop box to it.', { ns: 'editor' })
+          : t('orientation.clickAlongEdge', 'Click a wall, or two points along a building edge. Esc cancels.', { ns: 'editor' }),
+      )
     },
-    [onHint],
+    [onHint, t],
   )
   const stopPick = useCallback(() => setPicking(null), [])
   // Leaving the live view drops the pick.

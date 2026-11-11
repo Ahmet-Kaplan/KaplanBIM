@@ -5,6 +5,7 @@ import type { ModelViewer3D } from '@permitzip/bim-viewer-3d'
 import type { Rect, Vec2, ViewElement } from '@permitzip/bim-kernel'
 import { CROP_HANDLES, HANDLE_CURSOR, HANDLE_LABEL, annotationCropRect, dragRect, feet, handlePoint, type CropHandle } from './crop-geometry'
 import type { SubmitCommand } from './types'
+import { useEditorTranslate } from '../i18n/translate'
 
 /** Smallest crop box side while dragging, mm (1 ft). */
 const MIN_CROP_MM = 304.8
@@ -38,6 +39,7 @@ interface Drag {
  * by height).
  */
 export function CropBoxOverlay({ viewer, view, crop, elevationMm, canEdit, blockedReason, submit }: Props) {
+  const t = useEditorTranslate()
   const svgRef = useRef<SVGSVGElement | null>(null)
   const [, redraw] = useReducer((n: number) => n + 1, 0)
   const [drag, setDrag] = useState<Drag | null>(null)
@@ -137,7 +139,7 @@ export function CropBoxOverlay({ viewer, view, crop, elevationMm, canEdit, block
         setDrag(null)
         viewer.setNavigationEnabled(true)
       }}
-      aria-label={`Crop box of ${view.name}`}
+      aria-label={t('view.cropBoxOf', 'Crop box of {{name}}', { ns: 'editor', name: view.name })}
       data-testid="crop-overlay"
       data-crop={`${Math.round(shown.min.x)},${Math.round(shown.min.y)},${Math.round(shown.max.x)},${Math.round(shown.max.y)}`}
     >
@@ -156,7 +158,13 @@ export function CropBoxOverlay({ viewer, view, crop, elevationMm, canEdit, block
           <polygon points={polygon.map((p) => `${p.x},${p.y}`).join(' ')} fill="none" stroke="var(--mutiny-selection)" strokeWidth={1.5} strokeDasharray="8 4" />
           {polygon[3] && (
             <text x={polygon[3].x + 4} y={polygon[3].y - 6} fontSize={11} fill="var(--mutiny-selection)">
-              {drag ? `Crop box ${feet(size.w)} × ${feet(size.h)} ft. Release to save, Esc to cancel.` : 'Crop box'}
+              {drag
+                ? t('view.cropBoxDragging', 'Crop box {{width}} × {{height}} ft. Release to save, Esc to cancel.', {
+                    ns: 'editor',
+                    width: feet(size.w),
+                    height: feet(size.h),
+                  })
+                : t('view.cropBox', 'Crop box', { ns: 'editor' })}
             </text>
           )}
           {CROP_HANDLES.map((h) => {

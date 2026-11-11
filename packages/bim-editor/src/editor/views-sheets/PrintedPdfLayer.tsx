@@ -178,7 +178,11 @@ export function PrintedPdfLayer({
           if (cancelled) return
           finished = true
           console.error('[PrintedPdfLayer] rendering the printed PDF failed', { revision: scene.revision, err })
-          setRendered({ kind: 'failed', scene, message: err instanceof Error ? err.message : 'The PDF could not be drawn.' })
+          setRendered({
+            kind: 'failed',
+            scene,
+            message: err instanceof Error ? err.message : t('printedPdf.couldNotDrawShort', 'The PDF could not be drawn.', { ns: 'editor' }),
+          })
         }
       })()
     }, SETTLE_MS)
