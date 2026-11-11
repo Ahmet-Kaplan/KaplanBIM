@@ -17,11 +17,11 @@
  * is keyed: a panelboard is a *pano* while a UI side panel stays a *panel*, and a
  * luminaire is an *armatür*.
  *
- * **Deliberately not asserted here, because the tree is not done.** `plumbing/` and
- * `spaces/` are not keyed yet, so the plumbing half of Ç8 (*branşman*) and the
- * WSFU/DFU columns have no Turkish to assert. They are named in
- * `NOT_YET_GUARDED` (`i18n-negative-space.test.ts`) and in the task report, with
- * the round that owes them.
+ * **The plumbing half of §9/Ç8, §9/Ç9, §9/Ç12 and §9/Ç13 lives in
+ * `i18n-plumbing.test.tsx`** — *branşman*, *hat*, *armatür* versus *yük birimi*,
+ * *debi* versus *eğim* — because that tree is now keyed end to end and owns its
+ * own guards. This file keeps holding what the four MEP trees share (the pinned
+ * site counts, the placeholder-parity sweep, the rendered panels).
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -91,6 +91,50 @@ const CAPTIONS: readonly Caption[] = [
  * of them went back to a literal.
  */
 const SITES: Readonly<Record<string, number>> = {
+  // Plumbing: every caption the plumbing tree writes more than once (its own
+  // glossary guards are in `i18n-plumbing.test.tsx`).
+  "plumbing.autoSize": 2,
+  "plumbing.autoSizeOf": 2,
+  "plumbing.deleteWord": 3,
+  "plumbing.demandCurve": 2,
+  "plumbing.didntGoThrough": 3,
+  "plumbing.done": 2,
+  "plumbing.everyPipeIsLargeEnough": 2,
+  "plumbing.fixtureUnitsWord": 2,
+  "plumbing.fromTheBuildingTypeLabel": 2,
+  "plumbing.gasSizing": 3,
+  "plumbing.insulation": 2,
+  "plumbing.inWc": 3,
+  "plumbing.keyword.hunterCurve": 2,
+  "plumbing.material": 3,
+  "plumbing.morePipesNeedALargerSize": 2,
+  "plumbing.name": 2,
+  "plumbing.noneLower": 2,
+  "plumbing.notLive": 6,
+  "plumbing.notSaved": 2,
+  "plumbing.number": 2,
+  "plumbing.pickTheEdition": 2,
+  "plumbing.pipeSizing": 2,
+  "plumbing.pipeTypes": 3,
+  "plumbing.placeLoadPoint": 2,
+  "plumbing.routingTheDrainOn": 2,
+  "plumbing.save": 2,
+  "plumbing.setTheDemandCurve": 2,
+  "plumbing.sizedPipesDoneMany": 2,
+  "plumbing.sizedPipesDoneOne": 2,
+  "plumbing.sizedPipesOnMany": 2,
+  "plumbing.sizedPipesOnOne": 2,
+  "plumbing.sizePipes": 2,
+  "plumbing.sizePipesMany": 2,
+  "plumbing.sizePipesOne": 2,
+  "plumbing.stacks": 2,
+  "plumbing.system": 4,
+  "plumbing.systems": 4,
+  "plumbing.theEquation": 2,
+  "plumbing.theProjectsCodeStudy": 2,
+  "plumbing.turnAutoSizingOff": 2,
+  "plumbing.turnAutoSizingOn": 2,
+  "plumbing.velocityWord": 2,
   "balance.pressurization": 2,
   "loads.byTrade": 2,
   "loads.status.open": 2,
@@ -232,7 +276,7 @@ test("an MEP caption is still keyed at every place it is written", () => {
 
 test("every MEP caption written twice or more has its site count pinned", () => {
   const source = editorSourceCaptions();
-  const prefixes = ["ventilation.", "balance.", "loads.", "electrical."];
+  const prefixes = ["ventilation.", "balance.", "loads.", "electrical.", "plumbing."];
   const unpinned = [...source.entries()]
     .filter(([key]) => prefixes.some((prefix) => key.startsWith(prefix)))
     .filter(([key, caption]) => caption.sites > 1 && SITES[key] === undefined)
@@ -333,7 +377,7 @@ function flatten(source: Record<string, unknown>, prefix = ""): Record<string, s
 
 const LOCALE = flatten(JSON.parse(fs.readFileSync(path.join(__dirname, "..", "locales", "tr", "editor.json"), "utf8")) as Record<string, unknown>);
 
-const MEP_PREFIXES = ["ventilation.", "balance.", "loads.", "electrical."] as const;
+const MEP_PREFIXES = ["ventilation.", "balance.", "loads.", "electrical.", "plumbing."] as const;
 
 test("every MEP caption in the source has its Turkish", () => {
   const inSource = [...editorSourceCaptions().keys()].filter((key) => MEP_PREFIXES.some((prefix) => key.startsWith(prefix)));

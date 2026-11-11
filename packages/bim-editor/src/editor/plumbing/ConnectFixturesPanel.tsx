@@ -8,6 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from '../../ui/alert'
 import { Button } from '../../ui/button'
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../ui/card'
 import { Item, ItemActions, ItemContent, ItemGroup, ItemMedia, ItemTitle } from '../../ui/item'
+import { useEditorTranslate } from '../i18n/translate'
 import type { SubmitCommand } from '../views-sheets/types'
 
 interface Props {
@@ -33,6 +34,7 @@ interface Props {
  * a single undo. Nothing changes until Connect; Esc or Cancel closes.
  */
 export function ConnectFixturesPanel({ model, selectedIds, target, editBlocked, serverFeatures, connectBlocked, submit, select, onClose }: Props) {
+  const t = useEditorTranslate()
   const [idPrefix] = useState(() => `cf-${Date.now().toString(36)}`)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState<string | null>(null)
@@ -108,7 +110,7 @@ export function ConnectFixturesPanel({ model, selectedIds, target, editBlocked, 
         {error && (
           <Alert variant="destructive">
             <CircleAlert />
-            <AlertTitle>That didn&apos;t go through</AlertTitle>
+            <AlertTitle>{t('plumbing.didntGoThrough', "That didn't go through", { ns: 'editor' })}</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}

@@ -11,11 +11,16 @@ import { Input } from '../../ui/input'
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '../../ui/item'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../ui/select'
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
 
 /** The pipe systems an insulation schedule usually covers; any pipe kind can have a row. */
 const INSULATED_KINDS: readonly SystemKind[] = ['domestic_hot_water', 'domestic_hot_water_return', 'domestic_cold_water', 'hydronic_supply', 'hydronic_return', 'storm', 'condensate']
 
-const sizeWord = (v: number) => (v >= 48 ? 'and larger' : `below ${v}"`)
+/** The gap a row covers, in words: `below 1-1/2"`, or the last row's `and larger`. */
+const sizeWord = (v: number, t: Translate) =>
+  v >= 48
+    ? t('plumbing.andLarger', 'and larger', { ns: 'editor' })
+    : t('plumbing.belowSize', 'below {{size}}"', { ns: 'editor', size: v })
 
 interface Props {
   readonly model: ModelState
@@ -35,20 +40,34 @@ interface Props {
  * starter from PermitZIP's issued schedule is offered, marked to verify.
  */
 export function PipeInsulationSchedule({ model, settings, systems, canEdit, send, saveSchedule: save }: Props) {
+  const t = useEditorTranslate()
   const rows = settings.pipeInsulation ?? []
   const [kind, setKind] = useState<SystemKind>('domestic_hot_water')
-  const edit = (i: number, patch: Partial<PipeInsulationRow>) => save(rows.map((r, k) => (k === i ? { ...r, ...patch } : r)), 'change the pipe insulation schedule')
-  const blocked = canEdit ? undefined : 'View only: this model can’t be edited here'
+  const edit = (i: number, patch: Partial<PipeInsulationRow>) =>
+    save(rows.map((r, k) => (k === i ? { ...r, ...patch } : r)), t('plumbing.changeThePipeInsulationSchedule', 'change the pipe insulation schedule', { ns: 'editor' }))
+  const blocked = canEdit ? undefined : t('plumbing.viewOnlyCantEdit', 'View only: this model can’t be edited here', { ns: 'editor' })
   if (rows.length === 0) {
     return (
       <Empty className="border py-4" data-testid="pipe-insulation-empty">
         <EmptyHeader>
-          <EmptyTitle>No pipe insulation schedule yet</EmptyTitle>
-          <EmptyDescription>The energy code’s pipe insulation table isn’t in the code library. Start from PermitZIP’s issued schedule (hot water at 105–140 °F: 1&quot; below 1-1/2&quot;, 1-1/2&quot; above) and check it against the adopted energy code, or add your own rows.</EmptyDescription>
+          <EmptyTitle>{t('plumbing.noPipeInsulationScheduleYet', 'No pipe insulation schedule yet', { ns: 'editor' })}</EmptyTitle>
+          <EmptyDescription>
+            {t(
+              'plumbing.noPipeInsulationScheduleYetWhy',
+              'The energy code’s pipe insulation table isn’t in the code library. Start from PermitZIP’s issued schedule (hot water at 105–140 °F: 1" below 1-1/2", 1-1/2" above) and check it against the adopted energy code, or add your own rows.',
+              { ns: 'editor' },
+            )}
+          </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
-          <Button size="sm" disabled={!canEdit} title={blocked} onClick={() => save(STARTER_PIPE_INSULATION, 'start the pipe insulation schedule', STARTER_PIPE_INSULATION_SOURCE)} data-testid="pipe-insulation-starter">
-            Start from PermitZIP’s schedule
+          <Button
+            size="sm"
+            disabled={!canEdit}
+            title={blocked}
+            onClick={() => save(STARTER_PIPE_INSULATION, t('plumbing.startThePipeInsulationSchedule', 'start the pipe insulation schedule', { ns: 'editor' }), STARTER_PIPE_INSULATION_SOURCE)}
+            data-testid="pipe-insulation-starter"
+          >
+            {t('plumbing.startFromPermitZipsSchedule', 'Start from PermitZIP’s schedule', { ns: 'editor' })}
           </Button>
         </EmptyContent>
       </Empty>
@@ -56,17 +75,19 @@ export function PipeInsulationSchedule({ model, settings, systems, canEdit, send
   }
   return (
     <div className="flex flex-col gap-3" data-testid="pipe-insulation-schedule">
-      {settings.pipeInsulationSource && <FieldDescription>Source: {settings.pipeInsulationSource}</FieldDescription>}
+      {settings.pipeInsulationSource && (
+        <FieldDescription>{t('plumbing.source', 'Source: {{source}}', { ns: 'editor', source: settings.pipeInsulationSource })}</FieldDescription>
+      )}
       <Table>
-        <TableCaption className="sr-only">Pipe insulation schedule</TableCaption>
+        <TableCaption className="sr-only">{t('plumbing.pipeInsulationSchedule', 'Pipe insulation schedule', { ns: 'editor' })}</TableCaption>
         <TableHeader>
           <TableRow>
-            <TableHead>Systems</TableHead>
-            <TableHead>Pipe size</TableHead>
-            <TableHead>Thickness (in.)</TableHead>
-            <TableHead>Material</TableHead>
+            <TableHead>{t('plumbing.systems', 'Systems', { ns: 'editor' })}</TableHead>
+            <TableHead>{t('plumbing.pipeSize', 'Pipe size', { ns: 'editor' })}</TableHead>
+            <TableHead>{t('plumbing.thicknessIn', 'Thickness (in.)', { ns: 'editor' })}</TableHead>
+            <TableHead>{t('plumbing.material', 'Material', { ns: 'editor' })}</TableHead>
             <TableHead>
-              <span className="sr-only">Remove</span>
+              <span className="sr-only">{t('plumbing.remove', 'Remove', { ns: 'editor' })}</span>
             </TableHead>
           </TableRow>
         </TableHeader>
@@ -75,15 +96,36 @@ export function PipeInsulationSchedule({ model, settings, systems, canEdit, send
             <TableRow key={`${r.systemKinds.join(',')}:${r.belowNominalIn}:${i}`} data-testid="pipe-insulation-row">
               <TableCell className="text-xs">{r.systemKinds.map((k) => serviceLabel(k)).join(', ')}</TableCell>
               <TableCell>
-                <Input aria-label="Pipes below this size (in.)" inputMode="decimal" className="h-8 w-20" defaultValue={String(r.belowNominalIn)} disabled={!canEdit} onBlur={(e) => Number(e.target.value) > 0 && Number(e.target.value) !== r.belowNominalIn && edit(i, { belowNominalIn: Number(e.target.value) })} />
-                <span className="ml-1 text-xs text-muted-foreground">{sizeWord(r.belowNominalIn)}</span>
+                <Input
+                  aria-label={t('plumbing.pipesBelowThisSize', 'Pipes below this size (in.)', { ns: 'editor' })}
+                  inputMode="decimal"
+                  className="h-8 w-20"
+                  defaultValue={String(r.belowNominalIn)}
+                  disabled={!canEdit}
+                  onBlur={(e) => Number(e.target.value) > 0 && Number(e.target.value) !== r.belowNominalIn && edit(i, { belowNominalIn: Number(e.target.value) })}
+                />
+                <span className="ml-1 text-xs text-muted-foreground">{sizeWord(r.belowNominalIn, t)}</span>
               </TableCell>
               <TableCell>
-                <Input aria-label="Insulation thickness (in.)" inputMode="decimal" className="h-8 w-20" defaultValue={String(r.thicknessIn)} disabled={!canEdit} onBlur={(e) => Number(e.target.value) >= 0 && Number(e.target.value) !== r.thicknessIn && edit(i, { thicknessIn: Number(e.target.value) })} data-testid="pipe-insulation-thickness" />
+                <Input
+                  aria-label={t('plumbing.insulationThicknessIn', 'Insulation thickness (in.)', { ns: 'editor' })}
+                  inputMode="decimal"
+                  className="h-8 w-20"
+                  defaultValue={String(r.thicknessIn)}
+                  disabled={!canEdit}
+                  onBlur={(e) => Number(e.target.value) >= 0 && Number(e.target.value) !== r.thicknessIn && edit(i, { thicknessIn: Number(e.target.value) })}
+                  data-testid="pipe-insulation-thickness"
+                />
               </TableCell>
               <TableCell className="text-xs">{r.material ?? '—'}</TableCell>
               <TableCell>
-                <Button variant="ghost" size="icon-sm" aria-label="Remove this row" disabled={!canEdit} onClick={() => save(rows.filter((_r, k) => k !== i), 'remove a pipe insulation row')}>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t('plumbing.removeThisRow', 'Remove this row', { ns: 'editor' })}
+                  disabled={!canEdit}
+                  onClick={() => save(rows.filter((_r, k) => k !== i), t('plumbing.removeAPipeInsulationRow', 'remove a pipe insulation row', { ns: 'editor' }))}
+                >
                   <Trash2 />
                 </Button>
               </TableCell>
@@ -93,7 +135,7 @@ export function PipeInsulationSchedule({ model, settings, systems, canEdit, send
       </Table>
       <div className="flex items-center gap-2">
         <Select value={kind} onValueChange={(v) => setKind(v as SystemKind)} disabled={!canEdit}>
-          <SelectTrigger size="sm" aria-label="System for a new row">
+          <SelectTrigger size="sm" aria-label={t('plumbing.systemForANewRow', 'System for a new row', { ns: 'editor' })}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -106,20 +148,34 @@ export function PipeInsulationSchedule({ model, settings, systems, canEdit, send
             </SelectGroup>
           </SelectContent>
         </Select>
-        <Button size="sm" variant="outline" disabled={!canEdit} title={blocked} onClick={() => save([...rows, { systemKinds: [kind], belowNominalIn: 48, thicknessIn: 1 }], 'add a pipe insulation row')}>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!canEdit}
+          title={blocked}
+          onClick={() => save([...rows, { systemKinds: [kind], belowNominalIn: 48, thicknessIn: 1 }], t('plumbing.addAPipeInsulationRow', 'add a pipe insulation row', { ns: 'editor' }))}
+        >
           <Plus data-icon="inline-start" />
-          Add row
+          {t('plumbing.addRow', 'Add row', { ns: 'editor' })}
         </Button>
       </div>
       <ItemGroup className="gap-1">
         {systems.map((s) => {
           const plan = pipeInsulationPlan(model, s.id)
-          const why = 'reason' in plan ? plan.reason : plan.pieces.length === 0 ? 'Every pipe already has its scheduled insulation' : null
+          const why = 'reason' in plan ? plan.reason : plan.pieces.length === 0 ? t('plumbing.everyPipeAlreadyHasItsInsulation', 'Every pipe already has its scheduled insulation', { ns: 'editor' }) : null
           return (
             <Item key={s.id} size="sm" variant="outline" data-testid={`pipe-insulation-system-${s.id}`}>
               <ItemContent>
                 <ItemTitle className="text-sm">{s.name}</ItemTitle>
-                <ItemDescription className="text-xs">{'reason' in plan ? 'No row for this system' : plan.pieces.length === 0 ? 'Up to date' : `${plan.pieces.length} pipe${plan.pieces.length === 1 ? '' : 's'} to change`}</ItemDescription>
+                <ItemDescription className="text-xs">
+                  {'reason' in plan
+                    ? t('plumbing.noRowForThisSystem', 'No row for this system', { ns: 'editor' })
+                    : plan.pieces.length === 0
+                      ? t('plumbing.upToDate', 'Up to date', { ns: 'editor' })
+                      : plan.pieces.length === 1
+                        ? t('plumbing.pipesToChangeOne', '{{count}} pipe to change', { ns: 'editor', count: plan.pieces.length })
+                        : t('plumbing.pipesToChangeMany', '{{count}} pipes to change', { ns: 'editor', count: plan.pieces.length })}
+                </ItemDescription>
               </ItemContent>
               <ItemActions>
                 <Button
@@ -129,18 +185,28 @@ export function PipeInsulationSchedule({ model, settings, systems, canEdit, send
                   title={blocked ?? why ?? undefined}
                   onClick={() => {
                     if ('reason' in plan) return
-                    send({ type: 'set_pipe_insulation', systemId: s.id, label: `Pipe insulation from the schedule on ${plan.pieces.length} pipes of ${s.name}`.slice(0, 160), pieces: plan.pieces.map((p) => ({ segmentId: p.segmentId, insulation: p.insulation })) }, `insulate ${s.name}`)
+                    send(
+                      {
+                        type: 'set_pipe_insulation',
+                        systemId: s.id,
+                        label: t('plumbing.pipeInsulationOn', 'Pipe insulation from the schedule on {{count}} pipes of {{system}}', { ns: 'editor', count: plan.pieces.length, system: s.name }).slice(0, 160),
+                        pieces: plan.pieces.map((p) => ({ segmentId: p.segmentId, insulation: p.insulation })),
+                      },
+                      t('plumbing.insulateUndo', 'insulate {{system}}', { ns: 'editor', system: s.name }),
+                    )
                   }}
                   data-testid="pipe-insulation-apply"
                 >
-                  Apply
+                  {t('plumbing.apply', 'Apply', { ns: 'editor' })}
                 </Button>
               </ItemActions>
             </Item>
           )
         })}
       </ItemGroup>
-      <FieldDescription className="text-xs">Apply puts the schedule on every pipe of that system as one change; undo takes it off. A single run can still be set by hand in its properties.</FieldDescription>
+      <FieldDescription className="text-xs">
+        {t('plumbing.applyExplanation', 'Apply puts the schedule on every pipe of that system as one change; undo takes it off. A single run can still be set by hand in its properties.', { ns: 'editor' })}
+      </FieldDescription>
     </div>
   )
 }

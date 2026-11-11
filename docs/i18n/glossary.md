@@ -585,16 +585,21 @@ ayarlar, parça listesi, IFC içe/dışa aktarma) çevrilirken bunlar gerekti. Y
 | Data-use agreement | **veri kullanım anlaşması** | |
 | Country of origin: unit symbols | `kVA`, `CFM`, `fpm`, `in. w.c.`, `A`, `V`, `Pa`, `ft`, `Btu/h` **çevrilmez** | §7 — bu turda yalnız `bal.`/`vent.` sütun başlıklarında görünür |
 
-> **Bu turda kapanmayan ağaçlar.** `plumbing/` (402 site), `questions/` (213),
-> `equipment-list/` (110), `library/` (68) ve `coordination/` (58)
-> **henüz tamamlanmadı**; bu yüzden Ç12'nin sıhhi tesisat yarısı (*yük birimi*,
-> WSFU/DFU sütunları), Ç8'in tesisat tarafı ve Ç20 (*Sahip* / *İşveren*) hâlâ
-> İngilizcedir ve negatif-alan koruması o ağaçları **taramasın** diye
-> `NOT_YET_GUARDED` listesinde adlandırılmıştır
+> **Bu turda kapanmayan ağaçlar.** `questions/` (213), `equipment-list/` (110),
+> `library/` (68) ve `coordination/` (58) **henüz tamamlanmadı**; bu yüzden Ç20
+> (*Sahip* / *İşveren*) hâlâ İngilizcedir ve negatif-alan koruması o ağaçları
+> **taramasın** diye `NOT_YET_GUARDED` listesinde adlandırılmıştır
 > (`packages/bim-editor/__tests__/i18n-negative-space.test.ts`).
 > Sahibi: Aşama 4'ün kalan turları; gerekçe ve sayılar görev raporundadır
 > (`.superpowers/sdd/2026-11-10-bilingual-ui/trees-electrical-spaces-plumbing-report.md`).
 >
+> **`plumbing/` kapandı (2026-11-10, beşinci tur).** Ağacın tamamı anahtarlı:
+> 402 site sıfıra indi (0 site, 0 dosya) ve ağaç `NOT_YET_GUARDED`'dan çıktı;
+> sözcükleri §5.7'dedir. Ç12'nin sıhhi tesisat yarısı (*armatür* / *yük birimi*,
+> WSFU/DFU sütunları), Ç8'in tesisat tarafı (*branşman*), Ç9 (*hat* / *çalıştır*),
+> Ç17 (*boru* / *kanal*) ve Ç13 (*debi* / *eğim* / *sürtünme*) artık
+> `i18n-plumbing.test.tsx` içinde ölçülür.
+
 > **`spaces/` kapandı (2026-11-10, dördüncü tur).** Ağacın tamamı anahtarlı:
 > 427 site sıfıra indi ve ağaç `NOT_YET_GUARDED`'dan çıktı; sözcükleri §5.6'dadır.
 > Türkçesi `i18n-spaces.test.tsx` içinde ölçülür: §2.3 (*mekan*, asla *alan*),
@@ -688,6 +693,55 @@ ayarlar, parça listesi, IFC içe/dışa aktarma) çevrilirken bunlar gerekti. Y
 > bu yüzden anahtarın ilk nokta öncesi parçasını (grup) atar — `WORKSPACE_KEY`
 > istisnasının bir seviye yukarısı. Kelime gerçekten *space* ise
 > (`spaces.spaceName`, `ventilation.space`, `panel.spaces`) kural aynen işler.
+
+---
+
+### 5.7 Aşama 4, Task 4.3: sıhhi tesisat ağacı sözcükleri (2026-11-10)
+
+`packages/bim-editor/src/editor/plumbing` çevrilirken bunlar gerekti. Yukarıda
+**zaten** karara bağlı olanlar tekrar yazılmadı (`Boru`, `Kanal`, `Hat`,
+`Branşman`, `Yalıtım`, `Kat`, `Oda`, `Sistem`, `Panel`, `Pafta`, `Çizelge`,
+`İşaret`, `Tip`, `Açıklama`, `Malzeme`, `Ölçü`, `Numara`).
+
+| EN | TR | Not |
+|----|----|-----|
+| Plumbing (the discipline, the tab) | **sıhhi tesisat** | §5.6 *sıhhi tesisat ekipmanı*; *tesisat* tek başına yetmez |
+| Stack (sanitary / vent / storm) | **kolon** | *pis su kolonu*, *havalandırma kolonu*, *yağmur suyu kolonu* |
+| Stack number / Stack tag / Base of stack | **kolon numarası / kolon etiketi / kolon dibi** | `stackBaseRule` bir *firma kuralı*, kod maddesi değil |
+| Manhole | **baca** | `MH-1` işareti çevrilmez |
+| Invert / Rim (ft) | **invert kotu / üst kot** | `ft` çevrilmez (§7); değer tahmin edilmez |
+| Building drain / Outfall | **bina tahliye hattı / deşarj noktası** | |
+| Backwater valve | **geri akış valfi** | |
+| Cleanout / Trap / Valve | **temizleme ağzı / sifon / vana** | |
+| Regulator / Line · Service · Appliance regulator | **regülatör / hat · servis · cihaz regülatörü** | |
+| Vent limiter / Vent to outdoors | **havalandırma sınırlayıcısı / dışarı havalandırma** | Regülatörün tahliyesi; *havalandırma kolonu* ayrı kavram |
+| Load point / Lump load / Break out | **yük noktası / toplu yük / böl** | Toplu yük sonra bölünür; toplam değişmez |
+| Fixture (a plumbing fixture) | **armatür** | §9/Ç12 |
+| Fixture unit (WSFU / DFU) | **yük birimi** | §9/Ç12; `WSFU`, `DFU` kısaltmaları korunur (§7) |
+| Fixture mark | **armatür işareti** | |
+| Demand curve / Design point | **talep eğrisi / tasarım noktası** | Hunter eğrisi = **Hunter eğrisi** (özel ad) |
+| Auto-size / Sizing | **otomatik boyutlandır / boyutlandırma** | Boru boyutlandırma, gaz boyutlandırma |
+| Design rainfall (in/h) | **tasarım yağış şiddeti** | §5 *Yağış şiddeti*; `in/h` çevrilmez |
+| Slope / Fall / Offsets | **eğim / düşü / kaydırmalar** | §9/Ç13: eğim ≠ debi |
+| Hydraulics / Loss / Friction | **hidrolik / kayıp / sürtünme** | |
+| Capacity at slope | **eğimdeki kapasite** | |
+| Pipe insulation schedule | **boru yalıtım çizelgesi** | §2.4 *çizelge* |
+| Wrap (pipe insulation) | **dış kaplama** | §5.5 ile aynı karar; "sargı" kullanılmaz |
+| Pipe types / Connection types | **boru tipleri / bağlantı tipleri** | |
+| Product standard | **ürün standardı** | |
+| Building type / Nursing home | **bina türü / bakımevi** | |
+| Riser diagram | **kolon şeması** | §5.5 ile aynı karar |
+| Stack capacity | **kolon kapasitesi** | |
+
+> **Kernel'in ve paketin etiket tabloları bu ağaçta `label(t)` erişimcileriyle okunur.**
+> `DEMAND_CURVE_LABEL`, `BUILDING_TYPE_LABEL`, `GAS_FUEL_LABEL`
+> (`@permitzip/bim-pack-plumbing`) ve `SYSTEM_PATTERN_LABEL`, `SYSTEM_WEIGHT_LABEL`
+> (`@permitzip/bim-kernel`) İngilizce **veridir**; veri İngilizce kalır, ekranın
+> sözcüğü `plumbing-words.ts` içindeki erişimciden gelir — `viewCategoryWord` ve
+> `loadTradeWord` ile aynı desen. İngilizce varsayılan her erişimcide tablonun
+> kendi sözcüğü olarak yazılır (anahtar bir değişkenden gelirse `npm run i18n:review`
+> ve `editorSourceCaptions()` onu göremez) ve `i18n-plumbing.test.tsx` bunu
+> tabloyla **karakter karakter** karşılaştırır.
 
 ---
 

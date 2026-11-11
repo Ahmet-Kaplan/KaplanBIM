@@ -12,6 +12,7 @@ import { Input } from '../../ui/input'
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '../../ui/item'
 import { Label } from '../../ui/label'
 import { RadioGroup, RadioGroupItem } from '../../ui/radio-group'
+import { useEditorTranslate } from '../i18n/translate'
 import { newId, type SubmitCommand } from '../views-sheets/types'
 
 interface Props {
@@ -44,6 +45,7 @@ function feetToMm(text: string): number | null | undefined {
  * Fix. Every step is one undoable command.
  */
 export function OutfallConnectionDialog({ open, onOpenChange, model, drainId, editBlocked, submit, select }: Props) {
+  const t = useEditorTranslate()
   const choices = useMemo(() => outfallConnectionChoices(model), [model])
   const [picked, setPicked] = useState<string>(choices[0]?.id ?? NEW)
   const [mark, setMark] = useState('MH-1')
@@ -76,8 +78,12 @@ export function OutfallConnectionDialog({ open, onOpenChange, model, drainId, ed
   const walk = walkedFrom ? outfallWalk(model, asElementId(walkedFrom)) : null
   const invertMm = feetToMm(invert)
   const rimMm = feetToMm(rim)
-  const badNumber = picked === NEW && (invertMm === undefined || rimMm === undefined) ? 'Type the invert and rim in feet above project zero (for example -8.5), or leave them blank to add later.' : null
-  const blocked = editBlocked ?? badNumber ?? (picked === NEW && mark.trim() === '' ? 'Give the manhole a mark (MH-1).' : null)
+  const badNumber =
+    picked === NEW && (invertMm === undefined || rimMm === undefined)
+      ? t('plumbing.invertRimHint', 'Type the invert and rim in feet above project zero (for example -8.5), or leave them blank to add later.', { ns: 'editor' })
+      : null
+  const blocked =
+    editBlocked ?? badNumber ?? (picked === NEW && mark.trim() === '' ? t('plumbing.giveTheManholeAMark', 'Give the manhole a mark (MH-1).', { ns: 'editor' }) : null)
 
   const connect = () => {
     setError(null)
@@ -115,44 +121,53 @@ export function OutfallConnectionDialog({ open, onOpenChange, model, drainId, ed
 
         {walk === null ? (
           <div className="flex flex-col gap-4">
-            <RadioGroup value={picked} onValueChange={setPicked} aria-label="Manhole">
+            <RadioGroup value={picked} onValueChange={setPicked} aria-label={t('plumbing.manhole', 'Manhole', { ns: 'editor' })}>
               {choices.map((c) => (
                 <div key={c.id} className="flex items-center gap-2">
                   <RadioGroupItem value={c.id} id={`outfall-${c.id}`} />
                   <Label htmlFor={`outfall-${c.id}`}>
                     {c.label}
-                    {c.invertMm !== null ? `, invert ${(c.invertMm / MM_PER_FT).toFixed(2)} ft` : ', no invert yet'}
+                    {c.invertMm !== null
+                      ? t('plumbing.manholeInvert', ', invert {{ft}} ft', { ns: 'editor', ft: (c.invertMm / MM_PER_FT).toFixed(2) })
+                      : t('plumbing.manholeNoInvertYet', ', no invert yet', { ns: 'editor' })}
                   </Label>
                 </div>
               ))}
               <div className="flex items-center gap-2">
                 <RadioGroupItem value={NEW} id="outfall-new" />
-                <Label htmlFor="outfall-new">A new manhole</Label>
+                <Label htmlFor="outfall-new">{t('plumbing.aNewManhole', 'A new manhole', { ns: 'editor' })}</Label>
               </div>
             </RadioGroup>
             {picked === NEW && (
               <div className="grid grid-cols-3 gap-3">
                 <Field>
-                  <FieldLabel htmlFor="outfall-mark">Mark</FieldLabel>
+                  <FieldLabel htmlFor="outfall-mark">{t('plumbing.mark', 'Mark', { ns: 'editor' })}</FieldLabel>
                   <Input id="outfall-mark" value={mark} onChange={(e) => setMark(e.target.value)} />
                 </Field>
                 <Field>
-                  <FieldLabel htmlFor="outfall-invert">Invert (ft)</FieldLabel>
+                  <FieldLabel htmlFor="outfall-invert">{t('plumbing.invertFt', 'Invert (ft)', { ns: 'editor' })}</FieldLabel>
                   <Input id="outfall-invert" inputMode="decimal" value={invert} onChange={(e) => setInvert(e.target.value)} placeholder="-8.5" />
                 </Field>
                 <Field>
-                  <FieldLabel htmlFor="outfall-rim">Rim (ft)</FieldLabel>
+                  <FieldLabel htmlFor="outfall-rim">{t('plumbing.rimFt', 'Rim (ft)', { ns: 'editor' })}</FieldLabel>
                   <Input id="outfall-rim" inputMode="decimal" value={rim} onChange={(e) => setRim(e.target.value)} placeholder="-2" />
                 </Field>
-                <FieldDescription className="col-span-3">Feet above project zero. Leave one blank and the check says what to add; it never guesses.</FieldDescription>
+                <FieldDescription className="col-span-3">
+                  {t('plumbing.invertRimWhy', 'Feet above project zero. Leave one blank and the check says what to add; it never guesses.', { ns: 'editor' })}
+                </FieldDescription>
               </div>
             )}
           </div>
         ) : walk.findings.length === 0 ? (
           <Alert>
             <CircleCheck />
-            <AlertTitle>The drain reaches {walk.outfall?.label ?? 'the manhole'} by gravity</AlertTitle>
-            <AlertDescription>No backwater valve is needed for the floors it serves.</AlertDescription>
+            <AlertTitle>
+              {t('plumbing.theDrainReachesByGravity', 'The drain reaches {{outfall}} by gravity', {
+                ns: 'editor',
+                outfall: walk.outfall?.label ?? t('plumbing.theManhole', 'the manhole', { ns: 'editor' }),
+              })}
+            </AlertTitle>
+            <AlertDescription>{t('plumbing.noBackwaterValveNeeded', 'No backwater valve is needed for the floors it serves.', { ns: 'editor' })}</AlertDescription>
           </Alert>
         ) : (
           <ItemGroup data-testid="outfall-walk-findings">
@@ -160,12 +175,14 @@ export function OutfallConnectionDialog({ open, onOpenChange, model, drainId, ed
               <Item key={`${f.code}-${f.message}`} variant="outline">
                 <ItemContent>
                   <ItemTitle>{f.message}</ItemTitle>
-                  {f.fix && <ItemDescription>{f.fix.label} places the starter part on that pipe; connect it there.</ItemDescription>}
+                  {f.fix && (
+                    <ItemDescription>{t('plumbing.fixPlacesStarter', '{{fix}} places the starter part on that pipe; connect it there.', { ns: 'editor', fix: f.fix.label })}</ItemDescription>
+                  )}
                 </ItemContent>
                 <ItemActions>
                   <Button size="sm" variant="outline" onClick={() => select(f.selectIds)}>
                     <Crosshair />
-                    Select
+                    {t('plumbing.select', 'Select', { ns: 'editor' })}
                   </Button>
                   {f.fix && (
                     <Button size="sm" onClick={() => fix(f)} disabled={editBlocked !== null} title={editBlocked ?? undefined}>
@@ -182,23 +199,29 @@ export function OutfallConnectionDialog({ open, onOpenChange, model, drainId, ed
         {error && (
           <Alert variant="destructive">
             <CircleAlert />
-            <AlertTitle>That didn&apos;t go through</AlertTitle>
+            <AlertTitle>{t('plumbing.didntGoThrough', "That didn't go through", { ns: 'editor' })}</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            {walk ? 'Done' : 'Cancel'}
+            {walk ? t('plumbing.done', 'Done', { ns: 'editor' }) : t('plumbing.cancel', 'Cancel', { ns: 'editor' })}
           </Button>
           {walk === null && pending === null && (
             <Button onClick={connect} disabled={blocked !== null} title={blocked ?? undefined}>
-              Connect and check
+              {t('plumbing.connectAndCheck', 'Connect and check', { ns: 'editor' })}
             </Button>
           )}
           {walk === null && pending !== null && (
-            <Button onClick={placeManhole} disabled={!routedOn || editBlocked !== null} title={routedOn ? (editBlocked ?? undefined) : 'Routing the drain on…'}>
-              {routedOn ? `Place ${mark.trim()} and check` : 'Routing the drain on…'}
+            <Button
+              onClick={placeManhole}
+              disabled={!routedOn || editBlocked !== null}
+              title={routedOn ? (editBlocked ?? undefined) : t('plumbing.routingTheDrainOn', 'Routing the drain on…', { ns: 'editor' })}
+            >
+              {routedOn
+                ? t('plumbing.placeAndCheck', 'Place {{mark}} and check', { ns: 'editor', mark: mark.trim() })
+                : t('plumbing.routingTheDrainOn', 'Routing the drain on…', { ns: 'editor' })}
             </Button>
           )}
         </DialogFooter>

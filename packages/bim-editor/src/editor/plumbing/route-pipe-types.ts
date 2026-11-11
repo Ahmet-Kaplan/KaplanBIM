@@ -5,6 +5,7 @@ import { defaultPipeSpec, elementsOfKind, pipeFamilyOf, type BimElement, type Mo
 import type { PipeTypeEntry, PipeTypeRecord } from '@permitzip/bim-pack-plumbing'
 import type * as PlumbingHost from '@permitzip/bim-pack-plumbing/host'
 import { requireAddOns } from '../../contracts/building-model/add-ons'
+import { englishOnly, useEditorTranslate, type Translate } from '../i18n/translate'
 import { MM_PER_IN } from '../placement'
 import type { RouteChoices, RoutePipeTypes } from '../RoutePanel'
 
@@ -43,10 +44,10 @@ function chosenPipeType(c: RouteChoices, records: readonly PipeTypeRecord[]): Pi
  * the firm's). `systemPipe`: an existing system's pipe, whose material a new
  * run on it keeps. `host`: this add-on's loaded entry.
  */
-export function routePipeTypes(records: readonly PipeTypeRecord[], systemPipe: (systemId: string) => SystemPipe | null = () => null, host: Host = requireAddOns().plumbing): RoutePipeTypes {
+export function routePipeTypes(records: readonly PipeTypeRecord[], systemPipe: (systemId: string) => SystemPipe | null = () => null, host: Host = requireAddOns().plumbing, t: Translate = englishOnly): RoutePipeTypes {
   const sizeFor = (type: PipeTypeEntry, kind: SystemKind, nominalIn: number) => (Number.isFinite(nominalIn) && nominalIn > 0 && host.pipeTypeAllowsSize(type, nominalIn) ? nominalIn : host.startSizeFor(type, kind))
   return {
-    home: 'Plumbing › Pipe types',
+    home: t('plumbing.routeHome', 'Plumbing › Pipe types', { ns: 'editor' }),
     // The size stays when the service didn't change and the type takes it; otherwise the add-on's start size.
     forSystem(next, prevKind, kind) {
       if (next.kind !== 'pipe' || !kind) return next
@@ -86,10 +87,11 @@ function systemPipeOf(model: ModelState | null, systemId: string): SystemPipe | 
 
 /** The Route panel's pipe types while the Route tool is on, read from the catalog records alone (never a whole-model scan per edit). */
 export function useRoutePipeTypes(active: boolean, catalog: readonly BimElement[], currentModel: () => ModelState | null): RoutePipeTypes | null {
+  const t = useEditorTranslate()
   return useMemo(() => {
     if (!active) return null
     const host = requireAddOns().plumbing
     const records = host.projectPipeTypes({ elements: Object.fromEntries(catalog.map((el) => [el.id, el])) })
-    return routePipeTypes(records, (systemId) => systemPipeOf(currentModel(), systemId), host)
-  }, [active, catalog, currentModel])
+    return routePipeTypes(records, (systemId) => systemPipeOf(currentModel(), systemId), host, t)
+  }, [active, catalog, currentModel, t])
 }

@@ -3,6 +3,7 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { ROUTING_CONNECT_INTO_FEATURE, ROUTING_INSERT_PART_FEATURE, type ModelState } from '@permitzip/bim-kernel'
 import { CLEANOUT_PROPOSAL_WORDS, cleanoutProposalBlocked, FIXTURE_CONNECT_WORDS, fixtureConnectBlocked, type FixtureConnectTarget, type PlumbingDemandCurve, projectPlumbingSettings, outfallConnectionBlocked } from '@permitzip/bim-pack-plumbing'
+import { useEditorTranslate } from '../i18n/translate'
 import type { SubmitCommand } from '../views-sheets/types'
 import { HunterCurveDialog } from './HunterCurveDialog'
 import { PipeTypesDialog } from './PipeTypesDialog'
@@ -45,11 +46,12 @@ export interface PlumbingWorkflow {
 
 type DialogState = { readonly kind: 'systems'; readonly tab: PlumbingSystemsTab } | { readonly kind: 'pipe_types' } | { readonly kind: 'hunter_curve' } | { readonly kind: 'stacks' } | { readonly kind: 'outfall'; readonly drainId: string } | { readonly kind: 'cleanouts'; readonly drainIds: readonly string[] } | { readonly kind: 'connect'; readonly target: FixtureConnectTarget; readonly ids: readonly string[] } | null
 
-const LOADING = 'The model is still loading.'
-
 /** The tab: Route pipe, systems and their look, the drain to the manhole, cleanouts proposed on a drain, auto-sizing, the demand curve and its chart, pipe types. Every edit is a kernel command (undoable, the same the agent tools send). */
 export function usePlumbingWorkflow({ model, editBlocked, modelToolsBlocked, submit, routePipe, placeFixture, openRiser, notify, selectedIds = [], select, previewParts, serverFeatures }: PlumbingWorkflowInput): PlumbingWorkflow {
+  const t = useEditorTranslate()
   const [dialog, setDialog] = useState<DialogState>(null)
+  /** Why every Plumbing command is off while the model is still being read. */
+  const LOADING = t('plumbing.modelStillLoading', 'The model is still loading.', { ns: 'editor' })
   const settings = model ? projectPlumbingSettings(model.elements) : null
   const systemsOwnMode = useMemo(() => (model ? pipeSystems(model).filter((s) => s.design?.pipe?.sizingMode).length : 0), [model])
   const sizingBlocked = model ? editBlocked : LOADING
@@ -78,10 +80,19 @@ export function usePlumbingWorkflow({ model, editBlocked, modelToolsBlocked, sub
       blocked: sizingBlocked,
       toggle: () => {
         const on = settings?.sizingMode !== 'auto'
-        if (saveSettings({ sizingMode: on ? 'auto' : 'check' }, on ? 'turn auto-sizing on' : 'turn auto-sizing off'))
-          notify(on ? 'Auto-sizing is on: suggested pipe sizes apply as you model.' : 'Auto-sizing is off: pipes are checked and sizes suggested; nothing changes until you accept.')
+        if (
+          saveSettings(
+            { sizingMode: on ? 'auto' : 'check' },
+            on ? t('plumbing.turnAutoSizingOn', 'turn auto-sizing on', { ns: 'editor' }) : t('plumbing.turnAutoSizingOff', 'turn auto-sizing off', { ns: 'editor' }),
+          )
+        )
+          notify(
+            on
+              ? t('plumbing.autoSizingIsOn', 'Auto-sizing is on: suggested pipe sizes apply as you model.', { ns: 'editor' })
+              : t('plumbing.autoSizingIsOff', 'Auto-sizing is off: pipes are checked and sizes suggested; nothing changes until you accept.', { ns: 'editor' }),
+          )
       },
-      setCurve: (curve: PlumbingDemandCurve | null) => saveSettings({ demandCurve: curve }, 'set the demand curve'),
+      setCurve: (curve: PlumbingDemandCurve | null) => saveSettings({ demandCurve: curve }, t('plumbing.setTheDemandCurve', 'set the demand curve', { ns: 'editor' })),
       chart: { run: () => setDialog({ kind: 'hunter_curve' }), blocked: model ? null : LOADING },
     },
     pipeTypes: { run: () => setDialog({ kind: 'pipe_types' }), blocked: model ? null : LOADING },

@@ -5,8 +5,6 @@ import { CircleAlert, RotateCcw } from 'lucide-react'
 import {
   SYSTEM_LINE_PATTERNS,
   SYSTEM_LINE_WEIGHTS,
-  SYSTEM_PATTERN_LABEL,
-  SYSTEM_WEIGHT_LABEL,
   elementsOfKind,
   serviceLabel,
   systemStyle,
@@ -17,7 +15,7 @@ import {
   type SystemLinePattern,
   type SystemLineWeight,
 } from '@permitzip/bim-kernel'
-import { BUILDING_TYPE_LABEL, DEMAND_CURVE_LABEL, PLUMBING_BUILDING_TYPES, PLUMBING_DEMAND_CURVES, type PlumbingBuildingType, type PlumbingDemandCurve, type PipeInsulationRow, type PlumbingSettingsEntry, GAS_FUEL_LABEL, gasFuelOf, projectPlumbingSettings } from '@permitzip/bim-pack-plumbing'
+import { PLUMBING_BUILDING_TYPES, PLUMBING_DEMAND_CURVES, type PlumbingBuildingType, type PlumbingDemandCurve, type PipeInsulationRow, type PlumbingSettingsEntry, gasFuelOf, projectPlumbingSettings } from '@permitzip/bim-pack-plumbing'
 import { Alert, AlertDescription, AlertTitle } from '../../ui/alert'
 import { Button } from '../../ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../ui/dialog'
@@ -28,8 +26,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Switch } from '../../ui/switch'
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs'
+import { useEditorTranslate } from '../i18n/translate'
 import type { SubmitCommand } from '../views-sheets/types'
 import { PipeInsulationSchedule } from './PipeInsulationSchedule'
+import { buildingTypeWord, demandCurveWord, gasFuelWord, linePatternWord, lineWeightWord } from './plumbing-words'
 
 export type PlumbingSystemsTab = 'systems' | 'project' | 'insulation'
 
@@ -77,6 +77,7 @@ export function projectSettingsCommand(
 
 /** Plumbing › Systems: each pipe system's look and sizing, and the project's auto-sizing and demand curve. */
 export function PlumbingSystemsDialog({ open, onOpenChange, tab, model, editBlocked, submit }: Props) {
+  const t = useEditorTranslate()
   const [current, setCurrent] = useState<PlumbingSystemsTab>(tab)
   const [error, setError] = useState<string | null>(null)
   const systems = useMemo(() => pipeSystems(model), [model])
@@ -88,51 +89,51 @@ export function PlumbingSystemsDialog({ open, onOpenChange, tab, model, editBloc
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-3xl" data-testid="plumbing-systems-dialog">
         <DialogHeader>
-          <DialogTitle>Plumbing systems</DialogTitle>
-          <DialogDescription>How each pipe system looks on screen and in print, and whether pipe sizes are only checked or applied as you model.</DialogDescription>
+          <DialogTitle>{t('plumbing.plumbingSystems', 'Plumbing systems', { ns: 'editor' })}</DialogTitle>
+          <DialogDescription>{t('plumbing.plumbingSystemsWhy', 'How each pipe system looks on screen and in print, and whether pipe sizes are only checked or applied as you model.', { ns: 'editor' })}</DialogDescription>
         </DialogHeader>
         {editBlocked && (
           <Alert>
             <CircleAlert />
-            <AlertTitle>View only</AlertTitle>
+            <AlertTitle>{t('plumbing.viewOnly', 'View only', { ns: 'editor' })}</AlertTitle>
             <AlertDescription>{editBlocked}</AlertDescription>
           </Alert>
         )}
         {error && (
           <Alert variant="destructive" data-testid="plumbing-systems-error">
             <CircleAlert />
-            <AlertTitle>Not saved</AlertTitle>
+            <AlertTitle>{t('plumbing.notSaved', 'Not saved', { ns: 'editor' })}</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
         <Tabs value={current} onValueChange={(v) => (v === 'systems' || v === 'project' || v === 'insulation') && setCurrent(v)}>
           <TabsList>
-            <TabsTrigger value="systems">Systems</TabsTrigger>
-            <TabsTrigger value="project">Project</TabsTrigger>
+            <TabsTrigger value="systems">{t('plumbing.systems', 'Systems', { ns: 'editor' })}</TabsTrigger>
+            <TabsTrigger value="project">{t('plumbing.project', 'Project', { ns: 'editor' })}</TabsTrigger>
             <TabsTrigger value="insulation" data-testid="plumbing-insulation-tab">
-              Insulation
+              {t('plumbing.insulation', 'Insulation', { ns: 'editor' })}
             </TabsTrigger>
           </TabsList>
           <TabsContent value="systems">
             {systems.length === 0 ? (
               <Empty className="border py-4">
                 <EmptyHeader>
-                  <EmptyTitle>No pipe systems yet</EmptyTitle>
-                  <EmptyDescription>Route pipe (Plumbing › Route pipe) and its system appears here, with its standard look: cold water blue dash-dot, vent dashed, gas long dash.</EmptyDescription>
+                  <EmptyTitle>{t('plumbing.noPipeSystemsYet', 'No pipe systems yet', { ns: 'editor' })}</EmptyTitle>
+                  <EmptyDescription>{t('plumbing.noPipeSystemsYetWhy', 'Route pipe (Plumbing › Route pipe) and its system appears here, with its standard look: cold water blue dash-dot, vent dashed, gas long dash.', { ns: 'editor' })}</EmptyDescription>
                 </EmptyHeader>
               </Empty>
             ) : (
               <Table data-testid="plumbing-systems-table">
-                <TableCaption className="sr-only">Pipe systems</TableCaption>
+                <TableCaption className="sr-only">{t('plumbing.pipeSystems', 'Pipe systems', { ns: 'editor' })}</TableCaption>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>System</TableHead>
-                    <TableHead>Colour</TableHead>
-                    <TableHead>Lines</TableHead>
-                    <TableHead>Weight</TableHead>
-                    <TableHead>Auto-size</TableHead>
+                    <TableHead>{t('plumbing.system', 'System', { ns: 'editor' })}</TableHead>
+                    <TableHead>{t('plumbing.colour', 'Colour', { ns: 'editor' })}</TableHead>
+                    <TableHead>{t('plumbing.lines', 'Lines', { ns: 'editor' })}</TableHead>
+                    <TableHead>{t('plumbing.weight', 'Weight', { ns: 'editor' })}</TableHead>
+                    <TableHead>{t('plumbing.autoSize', 'Auto-size', { ns: 'editor' })}</TableHead>
                     <TableHead>
-                      <span className="sr-only">Standard look</span>
+                      <span className="sr-only">{t('plumbing.standardLook', 'Standard look', { ns: 'editor' })}</span>
                     </TableHead>
                   </TableRow>
                 </TableHeader>
@@ -147,42 +148,68 @@ export function PlumbingSystemsDialog({ open, onOpenChange, tab, model, editBloc
           <TabsContent value="project">
             <FieldGroup>
               <Field orientation="horizontal">
-                <Switch id="plumbing-auto-size" checked={settings.sizingMode === 'auto'} disabled={!canEdit} onCheckedChange={(on) => send(projectSettingsCommand(settings, { sizingMode: on ? 'auto' : 'check' }), on ? 'turn auto-sizing on' : 'turn auto-sizing off')} data-testid="plumbing-project-auto-size" />
-                <FieldLabel htmlFor="plumbing-auto-size">Auto-size pipes</FieldLabel>
-                <FieldDescription>{settings.sizingMode === 'auto' ? 'On: suggested sizes apply as you model, except on systems set to check.' : 'Off: every pipe is checked and sizes are suggested; nothing changes until you accept.'}</FieldDescription>
+                <Switch
+                  id="plumbing-auto-size"
+                  checked={settings.sizingMode === 'auto'}
+                  disabled={!canEdit}
+                  onCheckedChange={(on) =>
+                    send(
+                      projectSettingsCommand(settings, { sizingMode: on ? 'auto' : 'check' }),
+                      on ? t('plumbing.turnAutoSizingOn', 'turn auto-sizing on', { ns: 'editor' }) : t('plumbing.turnAutoSizingOff', 'turn auto-sizing off', { ns: 'editor' }),
+                    )
+                  }
+                  data-testid="plumbing-project-auto-size"
+                />
+                <FieldLabel htmlFor="plumbing-auto-size">{t('plumbing.autoSizePipes', 'Auto-size pipes', { ns: 'editor' })}</FieldLabel>
+                <FieldDescription>
+                  {settings.sizingMode === 'auto'
+                    ? t('plumbing.autoSizeOnProject', 'On: suggested sizes apply as you model, except on systems set to check.', { ns: 'editor' })
+                    : t('plumbing.autoSizeOffProject', 'Off: every pipe is checked and sizes are suggested; nothing changes until you accept.', { ns: 'editor' })}
+                </FieldDescription>
               </Field>
               <Field>
-                <FieldLabel htmlFor="plumbing-building-type">Building type</FieldLabel>
-                <Select value={settings.buildingType ?? ''} disabled={!canEdit} onValueChange={(v) => (PLUMBING_BUILDING_TYPES as readonly string[]).includes(v) && send(projectSettingsCommand(settings, { buildingType: v as PlumbingBuildingType }), 'set the building type')}>
+                <FieldLabel htmlFor="plumbing-building-type">{t('plumbing.buildingType', 'Building type', { ns: 'editor' })}</FieldLabel>
+                <Select
+                  value={settings.buildingType ?? ''}
+                  disabled={!canEdit}
+                  onValueChange={(v) =>
+                    (PLUMBING_BUILDING_TYPES as readonly string[]).includes(v) &&
+                    send(projectSettingsCommand(settings, { buildingType: v as PlumbingBuildingType }), t('plumbing.setTheBuildingType', 'set the building type', { ns: 'editor' }))
+                  }
+                >
                   <SelectTrigger id="plumbing-building-type" size="sm" data-testid="plumbing-building-type">
-                    <SelectValue placeholder="Choose (restaurant, office…)" />
+                    <SelectValue placeholder={t('plumbing.chooseBuildingType', 'Choose (restaurant, office…)', { ns: 'editor' })} />
                   </SelectTrigger>
                   <SelectContent>
                     {PLUMBING_BUILDING_TYPES.map((b) => (
                       <SelectItem key={b} value={b}>
-                        {BUILDING_TYPE_LABEL[b]}
+                        {buildingTypeWord(b, t)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <FieldDescription>Picks the demand curve unless you choose one: restaurant → ASHRAE Curve A, hospital or hotel → B, apartments → C, office or school → D.</FieldDescription>
+                <FieldDescription>{t('plumbing.buildingTypeWhy', 'Picks the demand curve unless you choose one: restaurant → ASHRAE Curve A, hospital or hotel → B, apartments → C, office or school → D.', { ns: 'editor' })}</FieldDescription>
               </Field>
               <Field>
-                <FieldLabel htmlFor="plumbing-demand-curve">Demand curve</FieldLabel>
-                <Select value={settings.demandCurve ?? BY_BUILDING} disabled={!canEdit} onValueChange={(v) => send(projectSettingsCommand(settings, { demandCurve: v === BY_BUILDING ? null : (v as PlumbingDemandCurve) }), 'set the demand curve')}>
+                <FieldLabel htmlFor="plumbing-demand-curve">{t('plumbing.demandCurve', 'Demand curve', { ns: 'editor' })}</FieldLabel>
+                <Select
+                  value={settings.demandCurve ?? BY_BUILDING}
+                  disabled={!canEdit}
+                  onValueChange={(v) => send(projectSettingsCommand(settings, { demandCurve: v === BY_BUILDING ? null : (v as PlumbingDemandCurve) }), t('plumbing.setTheDemandCurve', 'set the demand curve', { ns: 'editor' }))}
+                >
                   <SelectTrigger id="plumbing-demand-curve" size="sm" data-testid="plumbing-project-demand-curve">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={BY_BUILDING}>From the building type</SelectItem>
+                    <SelectItem value={BY_BUILDING}>{t('plumbing.fromTheBuildingTypeLabel', 'From the building type', { ns: 'editor' })}</SelectItem>
                     {PLUMBING_DEMAND_CURVES.map((c) => (
                       <SelectItem key={c} value={c}>
-                        {DEMAND_CURVE_LABEL[c]}
+                        {demandCurveWord(c, t)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <FieldDescription>How water supply fixture units become gpm when water pipes are sized. A system can use its own (Systems tab).</FieldDescription>
+                <FieldDescription>{t('plumbing.demandCurveProjectWhy', 'How water supply fixture units become gpm when water pipes are sized. A system can use its own (Systems tab).', { ns: 'editor' })}</FieldDescription>
               </Field>
             </FieldGroup>
           </TabsContent>
@@ -202,10 +229,13 @@ export function PlumbingSystemsDialog({ open, onOpenChange, tab, model, editBloc
   )
 }
 
+/** The standard look a system's dropdowns write, in the words of the request they send. */
 function SystemRow({ system, projectMode, canEdit, send }: { system: MepSystem; projectMode: PipeSizingMode; canEdit: boolean; send: (command: Command, label: string) => void }) {
+  const t = useEditorTranslate()
   const style = systemStyle(system)
   const own = system.design?.pipe?.sizingMode
-  const graphics = (patch: { colour?: string | null; pattern?: SystemLinePattern | null; weight?: SystemLineWeight | null }, label: string) => send({ type: 'set_system_graphics', systemId: system.id, ...patch }, `${label} on ${system.name}`)
+  const graphics = (patch: { colour?: string | null; pattern?: SystemLinePattern | null; weight?: SystemLineWeight | null }, change: string) =>
+    send({ type: 'set_system_graphics', systemId: system.id, ...patch }, t('plumbing.graphicsUndo', '{{change}} on {{system}}', { ns: 'editor', change, system: system.name }))
   const custom = style.overridden.colour || style.overridden.pattern || style.overridden.weight
   const fuel = gasFuelOf(system)
   return (
@@ -218,15 +248,24 @@ function SystemRow({ system, projectMode, canEdit, send }: { system: MepSystem; 
             disabled={!canEdit}
             onValueChange={(v) => {
               if (v !== 'natural' && v !== 'propane') return
-              send({ type: 'set_system_design', systemId: system.id, design: { pipe: { gasType: v } } }, `set ${system.name} to ${GAS_FUEL_LABEL[v].toLowerCase()}`)
+              send(
+                { type: 'set_system_design', systemId: system.id, design: { pipe: { gasType: v } } },
+                t('plumbing.setSystemFuel', 'set {{system}} to {{fuel}}', { ns: 'editor', system: system.name, fuel: gasFuelWord(v, t).toLocaleLowerCase() }),
+              )
             }}
           >
-            <SelectTrigger size="sm" className="mt-1" aria-label={`Gas on ${system.name}`} title="Sets the gas tables used to size this system and the word its labels, tags and schedules print" data-testid="plumbing-system-fuel">
+            <SelectTrigger
+              size="sm"
+              className="mt-1"
+              aria-label={t('plumbing.gasOn', 'Gas on {{system}}', { ns: 'editor', system: system.name })}
+              title={t('plumbing.gasOnWhy', 'Sets the gas tables used to size this system and the word its labels, tags and schedules print', { ns: 'editor' })}
+              data-testid="plumbing-system-fuel"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="natural">{GAS_FUEL_LABEL.natural}</SelectItem>
-              <SelectItem value="propane">{GAS_FUEL_LABEL.propane}</SelectItem>
+              <SelectItem value="natural">{gasFuelWord('natural', t)}</SelectItem>
+              <SelectItem value="propane">{gasFuelWord('propane', t)}</SelectItem>
             </SelectContent>
           </Select>
         ) : (
@@ -234,32 +273,50 @@ function SystemRow({ system, projectMode, canEdit, send }: { system: MepSystem; 
         )}
       </TableCell>
       <TableCell>
-        <Input type="color" aria-label={`Colour of ${system.name}`} className="h-8 w-12 p-1" value={style.colour} disabled={!canEdit} onChange={(e) => graphics({ colour: e.target.value }, 'change the colour')} data-testid="plumbing-system-colour" />
+        <Input
+          type="color"
+          aria-label={t('plumbing.colourOf', 'Colour of {{system}}', { ns: 'editor', system: system.name })}
+          className="h-8 w-12 p-1"
+          value={style.colour}
+          disabled={!canEdit}
+          onChange={(e) => graphics({ colour: e.target.value }, t('plumbing.changeTheColour', 'change the colour', { ns: 'editor' }))}
+          data-testid="plumbing-system-colour"
+        />
       </TableCell>
       <TableCell>
-        <Select value={style.pattern} disabled={!canEdit} onValueChange={(v) => (SYSTEM_LINE_PATTERNS as readonly string[]).includes(v) && graphics({ pattern: v as SystemLinePattern }, 'change the line pattern')}>
-          <SelectTrigger size="sm" aria-label={`Line pattern of ${system.name}`} data-testid="plumbing-system-pattern">
+        <Select
+          value={style.pattern}
+          disabled={!canEdit}
+          onValueChange={(v) =>
+            (SYSTEM_LINE_PATTERNS as readonly string[]).includes(v) && graphics({ pattern: v as SystemLinePattern }, t('plumbing.changeTheLinePattern', 'change the line pattern', { ns: 'editor' }))
+          }
+        >
+          <SelectTrigger size="sm" aria-label={t('plumbing.linePatternOf', 'Line pattern of {{system}}', { ns: 'editor', system: system.name })} data-testid="plumbing-system-pattern">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {SYSTEM_LINE_PATTERNS.map((p) => (
               <SelectItem key={p} value={p}>
-                {SYSTEM_PATTERN_LABEL[p]}
+                {linePatternWord(p, t)}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </TableCell>
       <TableCell>
-        <Select value={style.weight ?? 'standard'} disabled={!canEdit} onValueChange={(v) => graphics({ weight: v === 'standard' ? null : (v as SystemLineWeight) }, 'change the line weight')}>
-          <SelectTrigger size="sm" aria-label={`Line weight of ${system.name}`} data-testid="plumbing-system-weight">
+        <Select
+          value={style.weight ?? 'standard'}
+          disabled={!canEdit}
+          onValueChange={(v) => graphics({ weight: v === 'standard' ? null : (v as SystemLineWeight) }, t('plumbing.changeTheLineWeight', 'change the line weight', { ns: 'editor' }))}
+        >
+          <SelectTrigger size="sm" aria-label={t('plumbing.lineWeightOf', 'Line weight of {{system}}', { ns: 'editor', system: system.name })} data-testid="plumbing-system-weight">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="standard">Standard</SelectItem>
+            <SelectItem value="standard">{t('plumbing.standard', 'Standard', { ns: 'editor' })}</SelectItem>
             {SYSTEM_LINE_WEIGHTS.map((w) => (
               <SelectItem key={w} value={w}>
-                {SYSTEM_WEIGHT_LABEL[w]}
+                {lineWeightWord(w, t)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -273,21 +330,37 @@ function SystemRow({ system, projectMode, canEdit, send }: { system: MepSystem; 
             if (v !== PROJECT && v !== 'check' && v !== 'auto') return
             const sizingMode: PipeSizingMode | null = v === PROJECT ? null : v
             const design = { pipe: { sizingMode } }
-            send({ type: 'set_system_design', systemId: system.id, design }, `auto-size ${system.name}`)
+            send({ type: 'set_system_design', systemId: system.id, design }, t('plumbing.autoSizeOf', 'auto-size {{system}}', { ns: 'editor', system: system.name }))
           }}
         >
-          <SelectTrigger size="sm" aria-label={`Auto-size ${system.name}`} data-testid="plumbing-system-sizing">
+          <SelectTrigger size="sm" aria-label={t('plumbing.autoSizeOf', 'auto-size {{system}}', { ns: 'editor', system: system.name })} data-testid="plumbing-system-sizing">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={PROJECT}>As the project ({projectMode === 'auto' ? 'on' : 'off'})</SelectItem>
-            <SelectItem value="check">Off: check only</SelectItem>
-            <SelectItem value="auto">On: apply sizes</SelectItem>
+            <SelectItem value={PROJECT}>
+              {t('plumbing.asTheProject', 'As the project ({{state}})', {
+                ns: 'editor',
+                state: projectMode === 'auto' ? t('plumbing.onWord', 'on', { ns: 'editor' }) : t('plumbing.offWord', 'off', { ns: 'editor' }),
+              })}
+            </SelectItem>
+            <SelectItem value="check">{t('plumbing.offCheckOnly', 'Off: check only', { ns: 'editor' })}</SelectItem>
+            <SelectItem value="auto">{t('plumbing.onApplySizes', 'On: apply sizes', { ns: 'editor' })}</SelectItem>
           </SelectContent>
         </Select>
       </TableCell>
       <TableCell>
-        <Button variant="ghost" size="icon-sm" aria-label={`Standard look for ${system.name}`} title={custom ? 'Back to the standard look for this kind of system' : 'Already the standard look'} disabled={!canEdit || !custom} onClick={() => graphics({ colour: null, pattern: null, weight: null }, 'reset the look')}>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={t('plumbing.standardLookOf', 'Standard look for {{system}}', { ns: 'editor', system: system.name })}
+          title={
+            custom
+              ? t('plumbing.standardLookBack', 'Back to the standard look for this kind of system', { ns: 'editor' })
+              : t('plumbing.standardLookAlready', 'Already the standard look', { ns: 'editor' })
+          }
+          disabled={!canEdit || !custom}
+          onClick={() => graphics({ colour: null, pattern: null, weight: null }, t('plumbing.resetTheLook', 'reset the look', { ns: 'editor' }))}
+        >
           <RotateCcw />
         </Button>
       </TableCell>

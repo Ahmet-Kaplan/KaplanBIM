@@ -38,6 +38,9 @@ const OWNED_DIRS = [
   "balance",
   "loads",
   "electrical",
+  // Stage 4 · Task 4.3 — the plumbing tab, its systems and pipe types, stacks,
+  // the outfall and its walk, load points, sizing, hydraulics and insulation.
+  "plumbing",
   // Stage 4 · Task 4.4 — the spaces panel: spaces, rooms, zones, fire areas and
   // the drawings placed under a plan.
   "spaces",
@@ -63,11 +66,10 @@ const OWNED_DIRS = [
  * report and hides the half nobody has looked at. Each joins `OWNED_DIRS` when
  * its task closes (`docs/superpowers/plans/2026-11-10-bilingual-ui.md`, Stage 4).
  *
- *   Task 4.3  plumbing (402 sites)
  *   Task 4.4  questions (213), equipment-list (110), library (68),
  *             coordination (58)
  */
-export const NOT_YET_GUARDED = ["plumbing", "questions", "equipment-list", "library", "coordination"] as const;
+export const NOT_YET_GUARDED = ["questions", "equipment-list", "library", "coordination"] as const;
 
 /**
  * Every tree under `src/editor` that **Aşama 4 never covered**: a panel or a

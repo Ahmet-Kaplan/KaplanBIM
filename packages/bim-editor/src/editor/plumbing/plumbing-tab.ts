@@ -1,7 +1,8 @@
 import { ArrowDownToLine, ArrowUpFromLine, Check, ChartSpline, CircleDot, CirclePlus, Droplet, Droplets, Flame, Gauge, Layers, Library, Link2, ListTree, MapPin, Network, PackagePlus, Palette, Route, Square, Wand2 } from 'lucide-react'
 import { type PipeSizingMode } from '@permitzip/bim-kernel'
-import { BUILDING_TYPE_LABEL, CLEANOUT_PROPOSAL_WORDS, DEMAND_CURVE_LABEL, FIXTURE_CONNECT_TARGETS, FIXTURE_CONNECT_WORDS, type FixtureConnectTarget, OUTFALL_CONNECTION_WORDS, PLUMBING_DEMAND_CURVES, type PlumbingBuildingType, type PlumbingDemandCurve } from '@permitzip/bim-pack-plumbing'
+import { CLEANOUT_PROPOSAL_WORDS, FIXTURE_CONNECT_TARGETS, FIXTURE_CONNECT_WORDS, type FixtureConnectTarget, OUTFALL_CONNECTION_WORDS, PLUMBING_DEMAND_CURVES, type PlumbingBuildingType, type PlumbingDemandCurve } from '@permitzip/bim-pack-plumbing'
 import { tradeTab } from '../ribbon/trade-tab'
+import { buildingTypeWord, demandCurveWord } from './plumbing-words'
 import { englishOnly, type Translate } from '../i18n/translate'
 import type { RibbonCommand, RibbonGroup, RibbonTab } from '../ribbon/types'
 
@@ -69,33 +70,46 @@ function connectCommand(actions: Readonly<Record<FixtureConnectTarget, PlumbingA
 
 const cmd = (id: string, label: string, icon: RibbonCommand['icon'], description: string, a: PlumbingAction, keywords: string[]): RibbonCommand => ({ id, label, icon, description, keywords, disabledReason: a.blocked, run: a.run, testId: `ribbon-plumbing-${id}` })
 
-function createGroup(p: PlumbingRibbon): RibbonGroup {
+function createGroup(p: PlumbingRibbon, t: Translate): RibbonGroup {
   return {
     id: 'plumbing-create',
-    label: 'Create',
+    label: t('plumbing.create', 'Create', { ns: 'editor' }),
     commands: [
-      cmd('route-pipe', 'Route pipe', Route, 'Draw pipe: water, sanitary, vent, storm, gas. The fittings are placed as you turn and branch', p.routePipe, ['pipe', 'route', 'draw', 'sanitary', 'water', 'gas', 'vent']),
-      ...(p.placeLoadPoint ? [cmd('place-load-point', 'Load point', MapPin, 'Put a load on the selected open pipe end (a fixture’s WSFU, DFU, gas input) without placing the fixture', p.placeLoadPoint, ['load point', 'nub', 'connection point', 'stub out', 'fixture units', 'dfu', 'wsfu'])] : []),
-      cmd('place-fixture', 'Fixture', PackagePlus, 'Place a plumbing fixture or piece of equipment from the parts catalog', p.placeFixture, ['fixture', 'water closet', 'lavatory', 'sink', 'water heater', 'equipment']),
-      ...(p.breakOut ? [cmd('break-out', 'Break out', ListTree, 'Split the selected lump load point (a whole kitchen) across new load points; the totals stay the same', p.breakOut, ['split', 'lump', 'break out load'])] : []),
+      cmd('route-pipe', t('plumbing.routePipe', 'Route pipe', { ns: 'editor' }), Route, t('plumbing.routePipeWhy', 'Draw pipe: water, sanitary, vent, storm, gas. The fittings are placed as you turn and branch', { ns: 'editor' }), p.routePipe, ['pipe', 'route', 'draw', 'sanitary', 'water', 'gas', 'vent']),
+      ...(p.placeLoadPoint
+        ? [cmd('place-load-point', t('plumbing.loadPoint', 'Load point', { ns: 'editor' }), MapPin, t('plumbing.loadPointWhy', 'Put a load on the selected open pipe end (a fixture’s WSFU, DFU, gas input) without placing the fixture', { ns: 'editor' }), p.placeLoadPoint, [t('plumbing.keyword.loadPoint', 'load point', { ns: 'editor' }), 'nub', t('plumbing.keyword.connectionPoint', 'connection point', { ns: 'editor' }), t('plumbing.keyword.stubOut', 'stub out', { ns: 'editor' }), t('plumbing.keyword.fixtureUnits', 'fixture units', { ns: 'editor' }), 'dfu', 'wsfu'])]
+        : []),
+      cmd('place-fixture', t('plumbing.fixture', 'Fixture', { ns: 'editor' }), PackagePlus, t('plumbing.fixtureWhy', 'Place a plumbing fixture or piece of equipment from the parts catalog', { ns: 'editor' }), p.placeFixture, ['fixture', 'water closet', 'lavatory', 'sink', 'water heater', 'equipment']),
+      ...(p.breakOut ? [cmd('break-out', t('plumbing.breakOut', 'Break out', { ns: 'editor' }), ListTree, t('plumbing.breakOutWhy', 'Split the selected lump load point (a whole kitchen) across new load points; the totals stay the same', { ns: 'editor' }), p.breakOut, ['split', 'lump', t('plumbing.keyword.breakOutLoad', 'break out load', { ns: 'editor' })])] : []),
     ],
   }
 }
 
-function sizingGroup(s: PlumbingSizingRibbon): RibbonGroup {
+function sizingGroup(s: PlumbingSizingRibbon, t: Translate): RibbonGroup {
   const on = s.mode === 'auto'
-  const others = s.systemsOwnMode > 0 ? ` (${s.systemsOwnMode} system${s.systemsOwnMode === 1 ? '' : 's'} set their own)` : ''
-  const curveNow = s.curve ? DEMAND_CURVE_LABEL[s.curve] : s.buildingType ? `from the building type (${BUILDING_TYPE_LABEL[s.buildingType]})` : 'not chosen yet'
+  // §8: a count takes no plural suffix, so the two English shapes are two keys.
+  const others = s.systemsOwnMode > 0
+    ? s.systemsOwnMode === 1
+      ? t('plumbing.systemsOwnOne', ' ({{count}} system set their own)', { ns: 'editor', count: s.systemsOwnMode })
+      : t('plumbing.systemsOwnMany', ' ({{count}} systems set their own)', { ns: 'editor', count: s.systemsOwnMode })
+    : ''
+  const curveNow = s.curve
+    ? demandCurveWord(s.curve, t)
+    : s.buildingType
+      ? t('plumbing.fromTheBuildingType', 'from the building type ({{type}})', { ns: 'editor', type: buildingTypeWord(s.buildingType, t) })
+      : t('plumbing.notChosenYet', 'not chosen yet', { ns: 'editor' })
   return {
     id: 'plumbing-sizing',
-    label: 'Sizing',
+    label: t('plumbing.sizing', 'Sizing', { ns: 'editor' }),
     commands: [
       {
         id: 'auto-size',
-        label: 'Auto-size',
+        label: t('plumbing.autoSize', 'Auto-size', { ns: 'editor' }),
         icon: Wand2,
-        description: on ? `On: suggested pipe sizes are applied as you model${others}. Press to go back to checking only` : `Off: every pipe is checked and sizes are suggested; nothing changes until you accept${others}. Press to let sizes apply as you model`,
-        keywords: ['auto size', 'automatic sizing', 'sizing', 'check', 'audit', 'lint'],
+        description: on
+          ? t('plumbing.autoSizeRibbonOn', 'On: suggested pipe sizes are applied as you model{{others}}. Press to go back to checking only', { ns: 'editor', others })
+          : t('plumbing.autoSizeRibbonOff', 'Off: every pipe is checked and sizes are suggested; nothing changes until you accept{{others}}. Press to let sizes apply as you model', { ns: 'editor', others }),
+        keywords: [t('plumbing.keyword.autoSize', 'auto size', { ns: 'editor' }), t('plumbing.keyword.automaticSizing', 'automatic sizing', { ns: 'editor' }), 'sizing', 'check', 'audit', 'lint'],
         pressed: on,
         disabledReason: s.blocked,
         run: s.toggle,
@@ -103,27 +117,40 @@ function sizingGroup(s: PlumbingSizingRibbon): RibbonGroup {
       },
       {
         id: 'demand-curve',
-        label: 'Demand curve',
+        label: t('plumbing.demandCurve', 'Demand curve', { ns: 'editor' }),
         icon: Gauge,
-        description: `Fixture units to gpm for water sizing: ${curveNow}`,
-        keywords: ['hunter curve', 'ashrae', 'curve a', 'wsfu', 'demand', 'appendix e', 'gpm'],
+        description: t('plumbing.demandCurveWhy', 'Fixture units to gpm for water sizing: {{curve}}', { ns: 'editor', curve: curveNow }),
+        keywords: [t('plumbing.keyword.hunterCurve', 'hunter curve', { ns: 'editor' }), 'ashrae', 'curve a', 'wsfu', 'demand', 'appendix e', 'gpm'],
         disabledReason: s.blocked,
         children: [
           ...PLUMBING_DEMAND_CURVES.filter((c) => c !== 'legacy_fit').map((c) => ({
             id: `demand-curve-${c}`,
-            label: DEMAND_CURVE_LABEL[c],
+            label: demandCurveWord(c, t),
             icon: s.curve === c ? Check : Square,
-            description: `Size water pipes on ${DEMAND_CURVE_LABEL[c]}`,
+            description: t('plumbing.sizeWaterPipesOn', 'Size water pipes on {{curve}}', { ns: 'editor', curve: demandCurveWord(c, t) }),
             pressed: s.curve === c,
             disabledReason: s.blocked,
             run: () => s.setCurve(c),
             testId: `ribbon-plumbing-demand-curve-${c}`,
           })),
-          { id: 'demand-curve-building', label: 'From the building type', icon: s.curve === null ? Check : Square, description: 'Use the curve the building type calls for (set it in Systems › Project)', pressed: s.curve === null, disabledReason: s.blocked, run: () => s.setCurve(null), testId: 'ribbon-plumbing-demand-curve-building' },
+          { id: 'demand-curve-building', label: t('plumbing.fromTheBuildingTypeLabel', 'From the building type', { ns: 'editor' }), icon: s.curve === null ? Check : Square, description: t('plumbing.useTheCurveTheBuildingTypeCallsFor', 'Use the curve the building type calls for (set it in Systems › Project)', { ns: 'editor' }), pressed: s.curve === null, disabledReason: s.blocked, run: () => s.setCurve(null), testId: 'ribbon-plumbing-demand-curve-building' },
         ],
         testId: 'ribbon-plumbing-demand-curve',
       },
-      ...(s.chart ? [cmd('hunter-curve', 'Hunter curve', ChartSpline, "The demand curves and where each water system's fixture units fall on its curve", s.chart, ['hunter curve', 'chart', 'graph', 'demand', 'gpm', 'wsfu', 'operating point', 'design point'])] : []),
+      ...(s.chart
+        ? [
+            cmd('hunter-curve', t('plumbing.hunterCurve', 'Hunter curve', { ns: 'editor' }), ChartSpline, t('plumbing.hunterCurveWhy', "The demand curves and where each water system's fixture units fall on its curve", { ns: 'editor' }), s.chart, [
+              t('plumbing.keyword.hunterCurve', 'hunter curve', { ns: 'editor' }),
+              'chart',
+              'graph',
+              'demand',
+              'gpm',
+              'wsfu',
+              t('plumbing.keyword.operatingPoint', 'operating point', { ns: 'editor' }),
+              t('plumbing.keyword.designPoint', 'design point', { ns: 'editor' }),
+            ]),
+          ]
+        : []),
     ],
   }
 }
@@ -132,30 +159,65 @@ function sizingGroup(s: PlumbingSizingRibbon): RibbonGroup {
 export function plumbingTab(p: PlumbingRibbon, select: RibbonGroup, t: Translate = englishOnly): RibbonTab {
   return tradeTab({
     id: 'plumbing',
-    label: 'Plumbing',
+    label: t('plumbing.plumbing', 'Plumbing', { ns: 'editor' }),
     select,
-    create: [createGroup(p)],
+    create: [createGroup(p, t)],
     connect: {
       id: 'plumbing-systems',
-      label: 'Systems',
+      label: t('plumbing.systems', 'Systems', { ns: 'editor' }),
       commands: [
         ...(p.connectFixtures ? [connectCommand(p.connectFixtures)] : []),
-        cmd('systems', 'Systems', Palette, 'Name each pipe system, its colour and line pattern (vents dashed in print), and whether it sizes itself', p.systems, ['system', 'rename', 'colour', 'color', 'line style', 'dashed', 'line weight', 'graphics', 'visibility']),
+        cmd('systems', t('plumbing.systems', 'Systems', { ns: 'editor' }), Palette, t('plumbing.systemsWhy', 'Name each pipe system, its colour and line pattern (vents dashed in print), and whether it sizes itself', { ns: 'editor' }), p.systems, ['system', 'rename', 'colour', 'color', t('plumbing.keyword.lineStyle', 'line style', { ns: 'editor' }), 'dashed', t('plumbing.keyword.lineWeight', 'line weight', { ns: 'editor' }), 'graphics', 'visibility']),
         ...(p.outfallConnection ? [cmd('outfall-connection', OUTFALL_CONNECTION_WORDS.label, CircleDot, OUTFALL_CONNECTION_WORDS.description, p.outfallConnection, [...OUTFALL_CONNECTION_WORDS.keywords])] : []),
         ...(p.proposeCleanouts ? [cmd('propose-cleanouts', CLEANOUT_PROPOSAL_WORDS.label, CirclePlus, CLEANOUT_PROPOSAL_WORDS.description, p.proposeCleanouts, [...CLEANOUT_PROPOSAL_WORDS.keywords])] : []),
-        ...(p.stacks ? [cmd('stacks', 'Stacks', Layers, 'Every sanitary, vent and storm stack: number them, see each floor’s size, DFU and offsets, and the tag they print (4"//S/K/L//19)', p.stacks, ['stack', 'stacks', 'riser', 'stack number', 'stack tag', 'offset', 'base of stack', '3 diameter', 'waste stack', 'vent stack'])] : []),
+        ...(p.stacks
+          ? [
+              cmd('stacks', t('plumbing.stacks', 'Stacks', { ns: 'editor' }), Layers, t('plumbing.stacksWhy', 'Every sanitary, vent and storm stack: number them, see each floor’s size, DFU and offsets, and the tag they print (4"//S/K/L//19)', { ns: 'editor' }), p.stacks, [
+                'stack',
+                'stacks',
+                'riser',
+                t('plumbing.keyword.stackNumber', 'stack number', { ns: 'editor' }),
+                t('plumbing.keyword.stackTag', 'stack tag', { ns: 'editor' }),
+                'offset',
+                t('plumbing.keyword.baseOfStack', 'base of stack', { ns: 'editor' }),
+                '3 diameter',
+                t('plumbing.keyword.wasteStack', 'waste stack', { ns: 'editor' }),
+                t('plumbing.keyword.ventStack', 'vent stack', { ns: 'editor' }),
+              ]),
+            ]
+          : []),
       ],
     },
-    analyze: sizingGroup(p.sizing),
+    analyze: sizingGroup(p.sizing, t),
     design: {
       id: 'plumbing-types',
-      label: 'Types',
+      label: t('plumbing.types', 'Types', { ns: 'editor' }),
       commands: [
-        cmd('pipe-types', 'Pipe types', Library, 'DW-PEX, SAN-PVC, GAS-SCH40…: material, sizes and joints, and the fittings each material takes', p.pipeTypes, ['pipe type', 'material', 'pex', 'pvc', 'cast iron', 'copper', 'fittings', 'piping specifications']),
-        ...(p.connectionTypes ? [cmd('connection-types', 'Connection types', Droplets, 'P01, K07…: what a fixture or appliance connects with (WSFU, DFU, gas input, CFM), used by load points and fixtures', p.connectionTypes, ['connection type', 'fixture type', 'wsfu', 'dfu', 'mbh', 'cfm', 'designator'])] : []),
+        cmd('pipe-types', t('plumbing.pipeTypes', 'Pipe types', { ns: 'editor' }), Library, t('plumbing.pipeTypesWhy', 'DW-PEX, SAN-PVC, GAS-SCH40…: material, sizes and joints, and the fittings each material takes', { ns: 'editor' }), p.pipeTypes, [t('plumbing.keyword.pipeType', 'pipe type', { ns: 'editor' }), 'material', 'pex', 'pvc', t('plumbing.keyword.castIron', 'cast iron', { ns: 'editor' }), 'copper', 'fittings', t('plumbing.keyword.pipingSpecifications', 'piping specifications', { ns: 'editor' })]),
+        ...(p.connectionTypes
+          ? [
+              cmd('connection-types', t('plumbing.connectionTypes', 'Connection types', { ns: 'editor' }), Droplets, t('plumbing.connectionTypesWhy', 'P01, K07…: what a fixture or appliance connects with (WSFU, DFU, gas input, CFM), used by load points and fixtures', { ns: 'editor' }), p.connectionTypes, [
+                t('plumbing.keyword.connectionType', 'connection type', { ns: 'editor' }),
+                t('plumbing.keyword.fixtureType', 'fixture type', { ns: 'editor' }),
+                'wsfu',
+                'dfu',
+                'mbh',
+                'cfm',
+                'designator',
+              ]),
+            ]
+          : []),
       ],
     },
-    documents: [p.riser ? { id: 'plumbing-diagrams', label: 'Diagrams', commands: [cmd('riser', 'Riser diagram', Network, 'The live plumbing riser drawn from the model, redrawn as it changes; place it on a sheet like any view', p.riser, ['riser', 'isometric', 'schematic', 'diagram'])] } : null],
+    documents: [
+      p.riser
+        ? {
+            id: 'plumbing-diagrams',
+            label: t('plumbing.diagrams', 'Diagrams', { ns: 'editor' }),
+            commands: [cmd('riser', t('plumbing.riserDiagram', 'Riser diagram', { ns: 'editor' }), Network, t('plumbing.riserDiagramWhy', 'The live plumbing riser drawn from the model, redrawn as it changes; place it on a sheet like any view', { ns: 'editor' }), p.riser, ['riser', 'isometric', 'schematic', 'diagram'])],
+          }
+        : null,
+    ],
   }, t)
 }
 

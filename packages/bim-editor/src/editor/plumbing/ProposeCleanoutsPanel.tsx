@@ -10,6 +10,7 @@ import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader,
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '../../ui/empty'
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '../../ui/item'
 import type { ProposalGhost } from '../model-session'
+import { useEditorTranslate } from '../i18n/translate'
 import type { SubmitCommand } from '../views-sheets/types'
 
 interface Props {
@@ -35,6 +36,7 @@ const toPreview = (g: CleanoutGhost): ProposalGhost => ({ typeId: g.typeId, defi
  * and places nothing.
  */
 export function ProposeCleanoutsPanel({ model, drainIds, editBlocked, insertBlocked, submit, select, previewParts, onClose }: Props) {
+  const t = useEditorTranslate()
   const [dismissed, setDismissed] = useState<ReadonlySet<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
   const [placed, setPlaced] = useState(0)
@@ -92,7 +94,7 @@ export function ProposeCleanoutsPanel({ model, drainIds, editBlocked, insertBloc
               <EmptyMedia variant="icon">
                 <CircleCheck />
               </EmptyMedia>
-              <EmptyDescription>{placed > 0 ? `Placed ${placed}. ${W.none}` : W.none}</EmptyDescription>
+              <EmptyDescription>{placed > 0 ? t('plumbing.placedCount', 'Placed {{count}}. {{none}}', { ns: 'editor', count: placed, none: W.none }) : W.none}</EmptyDescription>
             </EmptyHeader>
           </Empty>
         ) : (
@@ -122,7 +124,7 @@ export function ProposeCleanoutsPanel({ model, drainIds, editBlocked, insertBloc
         {error && (
           <Alert variant="destructive">
             <CircleAlert />
-            <AlertTitle>That didn&apos;t go through</AlertTitle>
+            <AlertTitle>{t('plumbing.didntGoThrough', "That didn't go through", { ns: 'editor' })}</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}

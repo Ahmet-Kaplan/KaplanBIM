@@ -8,6 +8,7 @@ import { loadAddOns, requireAddOns } from '../../contracts/building-model/add-on
 import type { Command, ModelState } from '@permitzip/bim-kernel'
 import type { EditorDataHost } from '@permitzip/bim-editor-host'
 import { unavailableWords } from '@permitzip/bim-editor/host/unavailable'
+import { useEditorTranslate } from '../i18n/translate'
 
 let registry: CalcRegistry | null = null
 
@@ -21,6 +22,7 @@ export interface ProjectPlumbingCodes {
 
 /** The project's plumbing and fuel gas codes from its Code Study (filed under any discipline). */
 export function useProjectPlumbingCodesFrom(port: EditorDataHost['codeAdoption'], projectId: string | undefined): ProjectPlumbingCodes {
+  const t = useEditorTranslate()
   const [state, setState] = useState<ProjectPlumbingCodes>({ plumbing: null, fuelGas: null, problem: null, loading: projectId !== undefined })
   useEffect(() => {
     if (!projectId || !port) return
@@ -42,13 +44,21 @@ export function useProjectPlumbingCodesFrom(port: EditorDataHost['codeAdoption']
       })
       .catch((err: unknown) => {
         console.error('[useProjectPlumbingCodes] reading the project Code Study failed', { projectId, err })
-        if (!cancelled) setState({ plumbing: null, fuelGas: null, problem: `The plumbing code couldn't be read from the Code Study (${err instanceof Error ? err.message : String(err)}).`, loading: false })
+        if (!cancelled)
+          setState({
+            plumbing: null,
+            fuelGas: null,
+            problem: t('plumbing.plumbingCodeUnreadable', "The plumbing code couldn't be read from the Code Study ({{error}}).", { ns: 'editor', error: err instanceof Error ? err.message : String(err) }),
+            loading: false,
+          })
       })
     return () => {
       cancelled = true
     }
-  }, [port, projectId])
-  if (projectId && !port) return { plumbing: null, fuelGas: null, problem: unavailableWords("The project's Code Study"), loading: false }
+  }, [port, projectId, t])
+  // The host's own sentence stays English (its owner is `src/host/unavailable.ts`); the noun it names is ours.
+  if (projectId && !port)
+    return { plumbing: null, fuelGas: null, problem: unavailableWords(t('plumbing.theProjectsCodeStudy', "The project's Code Study", { ns: 'editor' })), loading: false }
   return state
 }
 
@@ -60,6 +70,7 @@ export function useProjectPlumbingCodesFrom(port: EditorDataHost['codeAdoption']
  * trigger it, so it never fights the person.
  */
 export function useAutoSizeFrom(port: EditorDataHost['codeAdoption'], projectId: string | undefined, submit: (command: Command, undoLabel?: string) => string | null): (command: Command, model: ModelState) => void {
+  const t = useEditorTranslate()
   const codes = useProjectPlumbingCodesFrom(port, projectId)
   const codesRef = useRef(codes)
   const submitRef = useRef(submit)
@@ -80,19 +91,26 @@ export function useAutoSizeFrom(port: EditorDataHost['codeAdoption'], projectId:
       plan = plumbing.planAutoSize(registry, model, { projectAdoptions: { plumbing: c.plumbing, fuel_gas: c.fuelGas } }, { idPrefix: `auto-r${model.revision}` })
     } catch (err) {
       console.error('[useAutoSize] sizing after an edit failed', { command: command.type, err })
-      toast.error(`Auto-sizing failed: ${err instanceof Error ? err.message : String(err)}. Sizes were not changed.`)
+      toast.error(t('plumbing.autoSizingFailed', 'Auto-sizing failed: {{error}}. Sizes were not changed.', { ns: 'editor', error: err instanceof Error ? err.message : String(err) }))
       return
     }
     for (const edit of plan.edits) {
       const refusal = submitRef.current(edit.command, edit.command.label)
-      if (refusal) toast.error(`Auto-sizing ${edit.systemName} wasn't saved: ${refusal}`)
-      else toast(`${edit.command.label}. Undo puts the drawn sizes back.`)
+      if (refusal)
+        toast.error(t('plumbing.autoSizingNotSaved', 'Auto-sizing {{system}} wasn’t saved: {{refusal}}', { ns: 'editor', system: edit.systemName, refusal }))
+      else toast(t('plumbing.autoSizedUndo', '{{label}}. Undo puts the drawn sizes back.', { ns: 'editor', label: edit.command.label }))
     }
     for (const s of plan.skipped) {
       const key = `${s.systemId}:${s.reason}`
       if (told.current.has(key)) continue
       told.current.add(key)
-      toast.warning(`Auto-sizing is on for ${s.systemName}, but it couldn't be sized: ${c.problem ?? s.reason}`)
+      toast.warning(
+        t('plumbing.autoSizingOnButNotSized', 'Auto-sizing is on for {{system}}, but it couldn’t be sized: {{reason}}', {
+          ns: 'editor',
+          system: s.systemName,
+          reason: c.problem ?? s.reason,
+        }),
+      )
     }
-  }, [])
+  }, [t])
 }

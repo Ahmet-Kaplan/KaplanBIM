@@ -14,34 +14,65 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { HunterCurveChart } from './HunterCurveChart'
 import { useEditorHost } from '@permitzip/bim-editor/host'
 import { useProjectPlumbingCodesFrom } from './use-auto-size'
+import { englishOnly, useEditorTranslate, type Translate } from '../i18n/translate'
 
 const registry = builtinCalcRegistry()
-const NOT_LIVE = "Live editing isn't connected, so changes can't be saved"
 const SHOWN = 8
 
+/** The one refusal every plumbing surface says when the model is open read-only. */
+const notLive = (t: Translate): string => t('plumbing.notLive', "Live editing isn't connected, so changes can't be saved", { ns: 'editor' })
+
 /** What a sizing rests on, for the undo label: "Sized 3 pipes on Storm from Tables 1106.2(1) and 1106.3". */
-export function sizingBasis(sizing: PipeSystemSizing): string {
-  if (sizing.service === 'water') return sizing.curve?.label ?? 'the demand curve'
-  if (sizing.service === 'vent') return 'Table 906.1 and 906.2'
-  if (sizing.service === 'storm') return 'Tables 1106.2(1) and 1106.3'
-  return 'the DFU tables'
+export function sizingBasis(sizing: PipeSystemSizing, t: Translate = englishOnly): string {
+  if (sizing.service === 'water') return sizing.curve?.label ?? t('plumbing.theDemandCurve', 'the demand curve', { ns: 'editor' })
+  if (sizing.service === 'vent') return t('plumbing.ventTables', 'Table 906.1 and 906.2', { ns: 'editor' })
+  if (sizing.service === 'storm') return t('plumbing.stormTables', 'Tables 1106.2(1) and 1106.3', { ns: 'editor' })
+  return t('plumbing.theDfuTables', 'the DFU tables', { ns: 'editor' })
 }
 
-function summary(sizing: PipeSystemSizing): string {
+/** What this sizing rests on, in the words the panel shows above the size button. */
+function summary(sizing: PipeSystemSizing, t: Translate = englishOnly): string {
   switch (sizing.service) {
     case 'water':
-      return `${sizing.totalLoad} WSFU${sizing.designPoint ? `, ${sizing.designPoint.gpm} gpm on ${sizing.curve?.label}` : ''}. ${sizing.allowablePsiPer100Ft !== null ? `Friction within ${sizing.allowablePsiPer100Ft} psi/100 ft (${sizing.availablePsi} psi over ${sizing.developedLengthFt} ft + fittings), ` : ''}velocity within ${sizing.maxVelocityFps} ft/s.`
+      return t('plumbing.waterSummary', '{{load}} WSFU{{designPoint}}. {{friction}}velocity within {{velocity}} ft/s.', {
+        ns: 'editor',
+        load: sizing.totalLoad,
+        designPoint: sizing.designPoint
+          ? t('plumbing.waterDesignPoint', ', {{gpm}} gpm on {{curve}}', { ns: 'editor', gpm: sizing.designPoint.gpm, curve: sizing.curve?.label ?? '' })
+          : '',
+        friction:
+          sizing.allowablePsiPer100Ft !== null
+            ? t('plumbing.waterFriction', 'Friction within {{friction}} psi/100 ft ({{available}} psi over {{length}} ft + fittings), ', {
+                ns: 'editor',
+                friction: sizing.allowablePsiPer100Ft ?? '',
+                available: sizing.availablePsi ?? '',
+                length: sizing.developedLengthFt ?? '',
+              })
+            : '',
+        velocity: sizing.maxVelocityFps ?? '',
+      })
     case 'vent':
-      return `${sizing.totalLoad} DFU vented${sizing.developedLengthFt !== null ? `, longest developed length ${sizing.developedLengthFt} ft` : ''}. Vent stacks by Table 906.1 on the stack they serve; other vents half the drain they vent, 1-1/4" least, a size up over 40 ft.`
+      return t('plumbing.ventSummary', '{{load}} DFU vented{{length}}. Vent stacks by Table 906.1 on the stack they serve; other vents half the drain they vent, 1-1/4" least, a size up over 40 ft.', {
+        ns: 'editor',
+        load: sizing.totalLoad,
+        length: sizing.developedLengthFt !== null ? t('plumbing.ventDevelopedLength', ', longest developed length {{length}} ft', { ns: 'editor', length: sizing.developedLengthFt }) : '',
+      })
     case 'storm':
-      return sizing.rainfallInPerHr === undefined ? 'Storm pipe sizes on roof area at the design rainfall rate.' : `${sizing.totalLoad} sq ft of roof at ${sizing.rainfallInPerHr} in/h. Leaders by Table 1106.2(1), horizontal drains by Table 1106.3 at their fall, never smaller downstream.`
+      return sizing.rainfallInPerHr === undefined
+        ? t('plumbing.stormSummaryNoRate', 'Storm pipe sizes on roof area at the design rainfall rate.', { ns: 'editor' })
+        : t('plumbing.stormSummary', '{{load}} sq ft of roof at {{rate}} in/h. Leaders by Table 1106.2(1), horizontal drains by Table 1106.3 at their fall, never smaller downstream.', {
+            ns: 'editor',
+            load: sizing.totalLoad,
+            rate: sizing.rainfallInPerHr,
+          })
     default:
-      return `${sizing.totalLoad} DFU at the outfall. Building drain by Table 710.1(1) at its fall, branches and stacks by Table 710.1(2), never smaller downstream.`
+      return t('plumbing.sanitarySummary', '{{load}} DFU at the outfall. Building drain by Table 710.1(1) at its fall, branches and stacks by Table 710.1(2), never smaller downstream.', { ns: 'editor', load: sizing.totalLoad })
   }
 }
 
 /** Storm: the design rainfall rate the code library can't give (Figure 1106.1 is a map image), set on the system. */
 function RainfallRate({ systemId, systemName, canEdit, onCommand }: { systemId: string; systemName: string; canEdit: boolean; onCommand: (command: Command) => string | null }) {
+  const t = useEditorTranslate()
   const [rate, setRate] = useState('')
   const [error, setError] = useState<string | null>(null)
   const value = Number(rate)
@@ -50,18 +81,25 @@ function RainfallRate({ systemId, systemName, canEdit, onCommand }: { systemId: 
     if (!valid) return
     const why = onCommand({ type: 'set_system_design', systemId, design: { pipe: { rainfallInPerHr: value } } })
     setError(why)
-    if (!why) toast.success(`${systemName} sizes at ${value} in/h. Undo puts it back.`)
+    if (!why) toast.success(t('plumbing.sizesAtRate', '{{system}} sizes at {{rate}} in/h. Undo puts it back.', { ns: 'editor', system: systemName, rate: value }))
   }
   return (
     <Field data-testid="pipe-sizing-rainfall">
-      <FieldLabel htmlFor={`bm-rainfall-${systemId}`}>Design rainfall (in/h)</FieldLabel>
+      <FieldLabel htmlFor={`bm-rainfall-${systemId}`}>{t('plumbing.designRainfall', 'Design rainfall (in/h)', { ns: 'editor' })}</FieldLabel>
       <div className="flex gap-2">
         <Input id={`bm-rainfall-${systemId}`} inputMode="decimal" placeholder="3.2" className="h-8 w-24" value={rate} onChange={(e) => setRate(e.target.value)} disabled={!canEdit} data-testid="pipe-sizing-rainfall-input" />
-        <Button type="button" size="sm" onClick={save} disabled={!canEdit || !valid} title={!canEdit ? NOT_LIVE : !valid ? 'Type the 100-year, 1-hour rate in inches per hour (0 to 20)' : undefined} data-testid="pipe-sizing-rainfall-save">
-          Save rate
+        <Button
+          type="button"
+          size="sm"
+          onClick={save}
+          disabled={!canEdit || !valid}
+          title={!canEdit ? notLive(t) : !valid ? t('plumbing.rainfallRateHint', 'Type the 100-year, 1-hour rate in inches per hour (0 to 20)', { ns: 'editor' }) : undefined}
+          data-testid="pipe-sizing-rainfall-save"
+        >
+          {t('plumbing.saveRate', 'Save rate', { ns: 'editor' })}
         </Button>
       </div>
-      <FieldDescription>The 100-year, 1-hour rate for the site from approved local weather data (VPC 1106.1). It is saved on {systemName}.</FieldDescription>
+      <FieldDescription>{t('plumbing.rainfallRateWhy', 'The 100-year, 1-hour rate for the site from approved local weather data (VPC 1106.1). It is saved on {{system}}.', { ns: 'editor', system: systemName })}</FieldDescription>
       {error && (
         <FieldDescription className="text-danger-600" role="alert">
           {error}
@@ -86,6 +124,7 @@ interface Props {
  * system, sizes already follow as you model; this shows what they rest on.
  */
 export function PipeSizing({ systemId, model, projectId, canEdit, onCommand }: Props) {
+  const t = useEditorTranslate()
   const code = useProjectPlumbingCodesFrom(useEditorHost().data.codeAdoption, projectId)
   const [picked, setPicked] = useState<'2021' | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -94,25 +133,25 @@ export function PipeSizing({ systemId, model, projectId, canEdit, onCommand }: P
     return registry.run({ calc: 'plumbing.size_system', inputs: { system_id: systemId }, model, ...(picked ? { plumbingEdition: picked } : {}), projectAdoptions: { plumbing: code.plumbing } })
   }, [systemId, model, picked, code.plumbing, code.loading])
   const chart = useMemo(() => hunterChart(model), [model])
-  if (code.loading || !result) return <FieldDescription data-testid="pipe-sizing-loading">Reading the project&apos;s plumbing code…</FieldDescription>
+  if (code.loading || !result) return <FieldDescription data-testid="pipe-sizing-loading">{t('plumbing.readingThePlumbingCode', "Reading the project's plumbing code…", { ns: 'editor' })}</FieldDescription>
   if (!result.ok) {
     return (
       <div className="flex flex-col gap-2" data-testid="pipe-sizing">
-        <span className="text-sm font-medium">Pipe sizing</span>
+        <span className="text-sm font-medium">{t('plumbing.pipeSizing', 'Pipe sizing', { ns: 'editor' })}</span>
         {!code.plumbing && !picked ? (
           <Field>
-            <FieldLabel htmlFor="bm-plumbing-code">Plumbing code</FieldLabel>
+            <FieldLabel htmlFor="bm-plumbing-code">{t('plumbing.plumbingCode', 'Plumbing code', { ns: 'editor' })}</FieldLabel>
             <Select value={picked ?? undefined} onValueChange={(v) => setPicked(v === '2021' ? '2021' : null)}>
               <SelectTrigger id="bm-plumbing-code" data-testid="pipe-sizing-code-pick">
-                <SelectValue placeholder="Pick the edition" />
+                <SelectValue placeholder={t('plumbing.pickTheEdition', 'Pick the edition', { ns: 'editor' })} />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  <SelectItem value="2021">2021 (IPC; VPC in Virginia)</SelectItem>
+                  <SelectItem value="2021">{t('plumbing.ipc2021', '2021 (IPC; VPC in Virginia)', { ns: 'editor' })}</SelectItem>
                 </SelectGroup>
               </SelectContent>
             </Select>
-            <FieldDescription>{code.problem ?? 'The Code Study names no plumbing code. Record it there to size (and auto-size) without asking; this pick is for this panel only.'}</FieldDescription>
+            <FieldDescription>{code.problem ?? t('plumbing.noPlumbingCodeInCodeStudy', 'The Code Study names no plumbing code. Record it there to size (and auto-size) without asking; this pick is for this panel only.', { ns: 'editor' })}</FieldDescription>
           </Field>
         ) : (
           <FieldDescription role="status">{result.reason}</FieldDescription>
@@ -129,23 +168,43 @@ export function PipeSizing({ systemId, model, projectId, canEdit, onCommand }: P
   const needsRainfall = sizing.findings.some((f) => f.code === 'no_rainfall_rate')
   const apply = (which: 'up' | 'all') => {
     const changes = which === 'up' ? up : [...up, ...down]
-    const basis = sizingBasis(sizing)
-    const why = onCommand({ type: 'set_pipe_sizes', idPrefix: `size-${sizing.systemId}-r${model.revision}`, systemId: sizing.systemId, label: `Sized ${changes.length} pipe${changes.length === 1 ? '' : 's'} on ${sizing.systemName} from ${basis}`.slice(0, 160), sizes: changes.map((p) => ({ segmentId: p.segmentId, nominalIn: p.proposedIn })) })
+    const basis = sizingBasis(sizing, t)
+    const count = changes.length
+    // §8: a count takes no plural suffix in Turkish, so the two English shapes are two keys.
+    const label = count === 1
+      ? t('plumbing.sizedPipesOnOne', 'Sized {{count}} pipe on {{system}} from {{tables}}', { ns: 'editor', count, system: sizing.systemName, tables: basis })
+      : t('plumbing.sizedPipesOnMany', 'Sized {{count}} pipes on {{system}} from {{tables}}', { ns: 'editor', count, system: sizing.systemName, tables: basis })
+    const why = onCommand({ type: 'set_pipe_sizes', idPrefix: `size-${sizing.systemId}-r${model.revision}`, systemId: sizing.systemId, label: label.slice(0, 160), sizes: changes.map((p) => ({ segmentId: p.segmentId, nominalIn: p.proposedIn })) })
     setError(why)
-    if (!why) toast.success(`Sized ${changes.length} pipe${changes.length === 1 ? '' : 's'} on ${sizing.systemName}. Undo puts them back.`)
+    if (!why)
+      toast.success(
+        count === 1
+          ? t('plumbing.sizedPipesDoneOne', 'Sized {{count}} pipe on {{system}}. Undo puts them back.', { ns: 'editor', count, system: sizing.systemName })
+          : t('plumbing.sizedPipesDoneMany', 'Sized {{count}} pipes on {{system}}. Undo puts them back.', { ns: 'editor', count, system: sizing.systemName }),
+      )
   }
-  const blocked = !canEdit ? NOT_LIVE : undefined
+  const blocked = !canEdit ? notLive(t) : undefined
   return (
     <div className="flex flex-col gap-2" data-testid="pipe-sizing">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-medium">Pipe sizing</span>
-        <Badge variant={auto ? 'default' : 'secondary'} data-testid="pipe-sizing-mode" title={sizing.sizingModeFrom === 'system' ? "This system's own setting (Plumbing › Systems)" : 'The project setting (Plumbing › Analyze › Auto-size)'}>
-          {auto ? 'Auto-size on' : 'Check only'}
+        <span className="text-sm font-medium">{t('plumbing.pipeSizing', 'Pipe sizing', { ns: 'editor' })}</span>
+        <Badge
+          variant={auto ? 'default' : 'secondary'}
+          data-testid="pipe-sizing-mode"
+          title={
+            sizing.sizingModeFrom === 'system'
+              ? t('plumbing.systemOwnAutoSize', "This system's own setting (Plumbing › Systems)", { ns: 'editor' })
+              : t('plumbing.projectAutoSizeSetting', 'The project setting (Plumbing › Analyze › Auto-size)', { ns: 'editor' })
+          }
+        >
+          {auto ? t('plumbing.autoSizeOn', 'Auto-size on', { ns: 'editor' }) : t('plumbing.checkOnly', 'Check only', { ns: 'editor' })}
         </Badge>
       </div>
       <FieldDescription className="text-xs">
-        {summary(sizing)}{' '}
-        {auto ? 'Sizes follow as you model; each resize is its own undo.' : 'Nothing changes until you size.'}
+        {summary(sizing, t)}{' '}
+        {auto
+          ? t('plumbing.sizesFollowAsYouModel', 'Sizes follow as you model; each resize is its own undo.', { ns: 'editor' })
+          : t('plumbing.nothingChangesUntilYouSize', 'Nothing changes until you size.', { ns: 'editor' })}
       </FieldDescription>
       {sizing.service === 'water' && sizing.curve && <HunterCurveChart chart={chart} only={[sizing.curve.id]} className="h-[180px] w-full" />}
       {needsRainfall && <RainfallRate systemId={sizing.systemId} systemName={sizing.systemName} canEdit={canEdit} onCommand={onCommand} />}
@@ -163,26 +222,43 @@ export function PipeSizing({ systemId, model, projectId, canEdit, onCommand }: P
               </ItemContent>
             </Item>
           ))}
-          {up.length > SHOWN && <FieldDescription>{up.length - SHOWN} more pipes need a larger size.</FieldDescription>}
+          {up.length > SHOWN && <FieldDescription>{t('plumbing.morePipesNeedALargerSize', '{{count}} more pipes need a larger size.', { ns: 'editor', count: up.length - SHOWN })}</FieldDescription>}
         </ItemGroup>
       ) : (
         <Badge variant="secondary" className="w-fit" data-testid="pipe-sized-ok">
-          Every pipe is large enough
+          {t('plumbing.everyPipeIsLargeEnough', 'Every pipe is large enough', { ns: 'editor' })}
         </Badge>
       )}
-      {down.length > 0 && <FieldDescription className="text-xs">{down.length} pipe{down.length === 1 ? ' is' : 's are'} larger than needed.</FieldDescription>}
+      {down.length > 0 && (
+        <FieldDescription className="text-xs">
+          {down.length === 1
+            ? t('plumbing.pipeLargerThanNeeded', '{{count}} pipe is larger than needed.', { ns: 'editor', count: down.length })
+            : t('plumbing.pipesLargerThanNeeded', '{{count}} pipes are larger than needed.', { ns: 'editor', count: down.length })}
+        </FieldDescription>
+      )}
       {problems.map((f) => (
         <FieldDescription key={`${f.code}:${f.elementId ?? ''}:${f.message}`} className={f.severity === 'error' ? 'text-danger-600' : 'text-warning-700'} role={f.severity === 'error' ? 'alert' : 'status'} data-testid="pipe-sizing-finding">
           {f.message}
         </FieldDescription>
       ))}
       <div className="flex flex-wrap gap-2">
-        <Button type="button" size="sm" onClick={() => apply('up')} disabled={blocked !== undefined || up.length === 0} title={blocked ?? (up.length === 0 ? 'Every pipe already carries its load' : undefined)} data-testid="pipe-size-pipes">
-          {up.length > 0 ? `Size ${up.length} pipe${up.length === 1 ? '' : 's'}` : 'Size pipes'}
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => apply('up')}
+          disabled={blocked !== undefined || up.length === 0}
+          title={blocked ?? (up.length === 0 ? t('plumbing.everyPipeAlreadyCarriesItsLoad', 'Every pipe already carries its load', { ns: 'editor' }) : undefined)}
+          data-testid="pipe-size-pipes"
+        >
+          {up.length > 0
+            ? up.length === 1
+              ? t('plumbing.sizePipesOne', 'Size {{count}} pipe', { ns: 'editor', count: up.length })
+              : t('plumbing.sizePipesMany', 'Size {{count}} pipes', { ns: 'editor', count: up.length })
+            : t('plumbing.sizePipes', 'Size pipes', { ns: 'editor' })}
         </Button>
         {down.length > 0 && (
           <Button type="button" size="sm" variant="outline" onClick={() => apply('all')} disabled={blocked !== undefined} title={blocked} data-testid="pipe-size-pipes-all">
-            Also reduce {down.length}
+            {t('plumbing.alsoReduce', 'Also reduce {{count}}', { ns: 'editor', count: down.length })}
           </Button>
         )}
       </div>
