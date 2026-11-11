@@ -6,6 +6,7 @@ import type { EditorDataAnswer, EditorDataHost } from '@permitzip/bim-editor-hos
 import { useOptionalEditorHost } from '@permitzip/bim-editor/host'
 import { unavailableWords } from '@permitzip/bim-editor/host/unavailable'
 import { builtinEquipmentParameters, equipmentParameterOf, layerParameters, type EquipmentParameter, type ParameterSource } from './parameters'
+import { englishOnly, useEditorTranslate, type Translate } from '../i18n/translate'
 
 /**
  * The firm's and this project's equipment fields, over the built-in baseline
@@ -46,19 +47,32 @@ export interface NewFieldInput {
 }
 
 /** Units a new number column may use: the ones a part parameter stores as typed. */
-export const NEW_FIELD_UNITS: readonly { readonly unit: NonNullable<SharedFieldItem['unit']>; readonly kind: NonNullable<SharedFieldItem['kind']>; readonly label: string }[] = [
-  { unit: '1', kind: 'dimensionless', label: 'No unit' },
-  { unit: 'V', kind: 'voltage', label: 'Volts (V)' },
-  { unit: 'A', kind: 'current', label: 'Amps (A)' },
-  { unit: 'VA', kind: 'power_apparent', label: 'VA' },
-  { unit: 'kW', kind: 'power_real', label: 'kW' },
-  { unit: 'hp', kind: 'power_mechanical', label: 'Horsepower (hp)' },
-  { unit: 'Btu/h', kind: 'thermal_power', label: 'Btu/h' },
-  { unit: 'cfm', kind: 'flow_air', label: 'CFM' },
-  { unit: 'gpm', kind: 'flow_liquid', label: 'GPM' },
-  { unit: 'psi', kind: 'pressure', label: 'psi' },
-  { unit: 'lb', kind: 'mass', label: 'Pounds (lb)' },
-]
+export interface NewFieldUnit {
+  readonly unit: NonNullable<SharedFieldItem['unit']>
+  readonly kind: NonNullable<SharedFieldItem['kind']>
+  readonly label: string
+}
+
+/**
+ * The units a new number column may use, in the screen's language. §7: a unit
+ * *symbol* never travels (`V`, `A`, `VA`, `kW`, `hp`, `Btu/h`, `CFM`, `GPM`,
+ * `psi`, `lb`); only the spelled-out name does ("Volts (V)" → "Volt (V)").
+ */
+export function newFieldUnits(t: Translate = englishOnly): readonly NewFieldUnit[] {
+  return [
+    { unit: '1', kind: 'dimensionless', label: t('equipmentList.unitNone', 'No unit', { ns: 'editor' }) },
+    { unit: 'V', kind: 'voltage', label: t('equipmentList.unitVolts', 'Volts (V)', { ns: 'editor' }) },
+    { unit: 'A', kind: 'current', label: t('equipmentList.unitAmps', 'Amps (A)', { ns: 'editor' }) },
+    { unit: 'VA', kind: 'power_apparent', label: t('equipmentList.unitVA', 'VA', { ns: 'editor' }) },
+    { unit: 'kW', kind: 'power_real', label: t('equipmentList.unitKW', 'kW', { ns: 'editor' }) },
+    { unit: 'hp', kind: 'power_mechanical', label: t('equipmentList.unitHorsepower', 'Horsepower (hp)', { ns: 'editor' }) },
+    { unit: 'Btu/h', kind: 'thermal_power', label: t('equipmentList.unitBtuPerHour', 'Btu/h', { ns: 'editor' }) },
+    { unit: 'cfm', kind: 'flow_air', label: t('equipmentList.unitCFM', 'CFM', { ns: 'editor' }) },
+    { unit: 'gpm', kind: 'flow_liquid', label: t('equipmentList.unitGPM', 'GPM', { ns: 'editor' }) },
+    { unit: 'psi', kind: 'pressure', label: t('equipmentList.unitPSI', 'psi', { ns: 'editor' }) },
+    { unit: 'lb', kind: 'mass', label: t('equipmentList.unitPounds', 'Pounds (lb)', { ns: 'editor' }) },
+  ]
+}
 
 /** A label as a parameter name: "Hood ID" → `hood_id`. Null when nothing usable is left. */
 export function parameterNameOf(label: string): string | null {
@@ -72,18 +86,18 @@ export function parameterNameOf(label: string): string | null {
 }
 
 /** The shared-field item a new project column publishes, or why it can't. */
-export function newProjectFieldItem(projectId: string, input: NewFieldInput, taken: ReadonlySet<string>): { readonly item: SharedFieldItem } | { readonly refused: string } {
+export function newProjectFieldItem(projectId: string, input: NewFieldInput, taken: ReadonlySet<string>, t: Translate = englishOnly): { readonly item: SharedFieldItem } | { readonly refused: string } {
   const label = input.label.trim()
-  if (label === '') return { refused: 'Give the column a name (Hood ID).' }
-  if (label.length > 80) return { refused: 'Keep the name to 80 characters.' }
+  if (label === '') return { refused: t('equipmentList.nameTheColumn', 'Give the column a name (Hood ID).', { ns: 'editor' }) }
+  if (label.length > 80) return { refused: t('equipmentList.nameTooLong', 'Keep the name to 80 characters.', { ns: 'editor' }) }
   const name = parameterNameOf(label)
-  if (!name) return { refused: 'Use letters or digits in the name.' }
-  if (taken.has(name)) return { refused: `${label} is already a column; pick it from the list instead.` }
+  if (!name) return { refused: t('equipmentList.nameNeedsLetters', 'Use letters or digits in the name.', { ns: 'editor' }) }
+  if (taken.has(name)) return { refused: t('equipmentList.alreadyAColumn', '{{label}} is already a column; pick it from the list instead.', { ns: 'editor', label }) }
   const base = { id: `project:${projectId}:field:${name}`.slice(0, 200), revision: 1, key: `param.${name}`, label, appliesTo: ['mep.equipment', 'mep.plumbing_fixture'], group: 'Project', editable: true, storage: { kind: 'parameter' as const, scope: 'instance' as const, name } }
   if (input.type === 'text') return { item: { ...base, valueType: 'text' } }
   if (input.type === 'yes_no') return { item: { ...base, valueType: 'boolean' } }
-  const unit = NEW_FIELD_UNITS.find((u) => u.unit === input.unit)
-  if (!unit) return { refused: 'Choose the unit the number is in.' }
+  const unit = newFieldUnits(t).find((u) => u.unit === input.unit)
+  if (!unit) return { refused: t('equipmentList.chooseTheUnit', 'Choose the unit the number is in.', { ns: 'editor' }) }
   return { item: { ...base, valueType: 'quantity', kind: unit.kind, unit: unit.unit } }
 }
 
@@ -106,14 +120,14 @@ function sourceOf(scope: string): ParameterSource {
   return 'builtin'
 }
 
-async function errorText(res: EditorDataAnswer): Promise<string> {
+async function errorText(res: EditorDataAnswer, t: Translate = englishOnly): Promise<string> {
   const body: unknown = await res.json().catch((err: unknown) => {
     console.error('[equipment-list] reading the library refusal failed', err)
     return null
   })
   if (isRecord(body) && typeof body.error === 'string') return body.error
   if (isRecord(body) && typeof body.message === 'string') return body.message
-  return `The library answered HTTP ${res.status}.`
+  return t('equipmentList.libraryAnswered', 'The library answered HTTP {{status}}.', { ns: 'editor', status: res.status })
 }
 
 /** Parameters from the stored fields; an item that no longer reads is named in the log and left out. */
@@ -131,18 +145,17 @@ export function parametersFromBody(body: FieldsBody): EquipmentParameter[] {
   return out
 }
 
-const NO_PROJECT: PublishAllowed = { allowed: false, reason: 'Open the Equipment list from a project’s Building Model to add project columns.' }
-
-const FIELDS = 'Firm and project columns'
-
 export function useEquipmentLibraryFrom(port: EditorDataHost['firmLibrary'], projectId: string | null | undefined): EquipmentLibrary {
+  const t = useEditorTranslate()
+  const noProject = useMemo<PublishAllowed>(() => ({ allowed: false, reason: t('equipmentList.noProject', 'Open the Equipment list from a project’s Building Model to add project columns.', { ns: 'editor' }) }), [t])
+  const FIELDS = t('equipmentList.fieldsGroup', 'Firm and project columns', { ns: 'editor' })
   const capabilities = useOptionalEditorHost()?.capabilities ?? null
   const builtin = useMemo(() => builtinEquipmentParameters(), [])
   const [stored, setStored] = useState<readonly EquipmentParameter[]>([])
   const [added, setAdded] = useState<readonly EquipmentParameter[]>([])
   const [status, setStatus] = useState<LibraryLoad>(projectId ? 'loading' : 'idle')
   const [error, setError] = useState<string | null>(null)
-  const [project, setProject] = useState<PublishAllowed>(NO_PROJECT)
+  const [project, setProject] = useState<PublishAllowed>(noProject)
   const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
@@ -151,25 +164,25 @@ export function useEquipmentLibraryFrom(port: EditorDataHost['firmLibrary'], pro
     port
       .fields({ projectId })
       .then(async (res) => {
-        if (!res.ok) throw new Error(await errorText(res))
+        if (!res.ok) throw new Error(await errorText(res, t))
         const body: unknown = await res.json()
         if (!isFieldsBody(body)) throw new Error('The library fields came back in an unexpected shape.')
         if (!live) return
         setStored(parametersFromBody(body))
-        setProject(body.project ?? { allowed: false, reason: "This project's library can't be published to from here." })
+        setProject(body.project ?? { allowed: false, reason: t('equipmentList.cantPublish', "This project's library can't be published to from here.", { ns: 'editor' }) })
         setError(null)
         setStatus('ready')
       })
       .catch((err: unknown) => {
         console.error('[equipment-list] loading firm and project fields failed', { projectId, err })
         if (!live) return
-        setError(`Firm and project columns couldn't be loaded (${err instanceof Error ? err.message : 'the connection dropped'}). The built-in columns still work; try again.`)
+        setError(t('equipmentList.columnsDidntLoad', "Firm and project columns couldn't be loaded ({{error}}). The built-in columns still work; try again.", { ns: 'editor', error: err instanceof Error ? err.message : t('equipmentList.connectionDropped', 'the connection dropped', { ns: 'editor' }) }))
         setStatus('error')
       })
     return () => {
       live = false
     }
-  }, [port, projectId, attempt])
+  }, [port, projectId, attempt, t])
 
   const parameters = useMemo(() => layerParameters([builtin, stored, added]), [builtin, stored, added])
   const retry = useCallback(() => {
@@ -179,10 +192,10 @@ export function useEquipmentLibraryFrom(port: EditorDataHost['firmLibrary'], pro
 
   const addProjectField = useCallback<EquipmentLibrary['addProjectField']>(
     async (input) => {
-      if (!projectId) return { ok: false, message: NO_PROJECT.reason ?? '' }
-      const made = newProjectFieldItem(projectId, input, new Set(parameters.map((p) => p.name)))
+      if (!projectId) return { ok: false, message: noProject.reason ?? '' }
+      const made = newProjectFieldItem(projectId, input, new Set(parameters.map((p) => p.name)), t)
       if ('refused' in made) return { ok: false, message: made.refused }
-      if (!port) return { ok: false, message: `${unavailableWords('Saving a project column', capabilities)} Nothing was added.` }
+      if (!port) return { ok: false, message: `${unavailableWords(t('equipmentList.savingAProjectColumn', 'Saving a project column', { ns: 'editor' }), capabilities)} ${t('equipmentList.nothingAddedDot', 'Nothing was added.', { ns: 'editor' })}` }
       try {
         const res = await port.publish({ scope: `project:${projectId}`, item: { type: 'field', body: made.item }, baseRevision: 0 })
         const body: unknown = await res.json().catch((err: unknown) => {
@@ -190,22 +203,22 @@ export function useEquipmentLibraryFrom(port: EditorDataHost['firmLibrary'], pro
           return null
         })
         if (!res.ok || !isRecord(body) || body.ok !== true) {
-          const message = isRecord(body) && typeof body.message === 'string' ? body.message : isRecord(body) && typeof body.error === 'string' ? body.error : `Saving the column failed (HTTP ${res.status}).`
-          return { ok: false, message: `${message} Nothing was added.` }
+          const message = isRecord(body) && typeof body.message === 'string' ? body.message : isRecord(body) && typeof body.error === 'string' ? body.error : t('equipmentList.savingColumnFailed', 'Saving the column failed (HTTP {{status}}).', { ns: 'editor', status: res.status })
+          return { ok: false, message: `${message} ${t('equipmentList.nothingAddedDot', 'Nothing was added.', { ns: 'editor' })}` }
         }
         const parameter = equipmentParameterOf(made.item, 'project')
-        if (!parameter) return { ok: false, message: 'The column was saved but is not a part value; ask for help.' }
+        if (!parameter) return { ok: false, message: t('equipmentList.notAPartValue', 'The column was saved but is not a part value; ask for help.', { ns: 'editor' }) }
         setAdded((a) => [...a, parameter])
         return { ok: true, parameter }
       } catch (err) {
         console.error('[equipment-list] publishing a project field failed', { projectId, err })
-        return { ok: false, message: `Saving the column failed (${err instanceof Error ? err.message : 'the connection dropped'}). Nothing was added; try again.` }
+        return { ok: false, message: t('equipmentList.savingColumnFailedRetry', 'Saving the column failed ({{error}}). Nothing was added; try again.', { ns: 'editor', error: err instanceof Error ? err.message : t('equipmentList.connectionDropped', 'the connection dropped', { ns: 'editor' }) }) }
       }
     },
-    [port, capabilities, projectId, parameters],
+    [port, capabilities, projectId, parameters, noProject, t],
   )
 
-  const missing = projectId && !port ? `${unavailableWords(FIELDS, capabilities)} The built-in columns still work.` : null
+  const missing = projectId && !port ? `${unavailableWords(FIELDS, capabilities)} ${t('equipmentList.builtinStillWork', 'The built-in columns still work.', { ns: 'editor' })}` : null
   const shown: LibraryLoad = !projectId ? 'idle' : missing ? 'error' : status === 'idle' ? 'loading' : status
-  return { parameters, status: shown, error: projectId ? (missing ?? error) : null, project: projectId ? project : NO_PROJECT, retry, addProjectField }
+  return { parameters, status: shown, error: projectId ? (missing ?? error) : null, project: projectId ? project : noProject, retry, addProjectField }
 }

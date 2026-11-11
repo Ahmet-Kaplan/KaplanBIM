@@ -2,6 +2,7 @@ import { baselineParameterFields, EQUIPMENT_LIST_CLASSES, type SharedFieldItem }
 import { PARAM_UNIT_BINDINGS, LEGACY_PARAM_UNITS } from '@permitzip/bim-units'
 import { numberIn } from '@permitzip/bim-units'
 import type { Command, ModelState, ParamDef, ParamValue, PartTypeDefinition } from '@permitzip/bim-kernel'
+import { englishOnly, type Translate } from '../i18n/translate'
 
 /**
  * A parameter the equipment list, the paste dialog and the Inspector can
@@ -82,7 +83,7 @@ function legacyUnitOf(p: EquipmentParameter): ParamDef['unit'] | null {
 }
 
 /** The part parameter that keeps this field, or why it can't be kept on a part yet. */
-export function paramDefOf(p: EquipmentParameter): { readonly def: ParamDef } | { readonly refused: string } {
+export function paramDefOf(p: EquipmentParameter, t: Translate = englishOnly): { readonly def: ParamDef } | { readonly refused: string } {
   switch (p.valueType) {
     case 'text':
       return { def: { name: p.name, label: p.label, kind: 'text' } }
@@ -93,7 +94,7 @@ export function paramDefOf(p: EquipmentParameter): { readonly def: ParamDef } | 
     case 'quantity': {
       if (p.kind === 'length' && p.unit === 'mm') return { def: { name: p.name, label: p.label, kind: 'length' } }
       const unit = legacyUnitOf(p)
-      if (unit === null) return { refused: `${p.label} is in ${p.unit ?? 'no unit'}, which a part can't store yet; ask a library editor to use one of the part units (V, A, VA, kW, hp, Btu/h, tons, CFM, GPM, psi, in. w.c., lb, %).` }
+      if (unit === null) return { refused: t('equipmentList.unitNotStorable', "{{label}} is in {{unit}}, which a part can't store yet; ask a library editor to use one of the part units (V, A, VA, kW, hp, Btu/h, tons, CFM, GPM, psi, in. w.c., lb, %).", { ns: 'editor', label: p.label, unit: p.unit ?? t('equipmentList.noUnit', 'No unit', { ns: 'editor' }) }) }
       return { def: { name: p.name, label: p.label, kind: 'number', unit, min: 0 } }
     }
   }
@@ -107,13 +108,13 @@ export function paramDefOf(p: EquipmentParameter): { readonly def: ParamDef } | 
  * pasted kitchen item is a "Listed item"). A parameter the type already
  * declares keeps its own scope.
  */
-export function undeclared(def: PartTypeDefinition, params: readonly EquipmentParameter[]): { readonly instance: ParamDef[]; readonly type: ParamDef[] } | { readonly refused: string } {
+export function undeclared(def: PartTypeDefinition, params: readonly EquipmentParameter[], t: Translate = englishOnly): { readonly instance: ParamDef[]; readonly type: ParamDef[] } | { readonly refused: string } {
   const have = new Set([...def.instanceParams, ...def.typeParams].map((p) => p.name))
   const instance: ParamDef[] = []
   for (const p of params) {
     if (have.has(p.name)) continue
     have.add(p.name)
-    const d = paramDefOf(p)
+    const d = paramDefOf(p, t)
     if ('refused' in d) return d
     instance.push(d.def)
   }
@@ -128,44 +129,44 @@ export function undeclared(def: PartTypeDefinition, params: readonly EquipmentPa
  */
 export type SavePartTypes = Extract<Command, { type: 'save_part_types' }>
 
-export function declareParameters(model: Pick<ModelState, 'elements'>, typeId: string, params: readonly EquipmentParameter[]): { readonly command: SavePartTypes | null } | { readonly refused: string } {
+export function declareParameters(model: Pick<ModelState, 'elements'>, typeId: string, params: readonly EquipmentParameter[], t: Translate = englishOnly): { readonly command: SavePartTypes | null } | { readonly refused: string } {
   const type = model.elements[typeId]
-  if (type?.kind !== 'part_type') return { refused: 'Its part type is missing from the model.' }
-  return declareOnType(typeId, type.definition, params)
+  if (type?.kind !== 'part_type') return { refused: t('equipmentList.partTypeMissing', 'Its part type is missing from the model.', { ns: 'editor' }) }
+  return declareOnType(typeId, type.definition, params, t)
 }
 
 /** `declareParameters` for a type definition already in hand (the Inspector holds its part's). */
-export function declareOnType(typeId: string, current: PartTypeDefinition, params: readonly EquipmentParameter[]): { readonly command: SavePartTypes | null } | { readonly refused: string } {
-  const missing = undeclared(current, params)
+export function declareOnType(typeId: string, current: PartTypeDefinition, params: readonly EquipmentParameter[], t: Translate = englishOnly): { readonly command: SavePartTypes | null } | { readonly refused: string } {
+  const missing = undeclared(current, params, t)
   if ('refused' in missing) return missing
   if (missing.instance.length === 0 && missing.type.length === 0) return { command: null }
   const definition: PartTypeDefinition = { ...current, instanceParams: [...current.instanceParams, ...missing.instance], typeParams: [...current.typeParams, ...missing.type] }
   const names = [...missing.instance, ...missing.type].map((p) => p.label).join(', ')
-  return { command: { type: 'save_part_types', label: `Add ${names} to ${current.typeName}`, types: [{ typeId, definition }] } }
+  return { command: { type: 'save_part_types', label: t('equipmentList.addTo', 'Add {{names}} to {{type}}', { ns: 'editor', names, type: current.typeName }), types: [{ typeId, definition }] } }
 }
 
 const YES = /^(y|yes|true|x|✓)$/i
 const NO = /^(n|no|false|-|—)$/i
 
 /** A typed value for a parameter; null clears it; a string says why it can't be read. */
-export function parseParameterText(p: EquipmentParameter, raw: string): { readonly value: ParamValue | null } | { readonly problem: string } {
-  const t = raw.trim()
-  if (t === '') return { value: null }
+export function parseParameterText(p: EquipmentParameter, raw: string, tr: Translate = englishOnly): { readonly value: ParamValue | null } | { readonly problem: string } {
+  const text = raw.trim()
+  if (text === '') return { value: null }
   if (p.valueType === 'quantity') {
-    const n = numberIn(t)
-    if (n === null || !Number.isFinite(n)) return { problem: `${p.label} "${raw}" isn't a number${p.unit ? ` in ${p.unit}` : ''}.` }
-    if (n < 0) return { problem: `${p.label} can't be below zero.` }
+    const n = numberIn(text)
+    if (n === null || !Number.isFinite(n)) return { problem: tr('equipmentList.notANumber', "{{label}} \"{{raw}}\" isn't a number{{unit}}.", { ns: 'editor', label: p.label, raw, unit: p.unit ? tr('equipmentList.unitIn', ' in {{unit}}', { ns: 'editor', unit: p.unit }) : '' }) }
+    if (n < 0) return { problem: tr('equipmentList.belowZero', "{{label}} can't be below zero.", { ns: 'editor', label: p.label }) }
     return { value: n }
   }
   if (p.valueType === 'boolean') {
-    if (YES.test(t)) return { value: true }
-    if (NO.test(t)) return { value: false }
-    return { problem: `${p.label} "${raw}" is yes or no.` }
+    if (YES.test(text)) return { value: true }
+    if (NO.test(text)) return { value: false }
+    return { problem: tr('equipmentList.yesOrNo', '{{label}} "{{raw}}" is yes or no.', { ns: 'editor', label: p.label, raw }) }
   }
   if (p.valueType === 'choice' && p.choices && p.choices.length > 0) {
-    const hit = p.choices.find((c) => c.toLowerCase() === t.toLowerCase())
-    if (!hit) return { problem: `${p.label} is one of ${p.choices.join(', ')}.` }
+    const hit = p.choices.find((c) => c.toLowerCase() === text.toLowerCase())
+    if (!hit) return { problem: tr('equipmentList.oneOf', '{{label}} is one of {{choices}}.', { ns: 'editor', label: p.label, choices: p.choices.join(', ') }) }
     return { value: hit }
   }
-  return { value: t.slice(0, 200) }
+  return { value: text.slice(0, 200) }
 }

@@ -17,7 +17,7 @@ import { Textarea } from '../../ui/textarea'
 import type { SubmitCommand } from '../views-sheets/types'
 import { newId } from '../views-sheets/types'
 import { CircuitPlannedDialog, type CircuitRules } from '../planned/CircuitPlannedDialog'
-import { checkDraft, DRAFT_FIELD_LABELS, DRAFT_FIELDS, pastedColumns, plannedEquipmentBatch, proposedLoads, readDraft, unitMarks, withPastedExtras, type DraftField, type EquipmentDraftRow, type PastedColumn } from './plan-equipment'
+import { checkDraft, draftFieldLabel, DRAFT_FIELDS, pastedColumns, plannedEquipmentBatch, proposedLoads, readDraft, unitMarks, withPastedExtras, type DraftField, type EquipmentDraftRow, type PastedColumn } from './plan-equipment'
 import { ProposedLoadsPanel } from './ProposedLoadsPanel'
 import { AddColumnDialog } from './AddColumnDialog'
 import { useEditorHost } from '@permitzip/bim-editor/host'
@@ -25,13 +25,20 @@ import { useEquipmentLibraryFrom, type EquipmentLibrary } from './library-fields
 import type { EquipmentParameter } from './parameters'
 import { findBuiltinListView } from '../schedules/builtin-lists'
 import { useWindowedRows, windowSlice } from '../use-windowed-rows'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
 
 export type EquipmentListTrade = 'electrical' | 'mechanical' | 'plumbing'
 
-const TRADE_WORDS: Readonly<Record<EquipmentListTrade, string>> = {
-  electrical: 'Paste the kitchen vendor’s or mechanical schedule: each row becomes planned equipment with its load, ready to circuit before anyone draws it.',
-  mechanical: 'Paste the rooftop unit and equipment schedule: each row becomes planned equipment with its electrical and gas values.',
-  plumbing: 'Paste the fixture or kitchen schedule: each row becomes a planned fixture or item with its water, waste and gas connections.',
+/** What the paste box is for, per trade: the sheet this person most likely has in hand. */
+const tradeWords = (trade: EquipmentListTrade, t: Translate): string => {
+  switch (trade) {
+    case 'electrical':
+      return t('equipmentList.tradeElectrical', 'Paste the kitchen vendor’s or mechanical schedule: each row becomes planned equipment with its load, ready to circuit before anyone draws it.', { ns: 'editor' })
+    case 'mechanical':
+      return t('equipmentList.tradeMechanical', 'Paste the rooftop unit and equipment schedule: each row becomes planned equipment with its electrical and gas values.', { ns: 'editor' })
+    default:
+      return t('equipmentList.tradePlumbing', 'Paste the fixture or kitchen schedule: each row becomes a planned fixture or item with its water, waste and gas connections.', { ns: 'editor' })
+  }
 }
 
 const EXAMPLE = 'Mark\tDescription\tQty\tVolts\tPhase\tkW\tGas MBH\tCW\tHW\tW\nK-14\tFryer, gas\t2\t120\t1\t0.5\t80\t\t\t\nK-18\tDishwasher, door type\t1\t208\t3\t15\t\t1/2\t3/4\t2'
@@ -93,6 +100,7 @@ export interface ComputedEquipmentColumn {
 const EQUIPMENT_ROW_PX = 40
 
 export function EquipmentListDialog({ model, necEdition, trade, editBlocked, submit, onClose, onAdded, onOpenSchedule, circuitRules, projectId, library: given, computedColumns = [] }: Props) {
+  const t = useEditorTranslate()
   const readLibrary = useEquipmentLibraryFrom(useEditorHost().data.firmLibrary, given ? null : projectId)
   const library = given ?? readLibrary
   const parameters = library.parameters
@@ -114,7 +122,7 @@ export function EquipmentListDialog({ model, necEdition, trade, editBlocked, sub
     return el?.kind === 'part' && typeof el.values.load_va === 'number' && el.values.load_va > 0 && Object.keys(el.served ?? {}).length === 0
   }), [addedIds, model])
 
-  const checks = useMemo(() => checkDraft(necEdition, model, rows, parameters), [necEdition, model, rows, parameters])
+  const checks = useMemo(() => checkDraft(necEdition, model, rows, parameters, t), [necEdition, model, rows, parameters, t])
   const extraColumns = columns.flatMap((c) => {
     const p = c.parameter === null ? undefined : parameters.find((x) => x.name === c.parameter)
     return p ? [{ column: c, parameter: p }] : []
@@ -165,10 +173,10 @@ export function EquipmentListDialog({ model, necEdition, trade, editBlocked, sub
     if (!viewId || !def) return null
     const next = withEquipmentColumn(def, { name: p.name, label: p.label, key: p.key, ...(p.group === undefined ? {} : { group: p.group }) })
     if (!next) return null
-    return submit({ type: 'set_view_properties', viewId, props: { scheduleV2: next } }, `add the ${p.label} column to the Equipment list`)
+    return submit({ type: 'set_view_properties', viewId, props: { scheduleV2: next } }, t('equipmentList.undoAddColumn', 'add the {{column}} column to the Equipment list', { ns: 'editor', column: p.label }))
   }
   const shownNames = new Set<string>([...DRAFT_FIELDS, 'description', 'voltage', 'phases', 'load_va', 'load_class', 'circuit', 'input_mbh', 'cw_size', 'hw_size', 'waste_size', 'connection', ...columns.flatMap((c) => (c.parameter ? [c.parameter] : []))])
-  const addColumnBlocked = editBlocked ?? (!model ? 'The model is still loading.' : null)
+  const addColumnBlocked = editBlocked ?? (!model ? t('equipmentList.modelStillLoading', 'The model is still loading.', { ns: 'editor' }) : null)
 
   const openFile = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -179,7 +187,7 @@ export function EquipmentListDialog({ model, necEdition, trade, editBlocked, sub
       .then(read)
       .catch((err: unknown) => {
         console.error('[EquipmentListDialog] reading the file failed', { name: file.name, err })
-        setFileError(`Couldn't read ${file.name}: ${err instanceof Error ? err.message : String(err)}`)
+        setFileError(t('equipmentList.couldntReadFile', "Couldn't read {{file}}: {{error}}", { ns: 'editor', file: file.name, error: err instanceof Error ? err.message : String(err) }))
       })
   }
 
@@ -187,16 +195,28 @@ export function EquipmentListDialog({ model, necEdition, trade, editBlocked, sub
   const remove = (key: string) => setRows((rs) => rs.filter((r) => r.key !== key))
   const addRow = () => setRows((rs) => [...rs, { key: `new-${Date.now()}-${rs.length}`, mark: '', description: '', quantity: '1', voltage: '', phase: '', load: '', gasMbh: '', coldWater: '', hotWater: '', waste: '', connection: '' }])
 
-  const why = editBlocked ?? (!model ? 'The model is still loading.' : rows.length === 0 ? 'Paste a list first.' : problemRows > 0 ? `Fix the ${problemRows === 1 ? 'row' : `${problemRows} rows`} marked in red first.` : null)
+  const why =
+    editBlocked ??
+    (!model
+      ? t('equipmentList.modelStillLoading', 'The model is still loading.', { ns: 'editor' })
+      : rows.length === 0
+        ? t('equipmentList.pasteFirst', 'Paste a list first.', { ns: 'editor' })
+        : problemRows > 0
+          ? problemRows === 1
+            ? t('equipmentList.fixOneRow', 'Fix the row marked in red first.', { ns: 'editor' })
+            : t('equipmentList.fixRows', 'Fix the {{count}} rows marked in red first.', { ns: 'editor', count: problemRows })
+          : null)
 
   const add = () => {
     if (why || !model) return
-    const batch = plannedEquipmentBatch(model, rows, checks, newId, accepted, parameters)
+    const batch = plannedEquipmentBatch(model, rows, checks, newId, accepted, parameters, t)
     if ('refused' in batch) {
       setRefusal(batch.refused)
       return
     }
-    const refused = submit(batch.command, `add ${batch.count} planned item${batch.count === 1 ? '' : 's'}${loadCount > 0 ? ` and ${loadCount} plumbing and gas load${loadCount === 1 ? '' : 's'}` : ''}`)
+    const loads = loadCount === 0 ? '' : loadCount === 1 ? t('equipmentList.undoLoadsOne', ' and 1 plumbing and gas load', { ns: 'editor' }) : t('equipmentList.undoLoads', ' and {{count}} plumbing and gas loads', { ns: 'editor', count: loadCount })
+    const label = batch.count === 1 ? t('equipmentList.undoAddPlannedOne', 'add 1 planned item{{loads}}', { ns: 'editor', loads }) : t('equipmentList.undoAddPlanned', 'add {{count}} planned items{{loads}}', { ns: 'editor', count: batch.count, loads })
+    const refused = submit(batch.command, label)
     if (refused) {
       setRefusal(refused)
       return
@@ -211,13 +231,13 @@ export function EquipmentListDialog({ model, necEdition, trade, editBlocked, sub
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-6xl" data-testid="equipment-list-dialog">
         <DialogHeader>
-          <DialogTitle>Equipment list</DialogTitle>
-          <DialogDescription>{TRADE_WORDS[trade]} You can correct any cell. Nothing changes in the model until you add them, and you can undo it.</DialogDescription>
+          <DialogTitle>{t('equipmentList.title', 'Equipment list', { ns: 'editor' })}</DialogTitle>
+          <DialogDescription>{t('equipmentList.description', '{{trade}} You can correct any cell. Nothing changes in the model until you add them, and you can undo it.', { ns: 'editor', trade: tradeWords(trade, t) })}</DialogDescription>
         </DialogHeader>
         {editBlocked && (
           <Alert data-testid="equipment-list-denied">
             <CircleAlert />
-            <AlertTitle>You can read this list but not add it</AlertTitle>
+            <AlertTitle>{t('equipmentList.readOnlyTitle', 'You can read this list but not add it', { ns: 'editor' })}</AlertTitle>
             <AlertDescription>{editBlocked}</AlertDescription>
           </Alert>
         )}
@@ -225,21 +245,23 @@ export function EquipmentListDialog({ model, necEdition, trade, editBlocked, sub
           <Alert data-testid="equipment-list-added">
             <ListPlus />
             <AlertTitle>
-              Added {added} planned item{added === 1 ? '' : 's'}
-              {addedLoads > 0 ? ` and ${addedLoads} plumbing and gas load${addedLoads === 1 ? '' : 's'}` : ''}
+              {[
+                added === 1 ? t('equipmentList.addedOne', 'Added 1 planned item', { ns: 'editor' }) : t('equipmentList.added', 'Added {{count}} planned items', { ns: 'editor', count: added }),
+                addedLoads === 0 ? '' : addedLoads === 1 ? t('equipmentList.loadsSuffixOne', ' and 1 plumbing and gas load', { ns: 'editor' }) : t('equipmentList.loadsSuffix', ' and {{count}} plumbing and gas loads', { ns: 'editor', count: addedLoads }),
+              ].join('')}
             </AlertTitle>
             <AlertDescription className="flex flex-col items-start gap-2">
-              They are in Not placed yet and in the Equipment list schedule. Circuit them now, or place them on a plan when you know where they go.
+              {t('equipmentList.addedHint', 'They are in Not placed yet and in the Equipment list schedule. Circuit them now, or place them on a plan when you know where they go.', { ns: 'editor' })}
               {withLoad.length > 0 && (
                 <Button size="sm" onClick={() => setCircuiting(true)} disabled={editBlocked !== null} title={editBlocked ?? undefined} data-testid="equipment-list-circuit">
                   <Cable data-icon="inline-start" />
-                  Put {withLoad.length === 1 ? 'it' : `the ${withLoad.length} with a load`} on circuits
+                  {withLoad.length === 1 ? t('equipmentList.putItOnCircuits', 'Put it on circuits', { ns: 'editor' }) : t('equipmentList.putThemOnCircuits', 'Put the {{count}} with a load on circuits', { ns: 'editor', count: withLoad.length })}
                 </Button>
               )}
               {onOpenSchedule && (
                 <Button size="sm" variant="outline" onClick={onOpenSchedule} data-testid="equipment-list-open-schedule">
                   <TableProperties data-icon="inline-start" />
-                  Open the Equipment list schedule
+                  {t('equipmentList.openSchedule', 'Open the Equipment list schedule', { ns: 'editor' })}
                 </Button>
               )}
             </AlertDescription>
@@ -248,12 +270,12 @@ export function EquipmentListDialog({ model, necEdition, trade, editBlocked, sub
           <>
             <div className="flex flex-wrap items-end gap-3">
               <Field className="min-w-72 flex-[2]">
-                <FieldLabel htmlFor="bm-equipment-paste">Paste the schedule</FieldLabel>
+                <FieldLabel htmlFor="bm-equipment-paste">{t('equipmentList.pasteTheSchedule', 'Paste the schedule', { ns: 'editor' })}</FieldLabel>
                 <Textarea id="bm-equipment-paste" rows={4} value={pasted} onChange={(e) => read(e.target.value)} placeholder={EXAMPLE} data-testid="equipment-list-paste" />
-                <FieldDescription>Copy the table out of the PDF or spreadsheet, header row included, and paste it here.</FieldDescription>
+                <FieldDescription>{t('equipmentList.pasteHint', 'Copy the table out of the PDF or spreadsheet, header row included, and paste it here.', { ns: 'editor' })}</FieldDescription>
               </Field>
               <Field className="min-w-56 flex-1">
-                <FieldLabel htmlFor="bm-equipment-file">Or open a CSV or text file</FieldLabel>
+                <FieldLabel htmlFor="bm-equipment-file">{t('equipmentList.openFile', 'Or open a CSV or text file', { ns: 'editor' })}</FieldLabel>
                 <Input id="bm-equipment-file" type="file" accept=".csv,.txt,.tsv,text/csv,text/plain" onChange={openFile} data-testid="equipment-list-file" />
                 {fileError && (
                   <FieldDescription className="text-danger-600" role="alert">
@@ -261,32 +283,32 @@ export function EquipmentListDialog({ model, necEdition, trade, editBlocked, sub
                   </FieldDescription>
                 )}
               </Field>
-              <Button variant="outline" onClick={() => setAddingColumn(true)} disabled={addColumnBlocked !== null} title={addColumnBlocked ?? 'Show another parameter as a column: MCA, Hood ID, or a new one for this project'} data-testid="equipment-list-add-column">
+              <Button variant="outline" onClick={() => setAddingColumn(true)} disabled={addColumnBlocked !== null} title={addColumnBlocked ?? t('equipmentList.addColumnHint', 'Show another parameter as a column: MCA, Hood ID, or a new one for this project', { ns: 'editor' })} data-testid="equipment-list-add-column">
                 <Columns3 data-icon="inline-start" />
-                Add column
+                {t('equipmentList.addColumn', 'Add column', { ns: 'editor' })}
               </Button>
             </div>
             {addColumnBlocked && (
               <p className="text-xs text-muted-foreground" data-testid="equipment-list-add-column-why">
-                Add column is off: {addColumnBlocked}
+                {t('equipmentList.addColumnOff', 'Add column is off: {{why}}', { ns: 'editor', why: addColumnBlocked })}
               </p>
             )}
             {library.error && (
               <Alert data-testid="equipment-list-columns-error">
                 <CircleAlert />
-                <AlertTitle>Only the built-in columns are offered</AlertTitle>
+                <AlertTitle>{t('equipmentList.builtinColumnsOnly', 'Only the built-in columns are offered', { ns: 'editor' })}</AlertTitle>
                 <AlertDescription className="flex flex-col items-start gap-2">
                   {library.error}
                   <Button size="sm" variant="outline" onClick={library.retry}>
-                    Try again
+                    {t('equipmentList.tryAgain', 'Try again', { ns: 'editor' })}
                   </Button>
                 </AlertDescription>
               </Alert>
             )}
             {columns.some((c) => c.index >= 0) && (
               <FieldSet data-testid="equipment-list-mapping">
-                <FieldLegend variant="label">More columns in this sheet</FieldLegend>
-                <FieldDescription>Choose the parameter each one fills, or Not used. Matching names are chosen for you.</FieldDescription>
+                <FieldLegend variant="label">{t('equipmentList.moreColumns', 'More columns in this sheet', { ns: 'editor' })}</FieldLegend>
+                <FieldDescription>{t('equipmentList.moreColumnsHint', 'Choose the parameter each one fills, or Not used. Matching names are chosen for you.', { ns: 'editor' })}</FieldDescription>
                 <FieldGroup className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {columns
                     .filter((c) => c.index >= 0)
@@ -299,7 +321,7 @@ export function EquipmentListDialog({ model, necEdition, trade, editBlocked, sub
                           </SelectTrigger>
                           <SelectContent>
                             <SelectGroup>
-                              <SelectItem value={NOT_USED}>Not used</SelectItem>
+                              <SelectItem value={NOT_USED}>{t('equipmentList.notUsed', 'Not used', { ns: 'editor' })}</SelectItem>
                               {parameters.map((p) => (
                                 <SelectItem key={p.name} value={p.name}>
                                   {p.label}
@@ -319,25 +341,25 @@ export function EquipmentListDialog({ model, necEdition, trade, editBlocked, sub
                   <EmptyMedia variant="icon">
                     <ClipboardList />
                   </EmptyMedia>
-                  <EmptyTitle>{pasted.trim() ? 'No rows could be read from that' : 'No rows yet'}</EmptyTitle>
+                  <EmptyTitle>{pasted.trim() ? t('equipmentList.noRowsRead', 'No rows could be read from that', { ns: 'editor' }) : t('equipmentList.noRowsYet', 'No rows yet', { ns: 'editor' })}</EmptyTitle>
                   <EmptyDescription>
-                    {pasted.trim() ? 'Each row needs a description or a load. Check that the header row came with it, or add rows by hand.' : 'Paste a schedule above, or add rows by hand.'}
+                    {pasted.trim() ? t('equipmentList.noRowsReadHint', 'Each row needs a description or a load. Check that the header row came with it, or add rows by hand.', { ns: 'editor' }) : t('equipmentList.noRowsHint', 'Paste a schedule above, or add rows by hand.', { ns: 'editor' })}
                   </EmptyDescription>
                 </EmptyHeader>
                 <Button variant="outline" size="sm" onClick={addRow} data-testid="equipment-list-add-row-empty">
                   <Plus data-icon="inline-start" />
-                  Add a row
+                  {t('equipmentList.addARow', 'Add a row', { ns: 'editor' })}
                 </Button>
               </Empty>
             ) : (
               <div ref={windowRows.scrollRef} className="max-h-[48vh] overflow-auto rounded-md border">
                 <Table data-testid="equipment-list-rows">
-                  <TableCaption className="sr-only">Rows read from the equipment list, editable</TableCaption>
+                  <TableCaption className="sr-only">{t('equipmentList.rowsCaption', 'Rows read from the equipment list, editable', { ns: 'editor' })}</TableCaption>
                   <TableHeader>
                     <TableRow>
                       {DRAFT_FIELDS.map((f) => (
                         <TableHead key={f} className="text-xs">
-                          {DRAFT_FIELD_LABELS[f]}
+                          {draftFieldLabel(f, t)}
                         </TableHead>
                       ))}
                       {extraColumns.map(({ parameter: p }) => (
@@ -346,14 +368,14 @@ export function EquipmentListDialog({ model, necEdition, trade, editBlocked, sub
                           {p.unit && p.unit !== '1' ? ` (${p.unit})` : ''}
                         </TableHead>
                       ))}
-                      <TableHead className="text-xs">Reads as</TableHead>
+                      <TableHead className="text-xs">{t('equipmentList.readsAs', 'Reads as', { ns: 'editor' })}</TableHead>
                       {computedColumns.map((col) => (
                         <TableHead key={col.id} className="text-xs" data-testid={`equipment-computed-head-${col.id}`}>
                           {col.label}
                         </TableHead>
                       ))}
                       <TableHead>
-                        <span className="sr-only">Remove</span>
+                        <span className="sr-only">{t('equipmentList.remove', 'Remove', { ns: 'editor' })}</span>
                       </TableHead>
                     </TableRow>
                   </TableHeader>
@@ -366,18 +388,22 @@ export function EquipmentListDialog({ model, necEdition, trade, editBlocked, sub
                         <TableRow key={r.key} ref={windowRows.measure} data-index={i} data-testid="equipment-list-row" data-problem={bad ? 'true' : undefined} className={bad ? 'bg-danger-50' : undefined}>
                           {DRAFT_FIELDS.map((f) => (
                             <TableCell key={f} className="p-1 align-top">
-                              <Input className={`h-7 text-xs ${WIDTH[f]}`} value={r[f]} onChange={(e) => edit(r.key, f, e.target.value)} aria-label={`${DRAFT_FIELD_LABELS[f]}, row ${i + 1}`} data-testid={`equipment-cell-${f}-${i}`} />
+                              <Input className={`h-7 text-xs ${WIDTH[f]}`} value={r[f]} onChange={(e) => edit(r.key, f, e.target.value)} aria-label={t('equipmentList.fieldAria', '{{field}}, row {{row}}', { ns: 'editor', field: draftFieldLabel(f, t), row: i + 1 })} data-testid={`equipment-cell-${f}-${i}`} />
                             </TableCell>
                           ))}
                           {extraColumns.map(({ parameter: p }) => (
                             <TableCell key={p.name} className="p-1 align-top">
-                              <Input className="h-7 w-24 text-xs" value={r.extras?.[p.name] ?? ''} onChange={(e) => editExtra(r.key, p.name, e.target.value)} aria-label={`${p.label}, row ${i + 1}`} data-testid={`equipment-extra-${p.name}-${i}`} />
+                              <Input className="h-7 w-24 text-xs" value={r.extras?.[p.name] ?? ''} onChange={(e) => editExtra(r.key, p.name, e.target.value)} aria-label={t('equipmentList.fieldAria', '{{field}}, row {{row}}', { ns: 'editor', field: p.label, row: i + 1 })} data-testid={`equipment-extra-${p.name}-${i}`} />
                             </TableCell>
                           ))}
                           <TableCell className="min-w-48 p-1 align-top text-xs">
                             {c && !bad && (
                               <span className="text-muted-foreground">
-                                {[c.va !== null ? `${(c.va / 1000).toLocaleString('en-US', { maximumFractionDigits: 2 })} kVA${c.vaBasis ? ` (${c.vaBasis})` : ''}` : null, c.mbh !== null ? `${c.mbh} MBH gas` : null, c.quantity > 1 ? `as ${unitMarks(r.mark.trim(), c.quantity).join(', ')}` : null].filter(Boolean).join(' · ') || 'Water and waste only'}
+                                {[
+                                  c.va !== null ? `${(c.va / 1000).toLocaleString('en-US', { maximumFractionDigits: 2 })} kVA${c.vaBasis ? ` (${c.vaBasis})` : ''}` : null,
+                                  c.mbh !== null ? t('equipmentList.mbhGas', '{{mbh}} MBH gas', { ns: 'editor', mbh: c.mbh }) : null,
+                                  c.quantity > 1 ? t('equipmentList.asMarks', 'as {{marks}}', { ns: 'editor', marks: unitMarks(r.mark.trim(), c.quantity).join(', ') }) : null,
+                                ].filter(Boolean).join(' · ') || t('equipmentList.waterAndWasteOnly', 'Water and waste only', { ns: 'editor' })}
                               </span>
                             )}
                             {c?.problems.map((p) => (
@@ -395,7 +421,7 @@ export function EquipmentListDialog({ model, necEdition, trade, editBlocked, sub
                             )
                           })}
                           <TableCell className="p-1 align-top">
-                            <Button variant="ghost" size="icon" aria-label={`Remove row ${i + 1}${r.mark ? ` (${r.mark})` : ''}`} onClick={() => remove(r.key)} data-testid={`equipment-remove-${i}`}>
+                            <Button variant="ghost" size="icon" aria-label={r.mark ? t('equipmentList.removeRowMarked', 'Remove row {{row}} ({{mark}})', { ns: 'editor', row: i + 1, mark: r.mark }) : t('equipmentList.removeRow', 'Remove row {{row}}', { ns: 'editor', row: i + 1 })} onClick={() => remove(r.key)} data-testid={`equipment-remove-${i}`}>
                               <Trash2 />
                             </Button>
                           </TableCell>
@@ -412,18 +438,20 @@ export function EquipmentListDialog({ model, necEdition, trade, editBlocked, sub
               <div className="flex flex-wrap items-center gap-3 text-sm">
                 <Button variant="outline" size="sm" onClick={addRow} data-testid="equipment-list-add-row">
                   <Plus data-icon="inline-start" />
-                  Add a row
+                  {t('equipmentList.addARow', 'Add a row', { ns: 'editor' })}
                 </Button>
                 <span className={problemRows > 0 ? 'text-danger-600' : 'text-muted-foreground'} data-testid="equipment-list-summary">
-                  {rows.length} row{rows.length === 1 ? '' : 's'}, {items} item{items === 1 ? '' : 's'}
-                  {problemRows > 0 ? `; ${problemRows} to fix` : '; ready to add'}
+                  {rows.length === 1 ? t('equipmentList.summaryOneRow', '1 row', { ns: 'editor' }) : t('equipmentList.summaryRows', '{{count}} rows', { ns: 'editor', count: rows.length })}
+                  {', '}
+                  {items === 1 ? t('equipmentList.summaryOneItem', '1 item', { ns: 'editor' }) : t('equipmentList.summaryItems', '{{count}} items', { ns: 'editor', count: items })}
+                  {problemRows > 0 ? t('equipmentList.summaryToFix', '; {{count}} to fix', { ns: 'editor', count: problemRows }) : t('equipmentList.summaryReady', '; ready to add', { ns: 'editor' })}
                 </span>
               </div>
             )}
             {refusal && (
               <Alert variant="destructive" data-testid="equipment-list-refusal">
                 <CircleAlert />
-                <AlertTitle>Nothing was added</AlertTitle>
+                <AlertTitle>{t('equipmentList.nothingAdded', 'Nothing was added', { ns: 'editor' })}</AlertTitle>
                 <AlertDescription>{refusal}</AlertDescription>
               </Alert>
             )}
@@ -431,12 +459,18 @@ export function EquipmentListDialog({ model, necEdition, trade, editBlocked, sub
         )}
         <DialogFooter>
           <Button variant="outline" onClick={onClose} data-testid="equipment-list-close">
-            {added > 0 ? 'Done' : 'Cancel'}
+            {added > 0 ? t('equipmentList.done', 'Done', { ns: 'editor' }) : t('equipmentList.cancel', 'Cancel', { ns: 'editor' })}
           </Button>
           {added === 0 && (
             <Button onClick={add} disabled={why !== null} title={why ?? undefined} data-testid="equipment-list-add">
               <ListPlus data-icon="inline-start" />
-              {items > 0 ? `Add ${items} as planned equipment${loadCount > 0 ? ` with ${loadCount} load${loadCount === 1 ? '' : 's'}` : ''}` : 'Add as planned equipment'}
+              {items === 0
+                ? t('equipmentList.addAsPlanned', 'Add as planned equipment', { ns: 'editor' })
+                : loadCount === 0
+                  ? t('equipmentList.addItemsAsPlanned', 'Add {{items}} as planned equipment', { ns: 'editor', items })
+                  : loadCount === 1
+                    ? t('equipmentList.addItemsAsPlannedOneLoad', 'Add {{items}} as planned equipment with 1 load', { ns: 'editor', items })
+                    : t('equipmentList.addItemsAsPlannedLoads', 'Add {{items}} as planned equipment with {{loads}} loads', { ns: 'editor', items, loads: loadCount })}
             </Button>
           )}
         </DialogFooter>

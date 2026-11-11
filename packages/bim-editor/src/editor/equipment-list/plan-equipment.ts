@@ -3,6 +3,7 @@ import { loadFromText, numberIn, proposeEquipmentLoads, readEquipmentSchedule, s
 import { CONNECTION_TYPE_PARAM, elementsOfKind, type Command, type ModelState, type ParamDef, type ParamValue, type PartCategory, type PartTypeDefinition } from '@permitzip/bim-kernel'
 import { EQUIPMENT_DRAFT_FIELDS, EQUIPMENT_DRAFT_PARAMETERS } from '@permitzip/bim-library'
 import { declareParameters, parseParameterText, undeclared, type EquipmentParameter } from './parameters'
+import { englishOnly, type Translate } from '../i18n/translate'
 
 /**
  * The Equipment list (ROADMAP F4, NEXT-BATCH §5 step 1): rows pasted from a
@@ -44,19 +45,38 @@ export type DraftField = Exclude<keyof EquipmentDraftRow, 'key' | 'extras'>
 /** The eleven pasted columns: the equipment list template's default mapping (`EQUIPMENT_DRAFT_PARAMETERS`). */
 export const DRAFT_FIELDS: readonly DraftField[] = EQUIPMENT_DRAFT_FIELDS
 
-/** Column headings in the preview grid, the words on a vendor's schedule. */
-export const DRAFT_FIELD_LABELS: Readonly<Record<DraftField, string>> = {
-  mark: EQUIPMENT_DRAFT_PARAMETERS.mark.label,
-  description: EQUIPMENT_DRAFT_PARAMETERS.description.label,
-  quantity: EQUIPMENT_DRAFT_PARAMETERS.quantity.label,
-  voltage: EQUIPMENT_DRAFT_PARAMETERS.voltage.label,
-  phase: EQUIPMENT_DRAFT_PARAMETERS.phase.label,
-  load: EQUIPMENT_DRAFT_PARAMETERS.load.label,
-  gasMbh: EQUIPMENT_DRAFT_PARAMETERS.gasMbh.label,
-  coldWater: EQUIPMENT_DRAFT_PARAMETERS.coldWater.label,
-  hotWater: EQUIPMENT_DRAFT_PARAMETERS.hotWater.label,
-  waste: EQUIPMENT_DRAFT_PARAMETERS.waste.label,
-  connection: EQUIPMENT_DRAFT_PARAMETERS.connection.label,
+/**
+ * Column headings in the preview grid, the words on a vendor's schedule — the
+ * pack's label (`EQUIPMENT_DRAFT_PARAMETERS`), character for character in English.
+ * A function rather than a table of strings: a table of English is how English
+ * shipped under a keyed frame before.
+ */
+export function draftFieldLabel(field: DraftField, t: Translate = englishOnly): string {
+  const english = EQUIPMENT_DRAFT_PARAMETERS[field].label
+  switch (field) {
+    case 'mark':
+      return t('equipmentList.fieldMark', english, { ns: 'editor' })
+    case 'description':
+      return t('equipmentList.fieldDescription', english, { ns: 'editor' })
+    case 'quantity':
+      return t('equipmentList.fieldQuantity', english, { ns: 'editor' })
+    case 'voltage':
+      return t('equipmentList.fieldVoltage', english, { ns: 'editor' })
+    case 'phase':
+      return t('equipmentList.fieldPhase', english, { ns: 'editor' })
+    case 'load':
+      return t('equipmentList.fieldLoad', english, { ns: 'editor' })
+    case 'gasMbh':
+      return t('equipmentList.fieldGasMbh', english, { ns: 'editor' })
+    case 'coldWater':
+      return t('equipmentList.fieldColdWater', english, { ns: 'editor' })
+    case 'hotWater':
+      return t('equipmentList.fieldHotWater', english, { ns: 'editor' })
+    case 'waste':
+      return t('equipmentList.fieldWaste', english, { ns: 'editor' })
+    default:
+      return t('equipmentList.fieldConnection', english, { ns: 'editor' })
+  }
 }
 
 // ---------------------------------------------------------------- columns beyond the eleven
@@ -79,7 +99,7 @@ export interface PastedColumn {
 const READ_HEADINGS: readonly RegExp[] = [
   /^(tag|item|mark|no\.?|#|item ?no\.?|symbol|designator|k-?tag)$/i,
   /^(description|equipment|name|item description|desc\.?|equipment description)$/i,
-  /^(qty|quantity|count|no\. ?req'?d)$/i,
+  /^(qty|quantity|count|no\. ?req\x27?d)$/i,
   /^(volts?|voltage|v)$/i,
   /^(ph|phase|phases|Ø|φ)$/i,
   /^(kva)$/i,
@@ -248,51 +268,51 @@ const DESIGNATOR = /^[A-Z]{1,3}-?\d{1,3}[A-Z]?$/i
 /** Reads units in a typed load ("17 kW") when the project has no NEC edition; never used for a code table. */
 const UNIT_READING_EDITION = necEdition('2023')
 
-export function checkDraftRow(nec: NecEdition | null, row: EquipmentDraftRow, taken: ReadonlySet<string>, parameters: readonly EquipmentParameter[] = []): DraftCheck {
+export function checkDraftRow(nec: NecEdition | null, row: EquipmentDraftRow, taken: ReadonlySet<string>, parameters: readonly EquipmentParameter[] = [], t: Translate = englishOnly): DraftCheck {
   const problems: string[] = []
   const mark = row.mark.trim()
-  if (mark === '') problems.push('Give it a mark (K-14), so it can be found in Not placed yet and on the one-line.')
-  else if (mark.length > 32) problems.push('Keep the mark to 32 characters.')
-  else if (taken.has(mark.toLowerCase())) problems.push(`${mark} is already used, in the model or higher up this list; give it its own mark.`)
-  if (row.description.trim() === '' && mark === '') problems.push('Say what it is (Fryer, gas).')
+  if (mark === '') problems.push(t('equipmentList.giveItAMark', 'Give it a mark (K-14), so it can be found in Not placed yet and on the one-line.', { ns: 'editor' }))
+  else if (mark.length > 32) problems.push(t('equipmentList.keepMarkTo32', 'Keep the mark to 32 characters.', { ns: 'editor' }))
+  else if (taken.has(mark.toLowerCase())) problems.push(t('equipmentList.markTaken', '{{mark}} is already used, in the model or higher up this list; give it its own mark.', { ns: 'editor', mark }))
+  if (row.description.trim() === '' && mark === '') problems.push(t('equipmentList.sayWhatItIs', 'Say what it is (Fryer, gas).', { ns: 'editor' }))
 
   const q = row.quantity.trim() === '' ? 1 : Number(row.quantity)
   const quantity = Number.isInteger(q) && q >= 1 && q <= 50 ? q : 1
-  if (!(Number.isInteger(q) && q >= 1)) problems.push(`Qty "${row.quantity}" isn't a whole number of items.`)
-  else if (q > 50) problems.push('More than 50 of one item: add it as a load on a space instead, or split the row.')
+  if (!(Number.isInteger(q) && q >= 1)) problems.push(t('equipmentList.qtyNotWhole', "Qty \"{{raw}}\" isn't a whole number of items.", { ns: 'editor', raw: row.quantity }))
+  else if (q > 50) problems.push(t('equipmentList.qtyOver50', 'More than 50 of one item: add it as a load on a space instead, or split the row.', { ns: 'editor' }))
 
   const v = row.voltage.trim() === '' ? null : numberIn(row.voltage)
-  if (row.voltage.trim() !== '' && (v === null || v < 100 || v > 600)) problems.push(`Volts "${row.voltage}" isn't a voltage between 100 and 600.`)
+  if (row.voltage.trim() !== '' && (v === null || v < 100 || v > 600)) problems.push(t('equipmentList.voltsOutOfRange', "Volts \"{{raw}}\" isn't a voltage between 100 and 600.", { ns: 'editor', raw: row.voltage }))
   const voltageV = v !== null && v >= 100 && v <= 600 ? v : null
 
   const p = row.phase.trim() === '' ? null : numberIn(row.phase)
-  if (row.phase.trim() !== '' && p !== 1 && p !== 3) problems.push(`Phase "${row.phase}" is 1 or 3.`)
+  if (row.phase.trim() !== '' && p !== 1 && p !== 3) problems.push(t('equipmentList.phaseIs1or3', 'Phase \"{{raw}}\" is 1 or 3.', { ns: 'editor', raw: row.phase }))
   const phases: 1 | 3 | null = p === 1 || p === 3 ? p : null
 
   // Only horsepower reads a code table; kW, VA and amps read the same under any edition.
   const load =
     nec === null && /\bhp\b/i.test(row.load)
-      ? { va: null, vaBasis: '', problem: 'Horsepower needs the NEC edition to read its table current: set it in the project’s Code Study, or give the amps.' }
+      ? { va: null, vaBasis: '', problem: t('equipmentList.horsepowerNeedsNec', 'Horsepower needs the NEC edition to read its table current: set it in the project’s Code Study, or give the amps.', { ns: 'editor' }) }
       : loadFromText(nec ?? UNIT_READING_EDITION, row.load, voltageV, phases)
   if (load.problem) problems.push(load.problem)
 
   const g = row.gasMbh.trim() === '' ? null : numberIn(row.gasMbh)
-  if (row.gasMbh.trim() !== '' && (g === null || g <= 0)) problems.push(`Gas "${row.gasMbh}" isn't an input in MBH (80).`)
+  if (row.gasMbh.trim() !== '' && (g === null || g <= 0)) problems.push(t('equipmentList.gasNotAnInput', "Gas \"{{raw}}\" isn't an input in MBH (80).", { ns: 'editor', raw: row.gasMbh }))
   const mbh = g !== null && g > 0 ? g : null
 
   const anything = load.va !== null || mbh !== null || row.coldWater.trim() !== '' || row.hotWater.trim() !== '' || row.waste.trim() !== ''
   // A row that names a fixture or gas appliance ("Range, gas") adds its proposed starter load, so it isn't empty.
   const proposes = !anything && proposeEquipmentLoads({ mark, description: row.description, mbh: null, coldWater: '', hotWater: '', waste: '' }).length > 0
-  if (!anything && !proposes && !load.problem && problems.length === 0) problems.push('Nothing to add up: give a load, gas MBH, or water and waste sizes.')
+  if (!anything && !proposes && !load.problem && problems.length === 0) problems.push(t('equipmentList.nothingToAddUp', 'Nothing to add up: give a load, gas MBH, or water and waste sizes.', { ns: 'editor' }))
 
   const extras: Record<string, ParamValue> = {}
   for (const [name, raw] of Object.entries(row.extras ?? {})) {
     const p = parameters.find((x) => x.name === name)
     if (!p) {
-      problems.push(`The column for ${name} isn't a parameter this list knows any more; choose another or Not used.`)
+      problems.push(t('equipmentList.columnGone', "The column for {{name}} isn't a parameter this list knows any more; choose another or Not used.", { ns: 'editor', name }))
       continue
     }
-    const read = parseParameterText(p, raw)
+    const read = parseParameterText(p, raw, t)
     if ('problem' in read) problems.push(read.problem)
     else if (read.value !== null) extras[name] = read.value
   }
@@ -302,11 +322,11 @@ export function checkDraftRow(nec: NecEdition | null, row: EquipmentDraftRow, ta
 }
 
 /** Every row's check; marks must be unique against the model and against rows above. */
-export function checkDraft(nec: NecEdition | null, model: Pick<ModelState, 'elements'> | null, rows: readonly EquipmentDraftRow[], parameters: readonly EquipmentParameter[] = []): DraftCheck[] {
+export function checkDraft(nec: NecEdition | null, model: Pick<ModelState, 'elements'> | null, rows: readonly EquipmentDraftRow[], parameters: readonly EquipmentParameter[] = [], t: Translate = englishOnly): DraftCheck[] {
   const taken = new Set<string>()
   if (model) for (const p of elementsOfKind(model.elements, 'part')) if (p.mark) taken.add(p.mark.toLowerCase())
   return rows.map((row) => {
-    const check = checkDraftRow(nec, row, taken, parameters)
+    const check = checkDraftRow(nec, row, taken, parameters, t)
     for (const m of unitMarks(row.mark.trim(), check.quantity)) taken.add(m.toLowerCase())
     return check
   })
@@ -332,27 +352,27 @@ function categoryOf(check: DraftCheck, row: EquipmentDraftRow): PartCategory {
  * the electrical engine circuits it by its nameplate (voltage, phases, load),
  * gas sizing reads `input_mbh`, and the water and waste sizes are as written.
  */
-export function listedEquipmentType(category: PartCategory, extraParams: readonly ParamDef[] = []): PartTypeDefinition {
+export function listedEquipmentType(category: PartCategory, extraParams: readonly ParamDef[] = [], t: Translate = englishOnly): PartTypeDefinition {
   return {
-    familyName: category === 'plumbing_fixture' ? 'Fixture, from an equipment list' : 'Equipment, from an equipment list',
-    typeName: 'Listed item',
+    familyName: category === 'plumbing_fixture' ? t('equipmentList.familyFixture', 'Fixture, from an equipment list', { ns: 'editor' }) : t('equipmentList.familyEquipment', 'Equipment, from an equipment list', { ns: 'editor' }),
+    typeName: t('equipmentList.typeName', 'Listed item', { ns: 'editor' }),
     category,
-    description: 'An item from a pasted equipment list. Set its values in its properties; draw it from Not placed yet.',
+    description: t('equipmentList.typeDescription', 'An item from a pasted equipment list. Set its values in its properties; draw it from Not placed yet.', { ns: 'editor' }),
     typeParams: [],
     typeValues: {},
     instanceParams: [
-      txt('description', 'Description'),
-      num('voltage', 'Voltage', 'v'),
-      num('phases', 'Phases', 'none'),
-      num('load_va', 'Load', 'va'),
-      txt('load_class', 'Load class'),
-      num('input_mbh', 'Gas input (MBH)', 'none'),
-      txt('cw_size', 'Cold water'),
-      txt('hw_size', 'Hot water'),
-      txt('waste_size', 'Waste'),
-      txt('connection', 'Connection'),
+      txt('description', t('equipmentList.paramDescription', 'Description', { ns: 'editor' })),
+      num('voltage', t('equipmentList.paramVoltage', 'Voltage', { ns: 'editor' }), 'v'),
+      num('phases', t('equipmentList.paramPhases', 'Phases', { ns: 'editor' }), 'none'),
+      num('load_va', t('equipmentList.paramLoad', 'Load', { ns: 'editor' }), 'va'),
+      txt('load_class', t('equipmentList.paramLoadClass', 'Load class', { ns: 'editor' })),
+      num('input_mbh', t('equipmentList.paramGasInput', 'Gas input (MBH)', { ns: 'editor' }), 'none'),
+      txt('cw_size', t('equipmentList.paramColdWater', 'Cold water', { ns: 'editor' })),
+      txt('hw_size', t('equipmentList.paramHotWater', 'Hot water', { ns: 'editor' })),
+      txt('waste_size', t('equipmentList.paramWaste', 'Waste', { ns: 'editor' })),
+      txt('connection', t('equipmentList.paramConnection', 'Connection', { ns: 'editor' })),
       CONNECTION_TYPE_PARAM,
-      txt('circuit', 'Circuit'),
+      txt('circuit', t('equipmentList.paramCircuit', 'Circuit', { ns: 'editor' })),
       ...extraParams,
     ],
     connectors: [],
@@ -448,7 +468,7 @@ export function proposalTotals(proposals: readonly RowLoadProposal[], accepted: 
 
 type LoadSpec = Extract<EditStep, { type: 'create_load' }>['loads'][number]
 
-function loadSpecFor(p: RowLoadProposal, partId: string, mark: string, id: string): LoadSpec {
+function loadSpecFor(p: RowLoadProposal, partId: string, mark: string, id: string, t: Translate = englishOnly): LoadSpec {
   const values = p.load.values
   return {
     id,
@@ -458,7 +478,9 @@ function loadSpecFor(p: RowLoadProposal, partId: string, mark: string, id: strin
     ...(Object.keys(values).length > 0 ? { values } : {}),
     ...(p.load.kind === 'gas' ? { service: 'gas' as const } : {}),
     ...(p.description ? { note: p.description.slice(0, 200) } : {}),
-    source: p.load.fromStarter ? { kind: 'engineer', ref: `Starter connection type ${p.load.connectionType ?? ''}, to verify`.slice(0, 200) } : { kind: 'vendor_doc', ref: 'Pasted equipment list' },
+    source: p.load.fromStarter
+      ? { kind: 'engineer', ref: t('equipmentList.starterSource', 'Starter connection type {{type}}, to verify', { ns: 'editor', type: p.load.connectionType ?? '' }).slice(0, 200) }
+      : { kind: 'vendor_doc', ref: t('equipmentList.pastedSource', 'Pasted equipment list', { ns: 'editor' }) },
   }
 }
 
@@ -468,10 +490,10 @@ function loadSpecFor(p: RowLoadProposal, partId: string, mark: string, id: strin
  * planned part). Rows with problems are refused here too (the dialog keeps
  * Add disabled until there are none), so a half-read list never lands.
  */
-export function plannedEquipmentBatch(model: Pick<ModelState, 'elements'>, rows: readonly EquipmentDraftRow[], checks: readonly DraftCheck[], newId: (prefix: string) => string, accepted: readonly RowLoadProposal[] = [], parameters: readonly EquipmentParameter[] = []): PlannedEquipmentBatch | { readonly refused: string } {
-  if (rows.length === 0) return { refused: 'Paste a list first.' }
+export function plannedEquipmentBatch(model: Pick<ModelState, 'elements'>, rows: readonly EquipmentDraftRow[], checks: readonly DraftCheck[], newId: (prefix: string) => string, accepted: readonly RowLoadProposal[] = [], parameters: readonly EquipmentParameter[] = [], t: Translate = englishOnly): PlannedEquipmentBatch | { readonly refused: string } {
+  if (rows.length === 0) return { refused: t('equipmentList.pasteFirst', 'Paste a list first.', { ns: 'editor' }) }
   const bad = checks.findIndex((c) => c.problems.length > 0)
-  if (bad >= 0) return { refused: `Row ${bad + 1} (${rows[bad]?.mark || 'no mark'}): ${checks[bad]?.problems[0] ?? ''}` }
+  if (bad >= 0) return { refused: t('equipmentList.rowProblem', 'Row {{row}} ({{mark}}): {{problem}}', { ns: 'editor', row: bad + 1, mark: rows[bad]?.mark || t('equipmentList.noMark', 'No mark', { ns: 'editor' }), problem: checks[bad]?.problems[0] ?? '' }) }
   const categoryAt = (i: number): 'plumbing_fixture' | 'mechanical_equipment' => {
     const check = checks[i]
     const row = rows[i]
@@ -495,15 +517,15 @@ export function plannedEquipmentBatch(model: Pick<ModelState, 'elements'>, rows:
     const params = used.get(category) ?? []
     if (model.elements[typeId]) {
       if (params.length === 0) continue
-      const declared = declareParameters(model, typeId, params)
+      const declared = declareParameters(model, typeId, params, t)
       if ('refused' in declared) return declared
       if (declared.command) declarations.push(declared.command)
       continue
     }
     const base = listedEquipmentType(category)
-    const missing = undeclared(base, params)
+    const missing = undeclared(base, params, t)
     if ('refused' in missing) return missing
-    newTypes.set(typeId, missing.instance.length > 0 ? listedEquipmentType(category, missing.instance) : base)
+    newTypes.set(typeId, missing.instance.length > 0 ? listedEquipmentType(category, missing.instance, t) : base)
   }
   const commands: EditStep[] = [...declarations]
   const partIds: string[] = []
@@ -518,13 +540,21 @@ export function plannedEquipmentBatch(model: Pick<ModelState, 'elements'>, rows:
     for (const mark of unitMarks(row.mark.trim(), check.quantity)) {
       const partId = newId('part')
       partIds.push(partId)
-      commands.push({ type: 'plan_part', partId, typeId, ...(partType ? { partType } : {}), mark, values, note: 'From the equipment list' })
-      for (const p of mine) loads.push(loadSpecFor(p, partId, mark, newId('load')))
+      commands.push({ type: 'plan_part', partId, typeId, ...(partType ? { partType } : {}), mark, values, note: t('equipmentList.noteFromList', 'From the equipment list', { ns: 'editor' }) })
+      for (const p of mine) loads.push(loadSpecFor(p, partId, mark, newId('load'), t))
     }
   })
   const items = partIds.length
   if (loads.length > 0) commands.push({ type: 'create_load', loads })
-  if (items > 500 || loads.length > 500) return { refused: `That is ${Math.max(items, loads.length)} ${items >= loads.length ? 'items' : 'loads'}; add up to 500 at a time.` }
-  const loadWords = loads.length > 0 ? ` with ${loads.length} plumbing and gas load${loads.length === 1 ? '' : 's'}` : ''
-  return { command: { type: 'batch_edits', label: `Add ${items} planned item${items === 1 ? '' : 's'} from the equipment list${loadWords}`, commands }, partIds, count: items }
+  if (items > 500 || loads.length > 500)
+    return {
+      refused: t('equipmentList.tooMany', 'That is {{count}} {{what}}; add up to 500 at a time.', {
+        ns: 'editor',
+        count: Math.max(items, loads.length),
+        what: items >= loads.length ? t('equipmentList.itemsWord', 'items', { ns: 'editor' }) : t('equipmentList.loadsWord', 'loads', { ns: 'editor' }),
+      }),
+    }
+  const loadWords = loads.length > 0 ? (loads.length === 1 ? t('equipmentList.withOneLoad', ' with 1 plumbing and gas load', { ns: 'editor' }) : t('equipmentList.withLoads', ' with {{count}} plumbing and gas loads', { ns: 'editor', count: loads.length })) : ''
+  const label = items === 1 ? t('equipmentList.undoAddOne', 'Add 1 planned item from the equipment list{{loads}}', { ns: 'editor', loads: loadWords }) : t('equipmentList.undoAdd', 'Add {{count}} planned items from the equipment list{{loads}}', { ns: 'editor', count: items, loads: loadWords })
+  return { command: { type: 'batch_edits', label, commands }, partIds, count: items }
 }

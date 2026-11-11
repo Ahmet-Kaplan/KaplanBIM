@@ -775,6 +775,33 @@ ayarlar, parça listesi, IFC içe/dışa aktarma) çevrilirken bunlar gerekti. Y
 > erişimcilerinden gelir. `i18n-questions.test.tsx` her erişimcinin İngilizcesini
 > kernel'in tablosuyla **karakter karakter** karşılaştırır.
 
+### 5.9 Aşama 4, Task 4.6: ekipman listesi sözcükleri (2026-11-10)
+
+`packages/bim-editor/src/editor/equipment-list` çevrilirken bunlar gerekti.
+Yukarıda **zaten** karara bağlı olanlar tekrar yazılmadı (`Ekipman`, `Armatür`,
+`Yük birimi`, `Panel`, `Çizelge`, `Tip`, `Aile`, `Kategori`, `Parametre`,
+`Bağlantı`, `Gerilim`, `Faz`, `Devre`, `Kat`, `Mekan`).
+
+| EN | TR | Not |
+|----|----|-----|
+| Item (a row of the list) | **kalem** | §2.1; planlı bir **kalem** olur, *eleman* değil |
+| Element / Part | **eleman** / **parça** | §2.1; bu ağaçta sayılan şey kalemdir |
+| Listed item (the part type it makes) | **listelenen kalem** | Modelde saklanan tip adı; Türkçe ekranda Türkçe yazılır |
+| Mark / Qty / Load / Conn. | **işaret / adet / yük / bağlantı** | §5 alan adları; `DRAFT_FIELD_LABELS` erişimciye döndü |
+| Load (kW, VA, A or hp) | **Yük (kW, VA, A veya hp)** | §7: birim sembolleri çevrilmez, bağlaç çevrilir |
+| Planned equipment | **planlı ekipman** | Henüz çizilmemiş, modelde var olan parça |
+| Not placed yet | **Henüz yerleştirilmedi** | §4.2 ile aynı karar |
+| Column (a parameter shown as one) | **sütun** | *Kolon* sıhhi tesisatta bir stack'tir (§5.7) — burada asla |
+| Firm / Project column | **firma sütunu / proje sütunu** | Kitaplık katmanları: proje, firmayı; firma, yerleşiği ezer |
+| Built-in column | **yerleşik sütun** | |
+| From the library | **kitaplıktan** | §2.2 *kitaplık* |
+| Unit (of a number column) | **birim** | §7; sembolü çevrilmez |
+| Reading a pasted sheet | **yapıştırılan çizelgeyi okumak** | *Paste* = **yapıştır**, *Schedule* = **çizelge** |
+| Circuit them | **devreye al** | §9/Ç5 *devre*; tek hat üzerinde bir devreye bağlamak |
+| Water and drain connections | **su ve tahliye bağlantıları** | §5.7 *tahliye*; *dren* kullanılmaz |
+| Gas input (MBH) | **gaz girdisi (MBH)** | `MBH` sembolü çevrilmez (§7) |
+| Horsepower | **beygir gücü** | §7 açık yazım; `hp` sembolü kalır |
+
 ---
 
 ## 6. Maliyet ve ticari terimler
