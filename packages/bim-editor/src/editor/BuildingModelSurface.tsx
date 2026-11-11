@@ -156,7 +156,7 @@ import { useSheetImagesFrom } from '@permitzip/bim-editor/editor/views-sheets/us
 import { addOns, loadAddOns } from '../contracts/building-model/add-ons'
 
 import { MemoRibbon, useStableCommands, useStableRibbonTabs } from './ribbon/stable-ribbon'
-import { useEditorTranslate } from './i18n/translate'
+import { useEditorLanguage, useEditorTranslate } from './i18n/translate'
 import { useModelPacks } from './state/use-model-packs'
 import { buildingModelQuickCommands, buildingModelRibbon, PROJECTION_SHORTCUT, type BoxCategory, type BuildingModelTool, type RibbonSelection } from './building-model-ribbon'
 import { OrientationControls } from './orientation/OrientationControls'
@@ -202,7 +202,7 @@ import { ViewPhaseFields } from './organization/ViewPhaseFields'
 import { Portal } from 'radix-ui'
 import type { EditorFileChrome } from '@permitzip/bim-editor-host'
 import { useEditorHost } from '@permitzip/bim-editor/host'
-import { MutinyMark, MutinySplash, WindowControls, useFullscreen, useMutinyPortalContainer, useMutinyPresentation, useMutinyTheme } from '@permitzip/bim-ui'
+import { MutinyMark, MutinySplash, WindowControls, isMutinyLanguage, useFullscreen, useMutinyPortalContainer, useMutinyPresentation, useMutinyTheme, type MutinyLanguage } from '@permitzip/bim-ui'
 import { SessionChromeStore, useSessionChrome } from './state/session-chrome-store'
 
 /** The session's sync channel (branch, version and merge requests). */
@@ -309,7 +309,12 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
   // reports are its words) and the tool blocker below draws with it; named `t` so
   // `npm run i18n:review` reads the captions written in this file.
   const t = useEditorTranslate()
-  const autoSize = useAutoSize(projectId, (command, label) => sessionRef.current?.submitCommand(command, label) ?? "Live editing isn't connected, so changes can't be saved.")
+  // The language itself, not just its translator: the model session translates the
+  // kernel's own sentences by template, and has to know whether to try. A host with
+  // no `<I18nProvider>` reads as English, which is what it shows.
+  const hostLanguage = useEditorLanguage()
+  const editorLanguage: MutinyLanguage = isMutinyLanguage(hostLanguage) ? hostLanguage : 'en'
+  const autoSize = useAutoSize(projectId, (command, label) => sessionRef.current?.submitCommand(command, label) ?? t('session.notConnectedSaved', "Live editing isn't connected, so changes can't be saved.", { ns: 'editor' }))
   const dragRef = useRef<{ drag: SlideDrag; s: number | null } | null>(null)
   const [requested, setOpen] = useState<OpenItem>({ kind: 'model', mode: initialView === 'plan' ? 'plan' : '3d' })
   const [viewDisplay, setViewDisplay] = useState<ViewDisplay>('model')
@@ -578,7 +583,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
         setRouteChecks(checks)
         setRouteTickMarks(checks.length > 0 ? { ticks: session.routeTicks(), pieces: session.routeTickPieces() } : null)
       },
-    }, getAccessToken, t, referencesPort, hostCapabilities)
+    }, getAccessToken, t, editorLanguage, referencesPort, hostCapabilities)
     session.setViewerColors(viewerColorsRef.current)
     sessionRef.current = session
     sessionChromeStore.setSource(session)
@@ -601,8 +606,8 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
   // The language can be switched while the model stays open: the session says the next refusal in
   // the new one. The session is not recreated for it — that would drop the 3D view and reconnect.
   useEffect(() => {
-    sessionRef.current?.setTranslator(t)
-  }, [t])
+    sessionRef.current?.setTranslator(t, editorLanguage)
+  }, [t, editorLanguage])
 
   // Route checks read the firm's and the project's design limits (clearances); until they load, the add-ons' defaults.
   useEffect(() => {
@@ -931,7 +936,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
 
   const submit = useCallback<SubmitCommand>((command, label) => {
     const session = sessionRef.current
-    if (!session) return "Live editing isn't connected, so changes can't be saved."
+    if (!session) return t('session.notConnectedSaved', "Live editing isn't connected, so changes can't be saved.", { ns: 'editor' })
     return session.submitCommand(command, label)
   }, [])
 
@@ -1071,10 +1076,14 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
   /** This press became a left + right chord pan: its release opens no menu. */
   const chordPressRef = useRef(false)
 
+  /** The projection's own word, in the language on screen: it is shown in a sentence, not as a code. */
+  const projectionLabel = (value: Projection): string =>
+    value === 'orthographic' ? t('projection.orthographic', 'orthographic', { ns: 'editor' }) : t('projection.perspective', 'perspective', { ns: 'editor' })
+
   /** Perspective or orthographic: saved on an open 3D view, or for the free model and sections in this tab. */
   const changeProjection = (next: Projection) => {
     if (!live3dOpen) {
-      toast.info('Plans and sheets are always orthographic. Open the 3D model or a 3D view to switch projection.')
+      toast.info(t('projection.orthographicOnly', 'Plans and sheets are always orthographic. Open the 3D model or a 3D view to switch projection.', { ns: 'editor' }))
       return
     }
     if (next === projection) return
@@ -1085,7 +1094,14 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
     }
     if (!canEdit) {
       setProjectionLook({ key: viewItemKey, value: next })
-      toast.info(`Showing ${openView.name} ${label} here only. ${blockedReason}`)
+      toast.info(
+        t('projection.shownHereOnly', 'Showing {{view}} {{projection}} here only. {{reason}}', {
+          ns: 'editor',
+          view: openView.name,
+          projection: projectionLabel(next),
+          reason: blockedReason,
+        }),
+      )
       return
     }
     setProjectionLook(null)
@@ -2428,21 +2444,21 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
                 .catch((err: unknown) => console.error('[BuildingModelSurface] box select in the drawing failed', err))
               return `${ids.length} in the box.`
             },
-            moveBy: (ids, delta) => sessionRef.current?.moveGroupBy(ids, { x: delta.x, y: delta.y }, delta.z) ?? "Live editing isn't connected, so nothing can be moved.",
+            moveBy: (ids, delta) => sessionRef.current?.moveGroupBy(ids, { x: delta.x, y: delta.y }, delta.z) ?? t('session.notConnectedMoved', "Live editing isn't connected, so nothing can be moved.", { ns: 'editor' }),
             submit: submitWithUndo,
             runDrag: {
               begin: (id, at) => sessionRef.current?.beginRunDragOn(id, at) ?? null,
-              preview: (delta, strict) => sessionRef.current?.previewRunDragBy(delta, strict) ?? "Live editing isn't connected, so the duct can't be changed.",
+              preview: (delta, strict) => sessionRef.current?.previewRunDragBy(delta, strict) ?? t('session.notConnectedDuct', "Live editing isn't connected, so the duct can't be changed.", { ns: 'editor' }),
               previewModel: () => sessionRef.current?.runDragPreview() ?? null,
               end: (commit) => sessionRef.current?.endRunDrag(commit) ?? null,
               toLength: (mm) => sessionRef.current?.runDragToLength(mm) ?? null,
             },
             tools: {
-              previewSplit: (id, at) => sessionRef.current?.previewSplitOn(id, at) ?? "Live editing isn't connected.",
-              split: (id, at) => sessionRef.current?.splitOn(id, at) ?? "Live editing isn't connected, so nothing can be split.",
+              previewSplit: (id, at) => sessionRef.current?.previewSplitOn(id, at) ?? t('session.notConnected', "Live editing isn't connected.", { ns: 'editor' }),
+              split: (id, at) => sessionRef.current?.splitOn(id, at) ?? t('session.notConnectedSplit', "Live editing isn't connected, so nothing can be split.", { ns: 'editor' }),
               previewRoute: (p, vertical, end, side) => sessionRef.current?.previewRouteOnDrawing(p, vertical, end, side) ?? null,
               clickRoute: (p, vertical, end, side) => {
-                const hint = sessionRef.current?.clickRouteOnDrawing(p, vertical, end, side) ?? "Live editing isn't connected, so nothing can be routed."
+                const hint = sessionRef.current?.clickRouteOnDrawing(p, vertical, end, side) ?? t('session.notConnectedRouted', "Live editing isn't connected, so nothing can be routed.", { ns: 'editor' })
                 setRoutePoints(sessionRef.current?.routePointCount() ?? 0)
                 return hint
               },
@@ -3113,7 +3129,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
     const session = sessionRef.current
     const first = ids[0]
     if (!session || !first) {
-      toast.error(`Couldn't select ${label}: live editing isn't connected.`)
+      toast.error(t('session.selectFailed', "Couldn't select {{label}}: live editing isn't connected.", { ns: 'editor', label }))
       return
     }
     void (ids.length === 1 ? session.selectElement(first) : session.selectGroup('box', ids, null)).catch((err: unknown) => {
@@ -3248,7 +3264,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
               placeHeightTyped.current = { forCategory: placeType?.definition.category ?? null }
               setPlaceHeightFt(value)
             },
-            onAddLevel: (name, elevationMm) => sessionRef.current?.createLevel(name, elevationMm) ?? "Live editing isn't connected.",
+            onAddLevel: (name, elevationMm) => sessionRef.current?.createLevel(name, elevationMm) ?? t('session.notConnected', "Live editing isn't connected.", { ns: 'editor' }),
             onStop: () => chooseTool('select'),
             firmLibrary: { status: firmLibrary.status, retry: () => void firmLibrary.retry() },
             onNewPart: canEdit ? () => setPartEditor({ definition: null }) : undefined,
@@ -3273,7 +3289,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
             checks: routeChecks,
             pipeTypes,
             inheritArmed,
-            onAddLevel: (name, elevationMm) => sessionRef.current?.createLevel(name, elevationMm) ?? "Live editing isn't connected.",
+            onAddLevel: (name, elevationMm) => sessionRef.current?.createLevel(name, elevationMm) ?? t('session.notConnected', "Live editing isn't connected.", { ns: 'editor' }),
             onUseArchitectLevels: canEdit ? () => setLevelRequest('architect') : undefined,
             onInherit: () => {
               setInheritArmed((on) => !on)
@@ -3730,7 +3746,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
           {blocker && (
             <ToolReadinessNotice
               blocker={blocker}
-              onCreateLevel={(name, elevationMm) => sessionRef.current?.createLevel(name, elevationMm) ?? "Live editing isn't connected, so the level can't be saved."}
+              onCreateLevel={(name, elevationMm) => sessionRef.current?.createLevel(name, elevationMm) ?? t('session.notConnectedLevel', "Live editing isn't connected, so the level can't be saved.", { ns: 'editor' })}
               onOpenAddLevel={() => setLevelRequest('add')}
               onRetry={() => live?.retry()}
               onUseArchitectLevels={() => setLevelRequest('architect')}
@@ -3825,11 +3841,11 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
                       onMove={(delta, upMm) => {
                         // null is success; only a missing session is "not connected".
                         const session = sessionRef.current
-                        return session ? session.moveGroupBy(selection.ids, delta, upMm) : "Live editing isn't connected."
+                        return session ? session.moveGroupBy(selection.ids, delta, upMm) : t('session.notConnected', "Live editing isn't connected.", { ns: 'editor' })
                       }}
                       onResize={(size, transition) => {
                         const session = sessionRef.current
-                        return session ? session.resizeGroup(selection.ids, size, transition) : "Live editing isn't connected."
+                        return session ? session.resizeGroup(selection.ids, size, transition) : t('session.notConnected', "Live editing isn't connected.", { ns: 'editor' })
                       }}
                       onDelete={() => requestGroupDelete(selection.ids)}
                     />
@@ -3925,7 +3941,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
                       model: shown,
                       projectName,
                       canEdit,
-                      blockedReason: blockedReason ?? "Asking questions needs edit access to this project's model; ask a project lead.",
+                      blockedReason,
                       submit: (command: QuestionCommand, label: string) => submitWithUndo(command, label),
                       selection: selectedIds.map(asElementId),
                       selectionLabel: questionSelectionLabel(shown, selectedIds),
@@ -3941,7 +3957,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
                     submittals={{
                       model: shown,
                       canEdit,
-                      blockedReason: blockedReason ?? "Recording submittals needs edit access to this project's model; ask a project lead.",
+                      blockedReason,
                       submit: (command: SubmittalCommand, label: string) => submitWithUndo(command, label),
                       selection: selectedIds.map(asElementId),
                       selectionLabel: questionSelectionLabel(shown, selectedIds),
@@ -3988,10 +4004,10 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
           canEdit={canEdit}
           onSave={(definition) => {
             const spot = partEditor.spot
-            if (!spot) return sessionRef.current?.savePartDefinition(definition) ?? "Live editing isn't connected."
+            if (!spot) return sessionRef.current?.savePartDefinition(definition) ?? t('session.notConnected', "Live editing isn't connected.", { ns: 'editor' })
             const command = modelInPlaceCommand(definition, spot, newId('part'))
             if (typeof command === 'string') return command
-            const refused = sessionRef.current?.submitCommand(command, command.type === 'batch_edits' ? command.label : undefined) ?? "Live editing isn't connected."
+            const refused = sessionRef.current?.submitCommand(command, command.type === 'batch_edits' ? command.label : undefined) ?? t('session.notConnected', "Live editing isn't connected.", { ns: 'editor' })
             // Placed once: later saves in this window only update the type.
             if (!refused) setPartEditor({ definition, spot: null })
             return refused

@@ -1,5 +1,6 @@
 import type { ConnectionStatus, SaveState } from '@permitzip/bim-sync'
 import type { CommandError } from '@permitzip/bim-kernel'
+import { translateProse, trProse, type MutinyLanguage } from '@permitzip/bim-ui'
 import { withValues, type Translate } from './i18n/translate'
 
 /**
@@ -53,6 +54,42 @@ const MESSAGES: Record<CommandError['code'], (t: Translate) => string> = {
 
 export function operatorMessage(code: CommandError['code'], t: Translate): string {
   return MESSAGES[code](t)
+}
+
+/**
+ * The codes whose kernel sentence is passed through as written: it names the group,
+ * the sheet, the revision or the sheet-view that the generic sentence above cannot.
+ * They are the six a person met in English before this composition existed.
+ */
+export const KERNEL_WORD_CODES: ReadonlySet<CommandError['code']> = new Set<CommandError['code']>([
+  'has_dependents',
+  'undo_refused',
+  'conflict',
+  'already_exists',
+  'in_use',
+  'locked',
+])
+
+/**
+ * What a person reads when the model refuses an edit: the kernel's own sentence when
+ * it can be said in their language, else the editor's sentence for that code.
+ *
+ * The kernel writes an English sentence, not a message key (`CommandError.message`),
+ * and it may not import i18n — it is the engine. So the sentence is translated where
+ * it is shown, by template: numbers out to `{0}`, `{1}`…, the template looked up in
+ * `locales/tr/prose.json`, the numbers put back in order (`translateProse`).
+ *
+ * When no template can key the sentence — it names something, so the runtime text and
+ * the template differ by whole words (`2 elements are in "Level 1"`) — the answer is
+ * **not** the English sentence. The person gets the translated generic sentence for
+ * that code: a Turkish sentence that says less, never an English one on a Turkish
+ * screen. English is the source and is answered with the kernel's sentence for the six
+ * codes above and the editor's own sentence for the rest, exactly as before.
+ */
+export function refusalWords(code: CommandError['code'], message: string, language: MutinyLanguage, t: Translate): string {
+  if (language !== 'tr') return KERNEL_WORD_CODES.has(code) ? message : operatorMessage(code, t)
+  const sentences = translateProse(message, language, trProse)
+  return sentences === message ? operatorMessage(code, t) : sentences
 }
 
 // The model server's wording (bim-sync NO_SUCH_MODEL) when a project you can see has no live model yet.

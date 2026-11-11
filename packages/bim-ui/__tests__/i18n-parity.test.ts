@@ -45,6 +45,42 @@ function singleBraceArtifact(value: string): string | undefined {
   return "a single-brace placeholder; i18next only interpolates `{{ }}` (docs/i18n/glossary.md §8), so it would render literally";
 }
 
+/**
+ * The one Turkish file whose `{0}` is not a mistake.
+ *
+ * `locales/tr/prose.json` is the kernel-and-pack prose map: its keys are English
+ * sentences with `{0}`, `{1}` … slots (`packages/bim-ui/src/i18n/prose.ts` explains
+ * why), and its values put those slots back. i18next never sees that file — it is
+ * read from a plain JSON map by `translateProse`, not from a namespace — so a `{0}`
+ * there is the map's own vocabulary, not an un-interpolated i18next placeholder.
+ *
+ * What *would* be a defect is the reverse: a `{{name}}` in a prose value has nobody
+ * to fill it, and a slot the key does not have would be left as a raw brace on
+ * screen. `proseSlotDefects` checks both, so exempting the file does not exempt it
+ * from being checked.
+ */
+const isProseMap = (file: string): boolean => /(^|\/)locales\/tr\/prose\.json$/u.test(file);
+
+/** Everything wrong with one prose value's braces. */
+function proseSlotDefects(entry: LocaleEntry): string[] {
+  const defects: string[] = [];
+  if (/\{\{/u.test(entry.value)) {
+    defects.push(`${entry.file} → ${entry.key}: a prose value has a {{placeholder}} nothing would fill`);
+  }
+  const keySlots = new Set([...entry.key.matchAll(/\{(\d+)\}/gu)].map((match) => match[1]));
+  for (const match of entry.value.matchAll(/\{+(\d+)\}+/gu)) {
+    if (!keySlots.has(match[1])) {
+      defects.push(`${entry.file} → ${entry.key}: the value has {${match[1]}}, which the sentence does not`);
+    }
+  }
+  // A number the sentence carried must survive into the Turkish, or the person
+  // loses it: a length, a count, a revision.
+  for (const slot of keySlots) {
+    if (!entry.value.includes(`{${slot}}`)) defects.push(`${entry.file} → ${entry.key}: the value drops {${slot}}`);
+  }
+  return defects;
+}
+
 /** `{{}}` interpolates a nameless key: never intended, and it slips past the brace rule. */
 function emptyPlaceholderArtifact(value: string): string | undefined {
   return /\{\{\s*\}\}/u.test(value) ? "an empty placeholder" : undefined;
@@ -60,6 +96,10 @@ function valueDefects(entry: LocaleEntry): string[] {
     if (pattern.test(entry.value)) {
       defects.push(`${entry.file} → ${entry.key}: ${JSON.stringify(entry.value)} contains ${description}`);
     }
+  }
+  if (isProseMap(entry.file)) {
+    defects.push(...proseSlotDefects(entry));
+    return defects;
   }
   const placeholder = singleBraceArtifact(entry.value) ?? emptyPlaceholderArtifact(entry.value);
   if (placeholder !== undefined) {
@@ -158,6 +198,16 @@ test("the guards catch the failures they exist for", () => {
     "locales/tr/test.json → language.label: the value is the key itself",
   ]);
   expect(keyAsValueDefects(at("language.label", "language.label"))).toHaveLength(1);
+
+  // The prose map is the one file where `{0}` is the vocabulary, not a defect — and
+  // it is still checked for the two brace mistakes that would reach a screen.
+  const proseAt = (key: string, value: string): LocaleEntry => ({ file: "packages/bim-ui/locales/tr/prose.json", key, value });
+  expect(flagged(proseAt("That end of {0} is connected", "Bu uç {0} üzerinde bağlı"))).toBe(false);
+  expect(flagged(proseAt("Revision {0} is old", "Revizyon {0} eski"))).toBe(false);
+  expect(flagged(proseAt("Revision {0} is old", "Revizyon {0} eski {{ns}}"))).toBe(true);
+  expect(flagged(proseAt("Revision {0} is old", "Revizyon {1} eski"))).toBe(true);
+  expect(flagged(proseAt("Revision {0} is old", "Revizyon eski"))).toBe(true);
+  expect(flagged(at("j.stillCaught", "{0} eleman"))).toBe(true); // not the prose file
   expect(keyAsValueDefects(at("language.english", "English"))).toEqual([]);
   expect(keyAsValueDefects(at("format.pdf", "PDF"))).toEqual([]);
   expect(keyAsValueDefects(at("format.ifc", "IFC"))).toEqual([]);

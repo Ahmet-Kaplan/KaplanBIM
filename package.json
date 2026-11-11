@@ -35,6 +35,7 @@
     "perf:suites": "node tools/perf/run-perf-suites.cjs",
     "proof-packs": "bash scripts/bim/check-proof-pack-commits.sh",
     "i18n:review": "node tools/i18n/review-bundle.mjs",
+    "i18n:prose:extract": "node --import tsx tools/i18n/extract-prose.mjs",
     "release:version": "node tools/release/set-version.mjs"
   },
   "devDependencies": {

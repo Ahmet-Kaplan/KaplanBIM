@@ -265,5 +265,27 @@
     "connecting": "Model sunucusuna bağlanılıyor…",
     "merge": "Bu model sunucusu henüz dalları birleştirmiyor.",
     "branches": "Bu model sunucusu henüz dal açmıyor, bu yüzden tasarım burada güncellenemez."
+  },
+  "session": {
+    "notConnectedSaved": "Canlı düzenleme bağlı değil, bu yüzden değişiklikler kaydedilemez.",
+    "notConnectedMoved": "Canlı düzenleme bağlı değil, bu yüzden hiçbir şey taşınamaz.",
+    "notConnectedResized": "Canlı düzenleme bağlı değil, bu yüzden hiçbir şeyin boyutu değiştirilemez.",
+    "notConnectedNudged": "Canlı düzenleme bağlı değil, bu yüzden hiçbir şey küçük adımlarla kaydırılamaz.",
+    "notConnectedDeleted": "Canlı düzenleme bağlı değil, bu yüzden hiçbir şey silinemez.",
+    "notConnectedUndone": "Canlı düzenleme bağlı değil, bu yüzden hiçbir şey geri alınamaz.",
+    "notConnectedSplit": "Canlı düzenleme bağlı değil, bu yüzden hiçbir şey bölünemez.",
+    "notConnectedRouted": "Canlı düzenleme bağlı değil, bu yüzden hiçbir şey güzergâhlanamaz.",
+    "notConnectedDuct": "Canlı düzenleme bağlı değil, bu yüzden kanal değiştirilemez.",
+    "notConnectedLevel": "Canlı düzenleme bağlı değil, bu yüzden kat kaydedilemez.",
+    "notConnected": "Canlı düzenleme bağlı değil.",
+    "selectFailed": "{{label}} seçilemedi: canlı düzenleme bağlı değil.",
+    "changeNotSaved": "Değişikliğiniz kaydedilmedi. {{reason}}",
+    "levelNotAdded": "1. kat eklenemedi: {{reason}}"
+  },
+  "projection": {
+    "orthographicOnly": "Planlar ve paftalar her zaman ortografiktir. Görünümü değiştirmek için 3B modeli veya bir 3B görünümü açın.",
+    "shownHereOnly": "{{view}} yalnızca burada {{projection}} gösteriliyor. {{reason}}",
+    "orthographic": "ortografik",
+    "perspective": "perspektif"
   }
 }

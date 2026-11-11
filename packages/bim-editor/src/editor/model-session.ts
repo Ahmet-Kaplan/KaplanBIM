@@ -14,7 +14,8 @@ import type { CategoryView, LoadedReference, ModelViewer3D, Pick, ReferenceItemP
 import type { EditorHostCapabilities, EditorReferencesPort } from '@permitzip/bim-editor-host'
 import { unavailableWords } from '@permitzip/bim-editor/host/unavailable'
 import type { RevitElementParameters, RevitParametersResponse, UnplacedElementsResponse, UnplacedElementView } from '../contracts/building-model/revit-parameters-contract'
-import { connectionProblem, editsPausedMessage, operatorMessage, problemForDenied, type ConnectionProblem } from './operator-messages'
+import type { MutinyLanguage } from '@permitzip/bim-ui'
+import { connectionProblem, editsPausedMessage, problemForDenied, refusalWords, type ConnectionProblem } from './operator-messages'
 import type { Translate } from './i18n/translate'
 import { ALIGN_SNAP_MM, GRID_MM, MM_PER_FT, MM_PER_IN, POINT_SNAP_MM, defaultHeightMm, describeElement, feetInches, newElementId, partLabel, snapHint, snapPoint, snapTargets, type SnapTarget } from './placement'
 import { linkedSnapNear } from './linked-reference/linked-reference-store'
@@ -636,6 +637,12 @@ export class ModelSession {
      * `{{placeholder}}` under `englishOnly` reaches the screen as braces.
      */
     private translator: Translate,
+    /**
+     * The language itself, for the kernel's own sentences: `refusalWords` translates
+     * one by template (`translateProse`) and needs to know whether to try at all.
+     * Also required, and kept beside the translator for the same reason.
+     */
+    private language: MutinyLanguage,
     /** The host's linked-model files and parameters; absent where the host serves none (the view then says so). */
     private readonly references?: EditorReferencesPort,
     /** Where the host says a missing service can be connected, for that plain message. */
@@ -648,8 +655,9 @@ export class ModelSession {
   }
 
   /** A new language was picked while the model is open: the next refusal comes out in it. */
-  setTranslator(t: Translate): void {
+  setTranslator(t: Translate, language: MutinyLanguage): void {
     this.translator = t
+    this.language = language
   }
 
   /** The language the refusals come out in. */
@@ -1601,7 +1609,7 @@ export class ModelSession {
   /** Move every movable piece of the group by `delta` (plan mm) and `dzMm` up (parts only; runs change height with Change height) in one edit. */
   moveGroupBy(ids: readonly string[], delta: Vec2, dzMm = 0): string | null {
     const view = this.view
-    if (!view) return "Live editing isn't connected, so nothing can be moved."
+    if (!view) return this.t('session.notConnectedMoved', "Live editing isn't connected, so nothing can be moved.", { ns: 'editor' })
     const paused = this.refusePaused()
     if (paused) return paused
     const move = moveCommandFor(view, ids, delta, dzMm)
@@ -1611,7 +1619,7 @@ export class ModelSession {
   /** Resize or reshape what is selected (one piece, or every routed piece of a group) in one edit, with transitions where neighbours keep their size. */
   resizeGroup(ids: readonly string[], size: RunSize, transition?: FittingChoice): string | null {
     const view = this.view
-    if (!view) return "Live editing isn't connected, so nothing can be resized."
+    if (!view) return this.t('session.notConnectedResized', "Live editing isn't connected, so nothing can be resized.", { ns: 'editor' })
     const req = resizeRequestFor(view, ids, size, newElementId('rs'), transition)
     return req.ok ? this.submit(req.command) : req.reason
   }
@@ -2022,7 +2030,7 @@ export class ModelSession {
   nudgeSelection(ids: readonly string[], key: NudgeKey, big: boolean): string {
     const view = this.view
     const kernel = this.kernel
-    if (!view || !kernel || !this.client) return "Live editing isn't connected, so nothing can be nudged."
+    if (!view || !kernel || !this.client) return this.t('session.notConnectedNudged', "Live editing isn't connected, so nothing can be nudged.", { ns: 'editor' })
     const paused = this.refusePaused()
     if (paused) return paused
     if (ids.length === 0) return 'Select something first; arrow keys nudge the selection.'
@@ -2167,7 +2175,7 @@ export class ModelSession {
     }
     const limited = limit.binding !== null
     this.client?.publishPresence({ kind: 'dragging_tap', tapId: drag.tapId, s: limit.accepted, limited, binding: limit.binding?.message ?? null })
-    return { s: limit.accepted, limited, reason: limit.binding ? (limit.binding.code === 'locked' ? limit.binding.message : operatorMessage(limit.binding.code, this.t)) : null }
+    return { s: limit.accepted, limited, reason: limit.binding ? refusalWords(limit.binding.code, limit.binding.message, this.language, this.t) : null }
   }
 
   /** Tell everyone what you're doing (e.g. editing a note, which others then can't open). Never a model edit. */
@@ -2180,15 +2188,15 @@ export class ModelSession {
     this.client?.publishPresence({ kind: 'idle' })
     if (s !== null && this.client) {
       const res = this.sendToClient(this.client, { type: 'slide_branch', tapId: drag.tapId, s })
-      if (!res.ok) this.events.onActivity(res.error.code === 'locked' ? res.error.message : operatorMessage(res.error.code, this.t))
+      if (!res.ok) this.events.onActivity(refusalWords(res.error.code, res.error.message, this.language, this.t))
     }
     this.redraw()
   }
 
   resizeRun(segmentId: string, widthMm: number, heightMm: number): string | null {
-    if (!this.client) return "Live editing isn't connected, so changes can't be saved."
+    if (!this.client) return this.t('session.notConnectedSaved', "Live editing isn't connected, so changes can't be saved.", { ns: 'editor' })
     const res = this.sendToClient(this.client, { type: 'resize_run', segmentId, profile: { shape: 'rect', width: widthMm, height: heightMm } })
-    return res.ok ? null : res.error.code === 'locked' ? res.error.message : operatorMessage(res.error.code, this.t)
+    return res.ok ? null : refusalWords(res.error.code, res.error.message, this.language, this.t)
   }
 
   canEdit(): boolean {
@@ -2198,9 +2206,9 @@ export class ModelSession {
   // ------------------------------------------------------------ parts
 
   private submit(command: Command): string | null {
-    if (!this.client) return "Live editing isn't connected, so changes can't be saved."
+    if (!this.client) return this.t('session.notConnectedSaved', "Live editing isn't connected, so changes can't be saved.", { ns: 'editor' })
     const res = this.sendToClient(this.client, command)
-    return res.ok ? null : res.error.message
+    return res.ok ? null : refusalWords(res.error.code, res.error.message, this.language, this.t)
   }
 
   /** An empty model gets its starter Level 1 once it is live and editable (the kernel makes it idempotent across people and reconnects). */
@@ -2225,14 +2233,24 @@ export class ModelSession {
     }
     if (request.command.type === 'ensure_starter_level') {
       // Not an edit of yours to undo; a lost race (another person's open made it) says nothing.
-      if (outcome.status === 'rejected' && !isStarterLevelRace(request.command, outcome.error.code)) this.events.onActivity(`Level 1 wasn't added: ${outcome.error.message}`)
+      if (outcome.status === 'rejected' && !isStarterLevelRace(request.command, outcome.error.code)) {
+        this.events.onActivity(
+          this.t('session.levelNotAdded', "Level 1 wasn't added: {{reason}}", {
+            ns: 'editor',
+            reason: refusalWords(outcome.error.code, outcome.error.message, this.language, this.t),
+          }),
+        )
+      }
       return
     }
     if (outcome.status === 'rejected') {
       const notUnderstood = this.notUnderstood.delete(request.idempotencyKey)
-      const kernelWords = outcome.error.code === 'has_dependents' || outcome.error.code === 'undo_refused' || outcome.error.code === 'conflict' || outcome.error.code === 'already_exists' || outcome.error.code === 'in_use' || outcome.error.code === 'locked'
-      const message = notUnderstood || kernelWords ? outcome.error.message : operatorMessage(outcome.error.code, this.t)
-      this.events.onActivity(notUnderstood ? message : `Your change wasn't saved. ${message}`)
+      // The kernel's sentence when it can be said in the person's language, else the
+      // editor's sentence for that code — never English on a Turkish screen.
+      const message = notUnderstood ? outcome.error.message : refusalWords(outcome.error.code, outcome.error.message, this.language, this.t)
+      this.events.onActivity(
+        notUnderstood ? message : this.t('session.changeNotSaved', "Your change wasn't saved. {{reason}}", { ns: 'editor', reason: message }),
+      )
       this.events.onRefused?.(message)
       this.emitUndoState()
       return
@@ -2295,8 +2313,9 @@ export class ModelSession {
     const res = this.sendToClient(this.client, { type: 'undo', revision: entry.revision }, undone ? touchedIds(undone.elements.map((e) => e.id), undone) : null)
     if (!res.ok) {
       this.emitUndoState()
-      this.events.onRefused?.(res.error.message)
-      return res.error.message
+      const refused = refusalWords(res.error.code, res.error.message, this.language, this.t)
+      this.events.onRefused?.(refused)
+      return refused
     }
     this.undoing.set(res.request.idempotencyKey, { direction, label: entry.label })
     this.emitUndoState()
@@ -3838,10 +3857,10 @@ export class ModelSession {
   planDelete(ids: readonly string[]): DeletePlan {
     const kernel = this.kernel
     const view = this.view
-    if (!kernel || !view) return { kind: 'refused', message: "Live editing isn't connected, so nothing can be deleted." }
+    if (!kernel || !view) return { kind: 'refused', message: this.t('session.notConnectedDeleted', "Live editing isn't connected, so nothing can be deleted.", { ns: 'editor' }) }
     const res = kernel.executeCommand(view, { type: 'delete_elements', ids: [...ids], policy: 'refuse' })
     if (res.ok) return { kind: 'clear' }
-    if (res.error.code !== 'has_dependents') return { kind: 'refused', message: res.error.message }
+    if (res.error.code !== 'has_dependents') return { kind: 'refused', message: refusalWords(res.error.code, res.error.message, this.language, this.t) }
     const dependents = res.error.elementIds
       .filter((id) => !ids.includes(id))
       .map((id) => {
@@ -3953,11 +3972,11 @@ export class ModelSession {
   submitCommand(command: Command, undoLabel?: string): string | null {
     const kernel = this.kernel
     const client = this.client
-    if (!client || !kernel) return "Live editing isn't connected, so changes can't be saved."
+    if (!client || !kernel) return this.t('session.notConnectedSaved', "Live editing isn't connected, so changes can't be saved.", { ns: 'editor' })
     const before = client.view()
     const predicted = before ? kernel.executeCommand(before, command) : null
     const res = this.sendToClient(client, command, predicted?.ok ? touchedIds(predicted.changedIds, predicted) : null)
-    if (!res.ok) return res.error.message
+    if (!res.ok) return refusalWords(res.error.code, res.error.message, this.language, this.t)
     if (before && predicted?.ok && isDocumentCommand(kernel, command) && command.type !== 'restore_document_elements') {
       const entry: DocumentUndo = { label: undoLabel ?? 'last change', seq: ++this.undoSeq, before: {}, after: {} }
       for (const id of predicted.changedIds) {
@@ -3985,7 +4004,7 @@ export class ModelSession {
     const kernel = this.kernel
     const view = this.client?.view()
     const entry = this.documentUndoStack[this.documentUndoStack.length - 1]
-    if (!kernel || !view) return { ok: false, message: "Live editing isn't connected, so nothing can be undone." }
+    if (!kernel || !view) return { ok: false, message: this.t('session.notConnectedUndone', "Live editing isn't connected, so nothing can be undone.", { ns: 'editor' }) }
     if (!entry) return { ok: false, message: 'Nothing to undo.' }
     const strip = (el: BimElement) => kernel.canonicalJson({ ...el, version: 0, authoredRev: {} })
     const items = []

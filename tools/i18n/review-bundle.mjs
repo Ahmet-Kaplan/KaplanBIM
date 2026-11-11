@@ -38,6 +38,18 @@ const NO_ENGLISH = "—";
 /** i18next's `defaultNS` in `packages/bim-ui/src/i18n/index.ts`. */
 export const DEFAULT_NAMESPACE = "common";
 
+/**
+ * The kernel-and-pack prose map and the catalogue of the sentences it keys
+ * (`packages/bim-ui/src/i18n/prose.ts`, `tools/i18n/extract-prose.mjs`).
+ *
+ * That namespace is not reached through a `t('key', 'English')` call: a sentence
+ * arrives from the kernel and is normalised to a template first, so the source scan
+ * above can never see the reference and every row would look orphaned. The
+ * catalogue is the reference, and the coverage table below is where the numbers go.
+ */
+export const PROSE_CATALOG_ID = "docs/i18n/prose-templates.json";
+export const PROSE_MAP_ID = "packages/bim-ui/locales/tr/prose.json";
+
 /** Qualifier inside a coverage id. A NUL byte cannot appear in a namespace or a key. */
 const QUALIFIER = "\u0000";
 
@@ -312,6 +324,37 @@ export function flattenLocaleFiles(files, { kind = "locale" } = {}) {
 }
 
 /**
+ * What the prose map covers, measured against the catalogue the extractor wrote.
+ *
+ * Two denominators, both reported:
+ *
+ *  - `matchable`: the templates a `{0}` slot can key at all, which is what the
+ *    translation target is stated against;
+ *  - `templates`: every sentence the kernel and the packs write, whose difference
+ *    from the first is the tail that cannot be keyed — a sentence built from a name
+ *    (`2 elements are in "Level 1"`) carries words that came from an interpolation,
+ *    so no template can match it.
+ */
+export function proseReport(catalog, map) {
+  if (catalog === undefined || !Array.isArray(catalog.templates)) return undefined;
+  const translated = (rows) => rows.filter((row) => Object.hasOwn(map, row.template));
+  const matchable = catalog.templates.filter((row) => row.matchable === true);
+  const refusals = catalog.templates.filter((row) => Array.isArray(row.codes) && row.codes.length > 0);
+  return {
+    templates: catalog.templates.length,
+    templatesTranslated: translated(catalog.templates).length,
+    matchable: matchable.length,
+    matchableTranslated: translated(matchable).length,
+    refusals: refusals.length,
+    refusalsTranslated: translated(refusals).length,
+    unmatchable: catalog.templates.length - matchable.length,
+    // Listed, so a sentence that arrives without a translation is visible in the
+    // review rather than merely counted.
+    untranslatedMatchable: matchable.filter((row) => !Object.hasOwn(map, row.template)).map((row) => row.template).sort(compare),
+  };
+}
+
+/**
  * The bundle as data: what is translated, what is missing, what looks orphaned,
  * and the counts that say so. `renderBundle` turns it into Markdown; keeping the
  * two apart is what makes "same input, same output" a property that can be
@@ -323,15 +366,22 @@ export function flattenLocaleFiles(files, { kind = "locale" } = {}) {
  * @param {Iterable<string>} [input.sourceKeys] every `t(...)` coverage id, including those with no English default
  * @param {readonly {id: string, error: string}[]} [input.sourceErrors] source files the scan could not read
  * @param {number} [input.uncertainNamespaces] calls whose namespace could not be read statically
+ * @param {Iterable<string>} [input.proseKeys] templates the prose map translates: references the source scan cannot see
+ * @param {object} [input.prose] `proseReport(...)`: the prose coverage table
  * @param {string} input.date `YYYY-MM-DD`; the CLI's clock is the only place today's date is read
  * @param {number} [input.stage]
  */
-export function collectBundle({ files = [], sourceStrings = {}, sourceKeys, sourceErrors = [], uncertainNamespaces = 0, date, stage = 1 }) {
+export function collectBundle({ files = [], sourceStrings = {}, sourceKeys, sourceErrors = [], uncertainNamespaces = 0, proseKeys, prose, date, stage = 1 }) {
   if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error(`date must be YYYY-MM-DD, got ${String(date)}`);
   if (!Number.isInteger(stage) || stage < 1) throw new Error(`stage must be a positive integer, got ${String(stage)}`);
 
   const { entries, nonStrings, unreadable } = flattenLocaleFiles(files);
   const referenced = new Set([...Object.keys(sourceStrings), ...(sourceKeys ?? [])]);
+  // The prose templates are referenced by the catalogue, not by a call the scan can
+  // see; marking them here keeps the review from calling 241 translated sentences
+  // orphaned. They are deliberately *not* added to `referenced`: that set also drives
+  // the missing list, and only the matchable tail can be translated at all.
+  const proseReferences = new Set(proseKeys ?? []);
   const knownEnglish = (namespace, key) => (Object.hasOwn(sourceStrings, qualify(namespace, key)) ? sourceStrings[qualify(namespace, key)] : undefined);
 
   // Group by namespace, then by key: two packages that both ship `common.json`
@@ -364,7 +414,7 @@ export function collectBundle({ files = [], sourceStrings = {}, sourceKeys, sour
           const english = knownEnglish(group.namespace, row.key);
           // A key no `t(...)` call mentions may be dead, or reached through a map
           // the scan cannot see. Say so; never drop the row.
-          const orphaned = !referenced.has(id);
+          const orphaned = !referenced.has(id) && !(group.namespace === "prose" && proseReferences.has(row.key));
           // No Turkish text is not a translation: the key stays a gap, and the
           // coverage table counts it as one.
           const hasText = values.some((value) => value.trim() !== "");
@@ -400,6 +450,7 @@ export function collectBundle({ files = [], sourceStrings = {}, sourceKeys, sour
     stage,
     counts,
     uncertainNamespaces,
+    prose,
     sections,
     missing,
     nonStrings,
@@ -430,7 +481,7 @@ function turkishCell({ values, orphaned, empty }) {
 }
 
 /** The bundle model as the Markdown file a person reads. */
-export function renderBundle({ date, stage, counts, uncertainNamespaces = 0, sections, missing, nonStrings, unreadable }) {
+export function renderBundle({ date, stage, counts, uncertainNamespaces = 0, prose, sections, missing, nonStrings, unreadable }) {
   const lines = [`# i18n İnceleme Paketi — Aşama ${stage}`, ""];
   lines.push(`- **Tarih / Date:** ${date}`, `- **Aşama / Stage:** ${stage}`, "");
 
@@ -449,6 +500,26 @@ export function renderBundle({ date, stage, counts, uncertainNamespaces = 0, sec
   lines.push(`| Dize olmayan yaprak | ${nonStrings.length} |`);
   lines.push(`| Ad alanı okunamayan çağrı (varsayılan \`${DEFAULT_NAMESPACE}\`) | ${uncertainNamespaces} |`);
   lines.push("");
+  if (prose !== undefined) {
+    const percent = (part, whole) => (whole === 0 ? "0.0" : ((part / whole) * 100).toFixed(1));
+    lines.push("## Kernel ve paket cümleleri (`prose`)", "");
+    lines.push("Kernel ve ticaret paketleri İngilizce cümle yazar (`CommandError.message`); kernel i18n'e bağlanamadığı için çeviri cümlenin **gösterildiği yerde** yapılır: cümle `{0}`, `{1}` yuvalarına normalize edilir, şablon `packages/bim-ui/locales/tr/prose.json`'da aranır, yuvalar sırayla doldurulur. Şablon yoksa cümle İngilizce kalır — asla anahtar/şablon gösterilmez.", "");
+    lines.push("| Ölçü | Çevrildi | Toplam | Oran |", "|------|----------|--------|------|");
+    lines.push(`| Eşlenebilir şablon (**hedef ≥ %80**) | ${prose.matchableTranslated} | ${prose.matchable} | ${percent(prose.matchableTranslated, prose.matchable)}% |`);
+    lines.push(`| Reddetme cümlesi | ${prose.refusalsTranslated} | ${prose.refusals} | ${percent(prose.refusalsTranslated, prose.refusals)}% |`);
+    lines.push(`| Tüm katalog | ${prose.templatesTranslated} | ${prose.templates} | ${percent(prose.templatesTranslated, prose.templates)}% |`);
+    lines.push(`| — Şablon eşlenemez (ad/çoğul interpolasyonu) | — | ${prose.unmatchable} | — |`);
+    lines.push("");
+    lines.push(`**Şablon eşlenemez** demek: cümle bir ad ya da çoğul taşıyor (\`2 elements are in "Level 1"\`, \`\${n === 1 ? "is" : "are"}\`), yani çalışma anındaki metin kaynak şablondan **kelime kelime** ayrılıyor ve hiçbir \`{n}\` yuvası onun yerini tutamaz. Bu kuyruk bilerek İngilizce kalır; kapanması için kernel'in cümle yerine **hata kodu** taşıması gerekir. Sayı burada, sessizce düşürülmüyor.`, "");
+    if (prose.untranslatedMatchable.length === 0) {
+      lines.push("Eşlenebilir her şablonun Türkçesi var.", "");
+    } else {
+      lines.push("### Eşlenebilir ama çevrilmemiş", "", ...TABLE_HEAD);
+      for (const template of prose.untranslatedMatchable) lines.push(row(template, template, MISSING_MARKER));
+      lines.push("");
+    }
+  }
+
   lines.push(`Anahtarlar ad alanına göre eşleştirilir: \`${DEFAULT_NAMESPACE}.actions.save\` dolu olsa da \`editor.actions.save\` eksikse aşağıda eksik görünür.`, "");
   // Stated, not left to be inferred: a row merged across two files is only a
   // `boş değer` when *no* file has text for it, otherwise the row is a value
@@ -503,6 +574,20 @@ export function buildBundle(input) {
 // ---------------------------------------------------------------------------
 // CLI
 // ---------------------------------------------------------------------------
+
+/** A JSON file the report needs, or `undefined` when it is not there yet. */
+function readJsonOrUndefined(full) {
+  try {
+    return JSON.parse(fs.readFileSync(full, "utf8"));
+  } catch {
+    return undefined;
+  }
+}
+
+/** A JSON file the report treats as a map: an absent one is an empty one. */
+function readJsonOrEmpty(full) {
+  return readJsonOrUndefined(full) ?? {};
+}
 
 const USAGE = `usage: node tools/i18n/review-bundle.mjs [--stage N] [--date YYYY-MM-DD] [--out PATH]
 
@@ -569,12 +654,16 @@ export function main(argv = process.argv.slice(2), root = REPO_ROOT) {
   const stage = options.stage ?? 1;
   const scan = readSourceFiles(root);
   const source = collectSourceStrings(scan.files);
+  const proseMap = readJsonOrEmpty(path.join(root, PROSE_MAP_ID));
+  const prose = proseReport(readJsonOrUndefined(path.join(root, PROSE_CATALOG_ID)), proseMap);
   const model = collectBundle({
     files: readTrLocaleFiles(root),
     sourceStrings: source.defaults,
     sourceKeys: source.keys,
     sourceErrors: scan.unreadable,
     uncertainNamespaces: source.uncertain,
+    proseKeys: Object.keys(proseMap),
+    prose,
     date,
     stage,
   });

@@ -14,11 +14,12 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { readSourceFiles } from "../locale-files.mjs";
-import { buildBundle, collectBundle, collectSourceStrings, DEFAULT_NAMESPACE, extractSource, qualify } from "../review-bundle.mjs";
+import { buildBundle, collectBundle, collectSourceStrings, DEFAULT_NAMESPACE, extractSource, proseReport, qualify } from "../review-bundle.mjs";
 
 const SCRIPT = resolve(__dirname, "../review-bundle.mjs");
 const TR_COMMON = "packages/bim-ui/locales/tr/common.json";
 const TR_EDITOR = "packages/bim-editor/locales/tr/editor.json";
+const PROSE_MAP = "packages/bim-ui/locales/tr/prose.json";
 
 /** A locale file as the shared reader reports it: parsed, or with the reason it is not. */
 const localeFile = (id, json, parseError) => (parseError === undefined ? { id, json } : { id, json: undefined, parseError });
@@ -216,6 +217,57 @@ describe("buildBundle", () => {
     expect(model.counts.empty).toBe(0);
     expect(markdown).toContain("| `language.label` | Language | Etiket · (boş) ⚠️ çakışan değer |");
     expect(markdown).toContain("en az bir dosyada metin varsa çevrilmiş sayılır");
+  });
+});
+
+describe("the prose coverage table", () => {
+  const catalog = {
+    templates: [
+      { template: "Revision {0} is not in the recent history, so it can't be undone here", codes: ["undo_refused"], matchable: true },
+      { template: "That end is already connected", codes: ["already_exists"], matchable: true },
+      { template: "That end of {0} is already connected", codes: ["already_exists"], matchable: false },
+    ],
+  };
+
+  it("counts what the map covers against what the mechanism can match, and the tail", () => {
+    const report = proseReport(catalog, { "That end is already connected": "Bu uç zaten bağlı" });
+    expect(report).toEqual({
+      templates: 3,
+      templatesTranslated: 1,
+      matchable: 2,
+      matchableTranslated: 1,
+      refusals: 3,
+      refusalsTranslated: 1,
+      unmatchable: 1,
+      untranslatedMatchable: ["Revision {0} is not in the recent history, so it can't be undone here"],
+    });
+  });
+
+  it("renders the denominators it counted, and never as a bare percentage", () => {
+    const markdown = buildBundle({
+      files: [localeFile(PROSE_MAP, { "That end is already connected": "Bu uç zaten bağlı" })],
+      proseKeys: ["That end is already connected"],
+      prose: proseReport(catalog, { "That end is already connected": "Bu uç zaten bağlı" }),
+      date: "2026-11-10",
+      stage: 3,
+    });
+    expect(markdown).toContain("| Eşlenebilir şablon (**hedef ≥ %80**) | 1 | 2 | 50.0% |");
+    expect(markdown).toContain("| Tüm katalog | 1 | 3 | 33.3% |");
+    expect(markdown).toContain("| — Şablon eşlenemez (ad/çoğul interpolasyonu) | — | 1 | — |");
+    // The sentence nobody translated is listed, not merely subtracted.
+    expect(markdown).toContain("Revision {0} is not in the recent history");
+  });
+
+  it("does not call a prose template orphaned, because the catalogue is its reference", () => {
+    const model = collectBundle({
+      files: [localeFile(PROSE_MAP, { "That end is already connected": "Bu uç zaten bağlı" })],
+      proseKeys: ["That end is already connected"],
+      date: "2026-11-10",
+      stage: 3,
+    });
+    expect(model.counts.orphaned).toBe(0);
+    // And it stays out of the missing list: only the matchable tail can be translated.
+    expect(model.counts.missing).toBe(0);
   });
 });
 
