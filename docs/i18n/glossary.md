@@ -170,6 +170,11 @@ Barındırılan uygulamanın (`apps/mutinybim-web`) ekranlarında geçen, model 
 | Approval outcome | **onay sonucu** | "Geri çevirdiniz", "Onaylandı" — ne olduğunu söyleyen tek satır |
 | Metadata (document) | **üst veri** | asistanın `client_id` adresindeki üst veri belgesi |
 | Public client (no secret) | **ortak istemci** | "istemci sırrı olmayan ortak istemci" |
+| Provider (the person's own AI provider) | **sağlayıcı** | "sağlayıcınız"; sağlayıcı adları (**Anthropic**, **OpenAI**, **xAI**) çevrilmez |
+| AI key / API key | **yapay zekâ anahtarı** / **API anahtarı** | sağlayıcının anahtarı; §2.5 *Agent key* = **ajan anahtarı** (MCP asistanınınki) — ikisi karışmaz |
+| Rate limit / spending limit (a provider's) | **istek sınırı** / **harcama sınırı** | sağlayıcının koyduğu sınır; §2.5 satırındaki *deneme sınırı* sunucunun bir adresten kabul ettiği denemedir, bu değil |
+| Browser | **tarayıcı** | "yalnızca bu tarayıcıda" |
+| Ask AI (the bar's button and its panel) | **Yapay zekâya sor** | düğme, panel başlığı ve `{{aria}}` adı **aynı** sözcük; `settings.askAi` ile tek söylem |
 
 ### 2.6 Mekanik ekipman
 

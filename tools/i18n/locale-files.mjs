@@ -22,7 +22,15 @@ const LOCALE_CONTAINERS = ["packages", "apps"];
 
 /** Files that may hold a `t(...)` call. */
 const SOURCE_EXTENSIONS = [".ts", ".tsx"];
-const SOURCE_DIRECTORY = "src";
+/**
+ * The directories inside a package or app that may hold a `t(...)` call.
+ *
+ * `src` is the server-rendered half; `client` is the browser half an app bundles
+ * separately (`apps/mutinybim-web/client`). Reading only `src` reported every key
+ * the browser draw as "kaynakta bulunamadı" — an orphan nobody could act on — and
+ * let its English defaults escape the parity guard that reads this same walk.
+ */
+const SOURCE_DIRECTORIES = ["src", "client"];
 
 /** One translated-namespace file: repo-relative id, and either its JSON or why not. */
 export function readTrLocaleFiles(root = REPO_ROOT) {
@@ -60,8 +68,9 @@ export function readTrLocaleFiles(root = REPO_ROOT) {
 }
 
 /**
- * Every source file under `packages/<pkg>/src` and `apps/<app>/src`, id sorted,
- * so the caller can scan for `t(...)` calls without knowing the layout.
+ * Every source file under `packages/<pkg>/src`, `apps/<app>/src` and an app's
+ * `client` directory, id sorted, so the caller can scan for `t(...)` calls without
+ * knowing the layout.
  *
  * A file or a directory that cannot be read is returned in `unreadable` rather
  * than thrown: one unreadable file must not cost the reviewer the whole report,
@@ -100,8 +109,10 @@ export function readSourceFiles(root = REPO_ROOT, { readFile = (full) => fs.read
     if (!fs.existsSync(containerPath)) continue;
     for (const entry of fs.readdirSync(containerPath, { withFileTypes: true })) {
       if (!entry.isDirectory()) continue;
-      const directory = path.join(containerPath, entry.name, SOURCE_DIRECTORY);
-      if (fs.existsSync(directory)) walk(directory);
+      for (const name of SOURCE_DIRECTORIES) {
+        const directory = path.join(containerPath, entry.name, name);
+        if (fs.existsSync(directory)) walk(directory);
+      }
     }
   }
   return { files: files.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)), unreadable };

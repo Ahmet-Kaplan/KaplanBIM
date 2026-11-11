@@ -16,6 +16,7 @@ import { BuildingModelSurface, type BuildingModelView } from '@permitzip/bim-edi
 import { mutinyToShadcnVars } from '../../../packages/bim-editor/demo/theme'
 import { EditorLanguageProvider, editorPageLanguage } from './editor-language'
 import { HostedBar } from './hosted-bar'
+import { pageLanguage, pageTranslator } from './web-i18n'
 
 interface PageData {
   readonly modelId: string
@@ -70,12 +71,23 @@ const localHost = createLocalEditorHost({
   userId: data.userId,
   displayName: data.displayName,
   token: 'session',
-  connectHint: 'Connect your own AI assistant to this model: Connect an assistant, in the bar above.',
 })
 const host = {
   ...localHost,
   shell: createLocalShellHost({ connectAgentHref: '/connect' }),
-  capabilities: { ...localHost.capabilities, hostName: 'MutinyBIM' },
+  capabilities: {
+    ...localHost.capabilities,
+    hostName: 'MutinyBIM',
+    // A getter, not a string: the page's language can be switched without this host —
+    // and the editor's session effects — being rebuilt (they depend on the host's
+    // identity), and `<html lang>` is what `<I18nProvider>` keeps in step with the
+    // screen. So the hint is translated when somebody reads it, in the language on
+    // screen then.
+    get connectHint() {
+      const t = pageTranslator(pageLanguage())
+      return t('host.connectHint', 'Connect your own AI assistant to this model: Connect an assistant, in the bar above.', { ns: 'web' })
+    },
+  },
 }
 
 /** The theme choice is kept in the account, so the model list and the editor agree. */
@@ -100,8 +112,9 @@ function Overlays({ children }: { children: ReactNode }) {
  * The page opens in the language the server answered in; a change made in the
  * editor re-renders the whole tree in the new one and is saved in the account, so
  * the next page (and the next browser) follows the person — the same shape the
- * theme's `colorSchemeAdapter` has. Nothing here is translated yet beyond the
- * editor's own words: the bar and its buttons are Stage 2's English.
+ * theme's `colorSchemeAdapter` has. The bar, its Ask AI panel and the messages
+ * behind them read their words from this provider (the app's own `web`
+ * namespace), so the chrome above the editor is in the same language as the editor.
  */
 function HostedEditorPage() {
   const [language, setLanguage] = useState<MutinyLanguage>(data.language)

@@ -20,6 +20,9 @@ import { describe, unkeyedTwins, visibleEnglish } from "./helpers/editor-visible
 
 const EDITOR_SRC = path.join(__dirname, "..", "src", "editor");
 
+/** `<repo>`: this file is `<repo>/packages/bim-editor/__tests__/i18n-negative-space.test.ts`. */
+const REPO_ROOT = path.join(__dirname, "..", "..", "..");
+
 /**
  * The trees this guard owns, one list per stage-4 group so a failure names the
  * group that regressed. A directory joins this list when its task is done; it is
@@ -64,6 +67,23 @@ export const NOT_YET_GUARDED = ["electrical", "plumbing", "spaces", "questions",
 
 const OWNED = OWNED_DIRS.map((dir) => path.join(EDITOR_SRC, dir));
 
+/**
+ * `apps/<app>/client`: the browser code a host app ships beside the editor.
+ *
+ * The negative-space guard stopped at `packages/bim-editor/src`, so the hosted
+ * app's own bar, its Ask-AI panel and the messages behind them were read by
+ * nothing: the editor page rendered a Turkish editor under an English bar
+ * (`Ask AI`, `View only`, `← My models`, `Connect an assistant`) while every
+ * guard stayed green, because none of them looked outside `packages/`. Found by
+ * discovery, not by a list, so a second app's client code is guarded on the day
+ * it appears.
+ */
+const APP_CLIENT_DIRS = fs
+  .readdirSync(path.join(REPO_ROOT, "apps"), { withFileTypes: true })
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => path.join(REPO_ROOT, "apps", entry.name, "client"))
+  .filter((dir) => fs.existsSync(dir));
+
 test("no user-visible English in the stage-4 trees sits outside a translator", () => {
   const found = visibleEnglish(OWNED);
   // Printed, not counted: the point of this guard is that the work is enumerable.
@@ -73,6 +93,11 @@ test("no user-visible English in the stage-4 trees sits outside a translator", (
 test("no keyed sentence has an unkeyed twin in these trees", () => {
   // The same English in two places, one of them raw, is a revert nobody had to write.
   expect(unkeyedTwins(OWNED).map(describe)).toEqual([]);
+});
+
+test("no user-visible English in an app's browser code sits outside a translator", () => {
+  // A path relative to the repository, so a failure reads `apps/mutinybim-web/client/hosted-bar.tsx:150`.
+  expect(visibleEnglish(APP_CLIENT_DIRS, REPO_ROOT).map(describe)).toEqual([]);
 });
 
 // ---------------------------------------------------------------------------

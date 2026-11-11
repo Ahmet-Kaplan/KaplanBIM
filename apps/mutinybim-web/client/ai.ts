@@ -2,7 +2,14 @@
  * Bring-your-own AI, entirely in the browser. The person's provider key is
  * kept in this browser's storage and sent only to their provider, never to
  * the MutinyBIM server. This app has no AI account and pays for no model use.
+ *
+ * Every message a person can read is translated: this module is not a component,
+ * so the translator arrives as a parameter from the tree that shows the words
+ * (`./hosted-bar` takes it from `useT('web')`, `./settings` from `./web-i18n`),
+ * and the namespace is written at each call site because `npm run i18n:review`
+ * binds a call to its namespace by the literal in the call.
  */
+import type { TFunction } from "i18next";
 
 export type AiProvider = "anthropic" | "openai" | "xai" | "compatible";
 
@@ -23,11 +30,10 @@ export const DEFAULT_MODELS: Readonly<Record<AiProvider, string>> = {
   compatible: "",
 };
 
-const PROVIDER_NAMES: Readonly<Record<AiProvider, string>> = {
+const PROVIDER_NAMES: Readonly<Record<Exclude<AiProvider, "compatible">, string>> = {
   anthropic: "Anthropic",
   openai: "OpenAI",
   xai: "xAI",
-  compatible: "your provider",
 };
 
 function isProvider(value: unknown): value is AiProvider {
@@ -63,27 +69,39 @@ export function forgetAiSettings(): void {
   window.localStorage.removeItem(STORAGE_KEY);
 }
 
-export function providerName(settings: AiSettings): string {
+export function providerName(settings: AiSettings, t: TFunction): string {
+  if (settings.provider === "compatible") return t("ai.provider.yourOwn", "your provider", { ns: "web" });
   return PROVIDER_NAMES[settings.provider];
 }
 
 /** A failure the page can show as is. */
 export class AiError extends Error {}
 
-function baseUrlOf(settings: AiSettings): string {
+function baseUrlOf(settings: AiSettings, t: TFunction): string {
   if (settings.provider === "openai") return "https://api.openai.com/v1";
   if (settings.provider === "xai") return "https://api.x.ai/v1";
   const base = settings.baseUrl.trim().replace(/\/$/, "");
-  if (!/^https:\/\//.test(base)) throw new AiError("Enter your provider's address (it starts with https:// and usually ends in /v1) in Settings → Your AI.");
+  if (!/^https:\/\//.test(base)) {
+    throw new AiError(t("ai.error.address", "Enter your provider's address (it starts with https:// and usually ends in /v1) in Settings → Your AI.", { ns: "web" }));
+  }
   return base;
 }
 
-function statusWords(status: number, name: string): string {
-  if (status === 401 || status === 403) return `${name} refused the key. Check it in Settings → Your AI (it may be mistyped, revoked or out of credit).`;
-  if (status === 404) return `${name} doesn't know that model name. Clear the Model box in Settings → Your AI to use the usual one.`;
-  if (status === 429) return `${name} says you've hit your rate limit or spending limit. Wait a minute or check your ${name} account.`;
-  if (status >= 500) return `${name} had a problem answering. Try again in a minute.`;
-  return `${name} answered with an error (${status}).`;
+function statusWords(status: number, name: string, t: TFunction): string {
+  if (status === 401 || status === 403) {
+    return t("ai.error.refusedKey", "{{provider}} refused the key. Check it in Settings → Your AI (it may be mistyped, revoked or out of credit).", {
+      ns: "web",
+      provider: name,
+    });
+  }
+  if (status === 404) {
+    return t("ai.error.unknownModel", "{{provider}} doesn't know that model name. Clear the Model box in Settings → Your AI to use the usual one.", { ns: "web", provider: name });
+  }
+  if (status === 429) {
+    return t("ai.error.limit", "{{provider}} says you've hit your rate limit or spending limit. Wait a minute or check your {{provider}} account.", { ns: "web", provider: name });
+  }
+  if (status >= 500) return t("ai.error.serverProblem", "{{provider}} had a problem answering. Try again in a minute.", { ns: "web", provider: name });
+  return t("ai.error.statusAnswered", "{{provider}} answered with an error ({{status}}).", { ns: "web", provider: name, status });
 }
 
 export interface AskInput {
@@ -93,10 +111,10 @@ export interface AskInput {
 }
 
 /** One question, one answer, straight from the browser to the person's provider. */
-export async function ask(settings: AiSettings, input: AskInput): Promise<string> {
-  const name = providerName(settings);
+export async function ask(settings: AiSettings, input: AskInput, t: TFunction): Promise<string> {
+  const name = providerName(settings, t);
   const model = settings.model.trim() || DEFAULT_MODELS[settings.provider];
-  if (!model) throw new AiError("Enter the model name for your provider in Settings → Your AI.");
+  if (!model) throw new AiError(t("ai.error.modelName", "Enter the model name for your provider in Settings → Your AI.", { ns: "web" }));
   let response: Response;
   try {
     if (settings.provider === "anthropic") {
@@ -113,7 +131,7 @@ export async function ask(settings: AiSettings, input: AskInput): Promise<string
         body: JSON.stringify({ model, max_tokens: 1024, system: input.system, messages: [{ role: "user", content: input.question }] }),
       });
     } else {
-      response = await fetch(`${baseUrlOf(settings)}/chat/completions`, {
+      response = await fetch(`${baseUrlOf(settings, t)}/chat/completions`, {
         method: "POST",
         signal: input.signal,
         headers: { "content-type": "application/json", authorization: `Bearer ${settings.key}` },
@@ -124,15 +142,23 @@ export async function ask(settings: AiSettings, input: AskInput): Promise<string
     if (err instanceof DOMException && err.name === "AbortError") throw err;
     if (err instanceof AiError) throw err;
     console.error("[mutinybim-web ai] the request to the provider didn't go through", err);
-    throw new AiError(`Couldn't reach ${name} from this browser. Check your connection. If it keeps failing, ${name} may not accept requests from web pages; connect your assistant app instead (Connect an assistant).`);
+    throw new AiError(
+      t(
+        "ai.error.unreachable",
+        "Couldn't reach {{provider}} from this browser. Check your connection. If it keeps failing, {{provider}} may not accept requests from web pages; connect your assistant app instead (Connect an assistant).",
+        { ns: "web", provider: name },
+      ),
+    );
   }
   if (!response.ok) {
     console.error("[mutinybim-web ai] the provider refused the request", { provider: settings.provider, status: response.status });
-    throw new AiError(statusWords(response.status, name));
+    throw new AiError(statusWords(response.status, name, t));
   }
   const body: unknown = await response.json();
   const text = answerText(body);
-  if (text === null) throw new AiError(`${name} answered, but with nothing this page can show.`);
+  if (text === null) {
+    throw new AiError(t("ai.error.nothingToShow", "{{provider}} answered, but with nothing this page can show.", { ns: "web", provider: name }));
+  }
   return text;
 }
 

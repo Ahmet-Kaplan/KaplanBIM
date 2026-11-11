@@ -452,6 +452,10 @@ export function visibleEnglish(roots: readonly string[], root = path.join(__dirn
       const speaking = callSpans(source, SPEAKING_CALLS);
       const undoing = callSpans(source, UNDO_CALLS);
       const id = path.relative(root, file).split(path.sep).join("/");
+      // JSX exists only in a `.tsx` file. Reading `<title>` and tag children in a `.ts`
+      // file invented a caption out of a generic call: `field<HTMLInputElement>("model")`
+      // put `("model").value.trim(), baseUrl: field` between a `>` and the next `<`.
+      const isJsx = file.endsWith(".tsx");
 
       const add = (at: number, text: string, kind: VisibleEnglish["kind"]): void => {
         const trimmed = text.replace(/\s+/gu, " ").trim();
@@ -464,7 +468,7 @@ export function visibleEnglish(roots: readonly string[], root = path.join(__dirn
       // `<title>…</title>`: a hover tooltip a person reads. Its words sit in the text
       // *or* in a template literal inside an expression (`{`Snaps to the ${x}`}`), so
       // both are read — and a title whose words come from `t(…)` contributes nothing.
-      for (const match of source.matchAll(/<title>([\s\S]*?)<\/title>/gu)) {
+      for (const match of isJsx ? source.matchAll(/<title>([\s\S]*?)<\/title>/gu) : []) {
         const body = match[1] ?? "";
         const at = (match.index ?? 0) + "<title>".length;
         for (const literal of literalsBetween(body, 0, body.length)) add(at + literal.at, literal.text, "title");
@@ -475,7 +479,7 @@ export function visibleEnglish(roots: readonly string[], root = path.join(__dirn
       // tag, split at each `{…}` so an interpolating child is read rather than
       // skipped. The tag's end is found by walking its attributes brace- and
       // quote-aware: a regex cannot, because `=>` inside an attribute is a `>`.
-      for (const [tagStart, tagEnd] of jsxTags(source)) {
+      for (const [tagStart, tagEnd] of isJsx ? jsxTags(source) : []) {
         const to = source.indexOf("<", tagEnd + 1);
         if (to === -1) continue;
         const body = source.slice(tagEnd + 1, to);

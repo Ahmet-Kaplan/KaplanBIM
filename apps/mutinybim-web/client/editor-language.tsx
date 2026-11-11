@@ -14,6 +14,7 @@ import type { ReactNode } from "react";
 import { I18nProvider, isMutinyLanguage, mergeResources, type MutinyLanguage } from "@permitzip/bim-ui";
 import { editorResources } from "@permitzip/bim-editor/editor/i18n/resources";
 import { schedulesResources } from "@permitzip/bim-schedules-ui";
+import { webResources } from "./web-i18n";
 
 /**
  * The language the editor page opens in: what the server put in the page data,
@@ -28,11 +29,13 @@ export function editorPageLanguage(value: unknown): MutinyLanguage {
  * The language provider the hosted editor gives the editor.
  *
  * `language` is the page's language and stays the host's to own (the change
- * handler below updates it); the Turkish arrives as two namespaces — the
- * editor's `editorResources` and the schedule surfaces' `schedulesResources` —
- * merged into the one object the provider takes. Passing only the editor's is
- * how 360 schedule strings once fell back to English in the hosted app while
- * their tests passed: the package's own test wraps the surfaces itself.
+ * handler below updates it); the Turkish arrives as three namespaces — the
+ * editor's `editorResources`, the schedule surfaces' `schedulesResources` and this
+ * app's own `webResources` — merged into the one object the provider takes. Passing
+ * only the editor's is how 360 schedule strings once fell back to English in the
+ * hosted app while their tests passed: the package's own test wraps the surfaces
+ * itself. The same hole kept the app's own bar English under a Turkish editor, so
+ * the app's namespace is merged here, beside the packages'.
  */
 export function EditorLanguageProvider({
   language,
@@ -44,7 +47,7 @@ export function EditorLanguageProvider({
   readonly children: ReactNode;
 }) {
   return (
-    <I18nProvider language={language} onLanguageChange={onLanguageChange} resources={mergeResources(editorResources, schedulesResources)}>
+    <I18nProvider language={language} onLanguageChange={onLanguageChange} resources={mergeResources(editorResources, schedulesResources, webResources)}>
       {children}
     </I18nProvider>
   );

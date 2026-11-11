@@ -17,7 +17,56 @@
     "rename": "Yeniden adlandır",
     "save": "Kaydet",
     "share": "Paylaş",
-    "viewOnly": "Yalnızca görüntüle"
+    "viewOnly": "Yalnızca görüntüleme"
+  },
+  "ai": {
+    "provider": {
+      "yourOwn": "sağlayıcınız"
+    },
+    "error": {
+      "address": "Sağlayıcınızın adresini Ayarlar → Yapay zekânız bölümüne girin (https:// ile başlar ve genellikle /v1 ile biter).",
+      "refusedKey": "{{provider}} anahtarı kabul etmedi. Ayarlar → Yapay zekânız bölümünde kontrol edin (yanlış yazılmış, iptal edilmiş ya da bakiyesi bitmiş olabilir).",
+      "unknownModel": "{{provider}} bu model adını tanımıyor. Olağan modeli kullanmak için Ayarlar → Yapay zekânız bölümündeki Model kutusunu boşaltın.",
+      "limit": "{{provider}} istek ya da harcama sınırına ulaştığınızı söylüyor. Bir dakika bekleyin ya da {{provider}} hesabınızı kontrol edin.",
+      "serverProblem": "{{provider}} yanıt verirken bir sorun yaşadı. Bir dakika sonra tekrar deneyin.",
+      "statusAnswered": "{{provider}} bir hatayla yanıt verdi ({{status}}).",
+      "modelName": "Ayarlar → Yapay zekânız bölümüne sağlayıcınızın model adını girin.",
+      "unreachable": "Bu tarayıcıdan {{provider}} adresine ulaşılamadı. Bağlantınızı kontrol edin. Sürerse {{provider}} web sayfalarından gelen istekleri kabul etmiyor olabilir; bunun yerine asistan uygulamanızı bağlayın (Asistan bağla).",
+      "nothingToShow": "{{provider}} yanıt verdi ama bu sayfanın gösterebileceği bir şey yok.",
+      "signedOut": "Oturumunuz kapalı. Yeniden giriş yapın, sonra sorun.",
+      "summary": "Model özeti sunucudan okunamadı. Tekrar deneyin."
+    },
+    "prompt": {
+      "none": "yok",
+      "system": "MutinyBIM'de çalışan birine yardım ediyorsunuz; MutinyBIM her disiplin için tarayıcıda açılan bir yapı modelidir. \"{{model}}\" modeli {{revision}}. revizyonda; {{elements}} eleman ({{kinds}}), {{levels}} kat ve {{connections}} bağlantı var. Yalnızca bu özeti görürsünüz, çizimi göremezsiniz. Sade ve kısa yanıtlayın. Asistanın modeli değiştirebilmesi için \"Asistan bağla\" ile bağlanır."
+    }
+  },
+  "askAi": {
+    "title": "Yapay zekâya sor",
+    "close": "Kapat",
+    "closeLabel": "Yapay zekâ panelini kapat",
+    "noKey": "Bu tarayıcıda henüz yapay zekâ anahtarı yok. Bu uygulama hiçbir yapay zekâ için ödeme yapmaz: kendi Claude, ChatGPT veya Grok anahtarınızı şurada ekleyin:",
+    "settingsYourAi": "Ayarlar → Yapay zekânız",
+    "staysInBrowser": "(bu tarayıcıda kalır) ya da",
+    "connectYourAssistant": "asistan uygulamanızı bağlayın",
+    "usesKey": "{{provider}} anahtarınızı kullanır; bu tarayıcıdan doğrudan {{provider}} adresine gider. Bu modelin yalnızca özetini görür, çizimi görmez.",
+    "questionPlaceholder": "Kanal ölçülerini vermeden önce neyi kontrol etmeliyim?",
+    "questionLabel": "Sorunuz",
+    "ask": "Sor",
+    "asking": "Soruluyor…",
+    "stop": "Durdur",
+    "typeFirst": "Önce bir soru yazın.",
+    "waiting": "{{provider}} yanıtı bekleniyor…",
+    "failed": "Sorma, bu sayfanın adlandıramadığı bir nedenle başarısız oldu. Tekrar deneyin."
+  },
+  "bar": {
+    "back": "← Modellerim",
+    "backTitle": "Modellerime dön",
+    "owner": "Sahibi: {{owner}}",
+    "viewOnlyTitle": "Sahip bu modeli yalnızca görüntülemeniz için paylaştı. Düzenleme istekleri reddedilir."
+  },
+  "host": {
+    "connectHint": "Kendi yapay zekâ asistanınızı bu modele bağlayın: üstteki çubuktan Asistan bağla."
   },
   "nav": {
     "approvals": "Onaylar",
@@ -154,7 +203,7 @@
     "remove": "Kaldır",
     "onlyYou": "Bu modele şimdilik yalnızca siz erişebiliyorsunuz.",
     "addTitle": "Birini ekle",
-    "addLede": "“Düzenleyebilir” seçeneği modeli değiştirmesine, dal oluşturmasına ve sürüm kaydetmesine izin verir. “Yalnızca görüntüle” ise yalnızca bakmasına izin verir.",
+    "addLede": "“Düzenleyebilir” seçeneği modeli değiştirmesine, dal oluşturmasına ve sürüm kaydetmesine izin verir. “Yalnızca görüntüleme” ise yalnızca bakmasına izin verir.",
     "theirEmail": "Kişinin hesap e-postası",
     "emailPlaceholder": "isarkadasi@example.com",
     "can": "Yetki",
@@ -203,6 +252,21 @@
     "preferApp": "Kendi asistan uygulamanızı mı tercih edersiniz (Claude Desktop, ChatGPT, Cursor)?",
     "connectIt": "Modellerinize bağlamanız",
     "instead": "yeterli."
+  },
+  "settingsScript": {
+    "keyFirst": "Önce API anahtarınızı yapıştırın.",
+    "modelPlaceholder": "sağlayıcınızın verdiği model adı",
+    "savedKey": "Bu tarayıcıda bir {{provider}} anahtarı kayıtlı.",
+    "noKey": "Bu tarayıcıda henüz anahtar kayıtlı değil.",
+    "saved": "Bu tarayıcıya kaydedildi. Düzenleyicideki Yapay zekâya sor düğmesi artık {{provider}} anahtarınızı kullanıyor.",
+    "saveBlocked": "Bu tarayıcı anahtarı kaydetmedi (gizli gezinme bunu engelleyebilir). Hiçbir yere bir şey gönderilmedi.",
+    "testing": "{{provider}} sağlayıcısına tek satırlık bir soru soruluyor…",
+    "testSystem": "Beş kelime ya da daha azıyla yanıtlayın.",
+    "testQuestion": "Anahtarın çalıştığını söyleyin.",
+    "testWorked": "{{provider}} yanıtladı: “{{answer}}”. Anahtar çalışıyor. Saklamak için Kaydet'e basın.",
+    "testFailed": "Sınama, bu sayfanın adlandıramadığı bir nedenle başarısız oldu. Tekrar deneyin.",
+    "forgetQuestion": "Bu tarayıcıda kayıtlı yapay zekâ anahtarı unutulsun mu?",
+    "forgotten": "Unutuldu. Bu tarayıcıda yapay zekâ anahtarı kayıtlı değil."
   },
   "connect": {
     "pageTitle": "Asistan bağla",
