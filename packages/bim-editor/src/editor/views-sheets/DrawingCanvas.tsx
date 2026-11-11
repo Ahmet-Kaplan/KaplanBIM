@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Separator } from '../../ui/separator'
 import { ToggleGroup, ToggleGroupItem } from '../../ui/toggle-group'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip'
-import { CROP_HANDLES, HANDLE_CURSOR, HANDLE_LABEL, centerAndSize, dragRect, handlePoint, rectFromCenter, type CropHandle } from './crop-geometry'
+import { CROP_HANDLES, HANDLE_CURSOR, centerAndSize, dragRect, handleLabel, handlePoint, rectFromCenter, type CropHandle } from './crop-geometry'
 import { VIEW_DRAG_TYPE, newId, type SubmitCommand } from './types'
 import { useDrawingZoom } from './drawing-zoom'
 import { NoteHandles, type NoteEdge } from './notes/NoteHandles'
@@ -621,7 +621,7 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
       delete: () => {
         const [first] = selectedIds
         if (!canEdit || first === undefined) return
-        const command = selectedIds.length > 1 ? { type: 'batch_documents' as const, label: `Delete ${selectedIds.length} items`, commands: selectedIds.map((itemId) => ({ type: 'delete_drawing_item' as const, itemId })) } : { type: 'delete_drawing_item' as const, itemId: first }
+        const command = selectedIds.length > 1 ? { type: 'batch_documents' as const, label: t('canvas.deleteWhat', 'delete {{n}} items', { ns: 'editor', n: selectedIds.length }), commands: selectedIds.map((itemId) => ({ type: 'delete_drawing_item' as const, itemId })) } : { type: 'delete_drawing_item' as const, itemId: first }
         if (send(command, 'delete')) {
           setSelection(null)
           setAlsoPicked([])
@@ -735,7 +735,7 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
           return
         }
         const id = newId('note')
-        if (send({ type: 'create_text_note', itemId: id, ownerId: e.ownerId, at: e.stored, width: e.width, height: e.height, textSize: e.size, paragraphs: paragraphsForCommand(content) }, 'add a note')) {
+        if (send({ type: 'create_text_note', itemId: id, ownerId: e.ownerId, at: e.stored, width: e.width, height: e.height, textSize: e.size, paragraphs: paragraphsForCommand(content) }, t('canvas.undo.addNote', 'add a note', { ns: 'editor' }))) {
           setNoteEdit(null)
           setSelection({ kind: 'item', id })
         }
@@ -751,8 +751,8 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
       const boxChanged = !savedNote || Math.abs(savedNote.note.box.width - e.width) > 1e-3 || savedNote.note.box.height !== e.height
       const moved = e.stored !== e.startStored
       let ok = true
-      if (textChanged && e.startedFrom) ok = send({ type: 'edit_text_note', itemId: e.itemId, expectedContent: e.startedFrom, paragraphs: paragraphsForCommand(content) }, 'edit the note')
-      if (ok && (boxChanged || moved)) ok = send({ type: 'resize_text_note', itemId: e.itemId, width: e.width, height: e.height, ...(moved ? { at: e.stored } : {}) }, 'resize the note')
+      if (textChanged && e.startedFrom) ok = send({ type: 'edit_text_note', itemId: e.itemId, expectedContent: e.startedFrom, paragraphs: paragraphsForCommand(content) }, t('canvas.undo.editNote', 'edit the note', { ns: 'editor' }))
+      if (ok && (boxChanged || moved)) ok = send({ type: 'resize_text_note', itemId: e.itemId, width: e.width, height: e.height, ...(moved ? { at: e.stored } : {}) }, t('canvas.undo.resizeNote', 'resize the note', { ns: 'editor' }))
       if (ok) setNoteEdit(null)
     },
     [noteEdit, send, model],
@@ -809,7 +809,7 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
       toast(t('canvas.regionThreeCorners', 'A region needs at least three corners.', { ns: 'editor' }))
       return
     }
-    if (send({ type: 'update_drawing_item', itemId: boundary.itemId, points: boundary.points.map(toStored) }, 'change the region boundary')) {
+    if (send({ type: 'update_drawing_item', itemId: boundary.itemId, points: boundary.points.map(toStored) }, t('canvas.undo.regionBoundary', 'change the region boundary', { ns: 'editor' }))) {
       setBoundary(null)
       setSelection({ kind: 'item', id: boundary.itemId })
     }
@@ -925,7 +925,7 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
             setSelection(null)
             setAlsoPicked([])
           }
-        } else if (send({ type: 'remove_viewport', viewportId: selection.id }, 'take the view off the sheet')) setSelection(null)
+        } else if (send({ type: 'remove_viewport', viewportId: selection.id }, t('canvas.undo.takeOffSheet', 'take the view off the sheet', { ns: 'editor' }))) setSelection(null)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -1178,7 +1178,7 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
         return
       }
       const block = blocks.get(d.id)
-      if (block) send({ type: 'move_text_note', itemId: d.id, at: toStored({ x: block.origin.x + dx, y: block.origin.y + dy }) }, 'move the note')
+      if (block) send({ type: 'move_text_note', itemId: d.id, at: toStored({ x: block.origin.x + dx, y: block.origin.y + dy }) }, t('canvas.undo.moveNote', 'move the note', { ns: 'editor' }))
       return
     }
     if (d.kind === 'note-size') {
@@ -1189,7 +1189,7 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
         setNoteEdit({ ...noteEdit, width: f.width, height: f.height, origin: f.origin, stored: moved ? toStored(f.origin) : noteEdit.stored })
         return
       }
-      send({ type: 'resize_text_note', itemId: d.id, width: f.width, height: f.height, ...(moved ? { at: toStored(f.origin) } : {}) }, 'resize the note')
+      send({ type: 'resize_text_note', itemId: d.id, width: f.width, height: f.height, ...(moved ? { at: toStored(f.origin) } : {}) }, t('canvas.undo.resizeNote', 'resize the note', { ns: 'editor' }))
       return
     }
     if (d.kind === 'draw') {
@@ -1198,7 +1198,7 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
         // Snapped ends follow what they landed on; a nearly square drag becomes a horizontal or vertical dimension.
         const made = dimensionFromDrag({ at: d.a, snap: nearestSnap(snaps, d.a, snapReach) }, { at: d.b, snap: nearestSnap(snaps, d.b, snapReach) })
         const id = newId('dim')
-        if (send({ type: 'add_drawing_item', itemId: id, ownerId, shape: 'dimension', points: made.paper.map(toStored), dim: made.dim }, 'add a dimension')) setSelection({ kind: 'item', id })
+        if (send({ type: 'add_drawing_item', itemId: id, ownerId, shape: 'dimension', points: made.paper.map(toStored), dim: made.dim }, t('canvas.undo.addDimension', 'add a dimension', { ns: 'editor' }))) setSelection({ kind: 'item', id })
         return
       }
       const detailLike = Boolean(active ? activeDrafting : frame)
@@ -1212,20 +1212,33 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
       if (d.shape === 'rect') {
         // A rectangle is four detail lines joined at the corners; the whole chain stays picked.
         const sides = rectangleLines(toStored(d.a), toStored(b)).map(([p, q], k) => ({ type: 'add_drawing_item' as const, itemId: `${id}-${k}`, ownerId, shape: 'line' as const, points: [p, q] }))
-        if (send({ type: 'batch_documents', label: 'Draw a rectangle', commands: sides }, 'draw a rectangle')) {
+        if (send(
+          {
+            type: 'batch_documents',
+            label: t('canvas.undo.drawRectangle', 'draw a rectangle', { ns: 'editor' }),
+            commands: sides,
+          },
+          t('canvas.undo.drawRectangle', 'draw a rectangle', { ns: 'editor' }),
+        )) {
           setSelection({ kind: 'item', id: `${id}-0` })
           setAlsoPicked(sides.slice(1).map((c) => c.itemId))
         }
         return
       }
-      if (send({ type: 'add_drawing_item', itemId: id, ownerId, shape: d.shape, points: [toStored(d.a), toStored(b)] }, `add a ${d.shape}`)) setSelection({ kind: 'item', id })
+      if (send(
+        { type: 'add_drawing_item', itemId: id, ownerId, shape: d.shape, points: [toStored(d.a), toStored(b)] },
+        t('canvas.undo.addWhat', 'add a {{what}}', { ns: 'editor', what: toolWord(toolWordOf(d.shape), t).toLowerCase() }),
+      )) setSelection({ kind: 'item', id })
       return
     }
     if (d.kind === 'frame') {
       if (rectMoved(d.start, d.rect) < 0.3) return
       const { center, size } = centerAndSize(d.rect)
       const vp = placed.find((p) => p.viewport.id === d.id)
-      send({ type: 'resize_viewport', viewportId: d.id, size, center }, `change the crop box of ${vp?.view.name ?? 'the view'}`)
+      send(
+        { type: 'resize_viewport', viewportId: d.id, size, center },
+        t('view.undoLabel.cropBoxOf', 'change the crop box of {{name}}', { ns: 'editor', name: vp?.view.name ?? t('canvas.theView', 'the view', { ns: 'editor' }) }),
+      )
       return
     }
     if (d.kind === 'crop') {
@@ -1233,13 +1246,16 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
       const a = paperToModel(frame, { x: d.rect.min.x, y: d.rect.max.y })
       const b = paperToModel(frame, { x: d.rect.max.x, y: d.rect.min.y })
       const crop = cropForWindow(openView, viewCrop(openView), { min: a, max: b })
-      send({ type: 'set_view_crop', viewId: openView.id, crop }, `change the crop box of ${openView.name}`)
+      send(
+        { type: 'set_view_crop', viewId: openView.id, crop },
+        t('view.undoLabel.cropBoxOf', 'change the crop box of {{name}}', { ns: 'editor', name: openView.name }),
+      )
       return
     }
     const dx = d.to.x - d.from.x
     const dy = d.to.y - d.from.y
     if (Math.hypot(dx, dy) < 0.3) return
-    send({ type: 'move_viewport', viewportId: d.id, center: { x: d.origin.x + dx, y: d.origin.y + dy } }, 'move the viewport')
+    send({ type: 'move_viewport', viewportId: d.id, center: { x: d.origin.x + dx, y: d.origin.y + dy } }, t('canvas.undo.moveViewport', 'move the viewport', { ns: 'editor' }))
   }
 
   const onDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -1520,7 +1536,17 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
             onParams={draft.setParams}
             prompt={null}
             onCancel={() => draftInput.cancel()}
-            sketch={boundary ? { prompt: 'Edit boundary: drag a corner, click a + to add a corner, click a corner and press Delete to remove it.', onFinish: finishBoundary, onCancel: cancelBoundary } : null}
+            sketch={
+              boundary
+                ? {
+                    prompt: t('draft.boundaryPrompt', 'Edit boundary: drag a corner, click a + to add a corner, click a corner and press Delete to remove it.', {
+                      ns: 'editor',
+                    }),
+                    onFinish: finishBoundary,
+                    onCancel: cancelBoundary,
+                  }
+                : null
+            }
           />
         </div>
         <div
@@ -1617,7 +1643,7 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
                   canEdit={canEdit}
                   blockedReason={blockedReason}
                   paperOf={paperOf}
-                  onResize={({ columnId, widthMm }) => send({ type: 'edit_schedule', viewId: selectedSchedule.view.id, steps: [{ op: 'resize_column', columnId, widthMm }] }, 'change the column width')}
+                  onResize={({ columnId, widthMm }) => send({ type: 'edit_schedule', viewId: selectedSchedule.view.id, steps: [{ op: 'resize_column', columnId, widthMm }] }, t('canvas.undo.columnWidth', 'change the column width', { ns: 'editor' }))}
                 />
               )}
               {spaces && modelEdit && floorPlanView && (
@@ -1806,7 +1832,7 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
                               startDrag(e, { kind: 'boundary-vertex', index: i, to: p })
                             }}
                           >
-                            <title>Drag this corner; click it and press Delete to remove it</title>
+                            <title>{t('canvas.dragCornerDelete', 'Drag this corner; click it and press Delete to remove it', { ns: 'editor' })}</title>
                           </rect>
                         ))}
                       </>
@@ -1858,7 +1884,7 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
               {hoverSnap && (
                 <g pointerEvents="none" data-testid="dimension-snap">
                   <circle cx={hoverSnap.at.x} cy={hoverSnap.at.y} r={1.4 / Math.max(zoom, 0.25)} fill="none" stroke={PRIMARY} strokeWidth={0.4 / Math.max(zoom, 0.25)} />
-                  <title>{`Snaps to the ${hoverSnap.label}`}</title>
+                  <title>{t('canvas.snapsTo', 'Snaps to the {{what}}', { ns: 'editor', what: hoverSnap.label })}</title>
                 </g>
               )}
               {drag?.kind === 'note-new' && Math.abs(drag.b.x - drag.a.x) >= 5 && (
@@ -1900,7 +1926,7 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
             onCancel={() => setCalloutDraft(null)}
             onPlace={(callout) => {
               const id = newId('callout')
-              if (send({ type: 'add_drawing_item', itemId: id, ownerId, shape: 'callout', points: [calloutDraft.a, calloutDraft.b, calloutDraft.head], callout }, 'add a callout')) setSelection({ kind: 'item', id })
+              if (send({ type: 'add_drawing_item', itemId: id, ownerId, shape: 'callout', points: [calloutDraft.a, calloutDraft.b, calloutDraft.head], callout }, t('canvas.undo.addCallout', 'add a callout', { ns: 'editor' }))) setSelection({ kind: 'item', id })
               setCalloutDraft(null)
             }}
           />
@@ -1920,9 +1946,9 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
             editing={active?.viewport.id === selectedViewport.viewport.id}
             onEditHere={() => activate(selectedViewport.viewport.id)}
             onOpen={() => onOpenView(selectedViewport.view.id)}
-            onScale={(scale) => send({ type: 'set_viewport_scale', viewportId: selectedViewport.viewport.id, scale }, 'change the viewport scale')}
+            onScale={(scale) => send({ type: 'set_viewport_scale', viewportId: selectedViewport.viewport.id, scale }, t('canvas.undo.viewportScale', 'change the viewport scale', { ns: 'editor' }))}
             onRemove={() => {
-              if (send({ type: 'remove_viewport', viewportId: selectedViewport.viewport.id }, 'take the view off the sheet')) setSelection(null)
+              if (send({ type: 'remove_viewport', viewportId: selectedViewport.viewport.id }, t('canvas.undo.takeOffSheet', 'take the view off the sheet', { ns: 'editor' }))) setSelection(null)
             }}
           />
           {viewportProperties?.(selectedViewport.view.id)}
@@ -1933,7 +1959,7 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
             model={model}
             canEdit={canEdit}
             blockedReason={blockedReason}
-            onChange={(callout) => send({ type: 'update_drawing_item', itemId: selectedItem.id, callout }, 'change what the callout refers to')}
+            onChange={(callout) => send({ type: 'update_drawing_item', itemId: selectedItem.id, callout }, t('canvas.undo.calloutTarget', 'change what the callout refers to', { ns: 'editor' }))}
             onOpenView={onOpenView}
             onDelete={() => {
               if (send({ type: 'delete_drawing_item', itemId: selectedItem.id }, 'delete')) setSelection(null)
@@ -1950,7 +1976,7 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
             send={send}
             freshness={blockFreshness?.(selectedItem.id)}
             onDelete={() => {
-              if (send({ type: 'delete_drawing_item', itemId: selectedItem.id }, 'remove from the sheet')) setSelection(null)
+              if (send({ type: 'delete_drawing_item', itemId: selectedItem.id }, t('canvas.undo.removeFromSheet', 'remove from the sheet', { ns: 'editor' }))) setSelection(null)
             }}
           />
         ) : selectedItem && alsoPicked.length === 0 && selectedItem.shape === 'figure' ? (
@@ -1961,7 +1987,7 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
             images={sheetImages}
             send={send}
             onDelete={() => {
-              if (send({ type: 'delete_drawing_item', itemId: selectedItem.id }, 'remove from the sheet')) setSelection(null)
+              if (send({ type: 'delete_drawing_item', itemId: selectedItem.id }, t('canvas.undo.removeFromSheet', 'remove from the sheet', { ns: 'editor' }))) setSelection(null)
             }}
           />
         ) : selectedItem && (alsoPicked.length > 0 || (selectedItem.shape !== 'text' && !selectedItem.dim && !selectedItem.tag)) ? (
@@ -1986,9 +2012,9 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
             view={annotatedView}
             canEdit={canEdit}
             blockedReason={blockedReason}
-            onDim={(dim) => send({ type: 'update_drawing_item', itemId: selectedItem.id, dim }, 'change the dimension')}
-            onTag={(tag) => send({ type: 'update_drawing_item', itemId: selectedItem.id, tag }, 'change the tag')}
-            onMoveTag={(at) => send({ type: 'update_drawing_item', itemId: selectedItem.id, points: [at] }, 'move the tag clear of the others')}
+            onDim={(dim) => send({ type: 'update_drawing_item', itemId: selectedItem.id, dim }, t('canvas.undo.changeDimension', 'change the dimension', { ns: 'editor' }))}
+            onTag={(tag) => send({ type: 'update_drawing_item', itemId: selectedItem.id, tag }, t('canvas.undo.changeTag', 'change the tag', { ns: 'editor' }))}
+            onMoveTag={(at) => send({ type: 'update_drawing_item', itemId: selectedItem.id, points: [at] }, t('canvas.undo.tagClear', 'move the tag clear of the others', { ns: 'editor' }))}
             onTagsBatch={(updates, label) => send({ type: 'batch_documents', label, commands: updates.map((u) => ({ type: 'update_drawing_item' as const, itemId: u.itemId, tag: u.tag })) }, label)}
             onOpenTagStyles={onOpenTagStyles ? (styleId) => onOpenTagStyles(styleId, selectedItem.tag?.elementId ?? null) : undefined}
             onCreateSimilar={selectedItem.tag ? () => selectedItem.tag && startTagLike(selectedItem.tag) : undefined}
@@ -2007,9 +2033,9 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
             onEditText={() => editNote(selectedItem)}
             onAutoHeight={() => {
               const resolved = resolveNote(selectedItem)
-              if (resolved) send({ type: 'resize_text_note', itemId: selectedItem.id, width: resolved.note.box.width, height: null }, 'fit the note to its text')
+              if (resolved) send({ type: 'resize_text_note', itemId: selectedItem.id, width: resolved.note.box.width, height: null }, t('canvas.undo.fitNote', 'fit the note to its text', { ns: 'editor' }))
             }}
-            onRotate={(rotation) => send({ type: 'move_text_note', itemId: selectedItem.id, rotation }, 'turn the note')}
+            onRotate={(rotation) => send({ type: 'move_text_note', itemId: selectedItem.id, rotation }, t('canvas.undo.turnNote', 'turn the note', { ns: 'editor' }))}
             onAddLeader={(elbow) => {
               setTool('select')
               draft.setPending({ kind: 'leader', noteId: selectedItem.id, elbow })
@@ -2102,6 +2128,7 @@ function ViewportFrame({
   onActivate: () => void
   onGrab: (handle: CropHandle, e: React.PointerEvent<SVGRectElement>) => void
 }) {
+  const t = useEditorTranslate()
   const { viewport, view } = entry
   const moving = drag?.kind === 'move' && drag.id === viewport.id ? drag : null
   const framing = drag?.kind === 'frame' && drag.id === viewport.id ? drag : null
@@ -2134,7 +2161,11 @@ function ViewportFrame({
           data-viewport-id={viewport.id}
           data-testid={`viewport-hit-${view.name}`}
         >
-          <title>{doubleClickOpensView(view) ? `${view.name}. Double-click to open it; click it to drag its column edges.` : `${view.name}. Double-click to edit it on the sheet.`}</title>
+          <title>
+            {doubleClickOpensView(view)
+              ? t('canvas.viewTitleOpen', '{{name}}. Double-click to open it; click it to drag its column edges.', { ns: 'editor', name: view.name })
+              : t('canvas.viewTitleEdit', '{{name}}. Double-click to edit it on the sheet.', { ns: 'editor', name: view.name })}
+          </title>
         </rect>
       )}
       {isActive && <rect x={rect.min.x} y={rect.min.y} width={w} height={h} fill="none" stroke={PRIMARY} strokeWidth={0.6} pointerEvents="none" />}
@@ -2157,6 +2188,7 @@ export function annotationCropOnPaper(frame: Rect, props: Pick<ViewProps, 'cropV
 
 /** The annotation crop region of a printed view, shown whether or not its crop box is (never printed). */
 function AnnotationCropRegion({ rect, props, testId }: { rect: Rect; props: ViewProps | undefined; testId: string }) {
+  const t = useEditorTranslate()
   const region = annotationCropOnPaper(rect, props)
   if (!region) return null
   const w = region.max.x - region.min.x
@@ -2165,7 +2197,7 @@ function AnnotationCropRegion({ rect, props, testId }: { rect: Rect; props: View
     <g data-testid={testId} data-region={`${region.min.x.toFixed(1)},${region.min.y.toFixed(1)},${w.toFixed(1)},${h.toFixed(1)}`} pointerEvents="none">
       <rect x={region.min.x} y={region.min.y} width={w} height={h} fill="none" stroke={PRIMARY} strokeOpacity={0.7} strokeWidth={0.25} strokeDasharray="0.8 1.2" />
       <text x={region.max.x} y={region.min.y - 1} fontSize={2.2} textAnchor="end" fill={PRIMARY}>
-        Annotation crop: notes, tags and dimensions may reach this far
+        {t('view.annotationCropReach', 'Annotation crop: notes, tags and dimensions may reach this far', { ns: 'editor' })}
       </text>
     </g>
   )
@@ -2187,6 +2219,7 @@ function CropBoxGrips({
   testId: string
   onGrab: (handle: CropHandle, e: React.PointerEvent<SVGRectElement>) => void
 }) {
+  const t = useEditorTranslate()
   const w = rect.max.x - rect.min.x
   const h = rect.max.y - rect.min.y
   return (
@@ -2194,7 +2227,11 @@ function CropBoxGrips({
       <rect x={rect.min.x} y={rect.min.y} width={w} height={h} fill="none" stroke={PRIMARY} strokeWidth={0.5} strokeDasharray={dragging ? undefined : '3 1.5'} pointerEvents="none" />
       {dragging && (
         <text x={rect.min.x} y={rect.min.y - 1.5} fontSize={2.6} fill={PRIMARY} pointerEvents="none">
-          {`${w.toFixed(0)} × ${h.toFixed(0)} mm on paper. Release to save, Esc to cancel.`}
+          {t('view.cropBoxDraggingMm', '{{width}} × {{height}} mm on paper. Release to save, Esc to cancel.', {
+            ns: 'editor',
+            width: w.toFixed(0),
+            height: h.toFixed(0),
+          })}
         </text>
       )}
       {CROP_HANDLES.map((handle) => {
@@ -2213,7 +2250,11 @@ function CropBoxGrips({
             onPointerDown={(e) => onGrab(handle, e)}
             data-testid={`${testId}-${handle}`}
           >
-            <title>{canEdit ? `Drag the crop box's ${HANDLE_LABEL[handle]}` : blockedReason}</title>
+            <title>
+              {canEdit
+                ? t('view.dragCropHandle', 'Drag the crop box’s {{handle}}', { ns: 'editor', handle: handleLabel(handle, t) })
+                : blockedReason}
+            </title>
           </rect>
         )
       })}

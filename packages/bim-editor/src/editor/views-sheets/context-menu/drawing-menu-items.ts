@@ -1,5 +1,6 @@
-import { elementsOfKind, elementViewCategory, VIEW_CATEGORY_LABELS, viewLevelElements, type BimElement, type ModelState, type ViewCategory, type ViewElement } from '@permitzip/bim-kernel'
+import { elementsOfKind, elementViewCategory, viewLevelElements, type BimElement, type ModelState, type ViewCategory, type ViewElement } from '@permitzip/bim-kernel'
 import { similarStartFor } from '../../create-similar'
+import { viewCategoryWord } from '../category-labels'
 import { englishOnly, type Translate } from '../../i18n/translate'
 
 /**
@@ -82,11 +83,16 @@ export function likeThisIds(model: ModelState, view: ViewElement | null, el: Bim
 }
 
 /** Hide in view: the element's category added to the view's hidden categories; null when it has none this view can hide. */
-export function hideInViewPatch(model: ModelState, view: ViewElement, el: BimElement): { readonly category: ViewCategory; readonly label: string; readonly hiddenCategories: readonly ViewCategory[] } | null {
+export function hideInViewPatch(
+  model: ModelState,
+  view: ViewElement,
+  el: BimElement,
+  t: Translate = englishOnly,
+): { readonly category: ViewCategory; readonly label: string; readonly hiddenCategories: readonly ViewCategory[] } | null {
   const category = elementViewCategory(model.elements, el)
   if (!category) return null
   const hidden = view.props?.hiddenCategories ?? []
-  return { category, label: VIEW_CATEGORY_LABELS[category], hiddenCategories: hidden.includes(category) ? hidden : [...hidden, category] }
+  return { category, label: viewCategoryWord(category, t), hiddenCategories: hidden.includes(category) ? hidden : [...hidden, category] }
 }
 
 /** The element in words, for the menu's title ("SD-9", a part's type name, or its category). */
@@ -97,7 +103,7 @@ export function elementTitle(model: ModelState, el: BimElement, t: Translate): s
     if (type?.kind === 'part_type') return type.definition.typeName
   }
   const category = elementViewCategory(model.elements, el)
-  return category ? VIEW_CATEGORY_LABELS[category] : t('drawing.modelElement', 'Model element', { ns: 'editor' })
+  return category ? viewCategoryWord(category, t) : t('drawing.modelElement', 'Model element', { ns: 'editor' })
 }
 
 const zoomFit = (t: Translate): DrawingMenuItem => ({ id: 'zoom_fit', label: t('drawing.zoomToFit', 'Zoom to fit', { ns: 'editor' }), hint: 'F', groupStart: true })
@@ -150,7 +156,7 @@ export function drawingMenuItems(target: DrawingMenuTarget, ctx: DrawingMenuCont
   const el = ctx.model.elements[target.elementId]
   if (!live(el)) return { title: t('drawing.drawing', 'Drawing', { ns: 'editor' }), items: [{ ...zoomFit(t), groupStart: false }] }
   const like = likeThisIds(ctx.model, ctx.view, el)
-  const hide = ctx.view ? hideInViewPatch(ctx.model, ctx.view, el) : null
+  const hide = ctx.view ? hideInViewPatch(ctx.model, ctx.view, el, t) : null
   const similar = similarStartFor(el)
   const hideWhy = !ctx.canEdit
     ? ctx.blockedReason

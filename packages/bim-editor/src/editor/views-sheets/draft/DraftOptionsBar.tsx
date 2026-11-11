@@ -465,7 +465,7 @@ export function DraftOptionsBar({
         {aids && <DrawingAids settings={settings} set={set} />}
         {(pending || prompt) && (
           <Button size="sm" variant="ghost" onClick={onCancel} data-testid="draft-cancel">
-            Cancel (Esc)
+            {t('draft.cancelEsc', 'Cancel (Esc)', { ns: 'editor' })}
           </Button>
         )}
       </div>

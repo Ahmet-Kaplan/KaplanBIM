@@ -494,7 +494,11 @@
     "makeListWhat": "{{name}} çizelgesini oluştur",
     "listWasNotMade": "{{name}} çizelgesi oluşturulmadı: {{reason}}",
     "addToSheet": "{{what}} öğesini {{number}} paftasına ekle",
-    "addWhat": "{{what}} ekle"
+    "addWhat": "{{what}} ekle",
+    "gripTitle": "{{words}}. Genişliği çizelgede saklanır, böylece her baskısı onu izler.",
+    "undo": {
+      "columnWidth": "{{n}}. sütunun genişliğini değiştirmek için sürükleyin"
+    }
   },
   "crop3d": {
     "alignToEdge": "Bir kenara hizala…",
@@ -543,7 +547,23 @@
     "sizeUnreadableBox": "O elemanın ölçüsü okunamadı, bu yüzden kutu ona sığdırılamıyor. Bunun yerine kutunun yüzlerini sürükleyin.",
     "sizeUnreadableView": "O elemanın ölçüsü okunamadı, bu yüzden üzerine bir görünüm çerçevelenemiyor. Bunun yerine bir kanal veya parça seçin.",
     "turnOnFirst": "Önce 3B kırpma kutusunu açın.",
-    "worksIn3d": "3B'de çalışır: 3B modeli veya bir 3B görünümü açın."
+    "worksIn3d": "3B'de çalışır: 3B modeli veya bir 3B görünümü açın.",
+    "cropToSelectionWhy": "Seçime kırpma, kutuyu görünümde saklar. {{reason}}",
+    "handle": {
+      "bottom": "alt kenar",
+      "bottomLeft": "sol alt köşe",
+      "bottomRight": "sağ alt köşe",
+      "left": "sol kenar",
+      "right": "sağ kenar",
+      "top": "üst kenar",
+      "topLeft": "sol üst köşe",
+      "topRight": "sağ üst köşe"
+    },
+    "undo": {
+      "cropToSelection": "3B görünümü seçime kırp",
+      "reset": "3B kırpma kutusunu sıfırla",
+      "turnOn": "3B kırpma kutunuzu aç"
+    }
   },
   "orientation": {
     "aboveNorthEast": "Yukarıdan, kuzeydoğudan",
@@ -577,7 +597,7 @@
     "projectionToggle": "{{current}} izdüşüm. {{other}} izdüşüme geç",
     "saveElevationView": "Bu yanı görünüş olarak kaydeder (modelin hemen dışından bir kesit)",
     "savePlanView": "Bir kat için kat planı görünümü kaydeder",
-    "threeQuarter": "Çeyrek açılı görünümler",
+    "threeQuarter": "Dörtte üç görünümler",
     "trueNorthIs": "Gerçek kuzey, plan kuzeyinden saat yönünde {{deg}}°. Yönet › Gerçek kuzey bölümünden ayarlayın.",
     "turnTo": "Şu yöne dön",
     "viewOrientation": "Görünüm yönü",
@@ -605,7 +625,13 @@
     "clickForCropBox": "Kırpma kutusunu ona göre dikleştirmek için bir duvara ya da bir bina kenarı boyunca iki noktaya tıklayın.",
     "lookFromBelow": "Alttan bak",
     "lookFromSide": "{{side}} yönünden bak",
-    "lookFromTop": "Üstten bak"
+    "lookFromTop": "Üstten bak",
+    "edgeDuct": "bir kanal",
+    "edgeGrid": "bir ızgara çizgisi",
+    "edgeRun": "bir hat",
+    "edgeWall": "bir duvar",
+    "theArchitectsModel": "mimarın modeli",
+    "theModel": "model"
   },
   "projectInfo": {
     "cancel": "Vazgeç",
@@ -825,7 +851,13 @@
       "schedule": "Çizelge",
       "section": "Kesit",
       "threeD": "3B görünüm"
-    }
+    },
+    "undoLabel": {
+      "cropBoxOf": "{{name}} görünümünün kırpma kutusunu değiştir"
+    },
+    "annotationCropReach": "Açıklama kırpması: notalar, etiketler ve ölçüler buraya kadar taşabilir",
+    "cropBoxDraggingMm": "Kâğıtta {{width}} × {{height}} mm. Kaydetmek için bırakın, iptal için Esc.",
+    "dragCropHandle": "Kırpma kutusunun {{handle}} sürükleyin"
   },
   "diagram": {
     "addFutureSpace": "Gelecek boşluk ekle",
@@ -986,7 +1018,11 @@
     "workingAngleWhy": "Çizdiğiniz yönleri binaya uyacak şekilde çevirir. Güzergâh yakalamaları, yerleştirme ızgarası, çizim orto ve kutup adımları ile yeni kırpma kutuları ona uyar. Hiçbir şey taşınmaz ve şantiye koordinatları değişmez.",
     "changeToSave": "Kaydetmek için bir değeri değiştirin.",
     "typeModelPosition": "Bu modeldeki konumu fit olarak yazın: doğu, kuzey ve yükseklik.",
-    "typeSiteCoordinates": "Şantiye koordinatlarını fit olarak yazın: kuzey–güney, doğu–batı ve kot."
+    "typeSiteCoordinates": "Şantiye koordinatlarını fit olarak yazın: kuzey–güney, doğu–batı ve kot.",
+    "undo": {
+      "setTrueNorth": "gerçek kuzeyi ayarla",
+      "setWorkingAngle": "çalışma açısını ayarla"
+    }
   },
   "arrange": {
     "arrange": "Düzenle",
@@ -1119,7 +1155,35 @@
     "someItems": "{{n}} öğe",
     "tagIt": "etiketle",
     "tagWhere": "Etiketlemek için bir hatta ya da parçaya, etiket vermek için bir odanın veya mekanın içine tıklayın.",
-    "taggingLike": "Seçili etiket gibi etiketleniyor. Sonraki elemana tıklayın; Esc durdurur."
+    "taggingLike": "Seçili etiket gibi etiketleniyor. Sonraki elemana tıklayın; Esc durdurur.",
+    "dragCornerDelete": "Bu köşeyi sürükleyin; kaldırmak için üzerine tıklayıp Delete'e basın",
+    "snapsTo": "{{what}} öğesine yakalanır",
+    "theView": "görünüm",
+    "undo": {
+      "addCallout": "detay balonu ekle",
+      "addDimension": "ölçü ekle",
+      "addNote": "nota ekle",
+      "addWhat": "bir {{what}} ekle",
+      "calloutTarget": "detay balonunun başvurduğu görünümü değiştir",
+      "changeDimension": "ölçüyü değiştir",
+      "changeTag": "etiketi değiştir",
+      "columnWidth": "sütun genişliğini değiştir",
+      "drawRectangle": "dikdörtgen çiz",
+      "drawWhat": "{{what}} çiz",
+      "editNote": "notayı düzenle",
+      "fitNote": "notayı metnine sığdır",
+      "moveNote": "notayı taşı",
+      "moveViewport": "görüntü alanını taşı",
+      "regionBoundary": "bölge sınırını değiştir",
+      "removeFromSheet": "paftadan kaldır",
+      "resizeNote": "notayı yeniden boyutlandır",
+      "tagClear": "etiketi diğerlerinden uzağa taşı",
+      "takeOffSheet": "görünümü paftadan çıkar",
+      "turnNote": "notayı döndür",
+      "viewportScale": "görüntü alanı ölçeğini değiştir"
+    },
+    "viewTitleEdit": "{{name}}. Paftada düzenlemek için çift tıklayın.",
+    "viewTitleOpen": "{{name}}. Açmak için çift tıklayın; sütun kenarlarını sürüklemek için üzerine tıklayın."
   },
   "circuits": {
     "allUnits": "Tüm ünitelerde devreleme göster",
@@ -1195,7 +1259,8 @@
       "dot": "Nokta",
       "tick": "Çentik"
     },
-    "textHeightOnPaper": "Metin, her görünüm ölçeğinde kâğıtta {{height}}″ yüksek."
+    "textHeightOnPaper": "Metin, her görünüm ölçeğinde kâğıtta {{height}}″ yüksek.",
+    "textOverrideExample": "ör. EŞİT veya DOĞRULA"
   },
   "draft": {
     "angleCCW": "Açı (°, saat yönünün tersine)",
@@ -1460,7 +1525,8 @@
       "gap": "aralık",
       "offsetDistance": "kaydırma mesafesi",
       "scaleFactor": "ölçek çarpanı"
-    }
+    },
+    "boundaryPrompt": "Sınırı düzenle: bir köşeyi sürükleyin, köşe eklemek için bir + tıklayın, köşeyi kaldırmak için bir köşeye tıklayıp Delete'e basın."
   },
   "drawing": {
     "cancel": "Vazgeç",
@@ -1582,7 +1648,15 @@
     "textStyle": "Metin stili",
     "tick": "Çentik",
     "underline": "Altı çizili",
-    "selectOrEdit": "Nota. Seçmek için tıklayın, metni düzenlemek için yeniden veya çift tıklayın. Taşımak için sürükleyin."
+    "selectOrEdit": "Nota. Seçmek için tıklayın, metni düzenlemek için yeniden veya çift tıklayın. Taşımak için sürükleyin.",
+    "dragEdge": "{{edge}} sürükleyin; metin sürüklerken yeniden sarılır",
+    "edgeBottom": "alt kenar (sabit yükseklik)",
+    "edgeLeft": "sol kenar (genişlik)",
+    "edgeRight": "sağ kenar (genişlik)",
+    "textAria": "Nota metni",
+    "undo": {
+      "addLeader": "kılavuz ekle"
+    }
   },
   "parameter": {
     "today": "Bugün"
@@ -1634,7 +1708,10 @@
     "remove": "Kaldır",
     "removeAria": "{{n}}. revizyonu kaldır",
     "rev": "Rev",
-    "saveRevisions": "Revizyonları kaydet"
+    "saveRevisions": "Revizyonları kaydet",
+    "undo": {
+      "update": "{{number}} paftasının revizyonlarını güncelle"
+    }
   },
   "section": {
     "cancel": "Vazgeç",
@@ -1647,7 +1724,9 @@
     "lookOtherWay": "Diğer yöne bakmak için tıklayın",
     "sectionName": "Kesit adı",
     "dragCutLine": "Kesit için bir kesit çizgisi sürükleyin",
-    "sectionMarks": "Kesit işaretleri"
+    "sectionMarks": "Kesit işaretleri",
+    "clickToOpen": "{{name}}: açmak için tıklayın",
+    "dragFarClip": "{{name}} öğesinin ne kadar uzağı gördüğünü (uzak kırpması) ayarlamak için sürükleyin"
   },
   "selection": {
     "copy": "Kopyala",
@@ -1735,7 +1814,8 @@
     "levelFallback": "Kat",
     "suggestCeilingPlan": "{{level}} tavan planı",
     "suggestFloorPlan": "{{level}} mekanik plan",
-    "suggestThreeD": "3B - Mekanik"
+    "suggestThreeD": "3B - Mekanik",
+    "titleBlocksFailed": "Firmanın antetleri yüklenemedi ({{reason}}); yerleşik olanlar çalışmaya devam ediyor."
   },
   "sheetFigure": {
     "cancel": "Vazgeç",
@@ -1822,7 +1902,14 @@
     "spreadSomeNeedHand": "{{tags}} dağıtıldı; {{n}} tanesi elle yerleştirilmeli: yakınlarında boş yer yok",
     "spreadSomeSelected": "Seçildiler: her birini en iyi okunduğu yere sürükleyin.",
     "spreadWhat": "{{tags}} dağıtıldı",
-    "straightenTheLeader": "kılavuzu düzelt"
+    "straightenTheLeader": "kılavuzu düzelt",
+    "createSimilar": "Benzerini oluştur (C S)",
+    "elbowGripBlocked": "Kılavuz kırığı ({{reason}})",
+    "elbowGripHint": "Kılavuzu kırmak için sürükleyin. Sağ tık › Kılavuzu düzelt onu otomatiğe döndürür.",
+    "undo": {
+      "useStyleOne": "“{{name}}” stilini 1 etikette kullan",
+      "useStyleSome": "“{{name}}” stilini {{n}} etikette kullan"
+    }
   },
   "viewDisplay": {
     "loadFailed": "Her görünüm için canlı model mi yazdırılan çizim mi seçiminiz yüklenemedi. Siz sayfayı yenileyene kadar görünümler canlı modelde açılır.",
@@ -1846,7 +1933,11 @@
     "copiedOne": "1 parça kopyalandı. Gideceği yeri gösterip Ctrl+V'ye (Mac'te ⌘V) basın; kopyalandığı yükseklikte imlecin altına iner.",
     "selectFirst": "Önce kopyalanacak cihazları veya ekipmanı seçin.",
     "tooMany": "Bu {{n}} parça; bir seferde en çok {{max}} kopyalayın.",
-    "whatCopies": "Kopyalama şimdilik cihazlarda, armatürlerde ve ekipmanda çalışıyor; kanallar, borular ve notalar sonra."
+    "whatCopies": "Kopyalama şimdilik cihazlarda, armatürlerde ve ekipmanda çalışıyor; kanallar, borular ve notalar sonra.",
+    "onePart": "1 parça",
+    "pastedBesideOriginals": "{{what}} asılların yanına yapıştırıldı (oraya yapıştırmak için zeminde gidecekleri yeri işaret edin). Geri Al onları geri alır.",
+    "pastedUnderPointer": "{{what}} imlecin altına yapıştırıldı. Geri Al onları geri alır.",
+    "someParts": "{{n}} parça"
   },
   "drawnScene": {
     "sheetGone": "Bu pafta artık yok.",
@@ -1869,5 +1960,23 @@
     "cannotAddFiles": "Bu projenin çalışma alanına dosya ekleyemezsiniz; bir proje yöneticisinden isteyin.",
     "pictureGone": "Resim artık çalışma alanında değil",
     "picturesOnSheets": "Paftalardaki resimler"
+  },
+  "category": {
+    "airTerminal": "Hava terminalleri",
+    "dimensions": "Ölçüler",
+    "doorsWindows": "Kapılar ve pencereler",
+    "duct": "Kanal",
+    "ductFitting": "Kanal bağlantı parçaları",
+    "electricalDevices": "Elektrik cihazları",
+    "electricalEquipment": "Panolar ve elektrik ekipmanı",
+    "equipment": "Ekipman",
+    "grids": "Izgaralar",
+    "insulation": "Kanal ve boru yalıtımı",
+    "lightingFixtures": "Aydınlatma armatürleri",
+    "pipe": "Boru ve bağlantı parçaları",
+    "rooms": "Odalar",
+    "structure": "Strüktür",
+    "tags": "Etiketler",
+    "walls": "Duvarlar"
   }
 }

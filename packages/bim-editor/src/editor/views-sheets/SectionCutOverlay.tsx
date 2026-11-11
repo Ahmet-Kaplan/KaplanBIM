@@ -163,7 +163,7 @@ export function SectionCutOverlay({ viewer, elevationMm, drawing, sections, sugg
         {existing.map(({ view, a: p, b: q, m, d, depthMm }) => (
           <g key={view.id}>
             <g className="pointer-events-auto cursor-pointer" onClick={() => onOpenSection(view.id)}>
-              <title>{`${view.name}: click to open`}</title>
+              <title>{t('section.clickToOpen', '{{name}}: click to open', { ns: 'editor', name: view.name })}</title>
               <line x1={p.x} y1={p.y} x2={q.x} y2={q.y} stroke="var(--mutiny-selection)" strokeWidth={8} strokeOpacity={0} />
               <line x1={p.x} y1={p.y} x2={q.x} y2={q.y} stroke="var(--mutiny-selection)" strokeWidth={2} strokeDasharray="10 4 2 4" />
               <text x={p.x} y={p.y - 6} fontSize={11} fill="var(--mutiny-selection)">
@@ -190,7 +190,7 @@ export function SectionCutOverlay({ viewer, elevationMm, drawing, sections, sugg
                     setFarDrag({ viewId: view.id, depthMm })
                   }}
                 >
-                  <title>{`Drag to set how far ${view.name} sees (its far clip)`}</title>
+                  <title>{t('section.dragFarClip', 'Drag to set how far {{name}} sees (its far clip)', { ns: 'editor', name: view.name })}</title>
                 </circle>
               </>
             )}

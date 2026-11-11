@@ -3,7 +3,7 @@
 import { useEffect, useReducer, useRef, useState } from 'react'
 import type { ModelViewer3D } from '@permitzip/bim-viewer-3d'
 import type { Rect, Vec2, ViewElement } from '@permitzip/bim-kernel'
-import { CROP_HANDLES, HANDLE_CURSOR, HANDLE_LABEL, annotationCropRect, dragRect, feet, handlePoint, type CropHandle } from './crop-geometry'
+import { CROP_HANDLES, HANDLE_CURSOR, annotationCropRect, dragRect, feet, handleLabel, handlePoint, type CropHandle } from './crop-geometry'
 import type { SubmitCommand } from './types'
 import { useEditorTranslate } from '../i18n/translate'
 
@@ -116,7 +116,12 @@ export function CropBoxOverlay({ viewer, view, crop, elevationMm, canEdit, block
     const moved = Math.abs(d.rect.min.x - d.startCrop.min.x) + Math.abs(d.rect.max.x - d.startCrop.max.x) + Math.abs(d.rect.min.y - d.startCrop.min.y) + Math.abs(d.rect.max.y - d.startCrop.max.y)
     if (moved < 1) return
     const rounded: Rect = { min: { x: Math.round(d.rect.min.x), y: Math.round(d.rect.min.y) }, max: { x: Math.round(d.rect.max.x), y: Math.round(d.rect.max.y) } }
-    setError(submit({ type: 'set_view_crop', viewId: view.id, crop: rounded }, `change the crop box of ${view.name}`))
+    setError(
+      submit(
+        { type: 'set_view_crop', viewId: view.id, crop: rounded },
+        t('view.undoLabel.cropBoxOf', 'change the crop box of {{name}}', { ns: 'editor', name: view.name }),
+      ),
+    )
   }
 
   const shown = drag?.rect ?? crop
@@ -148,7 +153,7 @@ export function CropBoxOverlay({ viewer, view, crop, elevationMm, canEdit, block
           <polygon points={notesPolygon.map((p) => `${p.x},${p.y}`).join(' ')} fill="none" stroke="var(--mutiny-selection)" strokeOpacity={0.7} strokeWidth={1} strokeDasharray="2 3" />
           {notesPolygon[2] && (
             <text x={notesPolygon[2].x - 4} y={notesPolygon[2].y - 6} fontSize={11} textAnchor="end" fill="var(--mutiny-selection)">
-              Annotation crop: notes, tags and dimensions may reach this far
+              {t('view.annotationCropReach', 'Annotation crop: notes, tags and dimensions may reach this far', { ns: 'editor' })}
             </text>
           )}
         </g>
@@ -184,7 +189,11 @@ export function CropBoxOverlay({ viewer, view, crop, elevationMm, canEdit, block
                 onPointerDown={grab(h)}
                 data-testid={`crop-handle-${h}`}
               >
-                <title>{canEdit ? `Drag the crop box's ${HANDLE_LABEL[h]}` : blockedReason}</title>
+                <title>
+                  {canEdit
+                    ? t('view.dragCropHandle', 'Drag the crop box’s {{handle}}', { ns: 'editor', handle: handleLabel(h, t) })
+                    : blockedReason}
+                </title>
               </rect>
             )
           })}

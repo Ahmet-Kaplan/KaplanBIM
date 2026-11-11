@@ -90,7 +90,14 @@ export function placeKeynoteList(
   t: Translate = englishOnly,
 ): { readonly itemId: string } | { readonly refusal: string } {
   const table = keynoteTableForSheets()
-  if (!table) return { refusal: 'There are no keynote tables in this model yet: turn on an add-on that ships keynote tables, or add your firm’s in Settings › MutinyBIM library.' }
+  if (!table)
+    return {
+      refusal: t(
+        'keynote.noTablesYet',
+        'There are no keynote tables in this model yet: turn on an add-on that ships keynote tables, or add your firm’s in Settings › MutinyBIM library.',
+        { ns: 'editor' },
+      ),
+    }
   const itemId = newId('blk')
   const refusal = submit(
     {

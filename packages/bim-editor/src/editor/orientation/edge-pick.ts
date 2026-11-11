@@ -1,5 +1,6 @@
 import { elementValues, type ModelState, type Vec2 } from '@permitzip/bim-kernel'
 import type { ModelViewer3D } from '@permitzip/bim-viewer-3d'
+import { englishOnly, type Translate } from '../i18n/translate'
 
 /**
  * Picking a building edge for "Align axes to an edge": a click on a wall or
@@ -41,22 +42,27 @@ interface ScreenEdge {
   readonly b: { readonly x: number; readonly y: number }
 }
 
-/** Straight plan edges of authored elements: walls, grid lines, ducts and straight runs. */
-export function modelEdges(model: ModelState): EdgeHit[] {
+/**
+ * Straight plan edges of authored elements: walls, grid lines, ducts and straight runs.
+ *
+ * The label is the noun a sentence names ("Click to line up with **a wall**"), so it
+ * is asked of the translator here rather than stored in English.
+ */
+export function modelEdges(model: ModelState, t: Translate = englishOnly): EdgeHit[] {
   const out: EdgeHit[] = []
   for (const el of elementValues(model.elements)) {
     switch (el.kind) {
       case 'wall':
-        out.push({ from: el.start, to: el.end, label: 'a wall' })
+        out.push({ from: el.start, to: el.end, label: t('orientation.edgeWall', 'a wall', { ns: 'editor' }) })
         break
       case 'grid':
-        out.push({ from: el.start, to: el.end, label: 'a grid line' })
+        out.push({ from: el.start, to: el.end, label: t('orientation.edgeGrid', 'a grid line', { ns: 'editor' }) })
         break
       case 'duct_segment':
-        if (Math.hypot(el.end.x - el.start.x, el.end.y - el.start.y) > 1) out.push({ from: { x: el.start.x, y: el.start.y }, to: { x: el.end.x, y: el.end.y }, label: 'a duct' })
+        if (Math.hypot(el.end.x - el.start.x, el.end.y - el.start.y) > 1) out.push({ from: { x: el.start.x, y: el.start.y }, to: { x: el.end.x, y: el.end.y }, label: t('orientation.edgeDuct', 'a duct', { ns: 'editor' }) })
         break
       case 'run_segment':
-        if (Math.hypot(el.end.x - el.start.x, el.end.y - el.start.y) > 1) out.push({ from: { x: el.start.x, y: el.start.y }, to: { x: el.end.x, y: el.end.y }, label: 'a run' })
+        if (Math.hypot(el.end.x - el.start.x, el.end.y - el.start.y) > 1) out.push({ from: { x: el.start.x, y: el.start.y }, to: { x: el.end.x, y: el.end.y }, label: t('orientation.edgeRun', 'a run', { ns: 'editor' }) })
         break
       default:
         break
@@ -101,9 +107,21 @@ export const ON_PLANE_MM = 50
  * top, a far face, a sloped roof) is somewhere else in plan when the camera
  * is tilted, so it only names the point when it lies on the plane itself.
  */
-export function pointOnWorkPlane(plane: Vec2, surface: { readonly point: { readonly z: number }; readonly linked: unknown } | null, elevationMm: number): PointHit {
+export function pointOnWorkPlane(
+  plane: Vec2,
+  surface: { readonly point: { readonly z: number }; readonly linked: unknown } | null,
+  elevationMm: number,
+  t: Translate = englishOnly,
+): PointHit {
   const onPlane = surface !== null && Math.abs(surface.point.z - elevationMm) <= ON_PLANE_MM
-  return { at: plane, label: onPlane ? (surface.linked ? "the architect's model" : 'the model') : null }
+  return {
+    at: plane,
+    label: onPlane
+      ? surface.linked
+        ? t('orientation.theArchitectsModel', "the architect's model", { ns: 'editor' })
+        : t('orientation.theModel', 'the model', { ns: 'editor' })
+      : null,
+  }
 }
 
 export interface ViewerEdgePickerArgs {
@@ -113,11 +131,14 @@ export interface ViewerEdgePickerArgs {
   readonly elevationMm: number
   /** Edges of the surface under the pointer (linked-model faces), when the viewer offers it. */
   readonly surfaceEdges?: (clientX: number, clientY: number) => Promise<EdgeHit | null>
+  /** The language the edge's noun is said in ("a wall"). */
+  readonly t?: Translate
 }
 
 /** The live picker: authored edges first, then the surface pick's edges; points on the work plane under the pointer. */
-export function viewerEdgePicker({ viewer, model, elevationMm, surfaceEdges }: ViewerEdgePickerArgs): EdgePicker {
-  const edges = modelEdges(model)
+export function viewerEdgePicker({ viewer, model, elevationMm, surfaceEdges, t }: ViewerEdgePickerArgs): EdgePicker {
+  const translate = t ?? englishOnly
+  const edges = modelEdges(model, translate)
   const canvasXY = (clientX: number, clientY: number) => {
     const rect = viewer.renderer.domElement.getBoundingClientRect()
     return { x: clientX - rect.left, y: clientY - rect.top }
@@ -131,7 +152,7 @@ export function viewerEdgePicker({ viewer, model, elevationMm, surfaceEdges }: V
     async pointAt(clientX, clientY) {
       const plane = viewer.planPointAt(clientX, clientY, elevationMm)
       if (!plane) return null
-      return pointOnWorkPlane(plane, await viewer.pickSurfaceAsync(clientX, clientY), elevationMm)
+      return pointOnWorkPlane(plane, await viewer.pickSurfaceAsync(clientX, clientY), elevationMm, translate)
     },
   }
 }

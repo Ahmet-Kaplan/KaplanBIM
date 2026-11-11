@@ -190,7 +190,7 @@ export function CropBox3dOverlay({ viewer, model, box, cropOn, extent, canEdit, 
       onPointerMove={onMove}
       onPointerUp={onUp}
       onPointerCancel={cancel}
-      aria-label="3D crop box"
+      aria-label={t('crop3d.title', '3D crop box', { ns: 'editor' })}
       data-testid="crop-3d-overlay"
       data-crop-box={JSON.stringify(shown)}
     >

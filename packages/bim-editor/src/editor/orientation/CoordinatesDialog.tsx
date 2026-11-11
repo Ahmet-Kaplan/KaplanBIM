@@ -174,8 +174,10 @@ export function CoordinatesDialog({ site, initialTab, initialMode, editBlocked, 
       }
       if (made) commands.push(made)
     }
-    if (northChanged && northDeg !== null) commands.push({ command: { type: 'set_true_north', angleDeg: northDeg }, label: 'set true north' })
-    if (angleChanged && angleDeg !== null) commands.push({ command: { type: 'set_working_angle', angleDeg }, label: 'set the working angle' })
+    if (northChanged && northDeg !== null)
+      commands.push({ command: { type: 'set_true_north', angleDeg: northDeg }, label: t('coordinates.undo.setTrueNorth', 'set true north', { ns: 'editor' }) })
+    if (angleChanged && angleDeg !== null)
+      commands.push({ command: { type: 'set_working_angle', angleDeg }, label: t('coordinates.undo.setWorkingAngle', 'set the working angle', { ns: 'editor' }) })
     for (const { command, label } of commands) {
       const refusal = onSubmit(command, label)
       if (refusal) return setError(refusal)

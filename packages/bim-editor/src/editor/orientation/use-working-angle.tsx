@@ -76,15 +76,15 @@ export function useWorkingAngle({ viewer, model, openView, applyFrame, workPlane
   const picker = useMemo<EdgePicker | null>(() => {
     if (!viewer || !model) return null
     const extra = surfaceEdges ? { surfaceEdges } : {}
-    if (!currentModel) return viewerEdgePicker({ viewer, model, elevationMm: workPlaneMm, ...extra })
+    if (!currentModel) return viewerEdgePicker({ viewer, model, elevationMm: workPlaneMm, ...extra, t })
     let built: { readonly model: ModelState; readonly picker: EdgePicker } | null = null
     const now = (): EdgePicker => {
       const m = currentModel() ?? model
-      if (built?.model !== m) built = { model: m, picker: viewerEdgePicker({ viewer, model: m, elevationMm: workPlaneMm, ...extra }) }
+      if (built?.model !== m) built = { model: m, picker: viewerEdgePicker({ viewer, model: m, elevationMm: workPlaneMm, ...extra, t }) }
       return built.picker
     }
     return { edgeAt: (x, y) => now().edgeAt(x, y), pointAt: (x, y) => now().pointAt(x, y) }
-  }, [viewer, model, workPlaneMm, surfaceEdges, currentModel])
+  }, [viewer, model, workPlaneMm, surfaceEdges, currentModel, t])
   const toCanvas = useCallback((p: Vec2) => viewer?.canvasPointOf(p.x, p.y, workPlaneMm) ?? null, [viewer, workPlaneMm])
   const canvasXY = useCallback(
     (clientX: number, clientY: number) => {

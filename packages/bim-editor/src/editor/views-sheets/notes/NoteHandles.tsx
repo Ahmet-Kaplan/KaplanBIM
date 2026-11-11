@@ -1,12 +1,22 @@
 'use client'
 
 import { boxToPaper, textBlockCorners, type TextBlock, type Vec2 } from '@permitzip/bim-kernel'
-import { useEditorTranslate } from '../../i18n/translate'
+import { useEditorTranslate, type Translate } from '../../i18n/translate'
 
 export type NoteEdge = 'left' | 'right' | 'bottom'
 
 const PRIMARY = 'var(--mutiny-selection)'
-const EDGE_LABEL: Record<NoteEdge, string> = { left: 'left edge (width)', right: 'right edge (width)', bottom: 'bottom edge (fixed height)' }
+/** Which side of the note a grip holds, in the language on screen. */
+function edgeLabel(edge: NoteEdge, t: Translate): string {
+  switch (edge) {
+    case 'left':
+      return t('note.edgeLeft', 'left edge (width)', { ns: 'editor' })
+    case 'right':
+      return t('note.edgeRight', 'right edge (width)', { ns: 'editor' })
+    case 'bottom':
+      return t('note.edgeBottom', 'bottom edge (fixed height)', { ns: 'editor' })
+  }
+}
 
 /** A note on the canvas: its hit area, its box and width/height grips when selected, and who else is editing it. */
 export function NoteHandles({
@@ -60,7 +70,13 @@ export function NoteHandles({
         }}
         data-testid={`note-hit-${block.itemId}`}
       >
-        <title>{lockedBy ? `${lockedBy}. You can edit it when they finish.` : canEdit ? t('note.selectOrEdit', 'Note. Click to select, click again or double-click to edit the text. Drag to move.', { ns: 'editor' }) : blockedReason}</title>
+        <title>
+          {lockedBy
+            ? t('canvas.lockedBy', '{{name}}. You can edit it when they finish.', { ns: 'editor', name: lockedBy })
+            : canEdit
+              ? t('note.selectOrEdit', 'Note. Click to select, click again or double-click to edit the text. Drag to move.', { ns: 'editor' })
+              : blockedReason}
+        </title>
       </polygon>
       {(selected || editing) &&
         canEdit &&
@@ -79,7 +95,9 @@ export function NoteHandles({
             onPointerDown={(e) => onGrab(g.edge, e)}
             data-testid={`note-grip-${g.edge}`}
           >
-            <title>{`Drag the ${EDGE_LABEL[g.edge]}; the text re-wraps as you drag`}</title>
+            <title>
+              {t('note.dragEdge', 'Drag the {{edge}}; the text re-wraps as you drag', { ns: 'editor', edge: edgeLabel(g.edge, t) })}
+            </title>
           </rect>
         ))}
       {lockedBy && (

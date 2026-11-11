@@ -100,15 +100,26 @@ export function pasteIds(): (sourceId: string, i: number) => string {
 export const PASTE_BESIDE_MM = 609.6
 
 /** A paste in the 3D view: under the pointer on the level's floor, or beside the originals when the pointer isn't over the model. */
-export function pasteNear(clip: PartClip, at: Vec2 | null, newId: (sourceId: string, i: number) => string): { readonly command: Extract<Command, { type: 'copy_elements' }>; readonly label: string; readonly hint: string } {
+export function pasteNear(
+  clip: PartClip,
+  at: Vec2 | null,
+  newId: (sourceId: string, i: number) => string,
+  t: Translate = englishOnly,
+): { readonly command: Extract<Command, { type: 'copy_elements' }>; readonly label: string; readonly hint: string } {
   const where = at ?? { x: clip.anchor.x + PASTE_BESIDE_MM, y: clip.anchor.y + PASTE_BESIDE_MM }
   const command = pasteCommand(clip, where, newId)
   const n = command.ids.length
-  const what = `${n} ${n === 1 ? 'part' : 'parts'}`
+  const what = n === 1 ? t('copy.onePart', '1 part', { ns: 'editor' }) : t('copy.someParts', '{{n}} parts', { ns: 'editor', n })
   return {
     command,
     label: `paste ${what}`,
-    hint: `Pasted ${what}${at ? ' under the pointer' : " beside the originals (point at the floor where they go to paste there)"}. Undo takes them back.`,
+    hint: at
+      ? t('copy.pastedUnderPointer', 'Pasted {{what}} under the pointer. Undo takes them back.', { ns: 'editor', what })
+      : t(
+          'copy.pastedBesideOriginals',
+          'Pasted {{what}} beside the originals (point at the floor where they go to paste there). Undo takes them back.',
+          { ns: 'editor', what },
+        ),
   }
 }
 

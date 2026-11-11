@@ -88,7 +88,8 @@ export function useDrawingContextMenu(opts: DrawingContextMenuOptions): {
     if (action === 'add_view') return opts.onAddView?.()
     if (target.kind === 'viewport') {
       if (action === 'open_view') opts.onOpenView(target.view.id)
-      else if (action === 'remove_from_sheet') opts.send({ type: 'remove_viewport', viewportId: target.viewportId }, 'take the view off the sheet')
+      else if (action === 'remove_from_sheet')
+        opts.send({ type: 'remove_viewport', viewportId: target.viewportId }, t('canvas.undo.takeOffSheet', 'take the view off the sheet', { ns: 'editor' }))
       return
     }
     if (target.kind !== 'element') return
@@ -110,7 +111,7 @@ export function useDrawingContextMenu(opts: DrawingContextMenuOptions): {
       return opts.onCreateSimilar?.(el.id)
     }
     if (action === 'hide_in_view' && view) {
-      const patch = hideInViewPatch(model, view, el)
+      const patch = hideInViewPatch(model, view, el, t)
       if (!patch) return
       const command: Command = { type: 'set_view_properties', viewId: view.id, props: { hiddenCategories: [...patch.hiddenCategories] } }
       const label = `hide ${patch.label} in ${view.name}`

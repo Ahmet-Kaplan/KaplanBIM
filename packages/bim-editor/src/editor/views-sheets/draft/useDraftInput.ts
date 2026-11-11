@@ -120,7 +120,16 @@ export function useDraftInput(ctx: DraftInputContext): DraftInput {
         ctx.onRefused(command)
         return
       }
-      if (ctx.send(command, `draw a ${shapeTool === 'dimension' ? 'dimension' : shapeTool === 'polyline' ? 'chain of lines' : shapeTool}`)) ctx.onSaved(command.type === 'batch_documents' ? `${itemId}-0` : itemId)
+      if (
+        ctx.send(
+          command,
+          t('canvas.undo.drawWhat', 'draw a {{what}}', {
+            ns: 'editor',
+            what: shapeTool === 'dimension' ? t('draft.shape.dimension', 'dimension', { ns: 'editor' }) : shapeTool === 'polyline' ? t('draft.what.chain', 'chain of lines', { ns: 'editor' }) : shapeTool,
+          }),
+        )
+      )
+        ctx.onSaved(command.type === 'batch_documents' ? `${itemId}-0` : itemId)
     },
     [shapeTool, ctx, reset],
   )
@@ -186,7 +195,7 @@ export function useDraftInput(ctx: DraftInputContext): DraftInput {
       const [first, second] = picks.map((c) => ctx.toStored(c.at))
       const leader = pending.elbow && second && first ? { to: second, elbow: first } : first ? { to: first } : null
       if (!leader) return
-      ctx.send({ type: 'move_text_note', itemId: note.id, leaders: [...existing, leader] }, 'add a leader')
+      ctx.send({ type: 'move_text_note', itemId: note.id, leaders: [...existing, leader] }, t('note.undo.addLeader', 'add a leader', { ns: 'editor' }))
     },
     [pending, ctx, reset],
   )

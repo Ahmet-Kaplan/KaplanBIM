@@ -2809,7 +2809,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
     // Read the pointer on the copies' own height (a ceiling device's), so they land under it rather than where its ray meets the floor.
     const planeMm = clip.heightMm ?? (level?.kind === 'level' ? level.elevationMm : null)
     const at = pointer && planeMm !== null ? (sessionRef.current?.viewer?.planPointAt(pointer.x, pointer.y, planeMm) ?? null) : null
-    const paste = pasteNear(clip, at, pasteIds())
+    const paste = pasteNear(clip, at, pasteIds(), t)
     const refused = submitWithUndo(paste.command, paste.label)
     if (refused) toast.error(refused)
     setToolHint(refused ?? paste.hint)

@@ -2,11 +2,13 @@
 
 import type { Primitive, Vec2 } from '@permitzip/bim-kernel'
 import type { Constrained } from './draft-input'
+import { useEditorTranslate } from '../../i18n/translate'
 
 const PRIMARY = 'var(--mutiny-selection)'
 
 /** What a Draft tool will draw, as it will print, plus the rubber band, the snap marker and the tracking line. Never takes the pointer. */
 export function DraftOverlay({ prims, rubber, marker, zoom }: { prims: readonly Primitive[]; rubber: readonly Vec2[]; marker: Constrained | null; zoom: number }) {
+  const t = useEditorTranslate()
   const w = 0.35 / Math.max(zoom, 0.25)
   return (
     <g pointerEvents="none" data-testid="draft-preview">
@@ -23,7 +25,7 @@ export function DraftOverlay({ prims, rubber, marker, zoom }: { prims: readonly 
       {marker?.snapLabel && (
         <g data-testid="draft-snap" data-snap={marker.snapLabel}>
           <rect x={marker.at.x - 1.3 / Math.max(zoom, 0.25)} y={marker.at.y - 1.3 / Math.max(zoom, 0.25)} width={2.6 / Math.max(zoom, 0.25)} height={2.6 / Math.max(zoom, 0.25)} fill="none" stroke={PRIMARY} strokeWidth={w * 1.3} />
-          <title>{`Snaps to the ${marker.snapLabel}`}</title>
+          <title>{t('canvas.snapsTo', 'Snaps to the {{what}}', { ns: 'editor', what: marker.snapLabel })}</title>
         </g>
       )}
     </g>

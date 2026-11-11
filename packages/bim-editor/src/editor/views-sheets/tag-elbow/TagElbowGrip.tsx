@@ -71,7 +71,11 @@ export function TagElbowGrip({ model, view, item, toPaper, toStored, paperOf, pa
         strokeWidth={1.5 * paperMmPerPx}
         className={editBlocked ? 'cursor-not-allowed' : 'cursor-move'}
         role="button"
-        aria-label={editBlocked ? `Leader bend (${editBlocked})` : t('tag.elbowGrip', 'Drag to bend the leader; Esc puts it back', { ns: 'editor' })}
+        aria-label={
+          editBlocked
+            ? t('tag.elbowGripBlocked', 'Leader bend ({{reason}})', { ns: 'editor', reason: editBlocked })
+            : t('tag.elbowGrip', 'Drag to bend the leader; Esc puts it back', { ns: 'editor' })
+        }
         data-testid="tag-elbow-grip"
         onPointerDown={(e) => {
           if (e.button !== 0 || editBlocked) return
@@ -95,7 +99,7 @@ export function TagElbowGrip({ model, view, item, toPaper, toStored, paperOf, pa
         }}
         onLostPointerCapture={() => setDrag(null)}
       >
-        <title>{editBlocked ?? 'Drag to bend the leader. Right-click › Straighten leader puts it back to automatic.'}</title>
+        <title>{editBlocked ?? t('tag.elbowGripHint', 'Drag to bend the leader. Right-click › Straighten leader puts it back to automatic.', { ns: 'editor' })}</title>
       </rect>
     </g>
   )

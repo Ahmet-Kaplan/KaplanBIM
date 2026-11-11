@@ -81,6 +81,7 @@ const LIBRARY = 'library:'
 
 /** The title blocks a sheet can take: the built-in ones, then the firm library's (default first). */
 function useLibraryTitleBlocks(): { readonly choices: readonly TitleBlockChoice[]; readonly note: string | null; readonly loading: boolean } {
+  const t = useEditorTranslate()
   const titleBlocks = useEditorHost().data.titleBlocks
   const [state, setState] = useState<{ choices: readonly TitleBlockChoice[]; note: string | null; loading: boolean }>({ choices: [], note: null, loading: true })
   useEffect(() => {
@@ -89,7 +90,15 @@ function useLibraryTitleBlocks(): { readonly choices: readonly TitleBlockChoice[
       .then((list) => live && setState({ choices: list.choices, note: null, loading: false }))
       .catch((err: unknown) => {
         console.error('[SheetDialog] library title blocks failed to load', err)
-        if (live) setState({ choices: [], note: `The firm's title blocks couldn't be loaded (${err instanceof Error ? err.message : 'unknown error'}); the built-in ones still work.`, loading: false })
+        if (live)
+          setState({
+            choices: [],
+            note: t('sheetDialog.titleBlocksFailed', 'The firm’s title blocks couldn’t be loaded ({{reason}}); the built-in ones still work.', {
+              ns: 'editor',
+              reason: err instanceof Error ? err.message : t('titleBlock.unknownError', 'unknown error', { ns: 'editor' }),
+            }),
+            loading: false,
+          })
       })
     return () => {
       live = false

@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { clampScheduleColumnWidth, type Rect, type ScheduleViewColumn, type Vec2 } from '@permitzip/bim-kernel'
+import { useEditorTranslate } from '../i18n/translate'
 
 /**
  * Drag a schedule's column edges where it sits on a sheet (product decision, Nov 6:
@@ -48,6 +49,7 @@ export function ScheduleColumnGrips({
   paperOf: (e: React.PointerEvent<SVGElement>) => Vec2 | null
   onResize: (resize: ColumnResize) => void
 }) {
+  const t = useEditorTranslate()
   const [drag, setDragState] = useState<ColumnDrag | null>(null)
   // The pointer handlers read the drag from here, not from the last render: on a busy page (the printed
   // sheet re-rendering) the press, the moves and the release arrive before React renders between them,
@@ -65,7 +67,7 @@ export function ScheduleColumnGrips({
         if (!column.columnId) return null
         const live = drag?.index === index ? drag.dx : 0
         const x = rect.min.x + column.x0 + draggedColumnWidth(column, live)
-        const label = `Drag to change the width of column ${index + 1}`
+        const label = t('schedule.undo.columnWidth', 'Drag to change the width of column {{n}}', { ns: 'editor', n: index + 1 })
         return (
           <g key={`${column.columnId}-${index}`}>
             {drag?.index === index && <line x1={x} x2={x} y1={top} y2={top + height} stroke={PRIMARY} strokeWidth={0.4} pointerEvents="none" data-testid="schedule-column-guide" />}
@@ -109,7 +111,9 @@ export function ScheduleColumnGrips({
               onPointerCancel={() => setDrag(null)}
               onDoubleClick={(e) => e.stopPropagation()}
             >
-              <title>{label}. Its width saves in the schedule, so every print of it follows.</title>
+              <title>
+                {t('schedule.gripTitle', '{{words}}. Its width saves in the schedule, so every print of it follows.', { ns: 'editor', words: label })}
+              </title>
             </rect>
           </g>
         )

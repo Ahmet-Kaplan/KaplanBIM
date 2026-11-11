@@ -118,7 +118,7 @@ export function useCrop3d(args: Args): Crop3d {
           cropView: change.enabled ?? true,
           showCropBox: change.show ?? true,
         },
-        'turn on your 3D crop box',
+        t('crop3d.undo.turnOn', 'turn on your 3D crop box', { ns: 'editor' }),
       )
     },
     [userName, views, viewer, submit, userId, extent],
@@ -188,7 +188,7 @@ export function useCrop3d(args: Args): Crop3d {
         t('crop3d.sizeUnreadableBox', 'That element’s size couldn’t be read, so the box can’t be fitted to it. Drag the box’s faces instead.', { ns: 'editor' }),
         'error',
       )
-    if (!canEdit) return notify(`Crop to selection saves the box on the view. ${blockedReason}`, 'info')
+    if (!canEdit) return notify(t('crop3d.cropToSelectionWhy', 'Crop to selection saves the box on the view. {{reason}}', { ns: 'editor', reason: blockedReason }), 'info')
     if (!view) {
       const refusal = await createWorking(target, { enabled: true, show: true })
       if (refusal) notify(refusal, 'error')
@@ -196,7 +196,7 @@ export function useCrop3d(args: Args): Crop3d {
     }
     const refusal = submit(
       { type: 'set_3d_crop_box', viewId: view.id, fit: 'selection', ...(target.elementIds ? { elementIds: [...target.elementIds] } : {}), ...(target.region ? { region: target.region } : {}), enabled: true },
-      'crop the 3D view to the selection',
+      t('crop3d.undo.cropToSelection', 'crop the 3D view to the selection', { ns: 'editor' }),
     )
     if (refusal) notify(refusal, 'error')
   }, [selectionBlocked, selectionTarget, canEdit, view, createWorking, submit, notify, blockedReason])
@@ -212,7 +212,10 @@ export function useCrop3d(args: Args): Crop3d {
       }
       return
     }
-    const refusal = submit({ type: 'set_3d_crop_box', viewId: view.id, fit: 'model', ...(e ? { extent: e } : {}) }, 'reset the 3D crop box')
+    const refusal = submit(
+      { type: 'set_3d_crop_box', viewId: view.id, fit: 'model', ...(e ? { extent: e } : {}) },
+      t('crop3d.undo.reset', 'reset the 3D crop box', { ns: 'editor' }),
+    )
     if (refusal) notify(refusal, 'error')
   }, [active, extent, canEdit, view, free3d, createWorking, submit, notify])
 

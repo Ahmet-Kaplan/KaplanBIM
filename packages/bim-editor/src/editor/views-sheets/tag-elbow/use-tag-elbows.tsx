@@ -67,7 +67,7 @@ export function useTagElbows(input: TagElbowsInput): TagElbows {
       toast.info(plan.message, plan.detail ? { description: plan.detail } : {})
       return
     }
-    if (!send(plan.command, 'spread tags')) return
+    if (!send(plan.command, t('selection.spreadTags', 'Spread tags', { ns: 'editor' }))) return
     if (plan.needHand.length > 0) {
       select(plan.needHand)
       toast.warning(plan.message, { description: [plan.needHand.length === 1 ? t('tag.spreadOneSelected', 'It is selected: drag it where it reads best.', { ns: 'editor' }) : t('tag.spreadSomeSelected', 'They are selected: drag each where it reads best.', { ns: 'editor' }), plan.detail].filter(Boolean).join(' ') })

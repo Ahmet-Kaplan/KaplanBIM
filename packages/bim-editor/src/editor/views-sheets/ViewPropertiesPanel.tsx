@@ -5,7 +5,6 @@ import { ArrowLeftRight, Scan, Undo2 } from 'lucide-react'
 import {
   DEFAULT_CUT_HEIGHT_MM,
   STANDARD_SCALES,
-  VIEW_CATEGORY_LABELS,
   builtinCategoryRegistry,
   firstPartyServiceRegistry,
   isViewCategory,
@@ -47,12 +46,18 @@ import { makeLinkedDisplay } from '../linked-display/use-linked-display'
 
 import { CategoryGraphicsTable } from '../graphics/CategoryGraphicsTable'
 import { useEditorTranslate, type Translate } from '../i18n/translate'
+import { viewCategoryWord } from './category-labels'
 
 
 const FT = 304.8
 
 /** Category labels come from the category registry (one vocabulary with Visibility/Graphics and the agent). */
-const CATEGORY_LABEL: Readonly<Record<ViewCategory, string>> = VIEW_CATEGORY_LABELS
+/**
+ * A category's name at each place this panel draws it. The kernel's labels are English
+ * data (Stage 5 owns the domain map); `viewCategoryWord` asks for the noun here so a
+ * Turkish frame around it is not half English.
+ */
+const categoryWord = (category: ViewCategory, t: Translate): string => viewCategoryWord(category, t)
 
 /**
  * Disciplines a view can be drawn for, from the registry (the model's add-ons and firm rows included); documentation and general draw nothing of their own.
@@ -970,12 +975,12 @@ function LinesFields({ view, canEdit, set, setQuick, children }: { view: ViewEle
             <TableBody>
               {DASH_CATEGORIES.map((c) => (
                 <TableRow key={c}>
-                  <TableCell className="px-1 py-1 font-medium">{CATEGORY_LABEL[c]}</TableCell>
+                  <TableCell className="px-1 py-1 font-medium">{categoryWord(c, t)}</TableCell>
                   <TableCell className="px-1 py-1 text-center">
                     <Checkbox
                       id={`vp-hidden-${c}`}
 
-                      aria-label={t('view.dashHiddenNamed', 'Dash hidden {{name}}', { ns: 'editor', name: CATEGORY_LABEL[c].toLowerCase() })}
+                      aria-label={t('view.dashHiddenNamed', 'Dash hidden {{name}}', { ns: 'editor', name: categoryWord(c, t).toLowerCase() })}
 
                       checked={props.showHiddenLines === true || dashedCategories.has(c)}
                       disabled={!canEdit || props.showHiddenLines === true}
@@ -987,8 +992,8 @@ function LinesFields({ view, canEdit, set, setQuick, children }: { view: ViewEle
                         setQuick(
                           { hiddenLineCategories: [...next] },
                           v === true
-                            ? t('view.dashHiddenOn', 'dash hidden {{name}}', { ns: 'editor', name: CATEGORY_LABEL[c].toLowerCase() })
-                            : t('view.dashHiddenOff', 'hide hidden {{name}}', { ns: 'editor', name: CATEGORY_LABEL[c].toLowerCase() }),
+                            ? t('view.dashHiddenOn', 'dash hidden {{name}}', { ns: 'editor', name: categoryWord(c, t).toLowerCase() })
+                            : t('view.dashHiddenOff', 'hide hidden {{name}}', { ns: 'editor', name: categoryWord(c, t).toLowerCase() }),
                         )
 
                       }}

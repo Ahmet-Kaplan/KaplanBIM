@@ -91,7 +91,7 @@ export function NoteEditor({ origin, rotation, width, height, paper, pxPerMm, si
     content,
     autofocus: 'end',
     editorProps: {
-      attributes: { 'aria-label': 'Note text', 'data-testid': 'note-editor', spellcheck: 'true' },
+      attributes: { 'aria-label': t('note.textAria', 'Note text', { ns: 'editor' }), 'data-testid': 'note-editor', spellcheck: 'true' },
       handleKeyDown: (view, event) => {
         if (event.key !== 'Escape') return false
         event.preventDefault()

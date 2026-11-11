@@ -161,7 +161,10 @@ export function RevisionsDialog({ sheet, allSheets, onCancel, submit }: { sheet:
       setError(problem)
       return
     }
-    const refusal = submit({ type: 'set_sheet_properties', sheetId: sheet.id, revisions: trimmed }, `update the revisions on ${sheet.number}`)
+    const refusal = submit(
+      { type: 'set_sheet_properties', sheetId: sheet.id, revisions: trimmed },
+      t('revisions.undo.update', 'update the revisions on {{number}}', { ns: 'editor', number: sheet.number }),
+    )
     if (refusal) setError(refusal)
     else onCancel()
   }

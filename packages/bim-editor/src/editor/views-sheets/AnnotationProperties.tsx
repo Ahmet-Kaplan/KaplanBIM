@@ -186,7 +186,7 @@ function DimensionFields({ dim, prints, canEdit, onDim }: { dim: DimSpec; prints
       </span>
       <Field>
         <FieldLabel htmlFor="dim-override">{t('dimension.textOverride', 'Text instead of the value', { ns: 'editor' })}</FieldLabel>
-        <SavedInput id="dim-override" value={dim.textOverride ?? ''} placeholder="e.g. EQ or VERIFY" disabled={!canEdit} onSave={(v) => onDim(without('textOverride', v))} />
+        <SavedInput id="dim-override" value={dim.textOverride ?? ''} placeholder={t('dimension.textOverrideExample', 'e.g. EQ or VERIFY', { ns: 'editor' })} disabled={!canEdit} onSave={(v) => onDim(without('textOverride', v))} />
       </Field>
       <div className="flex gap-2">
         <Field>
@@ -384,7 +384,14 @@ function TagFields({
                 ? t('tag.everyTagUsesIt', 'Every {{kind}} tag in this view already uses “{{name}}”', { ns: 'editor', kind: kind.replace(/_/g, ' '), name: styleName })
                 : undefined
             }
-            onClick={() => onTagsBatch(pending.flatMap((s) => (s.tag ? [{ itemId: s.id, tag: { ...s.tag, styleId: tag.styleId } }] : [])), `use "${styleName}" on ${pending.length} tag${pending.length === 1 ? '' : 's'}`)}
+            onClick={() =>
+              onTagsBatch(
+                pending.flatMap((s) => (s.tag ? [{ itemId: s.id, tag: { ...s.tag, styleId: tag.styleId } }] : [])),
+                pending.length === 1
+                  ? t('tag.undo.useStyleOne', 'use “{{name}}” on 1 tag', { ns: 'editor', name: styleName })
+                  : t('tag.undo.useStyleSome', 'use “{{name}}” on {{n}} tags', { ns: 'editor', name: styleName, n: pending.length }),
+              )
+            }
           >
             {pending.length === 0
               ? t('tag.allTagsUseIt', 'All tags of this kind use it', { ns: 'editor' })
@@ -471,7 +478,7 @@ function TagLook({ model, tag, canEdit, onTag, onCreateSimilar }: { model: Model
       {onCreateSimilar && (
         <Button variant="outline" size="sm" className="self-start" disabled={!canEdit} onClick={onCreateSimilar} data-testid="tag-create-similar">
           <CopyPlus data-icon="inline-start" />
-          Create similar (C S)
+          {t('tag.createSimilar', 'Create similar (C S)', { ns: 'editor' })}
         </Button>
       )}
     </div>

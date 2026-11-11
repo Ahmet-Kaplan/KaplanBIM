@@ -412,7 +412,7 @@ Aşama 4 (Task 4.1–4.2) çizelgeleri, hesap sayfalarını, paftaları, görün
 | Far clip depth | **uzak kırpma derinliği** | Kesitin kesit çizgisinin ötesini görme mesafesi |
 | View orientation / Home view | **görünüm yönü / ana görünüm** | Yönlendirme araç çubuğu |
 | Above, from the south-east | **yukarıdan, güneydoğudan** | Çeyrek açılı görünümler; yön adları §2.3 |
-| Three-quarter views | **çeyrek açılı görünümler** | |
+| Three-quarter views | **dörtte üç görünümler** | "three-quarter" = **dörtte üç**; *çeyrek* "a quarter" demektir — bu bir çeviri hatasıydı, düzeltildi (2026-11-10). |
 | Diagram / One-line / Riser / Isometric | **diyagram / tek hat / kolon şeması / izometrik** | §2.4 *Riser diagram* = kolon şeması |
 | Grid | **ızgara** | §2.3 |
 | Title block / Paper | **antet / kâğıt** | §2.4 |
@@ -470,6 +470,20 @@ Aşama 4 (Task 4.1–4.2) çizelgeleri, hesap sayfalarını, paftaları, görün
 | Pictures on sheets | **Paftalardaki resimler** | Hizmet adı |
 | Drawing / sheet paper | **Çizim / pafta** | §2.4 |
 | Keynote list | **anahtar not listesi** | §2.4 *Keynote* = anahtar not |
+
+### 5.4 Aşama 4 üçüncü düzeltme turunda eklenen sözcükler (2026-11-10)
+
+Çizim tutamaçları, geri alma etiketleri ve görünüm kategorileri çevrilirken bunlar gerekti.
+
+| EN | TR | Not |
+|----|----|-----|
+| Crop box grip: top / bottom / left / right edge | **üst / alt / sol / sağ kenar** | |
+| Crop box grip: top-left / top-right / bottom-left / bottom-right corner | **sol üst / sağ üst / sol alt / sağ alt köşe** | |
+| Note edge grip: left / right edge (width), bottom edge (fixed height) | **sol / sağ kenar (genişlik), alt kenar (sabit yükseklik)** | |
+| Leader bend (aria) | **kılavuz kırığı** | §2.4 *Annotation* = açıklama; kılavuz = leader |
+| View category: duct / duct fittings / pipe and fittings / air terminals / equipment / walls / doors and windows / rooms / grids / structure / tags / dimensions / electrical devices / lighting fixtures / panels and electrical equipment / duct and pipe insulation | **kanal / kanal bağlantı parçaları / boru ve bağlantı parçaları / hava terminalleri / ekipman / duvarlar / kapılar ve pencereler / odalar / ızgaralar / strüktür / etiketler / ölçüler / elektrik cihazları / aydınlatma armatürleri / panolar ve elektrik ekipmanı / kanal ve boru yalıtımı** | Kernel'in `VIEW_CATEGORY_LABELS` verisi İngilizce kalır; Türkçesi `viewCategoryWord` ile söylenir (sahibi Aşama 5'in alan haritası) |
+| Undo label group | **geri alma etiketi** | `undo.*` anahtarları; metinleri emir kipidir (§0.5) |
+| A wall / a grid line / a duct / a run (the noun a prompt names) | **bir duvar / bir ızgara çizgisi / bir kanal / bir hat** | |
 
 ---
 

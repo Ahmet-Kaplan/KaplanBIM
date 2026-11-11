@@ -1,4 +1,5 @@
 import { DEFAULT_ANNOTATION_CROP_OFFSET_MM, type Rect, type Vec2, type ViewProps } from '@permitzip/bim-kernel'
+import type { Translate } from '../i18n/translate'
 
 /** A view prints at 1/4" = 1'-0" until its scale is set (View properties › Scale). */
 const DEFAULT_VIEW_SCALE = 48
@@ -20,15 +21,26 @@ export type CropHandle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'
 
 export const CROP_HANDLES: readonly CropHandle[] = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']
 
-export const HANDLE_LABEL: Record<CropHandle, string> = {
-  n: 'top edge',
-  s: 'bottom edge',
-  e: 'right edge',
-  w: 'left edge',
-  ne: 'top-right corner',
-  nw: 'top-left corner',
-  se: 'bottom-right corner',
-  sw: 'bottom-left corner',
+/** What part of the crop box a grip holds, in the language on screen. */
+export function handleLabel(handle: CropHandle, t: Translate): string {
+  switch (handle) {
+    case 'n':
+      return t('crop3d.handle.top', 'top edge', { ns: 'editor' })
+    case 's':
+      return t('crop3d.handle.bottom', 'bottom edge', { ns: 'editor' })
+    case 'e':
+      return t('crop3d.handle.right', 'right edge', { ns: 'editor' })
+    case 'w':
+      return t('crop3d.handle.left', 'left edge', { ns: 'editor' })
+    case 'ne':
+      return t('crop3d.handle.topRight', 'top-right corner', { ns: 'editor' })
+    case 'nw':
+      return t('crop3d.handle.topLeft', 'top-left corner', { ns: 'editor' })
+    case 'se':
+      return t('crop3d.handle.bottomRight', 'bottom-right corner', { ns: 'editor' })
+    case 'sw':
+      return t('crop3d.handle.bottomLeft', 'bottom-left corner', { ns: 'editor' })
+  }
 }
 
 export const HANDLE_CURSOR: Record<CropHandle, string> = {
