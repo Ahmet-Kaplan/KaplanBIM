@@ -30,6 +30,7 @@ import { useEditorTranslate } from '../i18n/translate'
 type Load<T> = { readonly state: 'loading' } | { readonly state: 'error'; readonly message: string } | { readonly state: 'ready'; readonly data: T }
 
 function useLoad<T>(fetcher: ((signal: AbortSignal) => Promise<T>) | null, label: string) {
+  const t = useEditorTranslate()
   const [attempt, setAttempt] = useState(0)
   const [answer, setAnswer] = useState<{ readonly attempt: number; readonly fetcher: unknown; readonly load: Load<T> } | null>(null)
   useEffect(() => {
@@ -40,10 +41,10 @@ function useLoad<T>(fetcher: ((signal: AbortSignal) => Promise<T>) | null, label
       .catch((err: unknown) => {
         if (controller.signal.aborted) return
         console.error(`[ChangeOrders] ${label} failed`, err)
-        setAnswer({ attempt, fetcher, load: { state: 'error', message: err instanceof Error ? err.message : `${label} didn't load.` } })
+        setAnswer({ attempt, fetcher, load: { state: 'error', message: err instanceof Error ? err.message : t('changeOrders.labelDidntLoad', "{{label}} didn't load.", { ns: 'editor', label }) } })
       })
     return () => controller.abort()
-  }, [fetcher, attempt, label])
+  }, [fetcher, attempt, label, t])
   const load: Load<T> = answer && answer.attempt === attempt && answer.fetcher === fetcher ? answer.load : { state: 'loading' }
   return { load, reload: useCallback(() => setAttempt((n) => n + 1), []) }
 }
@@ -69,21 +70,21 @@ export function ChangeOrdersDialog({ open, onOpenChange, projectId, model, chann
   const t = useEditorTranslate()
   const changeOrders = useEditorHost().data.changeOrders
   const listFetcher = useCallback((signal: AbortSignal) => fetchChangeOrdersFrom(changeOrders, projectId, signal), [changeOrders, projectId])
-  const { load, reload } = useLoad<ChangeOrdersResponse>(open ? listFetcher : null, 'Change orders')
+  const { load, reload } = useLoad<ChangeOrdersResponse>(open ? listFetcher : null, t('changeOrders.title', 'Change orders', { ns: 'editor' }))
   const [selected, setSelected] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
 
   const modelId = load.state === 'ready' ? load.data.modelId : null
   const powers = load.state === 'ready' ? load.data.powers : null
-  const openWhy = powers === null ? 'Loading…' : !powers.onProject ? 'Only people on this project open change orders.' : !powers.canOpen ? 'You can see change orders here but not open them. Ask the project lead for change-order access.' : !modelId ? 'This project has no building model yet.' : null
+  const openWhy = powers === null ? 'Loading…' : !powers.onProject ? t('changeOrders.onlyPeopleOpen', 'Only people on this project open change orders.', { ns: 'editor' }) : !powers.canOpen ? t('changeOrders.canSeeNotOpen', 'You can see change orders here but not open them. Ask the project lead for change-order access.', { ns: 'editor' }) : !modelId ? t('changeOrders.noModelYet', 'This project has no building model yet.', { ns: 'editor' }) : null
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{t('panel.changeOrders', 'Change orders', { ns: 'editor' })}</DialogTitle>
-          <DialogDescription>{CHANGE_WORDS.notAChangeOrder} A change order exists only when someone opens one and addresses it to the party it is for.</DialogDescription>
+          <DialogDescription>{CHANGE_WORDS.notAChangeOrder} {t('changeOrders.whatIsOne', 'A change order exists only when someone opens one and addresses it to the party it is for.', { ns: 'editor' })}</DialogDescription>
         </DialogHeader>
 
         {notice ? (
@@ -105,32 +106,38 @@ export function ChangeOrdersDialog({ open, onOpenChange, projectId, model, chann
         ) : (
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between gap-2">
-              <p className="text-sm text-muted-foreground">{load.state === 'ready' ? `${load.data.orders.length} change order${load.data.orders.length === 1 ? '' : 's'}` : ' '}</p>
+              <p className="text-sm text-muted-foreground">
+                {load.state === 'ready'
+                  ? load.data.orders.length === 1
+                    ? t('changeOrders.oneChangeOrder', '{{count}} change order', { ns: 'editor', count: load.data.orders.length })
+                    : t('changeOrders.manyChangeOrders', '{{count}} change orders', { ns: 'editor', count: load.data.orders.length })
+                  : ' '}
+              </p>
               <Button size="sm" disabled={openWhy !== null} title={openWhy ?? undefined} onClick={() => setCreating(true)}>
-                <FilePlus2Icon aria-hidden /> New change order
+                <FilePlus2Icon aria-hidden /> {t('changeOrders.newChangeOrder', 'New change order', { ns: 'editor' })}
               </Button>
             </div>
             {openWhy && powers !== null ? <p className="text-xs text-muted-foreground">{openWhy}</p> : null}
             {load.state === 'loading' ? (
-              <div role="status" aria-label="Loading change orders" className="flex flex-col gap-2">
+              <div role="status" aria-label={t('changeOrders.loading', 'Loading change orders', { ns: 'editor' })} className="flex flex-col gap-2">
                 <Skeleton className="h-12 w-full" />
                 <Skeleton className="h-12 w-full" />
               </div>
             ) : load.state === 'error' ? (
               <Alert variant="destructive">
-                <AlertTitle>Change orders didn’t load</AlertTitle>
+                <AlertTitle>{t('changeOrders.loadFailed', 'Change orders didn’t load', { ns: 'editor' })}</AlertTitle>
                 <AlertDescription className="flex flex-wrap items-center gap-2">
                   {load.message}
                   <Button size="sm" variant="outline" onClick={reload}>
-                    <RotateCwIcon aria-hidden /> Retry
+                    <RotateCwIcon aria-hidden /> {t('changeOrders.retry', 'Retry', { ns: 'editor' })}
                   </Button>
                 </AlertDescription>
               </Alert>
             ) : load.data.orders.length === 0 ? (
               <Empty>
                 <EmptyHeader>
-                  <EmptyTitle>No change orders yet</EmptyTitle>
-                  <EmptyDescription>Design changes, merges and answered questions never open one. Press New change order when a change needs one.</EmptyDescription>
+                  <EmptyTitle>{t('changeOrders.noneYet', 'No change orders yet', { ns: 'editor' })}</EmptyTitle>
+                  <EmptyDescription>{t('changeOrders.noneYetWhy', 'Design changes, merges and answered questions never open one. Press New change order when a change needs one.', { ns: 'editor' })}</EmptyDescription>
                 </EmptyHeader>
               </Empty>
             ) : (
@@ -165,22 +172,23 @@ export function ChangeOrdersDialog({ open, onOpenChange, projectId, model, chann
 }
 
 function ChangeOrderRow({ order, onOpen }: { readonly order: ChangeOrderView; readonly onOpen: () => void }) {
+  const t = useEditorTranslate()
   return (
     <Item variant="outline" size="sm">
       <ItemContent>
         <ItemTitle>
           {order.title}
           <Badge variant={order.status === 'refused' ? 'destructive' : 'secondary'}>{order.statusWords}</Badge>
-          {order.iAmAddressee && order.status === 'sent' ? <Badge>For you</Badge> : null}
+          {order.iAmAddressee && order.status === 'sent' ? <Badge>{t('changeOrders.forYou', 'For you', { ns: 'editor' })}</Badge> : null}
         </ItemTitle>
         <ItemDescription>
-          For {order.addressee.label} · {order.targetWords} · opened by {order.openedByLabel}
+          {t('changeOrders.forAndOpenedBy', 'For {{to}} · {{target}} · opened by {{who}}', { ns: 'editor', to: order.addressee.label, target: order.targetWords, who: order.openedByLabel })}
           {order.waitingWords ? ` · ${order.waitingWords}` : ''}
         </ItemDescription>
       </ItemContent>
       <ItemActions>
         <Button size="sm" variant="outline" onClick={onOpen}>
-          Open
+          {t('changeOrders.open', 'Open', { ns: 'editor' })}
         </Button>
       </ItemActions>
     </Item>
@@ -191,7 +199,7 @@ function ChangeOrderDetail({ projectId, id, model, channel, canInvite, onBack, o
   const t = useEditorTranslate()
   const host = useEditorHost().data
   const fetcher = useCallback((signal: AbortSignal) => fetchChangeOrderFrom(host.changeOrders, projectId, id, signal), [host.changeOrders, projectId, id])
-  const { load, reload } = useLoad<ChangeOrderDetailResponse>(fetcher, 'The change order')
+  const { load, reload } = useLoad<ChangeOrderDetailResponse>(fetcher, t('changeOrders.theChangeOrder', 'The change order', { ns: 'editor' }))
   const order = load.state === 'ready' ? load.data.order : null
   const { state: delta, retry } = useQuantityDelta(channel, model, order ? order.target : null)
   const [answer, setAnswer] = useState<Answer | null>(null)
@@ -203,21 +211,21 @@ function ChangeOrderDetail({ projectId, id, model, channel, canInvite, onBack, o
   if (load.state === 'loading') {
     return (
       <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Spinner aria-hidden /> Loading the change order…
+        <Spinner aria-hidden /> {t('changeOrders.loadingOne', 'Loading the change order…', { ns: 'editor' })}
       </p>
     )
   }
   if (load.state === 'error' || !order) {
     return (
       <Alert variant="destructive">
-        <AlertTitle>The change order didn’t load</AlertTitle>
+        <AlertTitle>{t('changeOrders.oneDidntLoad', 'The change order didn’t load', { ns: 'editor' })}</AlertTitle>
         <AlertDescription className="flex flex-wrap items-center gap-2">
           {load.state === 'error' ? load.message : ''}
           <Button size="sm" variant="outline" onClick={reload}>
-            <RotateCwIcon aria-hidden /> Retry
+            <RotateCwIcon aria-hidden /> {t('changeOrders.retry', 'Retry', { ns: 'editor' })}
           </Button>
           <Button size="sm" variant="ghost" onClick={onBack}>
-            Back to the list
+            {t('changeOrders.backToList', 'Back to the list', { ns: 'editor' })}
           </Button>
         </AlertDescription>
       </Alert>
@@ -240,7 +248,7 @@ function ChangeOrderDetail({ projectId, id, model, channel, canInvite, onBack, o
       done()
     } catch (err) {
       console.error('[ChangeOrderDetail] sending failed', err)
-      setActionError(err instanceof Error ? err.message : "Couldn't send it. Try again.")
+      setActionError(err instanceof Error ? err.message : t('changeOrders.sendFailed', 'Couldn\'t send it. Try again.', { ns: 'editor' }))
     } finally {
       setBusy(null)
     }
@@ -255,32 +263,32 @@ function ChangeOrderDetail({ projectId, id, model, channel, canInvite, onBack, o
       done()
     } catch (err) {
       console.error('[ChangeOrderDetail] inviting the addressee failed', err)
-      setActionError(err instanceof Error ? err.message : "Couldn't send the invite. Try again.")
+      setActionError(err instanceof Error ? err.message : t('changeOrders.inviteFailed', 'Couldn\'t send the invite. Try again.', { ns: 'editor' }))
     } finally {
       setBusy(null)
     }
   }
 
   const needsLogin = order.addressee.kind === 'contact' && !order.addresseeHasLogin
-  const inviteWhy = !canInvite ? 'Inviting people to the project needs client access rights. Ask a project admin.' : !order.addresseeEmail ? 'This contact has no email in the contact list. Add one on the Contacts page first.' : null
+  const inviteWhy = !canInvite ? t('changeOrders.inviteNeedsAdmin', 'Inviting people to the project needs client access rights. Ask a project admin.', { ns: 'editor' }) : !order.addresseeEmail ? t('changeOrders.noEmailOnContact', 'This contact has no email in the contact list. Add one on the Contacts page first.', { ns: 'editor' }) : null
 
   return (
     <div className="flex flex-col gap-3">
       <Button size="sm" variant="ghost" className="self-start" onClick={onBack}>
-        <ArrowLeftIcon aria-hidden /> All change orders
+        <ArrowLeftIcon aria-hidden /> {t('changeOrders.allChangeOrders', 'All change orders', { ns: 'editor' })}
       </Button>
       <div>
         <h3 className="flex flex-wrap items-center gap-2 font-medium">
           {order.title} <Badge variant={order.status === 'refused' ? 'destructive' : 'secondary'}>{order.statusWords}</Badge>
         </h3>
         <p className="text-sm text-muted-foreground">
-          For {order.addressee.label} · {order.targetWords} · opened by {order.openedByLabel}
+          {t('changeOrders.forAndOpenedBy', 'For {{to}} · {{target}} · opened by {{who}}', { ns: 'editor', to: order.addressee.label, target: order.targetWords, who: order.openedByLabel })}
         </p>
         {order.description ? <p className="mt-1 whitespace-pre-wrap text-sm">{order.description}</p> : null}
         {order.reason ? (
           <p className="mt-1 text-sm">
             {statusWords(order.status)}: {order.reason}
-            {order.citation ? ` (cites ${order.citation})` : ''}
+            {order.citation ? t('changeOrders.cites', ' (cites {{what}})', { ns: 'editor', what: order.citation }) : ''}
           </p>
         ) : null}
         {order.status === 'accepted' || order.status === 'refused' || order.status === 'no_cost' ? <SignoffSignatureLine projectId={projectId} subjectId={id} /> : null}
@@ -293,7 +301,7 @@ function ChangeOrderDetail({ projectId, id, model, channel, canInvite, onBack, o
 
       {needsLogin && order.status !== 'draft' ? (
         invited || order.invitePending ? (
-          <p className="text-sm text-muted-foreground">Invite sent. They answer once they sign in.</p>
+          <p className="text-sm text-muted-foreground">{t('changeOrders.inviteSent', 'Invite sent. They answer once they sign in.', { ns: 'editor' })}</p>
         ) : (
           <Button size="sm" variant="outline" className="self-start" disabled={inviteWhy !== null || busy !== null} title={inviteWhy ?? undefined} onClick={() => order.addresseeEmail && void invite(order.addresseeEmail, order.addressee.kind === 'contact' ? order.addressee.id : null)}>
             {busy === 'invite' ? <Spinner aria-hidden /> : <MailIcon aria-hidden />}
@@ -313,17 +321,17 @@ function ChangeOrderDetail({ projectId, id, model, channel, canInvite, onBack, o
           ) : null}
           {answers.includes('accepted') ? (
             <Button size="sm" onClick={() => setAnswer('accepted')}>
-              Accept
+              {t('changeOrders.accept', 'Accept', { ns: 'editor' })}
             </Button>
           ) : null}
           {answers.includes('refused') ? (
             <Button size="sm" variant="outline" onClick={() => setAnswer('refused')}>
-              Refuse
+              {t('changeOrders.refuse', 'Refuse', { ns: 'editor' })}
             </Button>
           ) : null}
           {answers.includes('no_cost') ? (
             <Button size="sm" variant="outline" onClick={() => setAnswer('no_cost')}>
-              No cost
+              {t('changeOrders.noCost', 'No cost', { ns: 'editor' })}
             </Button>
           ) : null}
         </div>
@@ -338,7 +346,7 @@ function ChangeOrderDetail({ projectId, id, model, channel, canInvite, onBack, o
             <li key={`${e.at}|${i}`}>
               {new Date(e.at).toLocaleString()}: {statusWords(e.to)}
               {e.reason ? `: ${e.reason}` : ''}
-              {e.citation ? ` (cites ${e.citation})` : ''}
+              {e.citation ? t('changeOrders.cites', ' (cites {{what}})', { ns: 'editor', what: e.citation }) : ''}
             </li>
           ))}
         </ol>

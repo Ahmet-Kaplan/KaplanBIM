@@ -46,13 +46,13 @@ export function VersionsList({ state, onRetry, cantEditReason, onNewBranchFrom, 
       setSaved(`Saved “${trimmed}”.`)
     } catch (err) {
       console.error('[VersionsList] saving the version failed', err)
-      setSaveError(err instanceof Error ? err.message : "Couldn't save the version. Try again.")
+      setSaveError(err instanceof Error ? err.message : t('versions.saveFailed', 'Couldn\'t save the version. Try again.', { ns: 'editor' }))
     } finally {
       setSaving(false)
     }
   }
 
-  const saveBlocked = cantEditReason ?? (name.trim().length === 0 ? 'Name the version first.' : null)
+  const saveBlocked = cantEditReason ?? (name.trim().length === 0 ? t('versions.nameFirst', 'Name the version first.', { ns: 'editor' }) : null)
 
   return (
     <section aria-label={t('panel.versions', 'Versions', { ns: 'editor' })} className="flex flex-col gap-3">
@@ -64,7 +64,7 @@ export function VersionsList({ state, onRetry, cantEditReason, onNewBranchFrom, 
         }}
       >
         <div className="flex flex-1 flex-col gap-1">
-          <Input aria-label="Version name" placeholder="Name this version (e.g. Before VE)" value={name} maxLength={80} disabled={cantEditReason !== null} onChange={(e) => setName(e.target.value)} />
+          <Input aria-label={t('versions.versionName', 'Version name', { ns: 'editor' })} placeholder={t('versions.namePlaceholder', 'Name this version (e.g. Before VE)', { ns: 'editor' })} value={name} maxLength={80} disabled={cantEditReason !== null} onChange={(e) => setName(e.target.value)} />
           {cantEditReason ? <p className="text-xs text-muted-foreground">{cantEditReason}</p> : null}
           {saveError ? <FieldError>{saveError}</FieldError> : null}
           {saved ? (
@@ -81,17 +81,17 @@ export function VersionsList({ state, onRetry, cantEditReason, onNewBranchFrom, 
 
       {state.status === 'loading' ? (
         <div role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Spinner aria-hidden /> Loading versions…
+          <Spinner aria-hidden /> {t('versions.loading', 'Loading versions…', { ns: 'editor' })}
         </div>
       ) : null}
 
       {state.status === 'error' ? (
         <Alert variant="destructive">
-          <AlertTitle>Couldn&apos;t load versions</AlertTitle>
+          <AlertTitle>{t('versions.loadFailed', 'Couldn\'t load versions', { ns: 'editor' })}</AlertTitle>
           <AlertDescription>
             {state.message}
             <Button size="sm" variant="outline" className="mt-2" onClick={onRetry}>
-              <RotateCwIcon aria-hidden /> Retry
+              <RotateCwIcon aria-hidden /> {t('versions.retry', 'Retry', { ns: 'editor' })}
             </Button>
           </AlertDescription>
         </Alert>
@@ -101,7 +101,7 @@ export function VersionsList({ state, onRetry, cantEditReason, onNewBranchFrom, 
         <>
           {state.issuedError ? (
             <Alert>
-              <AlertTitle>Issued sets aren&apos;t listed</AlertTitle>
+              <AlertTitle>{t('versions.issuedSetsNotListed', 'Issued sets aren\'t listed', { ns: 'editor' })}</AlertTitle>
               <AlertDescription>{state.issuedError}</AlertDescription>
             </Alert>
           ) : null}
@@ -111,8 +111,8 @@ export function VersionsList({ state, onRetry, cantEditReason, onNewBranchFrom, 
                 <EmptyMedia variant="icon">
                   <HistoryIcon aria-hidden />
                 </EmptyMedia>
-                <EmptyTitle>No saved versions yet</EmptyTitle>
-                <EmptyDescription>Save a version to come back to it or start a branch from it. Issued drawing sets appear here too.</EmptyDescription>
+                <EmptyTitle>{t('versions.noVersions', 'No saved versions yet', { ns: 'editor' })}</EmptyTitle>
+                <EmptyDescription>{t('versions.noVersionsWhy', 'Save a version to come back to it or start a branch from it. Issued drawing sets appear here too.', { ns: 'editor' })}</EmptyDescription>
               </EmptyHeader>
             </Empty>
           ) : null}

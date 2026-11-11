@@ -21,6 +21,7 @@ import type { ClassifierOption } from '../../contracts/bim/change-orders/model'
 import { targetWords } from '../../contracts/bim/change-orders/model'
 import { QuantityDeltaList } from '../change-orders/QuantityDeltaList'
 import type { QuantityDeltaState } from '../change-orders/useQuantityDelta'
+import { useEditorTranslate } from '../i18n/translate'
 
 export interface ChangeKindDialogProps {
   readonly open: boolean
@@ -43,6 +44,7 @@ export interface ChangeKindDialogProps {
  * close it without saving.
  */
 export function ChangeKindDialog({ open, onOpenChange, target, set, currentKind, covering, delta, onRetryDelta, onSave }: ChangeKindDialogProps) {
+  const t = useEditorTranslate()
   const kinds = useMemo(() => changeKindsFor(set).filter((k) => k.id !== UNCLASSIFIED_KIND), [set])
   const [kind, setKind] = useState<string>(currentKind && currentKind !== UNCLASSIFIED_KIND ? currentKind : '')
   const [reason, setReason] = useState('')
@@ -53,7 +55,7 @@ export function ChangeKindDialog({ open, onOpenChange, target, set, currentKind,
   const [error, setError] = useState<string | null>(null)
 
   const def: ChangeSignificanceKindDef | undefined = kinds.find((k) => k.id === kind)
-  const blocked = covering === null ? 'Wait for the quantity change to load.' : !def ? 'Pick a kind of change.' : reason.trim().length === 0 ? CHANGE_WORDS.reasonRequired : def.needsCitation === true && citation.trim().length === 0 ? CHANGE_WORDS.citationRequired : !responsibilityId ? CHANGE_WORDS.noResponsibility : null
+  const blocked = covering === null ? t('versions.waitForQuantity', 'Wait for the quantity change to load.', { ns: 'editor' }) : !def ? t('versions.pickAKind', 'Pick a kind of change.', { ns: 'editor' }) : reason.trim().length === 0 ? CHANGE_WORDS.reasonRequired : def.needsCitation === true && citation.trim().length === 0 ? CHANGE_WORDS.citationRequired : !responsibilityId ? CHANGE_WORDS.noResponsibility : null
 
   async function save() {
     if (blocked || !def) return
@@ -64,7 +66,7 @@ export function ChangeKindDialog({ open, onOpenChange, target, set, currentKind,
       onOpenChange(false)
     } catch (err) {
       console.error('[ChangeKindDialog] saving the classification failed', err)
-      setError(err instanceof Error ? err.message : "Couldn't save what kind of change this was. Try again.")
+      setError(err instanceof Error ? err.message : t('versions.kindSaveFailed', 'Couldn\'t save what kind of change this was. Try again.', { ns: 'editor' }))
     } finally {
       setSaving(false)
     }
@@ -74,18 +76,18 @@ export function ChangeKindDialog({ open, onOpenChange, target, set, currentKind,
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>What kind of change was this?</DialogTitle>
+          <DialogTitle>{t('versions.whatKindWasThis', 'What kind of change was this?', { ns: 'editor' })}</DialogTitle>
           <DialogDescription>
-            {targetWords(target)}. {CHANGE_WORDS.notAChangeOrder} Saying what kind it was doesn’t open a change order.
+            {targetWords(target)}. {CHANGE_WORDS.notAChangeOrder} {t('versions.kindOpeningNotChangeOrder', 'Saying what kind it was doesn’t open a change order.', { ns: 'editor' })}
           </DialogDescription>
         </DialogHeader>
         <QuantityDeltaList state={delta} onRetry={onRetryDelta} />
         <FieldGroup>
           <Field>
-            <FieldLabel htmlFor="change-kind">Kind of change</FieldLabel>
+            <FieldLabel htmlFor="change-kind">{t('versions.kindOfChange', 'Kind of change', { ns: 'editor' })}</FieldLabel>
             <Select value={kind} onValueChange={setKind}>
-              <SelectTrigger id="change-kind" aria-label="Kind of change">
-                <SelectValue placeholder="Pick one" />
+              <SelectTrigger id="change-kind" aria-label={t('versions.kindOfChange', 'Kind of change', { ns: 'editor' })}>
+                <SelectValue placeholder={t('versions.pickOne', 'Pick one', { ns: 'editor' })} />
               </SelectTrigger>
               <SelectContent>
                 {kinds.map((k) => (
@@ -98,18 +100,18 @@ export function ChangeKindDialog({ open, onOpenChange, target, set, currentKind,
             {def ? <FieldDescription>{def.description}</FieldDescription> : null}
           </Field>
           <Field>
-            <FieldLabel htmlFor="change-kind-reason">Why</FieldLabel>
-            <Textarea id="change-kind-reason" value={reason} maxLength={2000} onChange={(e) => setReason(e.target.value)} placeholder="So the record explains the decision" />
+            <FieldLabel htmlFor="change-kind-reason">{t('versions.why', 'Why', { ns: 'editor' })}</FieldLabel>
+            <Textarea id="change-kind-reason" value={reason} maxLength={2000} onChange={(e) => setReason(e.target.value)} placeholder={t('versions.whyExplains', 'So the record explains the decision', { ns: 'editor' })} />
           </Field>
           <Field>
-            <FieldLabel htmlFor="change-kind-citation">{def?.needsCitation ? 'Requirement or specification section (required)' : 'Requirement or specification section (optional)'}</FieldLabel>
-            <Input id="change-kind-citation" value={citation} maxLength={500} onChange={(e) => setCitation(e.target.value)} placeholder="e.g. Spec 01 31 00, 1.4.B" />
+            <FieldLabel htmlFor="change-kind-citation">{def?.needsCitation ? t('versions.sectionRequired', 'Requirement or specification section (required)', { ns: 'editor' }) : t('versions.sectionOptional', 'Requirement or specification section (optional)', { ns: 'editor' })}</FieldLabel>
+            <Input id="change-kind-citation" value={citation} maxLength={500} onChange={(e) => setCitation(e.target.value)} placeholder={t('versions.sectionPlaceholder', 'e.g. Spec 01 31 00, 1.4.B', { ns: 'editor' })} />
           </Field>
           {covering && covering.length > 1 ? (
             <Field>
-              <FieldLabel htmlFor="change-kind-under">As responsible for</FieldLabel>
+              <FieldLabel htmlFor="change-kind-under">{t('versions.asResponsibleFor', 'As responsible for', { ns: 'editor' })}</FieldLabel>
               <Select value={responsibilityId} onValueChange={setPicked}>
-                <SelectTrigger id="change-kind-under" aria-label="As responsible for">
+                <SelectTrigger id="change-kind-under" aria-label={t('versions.asResponsibleFor', 'As responsible for', { ns: 'editor' })}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -126,7 +128,7 @@ export function ChangeKindDialog({ open, onOpenChange, target, set, currentKind,
         </FieldGroup>
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="outline">Cancel</Button>
+            <Button variant="outline">{t('versions.cancel', 'Cancel', { ns: 'editor' })}</Button>
           </DialogClose>
           <Button onClick={() => void save()} disabled={blocked !== null || saving} title={blocked ?? undefined}>
             {saving ? <Spinner aria-hidden /> : null}

@@ -8,6 +8,7 @@ import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet 
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../ui/select'
 import { ToggleGroup, ToggleGroupItem } from '../../ui/toggle-group'
 import type { FlexCandidate } from '../contributions/types'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
 
 interface Props {
   part: PartInstance
@@ -24,10 +25,15 @@ const MOUNTS = ['as_drawn', 'turned_over', 'on_side'] as const
 const INTAKE_CHOICES = ['hood', 'louver', 'screen', 'none'] as const
 
 /** What an air device's mount means, in the words a designer uses for the common case. */
-const MOUNT_HINTS: Readonly<Record<(typeof MOUNTS)[number], string>> = {
-  as_drawn: 'As the part is drawn (a ceiling diffuser faces down into the room).',
-  turned_over: 'Upside down: a floor register, neck down to the duct below.',
-  on_side: 'Stood up, facing the way the part is rotated: a sidewall register.',
+function mountHint(mount: (typeof MOUNTS)[number], t: Translate): string {
+  switch (mount) {
+    case 'as_drawn':
+      return t('ventilation.mountHint.asDrawn', 'As the part is drawn (a ceiling diffuser faces down into the room).', { ns: 'editor' })
+    case 'turned_over':
+      return t('ventilation.mountHint.turnedOver', 'Upside down: a floor register, neck down to the duct below.', { ns: 'editor' })
+    case 'on_side':
+      return t('ventilation.mountHint.onSide', 'Stood up, facing the way the part is rotated: a sidewall register.', { ns: 'editor' })
+  }
 }
 
 /**
@@ -36,6 +42,7 @@ const MOUNT_HINTS: Readonly<Record<(typeof MOUNTS)[number], string>> = {
  * into its neck. Each saves at once through the same commands the agent uses.
  */
 export function PartAirSideFields({ part, type, canEdit, onMount, onIntake, flexCandidates, onFlex }: Props) {
+  const t = useEditorTranslate()
   const [error, setError] = useState<string | null>(null)
   const connectors = resolveConnectors(type, part.values)
   const intakes = connectors.filter(takesIntake)
@@ -49,11 +56,11 @@ export function PartAirSideFields({ part, type, canEdit, onMount, onIntake, flex
   const run = (r: string | null) => setError(r)
   return (
     <FieldSet data-testid="part-air-side">
-      <FieldLegend variant="label">Air side</FieldLegend>
+      <FieldLegend variant="label">{t('ventilation.airSide', 'Air side', { ns: 'editor' })}</FieldLegend>
       <FieldGroup className="gap-2">
         {mountable && (
           <Field>
-            <FieldLabel>Mount</FieldLabel>
+            <FieldLabel>{t('ventilation.mount', 'Mount', { ns: 'editor' })}</FieldLabel>
             <ToggleGroup
               type="single"
               variant="outline"
@@ -65,7 +72,7 @@ export function PartAirSideFields({ part, type, canEdit, onMount, onIntake, flex
                 if (mount) run(onMount(mount))
               }}
               disabled={!canEdit || connected}
-              aria-label="Mount"
+              aria-label={t('ventilation.mount', 'Mount', { ns: 'editor' })}
             >
               {MOUNTS.map((m) => (
                 <ToggleGroupItem key={m} value={m} data-testid={`part-mount-${m}`}>
@@ -73,7 +80,7 @@ export function PartAirSideFields({ part, type, canEdit, onMount, onIntake, flex
                 </ToggleGroupItem>
               ))}
             </ToggleGroup>
-            <FieldDescription>{connected ? 'Disconnect its duct to turn it; the neck would move.' : MOUNT_HINTS[part.mount ?? 'as_drawn']}</FieldDescription>
+            <FieldDescription>{connected ? t('ventilation.mountDisconnect', 'Disconnect its duct to turn it; the neck would move.', { ns: 'editor' }) : mountHint(part.mount ?? 'as_drawn', t)}</FieldDescription>
           </Field>
         )}
         {intakes.map((c) => {
@@ -98,7 +105,7 @@ export function PartAirSideFields({ part, type, canEdit, onMount, onIntake, flex
                   <SelectGroup>
                     {INTAKE_CHOICES.map((k) => (
                       <SelectItem key={k} value={k}>
-                        {k === 'none' ? 'Open (nothing on it)' : INTAKE_LABELS[k]}
+                        {k === 'none' ? t('ventilation.intakeOpen', 'Open (nothing on it)', { ns: 'editor' }) : INTAKE_LABELS[k]}
                       </SelectItem>
                     ))}
                   </SelectGroup>
@@ -109,7 +116,7 @@ export function PartAirSideFields({ part, type, canEdit, onMount, onIntake, flex
         })}
         {neck && neckOpen && (
           <Field>
-            <FieldLabel htmlFor="bm-flex-from">Flex into the neck from</FieldLabel>
+            <FieldLabel htmlFor="bm-flex-from">{t('ventilation.flexFrom', 'Flex into the neck from', { ns: 'editor' })}</FieldLabel>
             {candidates.length > 0 ? (
               <div className="flex gap-2">
                 <Select value={flexFrom} onValueChange={setFlexFrom} disabled={!canEdit}>
@@ -138,11 +145,11 @@ export function PartAirSideFields({ part, type, canEdit, onMount, onIntake, flex
                   }}
                 >
                   <Waves data-icon="inline-start" />
-                  Run flex
+                  {t('ventilation.runFlex', 'Run flex', { ns: 'editor' })}
                 </Button>
               </div>
             ) : (
-              <FieldDescription>No open round duct end the size of the neck within 12 ft. Route a branch toward it first, then run flex from its end.</FieldDescription>
+              <FieldDescription>{t('ventilation.noDuctEndForFlex', 'No open round duct end the size of the neck within 12 ft. Route a branch toward it first, then run flex from its end.', { ns: 'editor' })}</FieldDescription>
             )}
           </Field>
         )}

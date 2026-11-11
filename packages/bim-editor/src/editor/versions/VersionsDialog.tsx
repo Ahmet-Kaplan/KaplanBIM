@@ -32,7 +32,7 @@ export function VersionsDialog({ onOpenChange, projectId, modelId, state, onRetr
       <DialogContent className="max-w-2xl" data-testid="versions-dialog">
         <DialogHeader>
           <DialogTitle>{t('panel.versions', 'Versions', { ns: 'editor' })}</DialogTitle>
-          <DialogDescription>Saved versions and issued sets of this model. Start a branch from one, or say what kind of change it was.</DialogDescription>
+          <DialogDescription>{t('versions.dialogDescription', 'Saved versions and issued sets of this model. Start a branch from one, or say what kind of change it was.', { ns: 'editor' })}</DialogDescription>
         </DialogHeader>
         <VersionsList state={state} onRetry={onRetry} cantEditReason={cantEditReason} onSaveVersion={onSaveVersion} onNewBranchFrom={onNewBranchFrom} renderExtra={changeKind} />
       </DialogContent>

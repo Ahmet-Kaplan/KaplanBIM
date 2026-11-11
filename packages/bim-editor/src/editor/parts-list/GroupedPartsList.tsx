@@ -11,6 +11,7 @@ import type { CatalogEntry } from '../model-session'
 import { useWindowedRows, windowBoxStyle, windowSlice } from '../use-windowed-rows'
 import { flattenPartGroups, groupParts, type PartsListRow } from './group-parts'
 import { partEditBlockedReason } from './part-edit'
+import { useEditorTranslate } from '../i18n/translate'
 
 export interface GroupedPartsListProps {
   readonly entries: readonly CatalogEntry[]
@@ -32,6 +33,7 @@ const ROW_PX = 52
  * why it can't.
  */
 export function GroupedPartsList({ entries, filter, onClearFilter, selectedTypeId, onSelectType, onEditPart }: GroupedPartsListProps) {
+  const t = useEditorTranslate()
   const groups = useMemo(() => groupParts(entries, filter), [entries, filter])
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set())
   const [collapsedFor, setCollapsedFor] = useState(filter)
@@ -52,7 +54,7 @@ export function GroupedPartsList({ entries, filter, onClearFilter, selectedTypeI
       return next
     })
   const openEditor = (entry: CatalogEntry) => {
-    const why = partEditBlockedReason(entry, onEditPart !== undefined)
+    const why = partEditBlockedReason(entry, onEditPart !== undefined, t)
     if (why !== null || !onEditPart) {
       setNotice(why)
       return
@@ -69,13 +71,19 @@ export function GroupedPartsList({ entries, filter, onClearFilter, selectedTypeI
           <EmptyMedia variant="icon">
             <SearchX />
           </EmptyMedia>
-          <EmptyTitle>{words === '' ? 'No parts to show' : `No parts match "${words}".`}</EmptyTitle>
-          <EmptyDescription>{words === '' ? 'Choose All categories, or use New part to make one.' : 'Clear the filter, or choose All categories.'}</EmptyDescription>
+          <EmptyTitle>
+            {words === ''
+              ? t('partsList.emptyTitle', 'No parts to show', { ns: 'editor' })
+              : t('partsList.noMatches', 'No parts match "{{words}}".', { ns: 'editor', words })}
+          </EmptyTitle>
+          <EmptyDescription>
+            {words === '' ? t('partsList.emptyNoFilter', 'Choose All categories, or use New part to make one.', { ns: 'editor' }) : t('partsList.emptyFiltered', 'Clear the filter, or choose All categories.', { ns: 'editor' })}
+          </EmptyDescription>
         </EmptyHeader>
         {words !== '' && (
           <EmptyContent>
             <Button variant="outline" size="sm" onClick={onClearFilter}>
-              Clear the filter
+              {t('partsList.clearFilter', 'Clear the filter', { ns: 'editor' })}
             </Button>
           </EmptyContent>
         )}
@@ -90,14 +98,14 @@ export function GroupedPartsList({ entries, filter, onClearFilter, selectedTypeI
           <Info />
           <AlertDescription className="flex items-start justify-between gap-2">
             <span role="status">{notice}</span>
-            <Button variant="ghost" size="icon-sm" aria-label="Dismiss" onClick={() => setNotice(null)}>
+            <Button variant="ghost" size="icon-sm" aria-label={t('partsList.dismiss', 'Dismiss', { ns: 'editor' })} onClick={() => setNotice(null)}>
               <X />
             </Button>
           </AlertDescription>
         </Alert>
       )}
       <div ref={windowRows.scrollRef} className={windowRows.windowed ? 'overflow-y-auto' : undefined} style={windowBoxStyle(windowRows)}>
-        <ItemGroup className="gap-1" aria-label="Part types">
+        <ItemGroup className="gap-1" aria-label={t('partsList.partTypes', 'Part types', { ns: 'editor' })}>
           {windowRows.padTop > 0 && <div aria-hidden="true" style={{ height: windowRows.padTop }} />}
           {windowSlice(rows, windowRows).map(({ item: row, index }) => (
             <div key={row.key} ref={windowRows.measure} data-index={index}>
@@ -125,6 +133,7 @@ export function GroupedPartsList({ entries, filter, onClearFilter, selectedTypeI
 }
 
 function GroupHeader({ row, onToggle }: { row: Extract<PartsListRow, { kind: 'category' | 'family' }>; onToggle: () => void }) {
+  const t = useEditorTranslate()
   const name = row.kind === 'category' ? row.label : row.name
   const Chevron = row.open ? ChevronDown : ChevronRight
   return (
@@ -140,16 +149,20 @@ function GroupHeader({ row, onToggle }: { row: Extract<PartsListRow, { kind: 'ca
       <span className="truncate">{name}</span>
       <span className="ml-auto text-xs text-muted-foreground">
         <span aria-hidden="true">{row.count}</span>
-        <span className="sr-only">, {row.count} {row.count === 1 ? 'type' : 'types'}</span>
-        {!row.open && row.holdsSelected ? ' · chosen' : ''}
+        <span className="sr-only">
+          {', '}
+          {row.count} {row.count === 1 ? t('partsList.type', 'type', { ns: 'editor' }) : t('partsList.types', 'types', { ns: 'editor' })}
+        </span>
+        {!row.open && row.holdsSelected ? t('partsList.chosen', ' · chosen', { ns: 'editor' }) : ''}
       </span>
     </Button>
   )
 }
 
 function TypeRow({ entry, selected, onSelect, onOpenEditor, canEdit }: { entry: CatalogEntry; selected: boolean; onSelect: () => void; onOpenEditor: () => void; canEdit: boolean }) {
-  const origin = entry.inModel ? null : entry.library === 'firm' ? 'firm library' : 'starter library'
-  const why = canEdit && entry.definition.model ? partEditBlockedReason(entry, true) : null
+  const t = useEditorTranslate()
+  const origin = entry.inModel ? null : entry.library === 'firm' ? t('partsList.firmLibrary', 'firm library', { ns: 'editor' }) : t('partsList.starterLibrary', 'starter library', { ns: 'editor' })
+  const why = canEdit && entry.definition.model ? partEditBlockedReason(entry, true, t) : null
   return (
     <Item size="sm" variant={selected ? 'outline' : 'default'} className={selected ? 'ml-8 border-primary bg-primary-50' : 'ml-8'} asChild>
       <div className="flex items-center gap-1">
@@ -159,7 +172,7 @@ function TypeRow({ entry, selected, onSelect, onOpenEditor, canEdit }: { entry: 
           onClick={onSelect}
           onDoubleClick={onOpenEditor}
           aria-pressed={selected}
-          title="Click to place. Double-click to open in the part editor."
+          title={t('partsList.rowHint', 'Click to place. Double-click to open in the part editor.', { ns: 'editor' })}
           data-testid={`part-type-${entry.typeId}`}
         >
           <ItemContent>
@@ -170,7 +183,7 @@ function TypeRow({ entry, selected, onSelect, onOpenEditor, canEdit }: { entry: 
         {canEdit && entry.definition.model && (
           <ItemActions>
             {why === null ? (
-              <Button variant="ghost" size="icon-sm" aria-label={`Edit part ${partGroupName(entry.definition)}`} title="Edit part" onClick={onOpenEditor} data-testid={`edit-part-${entry.typeId}`}>
+              <Button variant="ghost" size="icon-sm" aria-label={t('partsList.editPartNamed', 'Edit part {{name}}', { ns: 'editor', name: partGroupName(entry.definition) })} title={t('partsList.editPart', 'Edit part', { ns: 'editor' })} onClick={onOpenEditor} data-testid={`edit-part-${entry.typeId}`}>
                 <PencilRuler />
               </Button>
             ) : (

@@ -11,6 +11,7 @@ import { useEditorHost } from '@permitzip/bim-editor/host'
 import { priceBooksApiFrom } from '../../contracts/bim/cost-source/client'
 import { priceBookCostSource } from '../../contracts/bim/cost-source/cost-source'
 import type { PriceBookSummary } from '../../contracts/bim/cost-source/types'
+import { useEditorTranslate } from '../i18n/translate'
 
 type Books = { readonly kind: 'loading' } | { readonly kind: 'error'; readonly message: string } | { readonly kind: 'ready'; readonly books: readonly PriceBookSummary[] }
 type Priced = { readonly kind: 'none' } | { readonly kind: 'loading' } | { readonly kind: 'error'; readonly message: string } | { readonly kind: 'ready'; readonly priced: PricedDelta; readonly owner: string }
@@ -25,6 +26,7 @@ const NO_SET = PackSet.create([])
  * book has no rate for says "No price", never $0.
  */
 export function PriceDeltaWith({ projectId, deltas }: { readonly projectId: string; readonly deltas: readonly QuantityDelta[] }) {
+  const t = useEditorTranslate()
   const costSource = useEditorHost().data.costSource
   const priceBooksApi = useMemo(() => priceBooksApiFrom(costSource), [costSource])
   const [attempt, setAttempt] = useState(0)
@@ -38,7 +40,7 @@ export function PriceDeltaWith({ projectId, deltas }: { readonly projectId: stri
       (r) => live && setBooks({ kind: 'ready', books: r.books }),
       (err: unknown) => {
         console.error('[PriceDeltaWith] listing price books failed', err)
-        if (live) setBooks({ kind: 'error', message: err instanceof Error ? err.message : "Your price books didn't load." })
+        if (live) setBooks({ kind: 'error', message: err instanceof Error ? err.message : t('changeOrders.priceBooksFailed', 'Your price books didn\'t load.', { ns: 'editor' }) })
       },
     )
     return () => {
@@ -53,51 +55,51 @@ export function PriceDeltaWith({ projectId, deltas }: { readonly projectId: stri
     try {
       const readable = await priceBooksApi.read(id, projectId)
       const source = priceBookCostSource(readable)
-      setPriced({ kind: 'ready', priced: priceQuantityDeltas(deltas, NO_SET, source.id, readable.readerCompany.organizationId, [source]), owner: readable.book.owner.name ?? 'another company' })
+      setPriced({ kind: 'ready', priced: priceQuantityDeltas(deltas, NO_SET, source.id, readable.readerCompany.organizationId, [source]), owner: readable.book.owner.name ?? t('changeOrders.anotherCompany', 'another company', { ns: 'editor' }) })
     } catch (err) {
       console.error('[PriceDeltaWith] pricing the change failed', err)
-      setPriced({ kind: 'error', message: err instanceof Error ? err.message : "Couldn't price this change with that book." })
+      setPriced({ kind: 'error', message: err instanceof Error ? err.message : t('changeOrders.priceFailed', 'Couldn\'t price this change with that book.', { ns: 'editor' }) })
     }
   }
 
-  if (books.kind === 'loading') return <p className="text-xs text-muted-foreground">Loading your price books…</p>
+  if (books.kind === 'loading') return <p className="text-xs text-muted-foreground">{t('changeOrders.loadingPriceBooks', 'Loading your price books…', { ns: 'editor' })}</p>
   if (books.kind === 'error') {
     return (
       <p className="flex flex-wrap items-center gap-2 text-xs text-destructive">
         {books.message}
         <Button size="sm" variant="ghost" onClick={() => setAttempt((n) => n + 1)}>
-          Retry
+          {t('changeOrders.retry', 'Retry', { ns: 'editor' })}
         </Button>
       </p>
     )
   }
-  if (books.books.length === 0) return <p className="text-xs text-muted-foreground">To price this change privately, add a price book in Settings › Price books.</p>
+  if (books.books.length === 0) return <p className="text-xs text-muted-foreground">{t('changeOrders.addPriceBook', 'To price this change privately, add a price book in Settings › Price books.', { ns: 'editor' })}</p>
   const show = (m: { minor: number; currency: string }) => formatMoney(money(m.minor, m.currency))
   return (
     <div className="flex flex-col gap-2">
       <Select value={picked} onValueChange={(v) => void pick(v)}>
-        <SelectTrigger aria-label="Price with" className="w-full">
-          <SelectValue placeholder="Price with your own book (optional)" />
+        <SelectTrigger aria-label={t('changeOrders.priceWith', 'Price with', { ns: 'editor' })} className="w-full">
+          <SelectValue placeholder={t('changeOrders.priceWithOwnBook', 'Price with your own book (optional)', { ns: 'editor' })} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value={NOTHING}>Don’t price it</SelectItem>
+          <SelectItem value={NOTHING}>{t('changeOrders.dontPriceIt', 'Don’t price it', { ns: 'editor' })}</SelectItem>
           {books.books.map((b) => (
             <SelectItem key={b.id} value={b.id}>
-              {b.name} ({b.mine ? 'your company' : (b.owner.name ?? 'another company')})
+              {b.name} ({b.mine ? t('changeOrders.yourCompany', 'your company', { ns: 'editor' }) : (b.owner.name ?? t('changeOrders.anotherCompany', 'another company', { ns: 'editor' }))})
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
       {priced.kind === 'loading' ? (
         <p role="status" className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Spinner aria-hidden /> Pricing in your browser…
+          <Spinner aria-hidden /> {t('changeOrders.pricing', 'Pricing in your browser…', { ns: 'editor' })}
         </p>
       ) : priced.kind === 'error' ? (
         <p className="text-xs text-destructive">{priced.message}</p>
       ) : priced.kind === 'ready' ? (
         <div className="text-xs">
           <p className="font-medium">
-            {show(priced.priced.total)} with {priced.priced.source.party.label}’s book ({priced.owner}). Only you see this; it isn’t saved.
+            {t('changeOrders.pricedWithBook', '{{amount}} with {{party}}’s book ({{owner}}). Only you see this; it isn’t saved.', { ns: 'editor', amount: show(priced.priced.total), party: priced.priced.source.party.label, owner: priced.owner })}
           </p>
           <ul className="text-muted-foreground">
             {priced.priced.lines.map((l) => (

@@ -20,10 +20,48 @@ import { describe, unkeyedTwins, visibleEnglish } from "./helpers/editor-visible
 
 const EDITOR_SRC = path.join(__dirname, "..", "src", "editor");
 
-/** The two trees this stage owns: every drawing surface a person spends time in. */
-const OWNED = [path.join(EDITOR_SRC, "views-sheets"), path.join(EDITOR_SRC, "orientation")];
+/**
+ * The trees this guard owns, one list per stage-4 group so a failure names the
+ * group that regressed. A directory joins this list when its task is done; it is
+ * never removed, because the point of a negative-space guard is that the hole it
+ * closed stays closed.
+ */
+const OWNED_DIRS = [
+  // Stage 4 · Task 4.2 — the drawing surfaces a person spends the day in.
+  "views-sheets",
+  "orientation",
+  // Stage 4 · Task 4.3 — the MEP tabs, panels and design dialogs.
+  "ventilation",
+  "balance",
+  "loads",
+  // Stage 4 · Task 4.4 — project management, library, settings and IFC.
+  "parts-list",
+  "change-orders",
+  "signing",
+  "versions",
+  "merge",
+  "submittals",
+  "settings",
+  "levels",
+  "ifc-import",
+  "ifc-export",
+];
 
-test("no user-visible English in views-sheets or orientation sits outside a translator", () => {
+/**
+ * Trees the two tasks own that are **not** finished, so they are not guarded
+ * yet: a guard over a half-keyed tree reports the half that is honest to report
+ * and hides the half nobody has looked at. Each joins this list when its task
+ * closes (`docs/superpowers/plans/2026-11-10-bilingual-ui.md`, Stage 4).
+ *
+ *   Task 4.3  electrical (835 sites), plumbing (402 sites)
+ *   Task 4.4  spaces (427), questions (213), equipment-list (110),
+ *             library (68), coordination (58)
+ */
+export const NOT_YET_GUARDED = ["electrical", "plumbing", "spaces", "questions", "equipment-list", "library", "coordination"] as const;
+
+const OWNED = OWNED_DIRS.map((dir) => path.join(EDITOR_SRC, dir));
+
+test("no user-visible English in the stage-4 trees sits outside a translator", () => {
   const found = visibleEnglish(OWNED);
   // Printed, not counted: the point of this guard is that the work is enumerable.
   expect(found.map(describe)).toEqual([]);

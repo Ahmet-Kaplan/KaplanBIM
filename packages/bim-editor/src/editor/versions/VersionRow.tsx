@@ -1,6 +1,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
 import { GitBranchIcon } from 'lucide-react'
 import { Badge } from '../../ui/badge'
 import { Button } from '../../ui/button'
@@ -16,22 +17,26 @@ export interface VersionRowProps {
   readonly renderExtra?: (entry: VersionEntry) => ReactNode
 }
 
-const KIND_LABEL: Record<Exclude<VersionEntry['kind'], 'now'>, string> = { saved: 'Saved', issued: 'Issued set' }
+/** The row's kind, as a word: a saved version or an issued set. */
+function kindLabel(kind: Exclude<VersionEntry['kind'], 'now'>, t: Translate): string {
+  return kind === 'saved' ? t('versions.saved', 'Saved', { ns: 'editor' }) : t('versions.issuedSet', 'Issued set', { ns: 'editor' })
+}
 
 export function VersionRow({ entry, onNewBranch, cantStartReason, renderExtra }: VersionRowProps) {
+  const t = useEditorTranslate()
   return (
     <Item variant="outline" size="sm" className="flex-wrap">
       <ItemContent>
         <ItemTitle>
           {entry.label}
-          {entry.kind !== 'now' ? <Badge variant="secondary">{KIND_LABEL[entry.kind]}</Badge> : null}
+          {entry.kind !== 'now' ? <Badge variant="secondary">{kindLabel(entry.kind, t)}</Badge> : null}
         </ItemTitle>
         <ItemDescription>{entry.detail}</ItemDescription>
       </ItemContent>
       <ItemActions>
         <Button size="sm" variant="outline" disabled={!onNewBranch} title={onNewBranch ? undefined : (cantStartReason ?? undefined)} onClick={() => onNewBranch?.(entry)}>
           <GitBranchIcon aria-hidden />
-          New branch from this version
+          {t('versions.newBranchFromThis', 'New branch from this version', { ns: 'editor' })}
         </Button>
       </ItemActions>
       {renderExtra ? <div className="basis-full">{renderExtra(entry)}</div> : null}

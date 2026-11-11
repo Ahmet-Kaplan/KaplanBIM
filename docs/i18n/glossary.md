@@ -485,6 +485,66 @@ Aşama 4 (Task 4.1–4.2) çizelgeleri, hesap sayfalarını, paftaları, görün
 | Undo label group | **geri alma etiketi** | `undo.*` anahtarları; metinleri emir kipidir (§0.5) |
 | A wall / a grid line / a duct / a run (the noun a prompt names) | **bir duvar / bir ızgara çizgisi / bir kanal / bir hat** | |
 
+### 5.5 Aşama 4, Task 4.3–4.4'te eklenen sözcükler (2026-11-10)
+
+MEP panelleri (basınçlandırma, havalandırma, yükler) ile proje yönetimi panelleri
+(imalat onayları, değişiklik emirleri, sürümler, birleştirme, imza onayı, katlar,
+ayarlar, parça listesi, IFC içe/dışa aktarma) çevrilirken bunlar gerekti. Yukarıda
+**zaten** karara bağlı olanlar tekrar yazılmadı (`Pafta`, `Çizelge`, `Bölge`,
+`Kat`, `Mekan`, `Maliyet`, `Birim fiyat`, `Metraj`, `Değişiklik emri`,
+`İmalat onayı`, `Sürüm`, `Dal`, `Hat`, `Branşman`, `Yalıtım`, `İç kaplama`).
+
+| EN | TR | Not |
+|----|----|-----|
+| Pressurization | **basınçlandırma** | §2.4 *Pressure* = basınç (sütun), basınçlandırma = bir mekanın/bölgenin |
+| Makeup air / Makeup air load | **takviye hava / takviye hava yükü** | `MUA` kısaltması korunur (§0.3) |
+| Outdoor air / Exhaust | **dış hava / egzoz** | `OA`, `EA` kısaltmaları korunur |
+| Governing (code/standard) | **yürürlükteki** | "Yürürlükteki kod"; `Governing standard` = yürürlükteki standart |
+| Ventilation (the command/panel) | **havalandırma** | |
+| Fitting type / Loss coefficient / Velocity pressure | **bağlantı parçası tipi / kayıp katsayısı / hız basıncı** | §2.8 *Fitting* = bağlantı parçası |
+| Critical path | **kritik yol** | Basınç hesabı; programlama anlamı yok |
+| External static | **dış statik** | Fan basıncı; birim `in. w.c.` çevrilmez (§7) |
+| Straight through / Branch / Upstream / Small end (fitting paths) | **düz geçiş / branşman / akış yukarısı / küçük uç** | §9/Ç8: MEP branşmanı *branşman* |
+| Duct run / Pipe run (the noun) | **kanal hattı / boru hattı**; kısaca **hat** | §9/Ç9: komut *çalıştır* ile karışmaz |
+| Wrap (disserve) / Liner (inliner) | **dış kaplama / iç kaplama** | §2.3 *Insulation/Liner* = yalıtım / iç kaplama |
+| Faced / Spray-coated (liner surface) | **kaplamalı / püskürtmeli kaplama** | |
+| Flat (transition side) | **düz taraf** | `flat on the top` = üst tarafta düz |
+| Concentric / Eccentric / Centred (transition) | **konsantrik / eksantrik / ortalanmış** | |
+| Flex (a duct connection) | **esnek bağlantı** | `Run flex` = esnek bağlantı çiz |
+| Load status: open / assigned / placed / connected / attached / mismatch | **henüz kaynak yok / kaynak adlandırıldı, çizilmedi / yerleştirildi / bir boru, kanal ya da devrede / bir cihaz onu temsil ediyor / ilgi bekliyor** | §8: sayıdan sonra çoğul eki yok |
+| Load trade word: Water and drainage / Gas / Power / Air | **su ve drenaj / gaz / elektrik / hava** | Kernel'in `LOAD_TRADE_PROGRESS` etiketi İngilizcedir; sözcük `loadTradeWord` ile seçilir (sahibi Aşama 5 alan haritası) |
+| Submittal / Approved product / Approved substitution | **imalat onayı / onaylı ürün / onaylı ikame** | §6/Ç19 |
+| Review of / Rev | **… incelemesi / rev** | `Rev` kısaltması korunur (§0.3) |
+| Change order (the record) | **değişiklik emri** | §6; *tasarım değişikliği* ayrı kavramdır |
+| Addressee / Address to | **muhatap / … kişisine yönelt** | |
+| No cost / Mark no cost | **maliyetsiz / maliyetsiz işaretle** | §6 |
+| Price book / Priced with a book | **fiyat kitabı / … kitabıyla fiyatlandırıldı** | §6 |
+| Quantity change / Quantity only | **miktar değişimi / yalnız miktar** | §6, §8 |
+| Saved version / Issued set / New branch from this version | **kayıtlı sürüm / yayın seti / bu sürümden yeni dal** | §2.2/§6; *dal* = sürüm dalı (§9/Ç8) |
+| Kind of change / What kind of change was this? | **değişiklik türü / bu ne tür bir değişiklikti?** | |
+| Take responsibility / Responsible for the difference | **sorumluluk al / farktan sorumlu** | §2.2 *Responsible role* = sorumlu rol |
+| Merge / Propose merge to Main / Approved parts | **birleştir / Ana hatta birleştirme öner / onaylı parçalar** | `Main` = **Ana hat** (dalın karşısındaki ana hat) |
+| Sign-off / Verified / One-time code | **imza onayı / doğrulandı / tek kullanımlık kod** | §6 |
+| Architect's levels | **mimarın katları** | §2.8 |
+| Storey (linked model) | **kat** | §2.3 |
+| Floor (elevation in ft) | **kat kotu (ft)** | `ft` birim sembolü çevrilmez (§7) |
+| Part type / Part types / Edit part | **parça tipi / parça tipleri / parçayı düzenle** | §2.2 |
+| Add-on / Switch on / Switch off | **eklenti / aç / kapat** | §2.7 |
+| Export IFC / IFC export | **IFC dışa aktar / IFC dışa aktarma** | `IFC` kısaltması korunur (§0.3) |
+| Linked model (IFC içe aktarma) | **bağlı model** | §2.2 |
+| Data-use agreement | **veri kullanım anlaşması** | |
+| Country of origin: unit symbols | `kVA`, `CFM`, `fpm`, `in. w.c.`, `A`, `V`, `Pa`, `ft`, `Btu/h` **çevrilmez** | §7 — bu turda yalnız `bal.`/`vent.` sütun başlıklarında görünür |
+
+> **Bu turda kapanmayan ağaçlar.** `electrical/` ve `plumbing/` (Task 4.3) ile
+> `spaces/`, `questions/`, `equipment-list/`, `library/`, `coordination/`
+> (Task 4.4) **anahtarlanmadı**; bu yüzden Ç7 (*pano* / *panel*), Ç8'in elektrik
+> tarafı, Ç12 (*armatür* / *yük birimi*), Ç20 (*Sahip* / *İşveren*) ve `kVA`
+> sütunları bu sürümde hâlâ İngilizcedir ve negatif-alan koruması o ağaçları
+> **taramasın** diye `NOT_YET_GUARDED` listesinde adlandırılmıştır
+> (`packages/bim-editor/__tests__/i18n-negative-space.test.ts`). Sahibi: Aşama 4'ün
+> kalan turları; gerekçe ve sayılar görev raporundadır
+> (`.superpowers/sdd/2026-11-10-bilingual-ui/task-4.3-4.4-report.md`).
+
 ---
 
 ## 6. Maliyet ve ticari terimler

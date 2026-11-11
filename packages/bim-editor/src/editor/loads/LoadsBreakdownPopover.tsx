@@ -10,6 +10,7 @@ import { Popover, PopoverContent, PopoverDescription, PopoverHeader, PopoverTitl
 import { ScrollArea } from '../../ui/scroll-area'
 import { Separator } from '../../ui/separator'
 import type { ElementId } from '@permitzip/bim-kernel'
+import { useEditorTranslate } from '../i18n/translate'
 import type { LoadsBreakdown } from './loads-breakdown'
 
 /** Rows shown per list; the rest are in the Loads list. */
@@ -34,6 +35,7 @@ interface Props {
  * selects in the model; the footer opens the Loads list. Esc closes.
  */
 export function LoadsBreakdownPopover({ chip, breakdown, onSelect, onOpenList, openListBlocked }: Props) {
+  const t = useEditorTranslate()
   const [open, setOpen] = useState(false)
   // `breakdown` changes identity with each model render; reading it only while open keeps the header cheap.
   const data = useMemo(() => (open ? breakdown() : null), [open, breakdown])
@@ -41,28 +43,32 @@ export function LoadsBreakdownPopover({ chip, breakdown, onSelect, onOpenList, o
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="secondary" size="sm" className="hidden h-6 rounded-full px-2.5 text-xs lg:inline-flex" title="Loads by trade and status, estimates beside the devices so far, and loads that need attention" data-testid="building-model-loads-progress">
+        <Button variant="secondary" size="sm" className="hidden h-6 rounded-full px-2.5 text-xs lg:inline-flex" title={t('loads.chipTitle', 'Loads by trade and status, estimates beside the devices so far, and loads that need attention', { ns: 'editor' })} data-testid="building-model-loads-progress">
           {chip}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[26rem] p-0" data-testid="loads-breakdown">
         <PopoverHeader className="px-3 pt-3">
-          <PopoverTitle>Loads</PopoverTitle>
-          <PopoverDescription>{data ? `${data.total} load${data.total === 1 ? '' : 's'} in this model${data.counted ? `. ${data.counted}` : ''}` : 'Reading the loads…'}</PopoverDescription>
+          <PopoverTitle>{t('loads.title', 'Loads', { ns: 'editor' })}</PopoverTitle>
+          <PopoverDescription>
+            {data
+              ? `${data.total === 1 ? t('loads.oneInThisModel', '{{count}} load in this model', { ns: 'editor', count: data.total }) : t('loads.manyInThisModel', '{{count}} loads in this model', { ns: 'editor', count: data.total })}${data.counted ? `. ${data.counted}` : ''}`
+              : t('loads.reading', 'Reading the loads…', { ns: 'editor' })}
+          </PopoverDescription>
         </PopoverHeader>
         <ScrollArea className="max-h-[60vh]">
           <div className="flex flex-col gap-3 p-3">
             {data && data.total === 0 ? (
               <Empty>
                 <EmptyHeader>
-                  <EmptyTitle>No loads yet</EmptyTitle>
-                  <EmptyDescription>Add loads from the Loads list, a space’s loads, or by placing fixtures and devices.</EmptyDescription>
+                  <EmptyTitle>{t('loads.emptyTitle', 'No loads yet', { ns: 'editor' })}</EmptyTitle>
+                  <EmptyDescription>{t('loads.emptyWhy', 'Add loads from the Loads list, a space’s loads, or by placing fixtures and devices.', { ns: 'editor' })}</EmptyDescription>
                 </EmptyHeader>
               </Empty>
             ) : null}
             {data && data.trades.length > 0 ? (
-              <section className="flex flex-col gap-1.5" aria-label="By trade" data-testid="loads-breakdown-trades">
-                <h3 className="text-xs font-medium text-muted-foreground">By trade</h3>
+              <section className="flex flex-col gap-1.5" aria-label={t('loads.byTrade', 'By trade', { ns: 'editor' })} data-testid="loads-breakdown-trades">
+                <h3 className="text-xs font-medium text-muted-foreground">{t('loads.byTrade', 'By trade', { ns: 'editor' })}</h3>
                 <ItemGroup>
                   {data.trades.map((t) => (
                     <Item key={t.trade} size="sm" variant="outline" data-testid="loads-breakdown-trade" data-trade={t.trade}>
@@ -85,9 +91,9 @@ export function LoadsBreakdownPopover({ chip, breakdown, onSelect, onOpenList, o
               </section>
             ) : null}
             {data && data.attention.length > 0 ? (
-              <section className="flex flex-col gap-1.5" aria-label="Needs attention" data-testid="loads-breakdown-attention">
+              <section className="flex flex-col gap-1.5" aria-label={t('loads.needsAttention', 'Needs attention', { ns: 'editor' })} data-testid="loads-breakdown-attention">
                 <h3 className="text-xs font-medium text-muted-foreground">
-                  Needs attention ({data.attention.length})
+                  {t('loads.needsAttentionCount', 'Needs attention ({{count}})', { ns: 'editor', count: data.attention.length })}
                 </h3>
                 <ItemGroup>
                   {data.attention.slice(0, ROWS_SHOWN).map((r) => (
@@ -96,52 +102,73 @@ export function LoadsBreakdownPopover({ chip, breakdown, onSelect, onOpenList, o
                         <ItemTitle className="text-xs">
                           {r.label}
                           <Badge variant={r.reason === 'mismatch' ? 'destructive' : 'outline'} className="text-[10px]">
-                            {r.reason === 'mismatch' ? 'Disagrees with its source' : 'No source yet'}
+                            {r.reason === 'mismatch' ? t('loads.disagreesWithSource', 'Disagrees with its source', { ns: 'editor' }) : t('loads.status.open', 'No source yet', { ns: 'editor' })}
                           </Badge>
                         </ItemTitle>
                         <ItemDescription className="text-xs">{r.why}</ItemDescription>
                       </ItemContent>
                       <ItemActions>
-                        <Button size="xs" variant="ghost" onClick={() => onSelect(r.selectIds, r.label)} aria-label={`Select ${r.label}`}>
+                        <Button size="xs" variant="ghost" onClick={() => onSelect(r.selectIds, r.label)} aria-label={t('loads.selectWhat', 'Select {{name}}', { ns: 'editor', name: r.label })}>
                           <MousePointerClick data-icon="inline-start" />
-                          Select
+                          {t('loads.select', 'Select', { ns: 'editor' })}
                         </Button>
                       </ItemActions>
                     </Item>
                   ))}
                 </ItemGroup>
-                {data.attention.length > ROWS_SHOWN ? <p className="text-xs text-muted-foreground">{data.attention.length - ROWS_SHOWN} more in the Loads list.</p> : null}
+                {data.attention.length > ROWS_SHOWN ? (
+                  <p className="text-xs text-muted-foreground">
+                    {t('loads.moreInList', '{{count}} more in the Loads list.', { ns: 'editor', count: data.attention.length - ROWS_SHOWN })}
+                  </p>
+                ) : null}
               </section>
             ) : null}
             {data && data.estimates.length > 0 ? (
-              <section className="flex flex-col gap-1.5" aria-label="Estimate vs devices so far" data-testid="loads-breakdown-estimates">
-                <h3 className="text-xs font-medium text-muted-foreground">Estimate vs devices so far</h3>
+              <section className="flex flex-col gap-1.5" aria-label={t('loads.estimateVsDevices', 'Estimate vs devices so far', { ns: 'editor' })} data-testid="loads-breakdown-estimates">
+                <h3 className="text-xs font-medium text-muted-foreground">{t('loads.estimateVsDevices', 'Estimate vs devices so far', { ns: 'editor' })}</h3>
                 <ItemGroup>
                   {data.estimates.slice(0, ROWS_SHOWN).map((r) => (
                     <Item key={r.id} size="sm" variant="outline" data-testid="loads-breakdown-estimate-row" data-scope={r.id}>
                       <ItemContent>
                         <ItemTitle className="text-xs">
-                          {r.kind === 'zone' ? 'Zone' : 'Space'} {r.name}
+                          {r.kind === 'zone' ? t('loads.zone', 'Zone', { ns: 'editor' }) : t('loads.space', 'Space', { ns: 'editor' })} {r.name}
                         </ItemTitle>
                         <ItemDescription className="text-xs">{r.text}</ItemDescription>
                       </ItemContent>
                       <ItemActions>
-                        <Button size="xs" variant="ghost" onClick={() => onSelect([r.id], `${r.kind === 'zone' ? 'zone' : 'space'} ${r.name}`)} aria-label={`Select ${r.kind} ${r.name}`}>
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          onClick={() =>
+                            onSelect([r.id], t('loads.scopeAndName', '{{kind}} {{name}}', { ns: 'editor', kind: r.kind === 'zone' ? t('loads.zoneLower', 'zone', { ns: 'editor' }) : t('loads.spaceLower', 'space', { ns: 'editor' }), name: r.name }))
+                          }
+                          aria-label={t('loads.selectKindAndName', 'Select {{kind}} {{name}}', {
+                            ns: 'editor',
+                            kind: r.kind === 'zone' ? t('loads.zone', 'Zone', { ns: 'editor' }) : t('loads.space', 'Space', { ns: 'editor' }),
+                            name: r.name,
+                          })}
+                        >
                           <MousePointerClick data-icon="inline-start" />
-                          Select
+                          {t('loads.select', 'Select', { ns: 'editor' })}
                         </Button>
                       </ItemActions>
                     </Item>
                   ))}
                 </ItemGroup>
-                {data.estimates.length > ROWS_SHOWN ? <p className="text-xs text-muted-foreground">{data.estimates.length - ROWS_SHOWN} more: see Spaces, or a Space loads schedule.</p> : null}
+                {data.estimates.length > ROWS_SHOWN ? (
+                  <p className="text-xs text-muted-foreground">
+                    {t('loads.moreSeeSpaces', '{{count}} more: see Spaces, or a Space loads schedule.', { ns: 'editor', count: data.estimates.length - ROWS_SHOWN })}
+                  </p>
+                ) : null}
               </section>
             ) : null}
           </div>
         </ScrollArea>
         <Separator />
         <div className="flex items-center justify-between gap-2 p-2">
-          <span className="text-xs text-muted-foreground">{openListBlocked ? `Loads list: ${openListBlocked}` : 'Every load row, with its values and status'}</span>
+          <span className="text-xs text-muted-foreground">
+            {openListBlocked ? t('loads.listBlocked', 'Loads list: {{why}}', { ns: 'editor', why: openListBlocked }) : t('loads.listEveryRow', 'Every load row, with its values and status', { ns: 'editor' })}
+          </span>
           <Button
             size="sm"
             variant="outline"
@@ -154,7 +181,7 @@ export function LoadsBreakdownPopover({ chip, breakdown, onSelect, onOpenList, o
             }}
           >
             <ListTree data-icon="inline-start" />
-            Open the Loads list
+            {t('loads.openList', 'Open the Loads list', { ns: 'editor' })}
           </Button>
         </div>
       </PopoverContent>

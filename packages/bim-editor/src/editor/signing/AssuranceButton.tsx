@@ -11,11 +11,16 @@ import { useEditorHost } from '@permitzip/bim-editor/host'
 import { checkTotpCodeFrom, type Assurance } from '../../contracts/bim/signing/client'
 import { SIGNING_WORDS, windowWords } from '../../contracts/bim/signing/words'
 import type { AssuranceOffer } from './useAssuranceOffer'
+import { englishOnly, useEditorTranslate, type Translate } from '../i18n/translate'
 
 /** "Accept and sign with Touch ID" / "Accept and verify with a code"; "Sign with Touch ID" when no action is named. */
-export function assuranceLabel(offer: AssuranceOffer, action?: string): string {
-  const how = offer.state === 'ready' && offer.method === 'code' ? 'verify with a code' : 'sign with Touch ID'
-  return action ? `${action} and ${how}` : how === 'verify with a code' ? SIGNING_WORDS.verifyButton : SIGNING_WORDS.button
+export function assuranceLabel(offer: AssuranceOffer, action?: string, t: Translate = englishOnly): string {
+  const byCode = offer.state === 'ready' && offer.method === 'code'
+  const how = byCode ? t('signing.verifyWithCode', 'verify with a code', { ns: 'editor' }) : t('signing.signWithTouchId', 'sign with Touch ID', { ns: 'editor' })
+  // The verb and its manner are one sentence: `Accept and verify with a code` is
+  // not a verb spliced onto an English phrase (§0.7 keeps the union in the frame).
+  if (action) return t('signing.actionAndHow', '{{action}} and {{how}}', { ns: 'editor', action, how })
+  return byCode ? SIGNING_WORDS.verifyButton : SIGNING_WORDS.button
 }
 
 /**
@@ -47,13 +52,14 @@ export function AssuranceButton({
   readonly variant?: 'default' | 'outline' | 'destructive'
   readonly testId?: string
 }) {
+  const t = useEditorTranslate()
   const signing = useEditorHost().data.signing
   const [asking, setAsking] = useState(false)
   const [code, setCode] = useState('')
   const [checking, setChecking] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const why = blockedReason ?? (offer.state === 'unavailable' ? offer.reason : offer.state === 'checking' ? SIGNING_WORDS.checking : null)
-  const label = assuranceLabel(offer, action)
+  const label = assuranceLabel(offer, action, t)
 
   function start() {
     if (offer.state !== 'ready') return
@@ -73,13 +79,13 @@ export function AssuranceButton({
       onSecure({ method: 'code', grantId: out.grantId })
     } catch (err) {
       console.error('[AssuranceButton] checking the code failed', err)
-      setError(err instanceof Error ? err.message : 'Couldn’t check the code. Try again.')
+      setError(err instanceof Error ? err.message : t('signing.codeCheckFailed', 'Couldn’t check the code. Try again.', { ns: 'editor' }))
     } finally {
       setChecking(false)
     }
   }
 
-  const codeBlocked = /^[0-9]{6}$/.test(code.trim()) ? null : 'Enter the 6 digits your authenticator app shows.'
+  const codeBlocked = /^[0-9]{6}$/.test(code.trim()) ? null : t('signing.enterSixDigits', 'Enter the 6 digits your authenticator app shows.', { ns: 'editor' })
   return (
     <span className="inline-flex flex-col gap-1">
       <Button size={size} variant={variant} disabled={why !== null || busy} title={why ?? undefined} aria-describedby={testId ? `${testId}-why` : undefined} onClick={start} data-testid={testId} data-method={offer.state === 'ready' ? offer.method : undefined}>
@@ -87,7 +93,7 @@ export function AssuranceButton({
         {label}
       </Button>
       <span id={testId ? `${testId}-why` : undefined} className="max-w-xs text-xs text-muted-foreground">
-        {offer.state === 'unavailable' && !blockedReason ? offer.reason : offer.state === 'ready' ? (offer.method === 'code' ? `Verified is ${SIGNING_WORDS.notASignature}. ${windowWords(offer.windowMinutes, 'verify')}` : windowWords(offer.windowMinutes, 'sign')) : null}
+        {offer.state === 'unavailable' && !blockedReason ? offer.reason : offer.state === 'ready' ? (offer.method === 'code' ? t('signing.verifiedIsNotSignature', 'Verified is {{what}}. {{window}}', { ns: 'editor', what: SIGNING_WORDS.notASignature, window: windowWords(offer.windowMinutes, 'verify') }) : windowWords(offer.windowMinutes, 'sign')) : null}
       </span>
       <Dialog open={asking} onOpenChange={(o) => (o ? undefined : setAsking(false))}>
         <DialogContent>
@@ -103,16 +109,16 @@ export function AssuranceButton({
           >
             <FieldGroup>
               <Field>
-                <FieldLabel htmlFor={`${testId ?? 'assurance'}-code`}>One-time code</FieldLabel>
+                <FieldLabel htmlFor={`${testId ?? 'assurance'}-code`}>{t('signing.oneTimeCode', 'One-time code', { ns: 'editor' })}</FieldLabel>
                 <Input id={`${testId ?? 'assurance'}-code`} value={code} inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, ''))} data-testid="assurance-code" />
-                <FieldDescription>Your decision is recorded only after the code checks.</FieldDescription>
+                <FieldDescription>{t('signing.codeRecordedAfter', 'Your decision is recorded only after the code checks.', { ns: 'editor' })}</FieldDescription>
               </Field>
               {error ? <FieldError data-testid="assurance-code-error">{error}</FieldError> : null}
             </FieldGroup>
             <DialogFooter className="mt-4">
               <DialogClose asChild>
                 <Button type="button" variant="outline">
-                  Cancel
+                  {t('signing.cancel', 'Cancel', { ns: 'editor' })}
                 </Button>
               </DialogClose>
               <Button type="submit" disabled={codeBlocked !== null || checking} title={codeBlocked ?? undefined} data-testid="assurance-code-submit">

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { changeTargetKey, hostedIds, type ChangeTarget, type ModelState } from '@permitzip/bim-kernel'
 import { readQuantityDelta, type HistoryReads, type QuantityDeltaRead } from '../../contracts/bim/change-orders/delta-read'
 import { ask, type BranchChannel } from '../branches/useBranches'
+import { useEditorTranslate } from '../i18n/translate'
 
 export type QuantityDeltaState =
   | { readonly status: 'off' }
@@ -29,6 +30,7 @@ export function channelHistoryReads(channel: BranchChannel): HistoryReads {
  * scan: the changed ids, then those elements and what they name.
  */
 export function useQuantityDelta(channel: BranchChannel | null, model: ModelState | null, target: ChangeTarget | null) {
+  const t = useEditorTranslate()
   const [nonce, setNonce] = useState(0)
   const key = target ? `${changeTargetKey(target)}|${target.kind === 'branch' ? target.branchHead : ''}|${nonce}` : null
   const [answer, setAnswer] = useState<{ readonly key: string; readonly state: QuantityDeltaState } | null>(null)
@@ -49,7 +51,7 @@ export function useQuantityDelta(channel: BranchChannel | null, model: ModelStat
       (read) => live && setAnswer({ key, state: { status: 'ready', read } }),
       (err: unknown) => {
         console.error('[change-orders] reading the quantity change failed', err)
-        if (live) setAnswer({ key, state: { status: 'error', message: err instanceof Error ? err.message : "Couldn't work out the quantity change." } })
+        if (live) setAnswer({ key, state: { status: 'error', message: err instanceof Error ? err.message : t('changeOrders.workOutFailed', 'Couldn\'t work out the quantity change.', { ns: 'editor' }) } })
       },
     )
     return () => {
@@ -58,6 +60,6 @@ export function useQuantityDelta(channel: BranchChannel | null, model: ModelStat
   }, [channel, key, head])
 
   const retry = useCallback(() => setNonce((n) => n + 1), [])
-  const state: QuantityDeltaState = !target ? { status: 'off' } : !channel ? { status: 'error', message: 'Not connected to the model server yet. Try again in a moment.' } : answer && answer.key === key ? answer.state : { status: 'loading' }
+  const state: QuantityDeltaState = !target ? { status: 'off' } : !channel ? { status: 'error', message: t('changeOrders.notConnected', 'Not connected to the model server yet. Try again in a moment.', { ns: 'editor' }) } : answer && answer.key === key ? answer.state : { status: 'loading' }
   return { state, retry }
 }

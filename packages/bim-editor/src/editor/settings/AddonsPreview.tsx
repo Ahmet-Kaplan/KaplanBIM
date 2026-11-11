@@ -58,7 +58,7 @@ export function AddonsPreview({ model, canEdit, blockedReason, submit, onClose, 
   const isOn = (pack: Pack) => pins.some((p) => p.id === pack.manifest.id && p.version === pack.manifest.version)
 
   const flip = (pack: Pack, on: boolean) => {
-    const verb = on ? 'switch on' : 'switch off'
+    const verb = on ? t('settings.switchOn', 'switch on', { ns: 'editor' }) : t('settings.switchOff', 'switch off', { ns: 'editor' })
     const refusal = submit({ type: 'set_model_addon', packId: pack.manifest.id, version: pack.manifest.version, on }, `${verb} ${pack.manifest.name}`)
     if (refusal) console.error('[AddonsPreview] the add-on switch was refused', { packId: pack.manifest.id, on, refusal })
     setError(refusal)
@@ -69,7 +69,7 @@ export function AddonsPreview({ model, canEdit, blockedReason, submit, onClose, 
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl" data-testid="addons-preview-dialog">
         <DialogHeader>
           <DialogTitle>{t('panel.addOns', 'Add-ons', { ns: 'editor' })}</DialogTitle>
-          <DialogDescription>Add-ons this server has, beyond the built-in trades. Each is off until you switch it on for this model; a switch is an edit you can undo.</DialogDescription>
+          <DialogDescription>{t('settings.addonsWhy', 'Add-ons this server has, beyond the built-in trades. Each is off until you switch it on for this model; a switch is an edit you can undo.', { ns: 'editor' })}</DialogDescription>
         </DialogHeader>
         {!canEdit && (
           <Alert>
@@ -87,8 +87,8 @@ export function AddonsPreview({ model, canEdit, blockedReason, submit, onClose, 
               <EmptyMedia variant="icon">
                 <PackageOpen />
               </EmptyMedia>
-              <EmptyTitle>No add-ons on this server</EmptyTitle>
-              <EmptyDescription>Only the built-in trades are installed. Settings › MutinyBIM library › Add-ons lists what a server has.</EmptyDescription>
+              <EmptyTitle>{t('settings.noAddons', 'No add-ons on this server', { ns: 'editor' })}</EmptyTitle>
+              <EmptyDescription>{t('settings.noAddonsWhy', 'Only the built-in trades are installed. Settings › MutinyBIM library › Add-ons lists what a server has.', { ns: 'editor' })}</EmptyDescription>
             </EmptyHeader>
           </Empty>
         ) : (
@@ -96,7 +96,7 @@ export function AddonsPreview({ model, canEdit, blockedReason, submit, onClose, 
             {packs.map((pack) => {
               const on = isOn(pack)
               const preview = previewIds.has(pack.manifest.id)
-              const label = `${pack.manifest.name}${preview ? ' (Preview)' : ''}`
+              const label = `${pack.manifest.name}${preview ? t('settings.previewParen', ' (Preview)', { ns: 'editor' }) : ''}`
               const toggle = (
                 <Switch
                   checked={on}
@@ -111,7 +111,7 @@ export function AddonsPreview({ model, canEdit, blockedReason, submit, onClose, 
                   <ItemContent>
                     <ItemTitle>
                       {pack.manifest.name}
-                      {preview && <Badge variant="outline">Preview</Badge>}
+                      {preview && <Badge variant="outline">{t('settings.preview', 'Preview', { ns: 'editor' })}</Badge>}
                       <span className="text-muted-foreground text-xs tabular-nums">{pack.manifest.version}</span>
                     </ItemTitle>
                     {pack.manifest.description && <ItemDescription>{pack.manifest.description}</ItemDescription>}
@@ -137,18 +137,18 @@ export function AddonsPreview({ model, canEdit, blockedReason, submit, onClose, 
         <DisciplinesSectionFrom port={firmLibrary} pinTo={{ model, canEdit, blockedReason, submit }} {...(loadDisciplineRows ? { loadRows: loadDisciplineRows } : {})} />
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            Close
+            {t('settings.close', 'Close', { ns: 'editor' })}
           </Button>
         </DialogFooter>
       </DialogContent>
       <AlertDialog open={confirmOff !== null} onOpenChange={(open) => !open && setConfirmOff(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Switch {confirmOff?.manifest.name} off for this model?</AlertDialogTitle>
-            <AlertDialogDescription>Its rows are hidden; nothing is deleted. Switch it back on, or undo, to see them again.</AlertDialogDescription>
+            <AlertDialogTitle>{t('settings.switchOffOne', 'Switch {{switchName}} off for this model?', { ns: 'editor', switchName: confirmOff?.manifest.name ?? '' })}</AlertDialogTitle>
+            <AlertDialogDescription>{t('settings.switchOffWhy', 'Its rows are hidden; nothing is deleted. Switch it back on, or undo, to see them again.', { ns: 'editor' })}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep it on</AlertDialogCancel>
+            <AlertDialogCancel>{t('settings.keepItOn', 'Keep it on', { ns: 'editor' })}</AlertDialogCancel>
             <AlertDialogAction
               data-testid="addon-switch-off-confirm"
               onClick={() => {
@@ -156,7 +156,7 @@ export function AddonsPreview({ model, canEdit, blockedReason, submit, onClose, 
                 setConfirmOff(null)
               }}
             >
-              Switch off
+              {t('settings.switchOffButton', 'Switch off', { ns: 'editor' })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

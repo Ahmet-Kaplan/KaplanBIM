@@ -3194,7 +3194,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
           return loadsChip && shown ? (
             <LoadsBreakdownPopover
               chip={loadsChip}
-              breakdown={() => loadsBreakdown(shown, loadsLayer.advanceNoted(shown))}
+              breakdown={() => loadsBreakdown(shown, loadsLayer.advanceNoted(shown), t)}
               onSelect={selectFromBreakdown}
               openListBlocked={loadsListMissing && editBlocked ? `it can't be made yet: ${editBlocked}` : null}
               onOpenList={() => openBuiltinList('loads')}

@@ -18,6 +18,7 @@ import { linkedDisciplinesLabel } from '../../contracts/building-model/linked-co
 import { PROPOSE_WORDS, type ImportReportView, type ProposeProgress, type ProposeState } from '../../contracts/building-model/ifc-import/contract'
 import { useEditorHost } from '@permitzip/bim-editor/host'
 import { fetchProposalProgressFrom, fetchProposeStateFrom, startProposalFrom, stopProposalFrom } from './propose-api'
+import { useEditorTranslate } from '../i18n/translate'
 
 /**
  * Linked models › a model › Propose changes to this model (round 9 I9): the
@@ -57,6 +58,7 @@ export function ProposeChangesDialog({
 }
 
 function ProposeFlow({ projectId, reference, set, onClose }: { readonly projectId: string; readonly reference: { readonly id: string; readonly label: string }; readonly set?: PackSet; readonly onClose: () => void }) {
+  const t = useEditorTranslate()
   const ifcImport = useEditorHost().data.ifcImport
   const { router, pathname, searchParams } = useEditorNavigation()
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' })
@@ -68,7 +70,7 @@ function ProposeFlow({ projectId, reference, set, onClose }: { readonly projectI
 
   const load = useCallback(() => {
     const controller = new AbortController()
-    fetchProposeStateFrom(ifcImport, projectId, reference.id, controller.signal)
+    fetchProposeStateFrom(ifcImport, projectId, reference.id, controller.signal, t)
       .then((state) => {
         setPhase({ kind: 'ready', state })
         setName(state.defaultName)
@@ -77,7 +79,7 @@ function ProposeFlow({ projectId, reference, set, onClose }: { readonly projectI
       .catch((err: unknown) => {
         if (controller.signal.aborted) return
         console.error('[ProposeChangesDialog] loading failed', err)
-        setPhase({ kind: 'load_failed', message: err instanceof Error ? err.message : "Couldn't read the agreement." })
+        setPhase({ kind: 'load_failed', message: err instanceof Error ? err.message : t('ifcImport.agreementUnread', 'Couldn\'t read the agreement.', { ns: 'editor' }) })
       })
     return controller
   }, [ifcImport, projectId, reference.id])
@@ -95,7 +97,7 @@ function ProposeFlow({ projectId, reference, set, onClose }: { readonly projectI
     if (!live || !runId || !jobId) return
     let cancelled = false
     const timer = setTimeout(() => {
-      fetchProposalProgressFrom(ifcImport, projectId, reference.id, runId, jobId)
+      fetchProposalProgressFrom(ifcImport, projectId, reference.id, runId, jobId, t)
         .then((progress) => {
           if (cancelled) return
           setPollError(null)
@@ -103,7 +105,7 @@ function ProposeFlow({ projectId, reference, set, onClose }: { readonly projectI
         })
         .catch((err: unknown) => {
           console.error('[ProposeChangesDialog] checking progress failed', err)
-          if (!cancelled) setPollError(err instanceof Error ? err.message : "Couldn't check on the proposal.")
+          if (!cancelled) setPollError(err instanceof Error ? err.message : t('ifcImport.proposalCheckFailed', 'Couldn\'t check on the proposal.', { ns: 'editor' }))
         })
         .finally(() => {
           if (!cancelled) setTick((t) => t + 1)
@@ -119,11 +121,11 @@ function ProposeFlow({ projectId, reference, set, onClose }: { readonly projectI
     setStartError(null)
     setPhase({ kind: 'starting', state })
     try {
-      const started = await startProposalFrom(ifcImport, projectId, reference.id, { agreementVersion: state.agreement.version, name: name.trim() })
+      const started = await startProposalFrom(ifcImport, projectId, reference.id, { agreementVersion: state.agreement.version, name: name.trim() }, t)
       setPhase({ kind: 'running', state, runId: started.runId, jobId: started.jobId, progress: null, stopping: false })
     } catch (err) {
       console.error('[ProposeChangesDialog] starting failed', err)
-      setStartError(err instanceof Error ? err.message : "The proposal couldn't be started.")
+      setStartError(err instanceof Error ? err.message : t('ifcImport.proposalStartFailed', 'The proposal couldn\'t be started.', { ns: 'editor' }))
       setPhase({ kind: 'ready', state })
     }
   }
@@ -133,10 +135,10 @@ function ProposeFlow({ projectId, reference, set, onClose }: { readonly projectI
     if (!r) return
     setPhase({ ...r, stopping: true })
     try {
-      await stopProposalFrom(ifcImport, projectId, reference.id, r.runId)
+      await stopProposalFrom(ifcImport, projectId, reference.id, r.runId, t)
     } catch (err) {
       console.error('[ProposeChangesDialog] stopping failed', err)
-      setPollError(err instanceof Error ? err.message : "Couldn't stop it.")
+      setPollError(err instanceof Error ? err.message : t('ifcImport.couldntStop', 'Couldn\'t stop it.', { ns: 'editor' }))
       setPhase((p) => (p.kind === 'running' ? { ...p, stopping: false } : p))
     }
   }
@@ -151,7 +153,7 @@ function ProposeFlow({ projectId, reference, set, onClose }: { readonly projectI
       <>
         <DialogHeader>
           <DialogTitle>{PROPOSE_WORDS.title(reference.label)}</DialogTitle>
-          <DialogDescription>Reading the data-use agreement…</DialogDescription>
+          <DialogDescription>{t('ifcImport.readingAgreement', 'Reading the data-use agreement…', { ns: 'editor' })}</DialogDescription>
         </DialogHeader>
         <div className="flex justify-center py-6">
           <Spinner />
@@ -167,12 +169,12 @@ function ProposeFlow({ projectId, reference, set, onClose }: { readonly projectI
           <DialogTitle>{PROPOSE_WORDS.title(reference.label)}</DialogTitle>
         </DialogHeader>
         <Alert variant="destructive">
-          <AlertTitle>Couldn&apos;t open this</AlertTitle>
+          <AlertTitle>{t('ifcImport.couldntOpenThis', 'Couldn\'t open this', { ns: 'editor' })}</AlertTitle>
           <AlertDescription>{phase.message}</AlertDescription>
         </Alert>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            Close
+            {t('ifcImport.close', 'Close', { ns: 'editor' })}
           </Button>
           <Button
             onClick={() => {
@@ -181,7 +183,7 @@ function ProposeFlow({ projectId, reference, set, onClose }: { readonly projectI
             }}
           >
             <RefreshCw data-icon="inline-start" />
-            Try again
+            {t('ifcImport.tryAgain', 'Try again', { ns: 'editor' })}
           </Button>
         </DialogFooter>
       </>
@@ -207,7 +209,7 @@ function ProposeFlow({ projectId, reference, set, onClose }: { readonly projectI
       </DialogHeader>
       {state.blocked ? (
         <Alert>
-          <AlertTitle>Not available here</AlertTitle>
+          <AlertTitle>{t('ifcImport.notAvailableHere', 'Not available here', { ns: 'editor' })}</AlertTitle>
           <AlertDescription>{state.blocked}</AlertDescription>
         </Alert>
       ) : (
@@ -218,7 +220,7 @@ function ProposeFlow({ projectId, reference, set, onClose }: { readonly projectI
               {state.agreement.body}
             </ScrollArea>
             {alreadyAccepted ? (
-              <FieldDescription>You accepted this version on {new Date(state.agreement.acceptedAt ?? '').toLocaleDateString()}.</FieldDescription>
+              <FieldDescription>{t('ifcImport.acceptedOn', 'You accepted this version on {{when}}.', { ns: 'editor', when: new Date(state.agreement.acceptedAt ?? '').toLocaleDateString() })}</FieldDescription>
             ) : (
               <Field orientation="horizontal">
                 <Checkbox id="propose-accept" checked={accepted} onCheckedChange={(v) => setAccepted(v === true)} aria-label={PROPOSE_WORDS.agree} />
@@ -227,13 +229,15 @@ function ProposeFlow({ projectId, reference, set, onClose }: { readonly projectI
             )}
           </Field>
           <Field>
-            <FieldLabel htmlFor="propose-name">Branch name</FieldLabel>
+            <FieldLabel htmlFor="propose-name">{t('ifcImport.branchName', 'Branch name', { ns: 'editor' })}</FieldLabel>
             <Input id="propose-name" value={name} maxLength={70} onChange={(e) => setName(e.target.value)} />
-            <FieldDescription>Only you edit it. Merging any of it into Main needs the approvals the project names for those disciplines.</FieldDescription>
+            <FieldDescription>
+              {t('ifcImport.onlyYouEditDisciplines', 'Only you edit it. Merging any of it into Main needs the approvals the project names for those disciplines.', { ns: 'editor' })}
+            </FieldDescription>
           </Field>
           {startError && (
             <Alert variant="destructive">
-              <AlertTitle>It didn&apos;t start</AlertTitle>
+              <AlertTitle>{t('ifcImport.itDidntStart', 'It didn\'t start', { ns: 'editor' })}</AlertTitle>
               <AlertDescription>{startError}</AlertDescription>
             </Alert>
           )}
@@ -241,7 +245,7 @@ function ProposeFlow({ projectId, reference, set, onClose }: { readonly projectI
       )}
       <DialogFooter>
         <Button variant="outline" onClick={onClose}>
-          Cancel
+          {t('ifcImport.cancel', 'Cancel', { ns: 'editor' })}
         </Button>
         <Button disabled={why !== null || phase.kind === 'starting'} title={why ?? undefined} onClick={() => void start(state)} data-testid="propose-start">
           {phase.kind === 'starting' ? <Spinner data-icon="inline-start" /> : <GitBranch data-icon="inline-start" />}
@@ -272,6 +276,7 @@ function RunningView({
   readonly onClose: () => void
   readonly onAgain: () => void
 }) {
+  const t = useEditorTranslate()
   const p = phase.progress
   const status = p?.status ?? 'converting'
   const inFlight = status === 'converting' || status === 'landing'
@@ -279,26 +284,26 @@ function RunningView({
     <>
       <DialogHeader>
         <DialogTitle>{PROPOSE_WORDS.title(label)}</DialogTitle>
-        <DialogDescription>{describe || 'Linked model'}</DialogDescription>
+        <DialogDescription>{describe || t('ifcImport.linkedModel', 'Linked model', { ns: 'editor' })}</DialogDescription>
       </DialogHeader>
       {inFlight && (
         <div className="flex flex-col gap-2" role="status" aria-live="polite">
           <p className="text-sm">{status === 'landing' && p ? PROPOSE_WORDS.landing(p.landed, p.total) : PROPOSE_WORDS.converting}</p>
           {status === 'landing' && p && p.total > 0 ? <Progress value={(p.landed / p.total) * 100} /> : <Spinner />}
-          <p className="text-muted-foreground text-xs">You can close this; it keeps going, and the branch shows in the Branch picker when it is ready.</p>
+          <p className="text-muted-foreground text-xs">{t('ifcImport.keepsGoing', 'You can close this; it keeps going, and the branch shows in the Branch picker when it is ready.', { ns: 'editor' })}</p>
         </div>
       )}
       {pollError && (
         <Alert>
-          <AlertTitle>Couldn&apos;t check just now</AlertTitle>
-          <AlertDescription>{pollError} It tries again by itself.</AlertDescription>
+          <AlertTitle>{t('ifcImport.couldntCheckJustNow', 'Couldn\'t check just now', { ns: 'editor' })}</AlertTitle>
+          <AlertDescription>{pollError} {t('ifcImport.triesAgain', 'It tries again by itself.', { ns: 'editor' })}</AlertDescription>
         </Alert>
       )}
       {status === 'done' && <p className="text-sm font-medium">{PROPOSE_WORDS.done}</p>}
       {(status === 'failed' || status === 'cancelled') && (
         <Alert variant={status === 'failed' ? 'destructive' : 'default'}>
-          <AlertTitle>{status === 'failed' ? "It didn't finish" : PROPOSE_WORDS.stopped}</AlertTitle>
-          <AlertDescription>{p?.error ?? 'Main didn\u2019t change.'}</AlertDescription>
+          <AlertTitle>{status === 'failed' ? t('ifcImport.itDidntFinish', 'It didn\'t finish', { ns: 'editor' }) : PROPOSE_WORDS.stopped}</AlertTitle>
+          <AlertDescription>{p?.error ?? t('ifcImport.mainUnchanged', 'Main didn’t change.', { ns: 'editor' })}</AlertDescription>
         </Alert>
       )}
       {p?.report && <ImportReport report={p.report} />}
@@ -306,7 +311,7 @@ function RunningView({
         {inFlight ? (
           <>
             <Button variant="outline" onClick={onClose}>
-              Close
+              {t('ifcImport.close', 'Close', { ns: 'editor' })}
             </Button>
             <Button variant="destructive" disabled={phase.stopping} onClick={onStop} data-testid="propose-stop">
               {phase.stopping && <Spinner data-icon="inline-start" />}
@@ -316,7 +321,7 @@ function RunningView({
         ) : status === 'done' && p?.branchId ? (
           <>
             <Button variant="outline" onClick={onClose}>
-              Close
+              {t('ifcImport.close', 'Close', { ns: 'editor' })}
             </Button>
             <Button onClick={() => p.branchId && onOpen(p.branchId)} data-testid="propose-open-branch">
               <GitBranch data-icon="inline-start" />
@@ -326,11 +331,11 @@ function RunningView({
         ) : (
           <>
             <Button variant="outline" onClick={onClose}>
-              Close
+              {t('ifcImport.close', 'Close', { ns: 'editor' })}
             </Button>
             <Button onClick={onAgain}>
               <RefreshCw data-icon="inline-start" />
-              Try again
+              {t('ifcImport.tryAgain', 'Try again', { ns: 'editor' })}
             </Button>
           </>
         )}
@@ -341,24 +346,34 @@ function RunningView({
 
 /** What converted and what stays as the linked model, by kind, with the reasons. */
 export function ImportReport({ report }: { readonly report: ImportReportView }) {
+  const t = useEditorTranslate()
   const left = report.classes.filter((c) => c.linked.length > 0)
   return (
     <div className="flex flex-col gap-2 text-sm" data-testid="propose-report">
       <p>{report.summary}</p>
-      {report.levelsAdded.length > 0 && <p className="text-muted-foreground">New levels: {report.levelsAdded.join(', ')}.</p>}
+      {report.levelsAdded.length > 0 && <p className="text-muted-foreground">{t('ifcImport.newLevels', 'New levels:', { ns: 'editor' })} {report.levelsAdded.join(', ')}.</p>}
       {left.length > 0 && (
         <ScrollArea className="max-h-40 rounded-md border p-2">
           <ul className="flex flex-col gap-1">
             {left.map((c) => (
               <li key={c.classId ?? c.label}>
                 <span className="font-medium">{c.label}</span>
-                {c.converted > 0 ? ` (${c.converted} converted)` : ''}: {c.linked.map((r) => `${r.count} stay linked because ${r.reason}`).join('; ')}.
+                {c.converted > 0 ? t('ifcImport.convertedParen', ' ({{count}} converted)', { ns: 'editor', count: c.converted }) : ''}:{' '}
+                {c.linked
+                  .map((r) => t('ifcImport.stayLinked', '{{count}} stay linked because {{why}}', { ns: 'editor', count: r.count, why: r.reason }))
+                  .join('; ')}
+                .
               </li>
             ))}
           </ul>
         </ScrollArea>
       )}
-      {report.notes.length > 0 && <p className="text-muted-foreground text-xs">{report.notes.slice(0, 5).join('. ')}{report.notes.length > 5 ? ` (and ${report.notes.length - 5} more)` : ''}.</p>}
+      {report.notes.length > 0 && (
+        <p className="text-muted-foreground text-xs">
+          {report.notes.slice(0, 5).join('. ')}
+          {report.notes.length > 5 ? t('ifcImport.andCountMore', ' (and {{count}} more)', { ns: 'editor', count: report.notes.length - 5 }) : ''}.
+        </p>
+      )}
     </div>
   )
 }

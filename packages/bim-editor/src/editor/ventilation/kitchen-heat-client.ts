@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { lookupTableSchema, type LookupTable } from '@permitzip/bim-kernel/policy'
 import type { EditorDataHost } from '@permitzip/bim-editor-host'
 import { EditorServiceUnavailableError } from '@permitzip/bim-editor/host/unavailable'
+import { useEditorTranslate } from '../i18n/translate'
 
 type LibraryPort = EditorDataHost['firmLibrary']
 
@@ -15,8 +16,8 @@ export interface KitchenHeatTables {
   readonly retry: () => void
 }
 
-async function listTables(port: LibraryPort, scope: string): Promise<LookupTable[]> {
-  if (!port) throw new EditorServiceUnavailableError('The firm library')
+async function listTables(port: LibraryPort, scope: string, serviceName: string): Promise<LookupTable[]> {
+  if (!port) throw new EditorServiceUnavailableError(serviceName)
   const res = await port.listOfType({ scope, type: 'lookup_table' })
   if (!res.ok) throw new Error(`the library answered ${res.status}`)
   const body: unknown = await res.json()
@@ -36,24 +37,33 @@ async function listTables(port: LibraryPort, scope: string): Promise<LookupTable
 
 /** Reads the firm's (and the project's) lookup tables once per open; `retry` reads them again. */
 export function useKitchenHeatTablesFrom(port: LibraryPort, projectId: string | null | undefined): KitchenHeatTables {
+  const t = useEditorTranslate()
   const [attempt, setAttempt] = useState(0)
   const key = `${projectId ?? ''}#${attempt}`
   const [read, setRead] = useState<{ readonly key: string } & Omit<KitchenHeatTables, 'retry'>>({ key: '', status: 'loading', firm: [], project: [], error: null })
   const retry = useCallback(() => setAttempt((n) => n + 1), [])
   useEffect(() => {
     let live = true
-    Promise.all([listTables(port, 'firm'), projectId ? listTables(port, `project:${projectId}`) : Promise.resolve([])])
+    const firm = t('ventilation.firmLibrary', 'The firm library', { ns: 'editor' })
+    Promise.all([listTables(port, 'firm', firm), projectId ? listTables(port, `project:${projectId}`, firm) : Promise.resolve([])])
       .then(([firm, project]) => {
         if (live) setRead({ key, status: 'ready', firm, project, error: null })
       })
       .catch((err: unknown) => {
         console.error('[kitchen-heat] reading the lookup tables failed', { projectId, err })
-        if (live) setRead({ key, status: 'error', firm: [], project: [], error: `Couldn't read the kitchen heat tables: ${err instanceof Error ? err.message : String(err)}. Try again, or check the firm library › Lookup tables.` })
+        if (live)
+          setRead({
+            key,
+            status: 'error',
+            firm: [],
+            project: [],
+            error: t('ventilation.heatTablesFailed', "Couldn't read the kitchen heat tables: {{why}}. Try again, or check the firm library › Lookup tables.", { ns: 'editor', why: err instanceof Error ? err.message : String(err) }),
+          })
       })
     return () => {
       live = false
     }
-  }, [port, projectId, key])
+  }, [port, projectId, key, t])
   return useMemo(() => {
     if (read.key !== key) return { status: 'loading', firm: [], project: [], error: null, retry }
     const { key: _read, ...tables } = read

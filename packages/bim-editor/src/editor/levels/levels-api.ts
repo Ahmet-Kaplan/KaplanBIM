@@ -3,10 +3,11 @@
 import type { EditorDataHost } from '@permitzip/bim-editor-host'
 import { EditorServiceUnavailableError } from '@permitzip/bim-editor/host/unavailable'
 import { isLinkedLevelsResponse, type LinkedLevelsResponse } from '../../contracts/building-model/linked-levels-contract'
+import { englishOnly, type Translate } from '../i18n/translate'
 
 /** Every linked model's storeys, placed in this model (the host's `levels` port). Failures carry the server's reason. */
-export async function fetchLinkedLevelsFrom(port: EditorDataHost['levels'], projectId: string, signal?: AbortSignal): Promise<LinkedLevelsResponse> {
-  if (!port) throw new EditorServiceUnavailableError("The linked models' storeys")
+export async function fetchLinkedLevelsFrom(port: EditorDataHost['levels'], projectId: string, signal?: AbortSignal, t: Translate = englishOnly): Promise<LinkedLevelsResponse> {
+  if (!port) throw new EditorServiceUnavailableError(t('levels.storeysService', "The linked models' storeys", { ns: 'editor' }))
   const res = await port.linked({ projectId }, { signal })
   const body: unknown = await res.json().catch((err: unknown) => {
     console.error("[levels-api] the architect's levels: response was not JSON", err)

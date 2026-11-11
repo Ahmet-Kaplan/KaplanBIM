@@ -8,6 +8,7 @@ import { newElementId } from '../placement'
 import { suggestLevelName } from './surface-pick'
 import { useLevelPick } from './use-level-pick'
 import { useLevelPlanes } from './use-level-planes'
+import { useEditorTranslate } from '../i18n/translate'
 
 const AddLevelDialog = dynamic(() => import('./AddLevelDialog').then((m) => m.AddLevelDialog), { ssr: false })
 
@@ -55,6 +56,7 @@ export function LevelTools({
   readonly onRequest: (request: LevelRequest | null) => void
   readonly hint: (text: string | null) => void
 }) {
+  const t = useEditorTranslate()
   const [picking, setPicking] = useState(false)
   const [picked, setPicked] = useState<{ name: string; elevationMm: number; from: string } | null>(null)
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
@@ -81,7 +83,15 @@ export function LevelTools({
           console.error('[LevelTools] measuring the building top for the level name failed', err)
           return null
         })
-        setPicked({ name: suggestLevelName(elevationMm, levels, top?.max.z ?? null), elevationMm, from: `the ${hit.source === 'linked' ? 'linked model' : 'model'} at ${levelHeightLabel(elevationMm)}` })
+        setPicked({
+          name: suggestLevelName(elevationMm, levels, top?.max.z ?? null),
+          elevationMm,
+          from: t('levels.heightFrom', 'the {{source}} at {{height}}', {
+            ns: 'editor',
+            source: hit.source === 'linked' ? t('levels.linkedModel', 'linked model', { ns: 'editor' }) : t('levels.theModel', 'model', { ns: 'editor' }),
+            height: levelHeightLabel(elevationMm),
+          }),
+        })
         setPicking(false)
         hint(null)
         onRequest('add')
@@ -104,8 +114,12 @@ export function LevelTools({
           initial={picked}
           onCancel={close}
           onNameChange={setHighlightedId}
-          onAdd={(name, elevationMm) => submit({ type: 'create_level', levelId: newElementId('lvl'), name, elevationMm }, `add level ${name}`)}
-          onMove={(levelId, elevationMm) => submit({ type: 'update_level', levelId, elevationMm }, `level moved to ${levelHeightLabel(elevationMm)}`)}
+          onAdd={(name, elevationMm) =>
+            submit({ type: 'create_level', levelId: newElementId('lvl'), name, elevationMm }, t('levels.undo.addLevelNamed', 'add level {{name}}', { ns: 'editor', name }))
+          }
+          onMove={(levelId, elevationMm) =>
+            submit({ type: 'update_level', levelId, elevationMm }, t('levels.undo.levelMovedTo', 'level moved to {{height}}', { ns: 'editor', height: levelHeightLabel(elevationMm) }))
+          }
           onUseArchitect={() => onRequest('architect')}
           onPickSurface={
             live3d

@@ -1,4 +1,5 @@
 import { divergencesIn, productChainOf, submittalsIn, SUBMITTAL_REVIEW_LABELS, SUBMITTAL_REVIEW_STATES, type ModelState, type SubmittalReviewState } from '@permitzip/bim-kernel'
+import { englishOnly, type Translate } from '../i18n/translate'
 
 export interface SubmittalItemRow {
   readonly id: string
@@ -30,7 +31,7 @@ export function reviewLabel(state: string): string {
   return words ? words.charAt(0).toUpperCase() + words.slice(1) : 'Other'
 }
 
-function aboutWords(model: ModelState, ids: readonly string[]): string {
+function aboutWords(model: ModelState, ids: readonly string[], t: Translate = englishOnly): string {
   const names = ids.flatMap((id) => {
     const el = model.elements[id]
     if (!el) return []
@@ -39,11 +40,11 @@ function aboutWords(model: ModelState, ids: readonly string[]): string {
     return [mark ?? name ?? el.kind.replace(/_/g, ' ')]
   })
   const unique = [...new Set(names)]
-  return unique.slice(0, 3).join(', ') + (unique.length > 3 ? ` and ${unique.length - 3} more` : '')
+  return unique.slice(0, 3).join(', ') + (unique.length > 3 ? t('submittals.andMore', ' and {{count}} more', { ns: 'editor', count: unique.length - 3 }) : '')
 }
 
 /** Every submittal in the model, newest id last, each item with its own review. */
-export function submittalRows(model: ModelState): SubmittalRow[] {
+export function submittalRows(model: ModelState, t: Translate = englishOnly): SubmittalRow[] {
   const substituted = new Set<string>()
   for (const d of divergencesIn(model.elements)) {
     const p = d.divergence.approvedProduct
@@ -60,7 +61,7 @@ export function submittalRows(model: ModelState): SubmittalRow[] {
         submittedBy: b.submittedBy ?? null,
         state: b.review.state,
         stateLabel: reviewLabel(b.review.state),
-        about: aboutWords(model, [...(b.offeredFor.elementIds ?? []), ...(b.offeredFor.typeIds ?? [])]),
+        about: aboutWords(model, [...(b.offeredFor.elementIds ?? []), ...(b.offeredFor.typeIds ?? [])], t),
         items: b.items.map((i) => ({
           id: i.id,
           label: i.label,

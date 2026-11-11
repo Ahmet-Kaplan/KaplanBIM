@@ -11,6 +11,7 @@ import { Skeleton } from '../../ui/skeleton'
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table'
 import { useEditorHost } from '@permitzip/bim-editor/host'
 import { useKitchenHeatTablesFrom } from './kitchen-heat-client'
+import { englishOnly, useEditorTranslate, type Translate } from '../i18n/translate'
 
 export interface KitchenHeatPanelProps {
   readonly model: ModelState | null
@@ -31,13 +32,13 @@ interface Row {
 }
 
 /** Every space on the level (or in the model) with kitchen equipment in it, and the heat each gains. */
-export function kitchenHeatSpaceRows(model: ModelState, levelId: ElementId | null, tables: Pick<KitchenHeatSources, 'firm' | 'project'>): Row[] {
+export function kitchenHeatSpaceRows(model: ModelState, levelId: ElementId | null, tables: Pick<KitchenHeatSources, 'firm' | 'project'>, t: Translate = englishOnly): Row[] {
   const locator = heatGainLocator(model.elements)
   const out: Row[] = []
   for (const space of elementsOfKind(model.elements, 'space')) {
     if (levelId && space.levelId !== levelId) continue
     const need = spaceHeatGainNeed(model.elements, space.id, { firm: tables.firm, project: tables.project }, locator)
-    if (need) out.push({ spaceId: space.id, label: [space.number, space.name].filter((p) => p.trim().length > 0).join(' ') || 'Unnamed space', need })
+    if (need) out.push({ spaceId: space.id, label: [space.number, space.name].filter((p) => p.trim().length > 0).join(' ') || t('ventilation.unnamedSpace', 'Unnamed space', { ns: 'editor' }), need })
   }
   return out.sort((a, b) => a.label.localeCompare(b.label, 'en-US', { numeric: true }))
 }
@@ -49,10 +50,11 @@ export function kitchenHeatSpaceRows(model: ModelState, levelId: ElementId | nul
  * where its Loads show the same line. Esc closes.
  */
 export function KitchenHeatPanel({ model, error, levelId, levelName, projectId, onSelectSpace, onOpenSpaces, onClose }: KitchenHeatPanelProps) {
+  const t = useEditorTranslate()
   const tables = useKitchenHeatTablesFrom(useEditorHost().data.firmLibrary, projectId)
-  const rows = useMemo(() => (model && tables.status === 'ready' ? kitchenHeatSpaceRows(model, levelId, tables) : null), [model, levelId, tables])
+  const rows = useMemo(() => (model && tables.status === 'ready' ? kitchenHeatSpaceRows(model, levelId, tables, t) : null), [model, levelId, tables, t])
   const noTable = rows !== null && rows.length > 0 && rows.every((r) => r.need.state === 'needs_table')
-  const where = levelId ? (levelName ?? 'this level') : 'the model'
+  const where = levelId ? (levelName ?? t('ventilation.thisLevel', 'this level', { ns: 'editor' })) : t('ventilation.theModel', 'the model', { ns: 'editor' })
 
   const onKeyDown = (e: KeyboardEvent<HTMLElement>) => {
     if (e.key === 'Escape') {
@@ -62,13 +64,13 @@ export function KitchenHeatPanel({ model, error, levelId, levelName, projectId, 
   }
 
   return (
-    <section className="flex flex-col gap-3 p-3" aria-label="Kitchen heat" onKeyDown={onKeyDown} data-testid="kitchen-heat-panel">
+    <section className="flex flex-col gap-3 p-3" aria-label={t('ventilation.kitchenHeat', 'Kitchen heat', { ns: 'editor' })} onKeyDown={onKeyDown} data-testid="kitchen-heat-panel">
       <header className="flex items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-sm font-medium">
           <Flame aria-hidden="true" />
-          Kitchen heat on {where}
+          {t('ventilation.kitchenHeatOn', 'Kitchen heat on {{where}}', { ns: 'editor', where })}
         </h2>
-        <Button variant="ghost" size="icon-sm" aria-label="Close kitchen heat" title="Close (Esc)" onClick={onClose}>
+        <Button variant="ghost" size="icon-sm" aria-label={t('ventilation.closeKitchenHeat', 'Close kitchen heat', { ns: 'editor' })} title={t('ventilation.closeEsc', 'Close (Esc)', { ns: 'editor' })} onClick={onClose}>
           <X />
         </Button>
       </header>
@@ -76,18 +78,18 @@ export function KitchenHeatPanel({ model, error, levelId, levelName, projectId, 
       {error || tables.status === 'error' ? (
         <Alert data-testid="kitchen-heat-panel-error">
           <CircleAlert />
-          <AlertTitle>Kitchen heat can’t be shown</AlertTitle>
+          <AlertTitle>{t('ventilation.kitchenHeatFailed', 'Kitchen heat can’t be shown', { ns: 'editor' })}</AlertTitle>
           <AlertDescription className="flex flex-col items-start gap-2">
             {error ?? tables.error}
             {tables.status === 'error' ? (
               <Button size="sm" variant="outline" onClick={tables.retry}>
-                Try again
+                {t('ventilation.tryAgain', 'Try again', { ns: 'editor' })}
               </Button>
             ) : null}
           </AlertDescription>
         </Alert>
       ) : rows === null ? (
-        <div className="flex flex-col gap-2" data-testid="kitchen-heat-panel-loading" aria-label="Reading the model and the kitchen heat table">
+        <div className="flex flex-col gap-2" data-testid="kitchen-heat-panel-loading" aria-label={t('ventilation.readingModelAndHeat', 'Reading the model and the kitchen heat table', { ns: 'editor' })}>
           <Skeleton className="h-5 w-full" />
           <Skeleton className="h-5 w-3/4" />
         </div>
@@ -97,12 +99,18 @@ export function KitchenHeatPanel({ model, error, levelId, levelName, projectId, 
             <EmptyMedia variant="icon">
               <Flame />
             </EmptyMedia>
-            <EmptyTitle>No kitchen equipment in a space on {where}</EmptyTitle>
-            <EmptyDescription>Place a part whose type names its kitchen appliance (Fryer, Range) inside a drawn space, and its heat shows here and in the space’s Loads.</EmptyDescription>
+            <EmptyTitle>{t('ventilation.noKitchenEquipmentOn', 'No kitchen equipment in a space on {{where}}', { ns: 'editor', where })}</EmptyTitle>
+            <EmptyDescription>
+              {t(
+                'ventilation.noKitchenEquipmentWhy',
+                'Place a part whose type names its kitchen appliance (Fryer, Range) inside a drawn space, and its heat shows here and in the space’s Loads.',
+                { ns: 'editor' },
+              )}
+            </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
             <Button size="sm" variant="outline" onClick={onOpenSpaces}>
-              Open Spaces
+              {t('ventilation.openSpaces', 'Open Spaces', { ns: 'editor' })}
             </Button>
           </EmptyContent>
         </Empty>
@@ -111,18 +119,24 @@ export function KitchenHeatPanel({ model, error, levelId, levelName, projectId, 
           {noTable ? (
             <Alert data-testid="kitchen-heat-panel-needs-table">
               <CircleAlert />
-              <AlertTitle>No kitchen heat table yet</AlertTitle>
-              <AlertDescription>Add a kitchen heat table in the firm library › Lookup tables. The add-on ships no numbers, so nothing is added until a table with a citation is there.</AlertDescription>
+              <AlertTitle>{t('ventilation.noHeatTableYet', 'No kitchen heat table yet', { ns: 'editor' })}</AlertTitle>
+              <AlertDescription>
+                {t(
+                  'ventilation.noHeatTableWhy',
+                  'Add a kitchen heat table in the firm library › Lookup tables. The add-on ships no numbers, so nothing is added until a table with a citation is there.',
+                  { ns: 'editor' },
+                )}
+              </AlertDescription>
             </Alert>
           ) : null}
           <Table data-testid="kitchen-heat-panel-rows">
-            <TableCaption className="sr-only">Heat each space gains from its kitchen equipment</TableCaption>
+            <TableCaption className="sr-only">{t('ventilation.heatEachSpace', 'Heat each space gains from its kitchen equipment', { ns: 'editor' })}</TableCaption>
             <TableHeader>
               <TableRow>
-                <TableHead>Space</TableHead>
-                <TableHead>Heat gain</TableHead>
+                <TableHead>{t('ventilation.space', 'Space', { ns: 'editor' })}</TableHead>
+                <TableHead>{t('ventilation.heatGain', 'Heat gain', { ns: 'editor' })}</TableHead>
                 <TableHead>
-                  <span className="sr-only">Select</span>
+                  <span className="sr-only">{t('ventilation.select', 'Select', { ns: 'editor' })}</span>
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -131,12 +145,18 @@ export function KitchenHeatPanel({ model, error, levelId, levelName, projectId, 
                 <TableRow key={r.spaceId} data-testid="kitchen-heat-panel-row" data-space={r.spaceId} data-state={r.need.state}>
                   <TableCell className="text-xs">{r.label}</TableCell>
                   <TableCell className="text-xs" title={[r.need.detail, ...r.need.missing].filter(Boolean).join('\n') || undefined}>
-                    {r.need.state === 'heat' ? r.need.line : 'Needs a table'}
-                    {r.need.missing.length > 0 ? <span className="block text-warning-700">{r.need.missing.length === 1 ? '1 appliance has no row' : `${r.need.missing.length} appliances have no row`}</span> : null}
+                    {r.need.state === 'heat' ? r.need.line : t('ventilation.needsATable', 'Needs a table', { ns: 'editor' })}
+                    {r.need.missing.length > 0 ? (
+                      <span className="block text-warning-700">
+                        {r.need.missing.length === 1
+                          ? t('ventilation.oneApplianceNoRow', '1 appliance has no row', { ns: 'editor' })
+                          : t('ventilation.appliancesNoRow', '{{count}} appliances have no row', { ns: 'editor', count: r.need.missing.length })}
+                      </span>
+                    ) : null}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" variant="ghost" onClick={() => onSelectSpace(r.spaceId)} aria-label={`Select ${r.label}`}>
-                      Select
+                    <Button size="sm" variant="ghost" onClick={() => onSelectSpace(r.spaceId)} aria-label={t('ventilation.selectWhat', 'Select {{name}}', { ns: 'editor', name: r.label })}>
+                      {t('ventilation.select', 'Select', { ns: 'editor' })}
                     </Button>
                   </TableCell>
                 </TableRow>

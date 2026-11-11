@@ -17,6 +17,7 @@ import type { BranchChannel } from '../branches/useBranches'
 import { AddresseePicker } from './AddresseePicker'
 import { QuantityDeltaList } from './QuantityDeltaList'
 import { useQuantityDelta } from './useQuantityDelta'
+import { useEditorTranslate } from '../i18n/translate'
 
 const THIS_BRANCH = '__branch__'
 
@@ -41,6 +42,7 @@ export interface NewChangeOrderDialogProps {
  * Cancel close it without saving anything.
  */
 export function NewChangeOrderDialog({ open, onOpenChange, projectId, modelId, model, channel, versions, onOpened }: NewChangeOrderDialogProps) {
+  const t = useEditorTranslate()
   const changeOrders = useEditorHost().data.changeOrders
   const branch: BranchRef | null = channel?.branch() ?? null
   const head = model?.revision ?? null
@@ -59,7 +61,7 @@ export function NewChangeOrderDialog({ open, onOpenChange, projectId, modelId, m
   }, [since, branch, head, choices, modelId])
   const { state: delta, retry } = useQuantityDelta(channel, model, open ? target : null)
 
-  const blocked = !target ? 'Pick what the change order covers.' : !addressee ? 'Pick whom it is for.' : title.trim().length === 0 ? 'Give it a title.' : null
+  const blocked = !target ? t('changeOrders.pickWhatItCovers', 'Pick what the change order covers.', { ns: 'editor' }) : !addressee ? t('changeOrders.pickWhomFor', 'Pick whom it is for.', { ns: 'editor' }) : title.trim().length === 0 ? t('changeOrders.giveTitle', 'Give it a title.', { ns: 'editor' }) : null
 
   async function save(send: boolean) {
     if (blocked || !target || !addressee) return
@@ -82,7 +84,7 @@ export function NewChangeOrderDialog({ open, onOpenChange, projectId, modelId, m
       onOpenChange(false)
     } catch (err) {
       console.error('[NewChangeOrderDialog] opening the change order failed', err)
-      setError(err instanceof Error ? err.message : "Couldn't open the change order. Try again.")
+      setError(err instanceof Error ? err.message : t('changeOrders.openFailed', 'Couldn\'t open the change order. Try again.', { ns: 'editor' }))
     } finally {
       setSaving(null)
     }
@@ -92,46 +94,50 @@ export function NewChangeOrderDialog({ open, onOpenChange, projectId, modelId, m
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>New change order</DialogTitle>
-          <DialogDescription>A change order is separate from the design change. It has no price here; whoever it is for prices it with their own book.</DialogDescription>
+          <DialogTitle>{t('changeOrders.newTitle', 'New change order', { ns: 'editor' })}</DialogTitle>
+          <DialogDescription>
+            {t('changeOrders.newWhy', 'A change order is separate from the design change. It has no price here; whoever it is for prices it with their own book.', { ns: 'editor' })}
+          </DialogDescription>
         </DialogHeader>
         <FieldGroup>
           <Field>
-            <FieldLabel htmlFor="co-since">Covers</FieldLabel>
+            <FieldLabel htmlFor="co-since">{t('changeOrders.covers', 'Covers', { ns: 'editor' })}</FieldLabel>
             <Select value={since} onValueChange={setSince}>
-              <SelectTrigger id="co-since" aria-label="Covers">
-                <SelectValue placeholder={versions === null ? 'Loading versions…' : 'Since version…'} />
+              <SelectTrigger id="co-since" aria-label={t('changeOrders.covers', 'Covers', { ns: 'editor' })}>
+                <SelectValue placeholder={versions === null ? t('changeOrders.loadingVersions', 'Loading versions…', { ns: 'editor' }) : t('changeOrders.sinceVersion', 'Since version…', { ns: 'editor' })} />
               </SelectTrigger>
               <SelectContent>
-                {branch ? <SelectItem value={THIS_BRANCH}>This branch ({branch.name}) against Main</SelectItem> : null}
+                {branch ? <SelectItem value={THIS_BRANCH}>{t('changeOrders.thisBranch', 'This branch ({{name}}) against Main', { ns: 'editor', name: branch.name })}</SelectItem> : null}
                 {choices.map((v) => (
                   <SelectItem key={v.key} value={v.key}>
-                    Since {v.label} (version {v.revision})
+                    {t('changeOrders.since', 'Since', { ns: 'editor' })} {v.label} {t('changeOrders.versionParen', '(version', { ns: 'editor' })} {v.revision})
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {versions !== null && choices.length === 0 && !branch ? <FieldDescription>No saved version to start from yet. Save one in Manage › Versions, or open a branch.</FieldDescription> : null}
+            {versions !== null && choices.length === 0 && !branch ? (
+              <FieldDescription>{t('changeOrders.noSavedVersion', 'No saved version to start from yet. Save one in Manage › Versions, or open a branch.', { ns: 'editor' })}</FieldDescription>
+            ) : null}
           </Field>
           {target ? <QuantityDeltaList state={delta} onRetry={retry} /> : null}
           <Field>
-            <FieldLabel>Address to</FieldLabel>
+            <FieldLabel>{t('changeOrders.addressTo', 'Address to', { ns: 'editor' })}</FieldLabel>
             <AddresseePicker projectId={projectId} value={addressee} onChange={setAddressee} />
-            <FieldDescription>Only they can accept it, refuse it or mark it no cost.</FieldDescription>
+            <FieldDescription>{t('changeOrders.onlyTheyAnswer', 'Only they can accept it, refuse it or mark it no cost.', { ns: 'editor' })}</FieldDescription>
           </Field>
           <Field>
-            <FieldLabel htmlFor="co-title">Title</FieldLabel>
-            <Input id="co-title" value={title} maxLength={200} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Lobby ceiling raised to 12 ft" />
+            <FieldLabel htmlFor="co-title">{t('changeOrders.titleLabel', 'Title', { ns: 'editor' })}</FieldLabel>
+            <Input id="co-title" value={title} maxLength={200} onChange={(e) => setTitle(e.target.value)} placeholder={t('changeOrders.titlePlaceholder', 'e.g. Lobby ceiling raised to 12 ft', { ns: 'editor' })} />
           </Field>
           <Field>
-            <FieldLabel htmlFor="co-description">Description (optional)</FieldLabel>
+            <FieldLabel htmlFor="co-description">{t('changeOrders.descriptionOptional', 'Description (optional)', { ns: 'editor' })}</FieldLabel>
             <Textarea id="co-description" value={description} maxLength={4000} onChange={(e) => setDescription(e.target.value)} />
           </Field>
           {error ? <FieldError>{error}</FieldError> : null}
         </FieldGroup>
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="outline">Cancel</Button>
+            <Button variant="outline">{t('changeOrders.cancel', 'Cancel', { ns: 'editor' })}</Button>
           </DialogClose>
           <Button variant="outline" disabled={blocked !== null || saving !== null} title={blocked ?? undefined} onClick={() => void save(false)}>
             {saving === 'draft' ? <Spinner aria-hidden /> : null}

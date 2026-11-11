@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import type { ModelViewer3D } from '@permitzip/bim-viewer-3d'
 import { snapLevelHeight, viewerSurfacePicker, type SurfaceHit, type SurfacePicker } from './surface-pick'
+import { useEditorTranslate } from '../i18n/translate'
 
 /** A press that travels further than this (screen px) is an orbit or pan, not a pick. */
 const CLICK_PX = 4
@@ -32,6 +33,7 @@ export function useLevelPick({
   /** Defaults to the viewer's surface pick. */
   readonly picker?: SurfacePicker
 }) {
+  const t = useEditorTranslate()
   const handlers = useRef({ onPicked, onCancel, hint })
   useLayoutEffect(() => {
     handlers.current = { onPicked, onCancel, hint }
@@ -62,14 +64,14 @@ export function useLevelPick({
         .pickSurface(e.clientX, e.clientY)
         .then((hit) => {
           if (!hit) {
-            handlers.current.hint('Nothing under the pointer to take a height from. Click a roof or a floor slab, or Esc to stop.')
+            handlers.current.hint(t('levels.nothingUnderPointer', 'Nothing under the pointer to take a height from. Click a roof or a floor slab, or Esc to stop.', { ns: 'editor' }))
             return
           }
           handlers.current.onPicked(snapLevelHeight(hit.point.z), hit)
         })
         .catch((err: unknown) => {
           console.error('[useLevelPick] picking a surface for the level failed', err)
-          handlers.current.hint("That surface couldn't be read. Try another spot, or Esc to stop.")
+          handlers.current.hint(t('levels.surfaceUnread', 'That surface couldn\'t be read. Try another spot, or Esc to stop.', { ns: 'editor' }))
         })
     }
     const onKey = (e: KeyboardEvent) => {

@@ -9,6 +9,7 @@ import { Button } from '../../ui/button'
 import { Spinner } from '../../ui/spinner'
 import { useEditorHost } from '@permitzip/bim-editor/host'
 import { useKitchenHeatTablesFrom, type KitchenHeatTables } from './kitchen-heat-client'
+import { useEditorTranslate } from '../i18n/translate'
 
 interface Props {
   readonly model: ModelState
@@ -31,6 +32,7 @@ export function kitchenHeatNeedFor(model: ModelState, spaceId: ElementId, tables
  * kitchen appliance.
  */
 export function KitchenHeatLine({ model, spaceId, projectId, tables: given }: Props) {
+  const t = useEditorTranslate()
   const read = useKitchenHeatTablesFrom(useEditorHost().data.firmLibrary, given ? undefined : projectId)
   const tables = given ?? read
   const need = useMemo(() => (tables.status === 'ready' ? kitchenHeatNeedFor(model, spaceId, tables) : null), [model, spaceId, tables])
@@ -39,7 +41,7 @@ export function KitchenHeatLine({ model, spaceId, projectId, tables: given }: Pr
     return (
       <p className="flex items-center gap-2 text-xs text-muted-foreground" data-testid="kitchen-heat-loading">
         <Spinner />
-        Reading the kitchen heat table…
+        {t('ventilation.readingHeatTableDots', 'Reading the kitchen heat table…', { ns: 'editor' })}
       </p>
     )
   }
@@ -50,7 +52,7 @@ export function KitchenHeatLine({ model, spaceId, projectId, tables: given }: Pr
         <AlertDescription className="flex flex-col items-start gap-2">
           {tables.error}
           <Button size="sm" variant="outline" onClick={tables.retry}>
-            Try again
+            {t('ventilation.tryAgain', 'Try again', { ns: 'editor' })}
           </Button>
         </AlertDescription>
       </Alert>
@@ -64,7 +66,14 @@ export function KitchenHeatLine({ model, spaceId, projectId, tables: given }: Pr
         <span>{need.line}</span>
       </p>
       {need.detail ? <p className="text-xs text-muted-foreground">{need.detail}</p> : null}
-      {need.state === 'needs_table' ? <p className="text-xs text-muted-foreground">{need.partIds.length === 1 ? 'One kitchen appliance stands here' : `${need.partIds.length} kitchen appliances stand here`}; nothing is added until the table has their rows.</p> : null}
+      {need.state === 'needs_table' ? (
+        <p className="text-xs text-muted-foreground">
+          {need.partIds.length === 1
+            ? t('ventilation.oneApplianceStands', 'One kitchen appliance stands here', { ns: 'editor' })
+            : t('ventilation.appliancesStand', '{{count}} kitchen appliances stand here', { ns: 'editor', count: need.partIds.length })}
+          {t('ventilation.nothingUntilRows', '; nothing is added until the table has their rows.', { ns: 'editor' })}
+        </p>
+      ) : null}
       {need.missing.map((m) => (
         <p key={m} className="text-xs text-warning-700" data-testid="kitchen-heat-missing">
           {m}

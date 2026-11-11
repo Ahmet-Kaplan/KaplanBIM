@@ -14,6 +14,7 @@ import {
   type PressurizationSet,
 } from '@permitzip/bim-pack-mechanical'
 import { to } from '@permitzip/bim-units'
+import { englishOnly, type Translate } from '../i18n/translate'
 
 /**
  * The Pressurization section's rows (Building Model › Ventilation): one line
@@ -98,7 +99,7 @@ function row(s: PressurizationSet, items: readonly PressurizationItemRow[], exha
   }
 }
 
-export function pressurizationView(elements: Readonly<Record<string, BimElement>>, scope: PressurizationScope): PressurizationView {
+export function pressurizationView(elements: Readonly<Record<string, BimElement>>, scope: PressurizationScope, t: Translate = englishOnly): PressurizationView {
   const report = pressurizationOf(elements)
   const { zones, showBuilding } = pressurizationScopeZones(elements, report, scope)
   const item = (c: (typeof report.contributors)[number]): PressurizationItemRow => {
@@ -106,7 +107,10 @@ export function pressurizationView(elements: Readonly<Record<string, BimElement>
     return { partId: c.partId, label: c.label, role: AIR_ROLE_WORDS[c.role], cfm: v === null ? '—' : signedCfm(v), missing: c.value === null ? (c.missing ?? null) : null, planned: c.planned }
   }
   const rows: PressurizationRow[] = zones.map((z) => {
-    const note = z.requiredExhaust === null ? null : `Its spaces need ${cfmText(to(z.requiredExhaust, 'cfm'))} of exhaust (ventilation table)${z.exhaustShort ? '; less is drawn.' : '.'}`
+    const note =
+      z.requiredExhaust === null
+        ? null
+        : `${t('balance.needsExhaust', 'Its spaces need {{cfm}} of exhaust (ventilation table)', { ns: 'editor', cfm: cfmText(to(z.requiredExhaust, 'cfm')) })}${z.exhaustShort ? t('balance.lessIsDrawn', '; less is drawn.', { ns: 'editor' }) : '.'}`
     return row(z, report.contributors.filter((c) => c.zoneIds.includes(z.zoneId)).map(item), note)
   })
   if (showBuilding) rows.push(row(report.building, report.contributors.map(item), null))
@@ -115,16 +119,33 @@ export function pressurizationView(elements: Readonly<Record<string, BimElement>
   const heat: MakeupHeatRow[] = report.heat
     .filter((h) => shownParts.has(h.partId))
     .map((h) => {
-      if (!h.heat) return { partId: h.partId, mark: h.mark, text: h.missing ?? `${h.mark}: no load worked out.`, problem: true }
-      const unit = h.servingUnits.length === 1 ? `, added to ${h.servingUnits[0]?.mark}` : h.servingUnits.length > 1 ? `, shared by ${h.servingUnits.map((u) => u.mark).join(' and ')}` : ', and no unit serves its zone yet'
+      if (!h.heat)
+        return {
+          partId: h.partId,
+          mark: h.mark,
+          text: h.missing ?? t('balance.noLoadWorkedOut', '{{mark}}: no load worked out.', { ns: 'editor', mark: h.mark }),
+          problem: true,
+        }
+      const unit =
+        h.servingUnits.length === 1
+          ? t('balance.addedToUnit', ', added to {{unit}}', { ns: 'editor', unit: h.servingUnits[0]?.mark ?? '' })
+          : h.servingUnits.length > 1
+            ? t('balance.sharedByUnits', ', shared by {{units}}', { ns: 'editor', units: h.servingUnits.map((u) => u.mark).join(t('balance.andConjunction', ' and ', { ns: 'editor' })) })
+            : t('balance.noUnitServes', ', and no unit serves its zone yet', { ns: 'editor' })
       return { partId: h.partId, mark: h.mark, text: `${h.heat.arithmetic} ${h.heat.direction}${unit}`, problem: false }
     })
-  const empty = report.empty ?? (rows.length === 0 ? (scope.kind === 'level' ? 'No zones on this level yet. Make zones in the Spaces panel and assign their units.' : 'No zones yet. Make zones in the Spaces panel and assign their units.') : null)
+  const empty =
+    report.empty ??
+    (rows.length === 0
+      ? scope.kind === 'level'
+        ? t('balance.noZonesOnLevel', 'No zones on this level yet. Make zones in the Spaces panel and assign their units.', { ns: 'editor' })
+        : t('balance.noZones', 'No zones yet. Make zones in the Spaces panel and assign their units.', { ns: 'editor' })
+      : null)
   return {
     rows,
     heat,
     unassigned: showBuilding ? report.unassigned.map((c) => c.label) : [],
-    tolerance: `Within ±${WHOLE.format(Math.round(to(report.tolerance, 'cfm')))} cfm counts as neutral.`,
+    tolerance: t('balance.withinTolerance', 'Within ±{{cfm}} cfm counts as neutral.', { ns: 'editor', cfm: WHOLE.format(Math.round(to(report.tolerance, 'cfm'))) }),
     empty,
   }
 }

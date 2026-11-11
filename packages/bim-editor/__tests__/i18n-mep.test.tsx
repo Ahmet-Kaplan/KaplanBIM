@@ -1,0 +1,277 @@
+/**
+ * The MEP panels in two languages — the half of Task 4.3 that is finished.
+ *
+ * What this file proves, and the hole each proof closes:
+ *
+ *   1. **The words are keyed** — `editorSourceCaptions()` reads every `.ts`/`.tsx`
+ *      under `src/editor` and pulls out each `t('<key>', '<English>'` call. A
+ *      pressure label that went back to a literal fails here.
+ *   2. **The Turkish says the right thing, per the glossary** — §9/Ç9 pins *hat*
+ *      for a duct or pipe run (a *run* command stays *çalıştır*); §9/Ç13 pins
+ *      *sürtünme oranı* for a friction rate, and keeps *debi* and *birim fiyat*
+ *      apart from it; §7 pins the unit symbols, which never travel.
+ *   3. **Real components draw it** — the pressurization section and the
+ *      ventilation panel, in both languages.
+ *
+ * **Deliberately not asserted here, because the tree is not done.**
+ * `electrical/` and `plumbing/` are not keyed yet, so Ç7 (*pano* for an
+ * electrical panelboard, *panel* for a UI side panel), Ç8 (*branşman* for a MEP
+ * branch, *dal* for a version) and the kVA columns have no Turkish to assert.
+ * They are named in `NOT_YET_GUARDED` (`i18n-negative-space.test.ts`) and in the
+ * task report, with the round that owes them.
+ */
+import fs from "node:fs";
+import path from "node:path";
+import { render, screen } from "@testing-library/react";
+import { TooltipProvider } from "../src/ui/tooltip";
+import { PressurizationSection } from "../src/editor/balance/PressurizationSection";
+import { VentilationPanel } from "../src/editor/ventilation/VentilationPanel";
+import { loadStatusWord, loadTradeWord } from "../src/editor/loads/loads-breakdown";
+import { editorSourceCaptions } from "./helpers/editor-source-captions";
+import { translateFor, Wrap } from "./helpers/editor-i18n";
+import type { ModelState } from "@permitzip/bim-kernel";
+
+const TR = translateFor("tr");
+const EN = translateFor("en");
+
+/** One caption as the glossary writes it. */
+interface Caption {
+  readonly key: string;
+  readonly english: string;
+  readonly turkish: string;
+}
+
+const CAPTIONS: readonly Caption[] = [
+  // §2.4/§9/Ç4: a table of model data is a çizelge, its pressure column a basınç.
+  { key: "balance.pressurization", english: "Pressurization", turkish: "Basınçlandırma" },
+  { key: "balance.zone", english: "Zone", turkish: "Bölge" },
+  { key: "balance.pressure", english: "Pressure", turkish: "Basınç" },
+  { key: "balance.exhaust", english: "Exhaust", turkish: "Egzoz" },
+  { key: "balance.makeupAir", english: "Makeup air", turkish: "Takviye hava" },
+  { key: "balance.outdoorAir", english: "Outdoor air", turkish: "Dış hava" },
+  { key: "balance.makeupAirLoad", english: "Makeup air load", turkish: "Takviye hava yükü" },
+  { key: "balance.tableCommand", english: "Pressurization table", turkish: "Basınçlandırma çizelgesi" },
+  // §2.8/§9/Ç9: a duct is a kanal, the air it carries a hava debisi, its run a hat.
+  { key: "ventilation.title", english: "Ventilation", turkish: "Havalandırma" },
+  { key: "ventilation.airflow", english: "Airflow", turkish: "Hava debisi" },
+  { key: "ventilation.velocity", english: "Velocity", turkish: "Hız" },
+  { key: "ventilation.scopeRun", english: "This run", turkish: "Bu hat" },
+  { key: "ventilation.scopePiece", english: "This piece", turkish: "Bu parça" },
+  { key: "ventilation.insulation", english: "Insulation", turkish: "Yalıtım" },
+  { key: "ventilation.zones", english: "Zones", turkish: "Bölgeler" },
+  { key: "ventilation.space", english: "Space", turkish: "Mekan" },
+  // §5: the schedule's own words.
+  { key: "ventilation.tableCommand", english: "Ventilation table", turkish: "Havalandırma çizelgesi" },
+  { key: "loads.title", english: "Loads", turkish: "Yükler" },
+  { key: "loads.byTrade", english: "By trade", turkish: "Türe göre" },
+  { key: "loads.counted", english: "Counted: {{parts}}", turkish: "Sayılan: {{parts}}" },
+];
+
+/**
+ * How many call sites each shared caption has today; a new site is a deliberate
+ * bump here. A key written in two places would pass a presence check while one
+ * of them went back to a literal.
+ */
+const SITES: Readonly<Record<string, number>> = {
+  "balance.pressurization": 2,
+  "loads.byTrade": 2,
+  "loads.status.open": 2,
+  "loads.select": 2,
+  "loads.estimateVsDevices": 2,
+  "loads.zone": 2,
+  "loads.space": 2,
+  "ventilation.select": 3,
+  "ventilation.tryAgain": 3,
+  "ventilation.thisLevel": 2,
+  "ventilation.openSpaces": 2,
+  "ventilation.space": 3,
+  "ventilation.heatGain": 2,
+  "ventilation.mount": 2,
+  "ventilation.noInsulationKernel": 2,
+  "ventilation.insulationNoneLower": 2,
+  "ventilation.insulation": 3,
+  "ventilation.insulationNone": 2,
+  "ventilation.insulationWrap": 2,
+  "ventilation.insulationLiner": 2,
+  "ventilation.insulationThickness": 2,
+  "ventilation.linerSurface": 2,
+  "ventilation.linerFaced": 2,
+  "ventilation.linerSprayCoated": 2,
+  "ventilation.systemDefault": 2,
+  "ventilation.notLive": 4,
+  "ventilation.airflow": 2,
+  "ventilation.velocity": 2,
+  "ventilation.loss": 2,
+  "ventilation.transitionShape": 2,
+  "ventilation.title": 5,
+  "ventilation.people": 3,
+  "ventilation.voz": 2,
+  "ventilation.tableCommand": 2,
+  "ventilation.area": 2,
+  "ventilation.exhaust": 2,
+  "ventilation.governingParen": 2,
+  "ventilation.keyword.exhaust": 2,
+  "ventilation.keyword.outdoorAir": 2,
+  "ventilation.keyword.abbrOa": 2,
+  "ventilation.keyword.ashrae621": 2,
+  "ventilation.keyword.schedule": 2,
+  "ventilation.modelStillLoading": 5,
+};
+
+const fill = (template: string, values: Readonly<Record<string, string | number>> | undefined): string =>
+  values === undefined ? template : template.replace(/\{\{(\w+)\}\}/gu, (_, name: string) => String(values[name]));
+
+test("every MEP caption is still keyed in the source, with its English", () => {
+  const source = editorSourceCaptions();
+  for (const caption of CAPTIONS) {
+    expect({ key: caption.key, english: source.get(caption.key)?.english }).toEqual({ key: caption.key, english: caption.english });
+  }
+});
+
+test("an MEP caption is still keyed at every place it is written", () => {
+  const source = editorSourceCaptions();
+  for (const caption of CAPTIONS) {
+    expect({ key: caption.key, sites: source.get(caption.key)?.sites }).toEqual({ key: caption.key, sites: SITES[caption.key] ?? 1 });
+  }
+});
+
+test("every MEP caption written twice or more has its site count pinned", () => {
+  const source = editorSourceCaptions();
+  const prefixes = ["ventilation.", "balance.", "loads."];
+  const unpinned = [...source.entries()]
+    .filter(([key]) => prefixes.some((prefix) => key.startsWith(prefix)))
+    .filter(([key, caption]) => caption.sites > 1 && SITES[key] === undefined)
+    .map(([key, caption]) => `${key} (${caption.sites} sites)`);
+  expect(unpinned).toEqual([]);
+});
+
+test("no pinned count is stale: every key in SITES is still in the source that many times", () => {
+  const source = editorSourceCaptions();
+  const wrong = Object.entries(SITES)
+    .filter(([key, sites]) => (source.get(key)?.sites ?? 0) !== sites)
+    .map(([key, sites]) => `${key}: pinned ${sites}, source has ${source.get(key)?.sites ?? 0}`);
+  expect(wrong).toEqual([]);
+});
+
+test("run reads hat in MEP context", () => {
+  // §9/Ç9: a duct or pipe run is a *hat*; the *run* command stays *çalıştır*.
+  expect(TR("ventilation.scopeRun", "This run", { ns: "editor" })).toBe("Bu hat");
+  expect(TR("ventilation.scopeRun", "This run", { ns: "editor" })).not.toContain("çalıştır");
+  expect(TR("ventilation.scopePiece", "This piece", { ns: "editor" })).toBe("Bu parça");
+});
+
+test("rate is disambiguated per Ç13: a friction rate is a sürtünme oranı", () => {
+  expect(TR("ventilation.frictionRate", "Friction rate", { ns: "editor" })).toBe("Sürtünme oranı");
+  // Neither the flow (debi) nor the price (birim fiyat) word leaked into it.
+  expect(TR("ventilation.frictionRate", "Friction rate", { ns: "editor" })).not.toBe("Debi");
+  expect(TR("ventilation.frictionRate", "Friction rate", { ns: "editor" })).not.toContain("fiyat");
+  // …and a flow is a debi, not an oran.
+  expect(TR("ventilation.airflow", "Airflow", { ns: "editor" })).toBe("Hava debisi");
+});
+
+test("unit symbols are never translated", () => {
+  // §7: the symbols travel as they are. CFM, fpm, in. w.c. and kVA are not words.
+  expect(TR("ventilation.airflowCfm", "Airflow (CFM)", { ns: "editor" })).toBe("Hava debisi (CFM)");
+  expect(TR("ventilation.airflowCfm", "Airflow (CFM)", { ns: "editor" })).toContain("CFM");
+  const carries = TR("ventilation.carries", "Carries {{cfm}} CFM: {{fpm}} fpm, {{friction}}” per 100 ft{{through}}.", {
+    ns: "editor",
+    cfm: "1,200",
+    fpm: "900",
+    friction: "0.08",
+    through: "",
+  });
+  expect(carries).toContain("CFM");
+  expect(carries).toContain("fpm");
+  expect(carries).toContain("100 ft");
+  // A kVA column keeps its symbol too, in the words around it.
+  expect(TR("balance.tableKind.pressurization", "pressurization", { ns: "editor" })).toBe("basınçlandırma");
+});
+
+test("the load statuses and trades are Turkish, and the trade words are not spliced raw", () => {
+  expect(loadStatusWord("mismatch", TR)).toBe("İlgi bekliyor");
+  expect(loadStatusWord("connected", TR)).toBe("Bir boru, kanal ya da devrede");
+  expect(loadTradeWord("plumbing", TR)).toBe("Su ve drenaj");
+  expect(loadTradeWord("electrical", TR)).toBe("Elektrik");
+  // The kernel's own English label is never handed to the screen in Turkish.
+  expect(loadTradeWord("mechanical", TR)).not.toBe("Air");
+  expect(loadTradeWord("mechanical", EN)).toBe("Air");
+});
+
+test("English labels are unchanged", () => {
+  for (const caption of CAPTIONS) {
+    expect(EN(caption.key, caption.english, { ns: "editor" })).toBe(fill(caption.english, undefined));
+  }
+});
+
+/** `{ ventilation: { airflow: "Hava debisi" } }` → `"ventilation.airflow"`. */
+function flatten(source: Record<string, unknown>, prefix = ""): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(source)) {
+    const id = prefix === "" ? key : `${prefix}.${key}`;
+    if (typeof value === "string") out[id] = value;
+    else if (typeof value === "object" && value !== null) Object.assign(out, flatten(value as Record<string, unknown>, id));
+  }
+  return out;
+}
+
+const LOCALE = flatten(JSON.parse(fs.readFileSync(path.join(__dirname, "..", "locales", "tr", "editor.json"), "utf8")) as Record<string, unknown>);
+
+const MEP_PREFIXES = ["ventilation.", "balance.", "loads."] as const;
+
+test("every MEP caption in the source has its Turkish", () => {
+  const inSource = [...editorSourceCaptions().keys()].filter((key) => MEP_PREFIXES.some((prefix) => key.startsWith(prefix)));
+  expect(inSource.length).toBeGreaterThan(120);
+  expect(inSource.filter((key) => (LOCALE[key] ?? "").trim() === "")).toEqual([]);
+});
+
+test("a placeholder is never written with one brace", () => {
+  const wrong = Object.entries(LOCALE)
+    .filter(([key]) => MEP_PREFIXES.some((prefix) => key.startsWith(prefix)))
+    .filter(([, value]) => /(^|[^{])\{[A-Za-z0-9_]+\}/u.test(value))
+    .map(([key]) => key);
+  expect(wrong).toEqual([]);
+});
+
+// ---------------------------------------------------------------------------
+// Rendered surfaces
+// ---------------------------------------------------------------------------
+
+const NOOP = (): void => {};
+
+const MODEL = { elements: {}, revision: 1 } as unknown as ModelState;
+
+test("the pressurization section draws its Turkish headings, and its units as they are", () => {
+  render(
+    <Wrap language="tr">
+      <TooltipProvider>
+        <PressurizationSection model={MODEL} scope={null} />
+      </TooltipProvider>
+    </Wrap>,
+  );
+  expect(screen.getByTestId("pressurization-section")).toBeTruthy();
+  expect(screen.getAllByText("Basınçlandırma").length).toBeGreaterThan(0);
+  expect(screen.queryByText("Pressurization")).toBeNull();
+});
+
+test("the pressurization section is unchanged in English", () => {
+  render(
+    <Wrap language="en">
+      <TooltipProvider>
+        <PressurizationSection model={MODEL} scope={null} />
+      </TooltipProvider>
+    </Wrap>,
+  );
+  expect(screen.getAllByText("Pressurization").length).toBeGreaterThan(0);
+});
+
+test("the ventilation panel asks for a floor plan in Turkish, and says CFM untranslated", () => {
+  const { container } = render(
+    <Wrap language="tr">
+      <TooltipProvider>
+        <VentilationPanel model={null} error={null} levelId={null} levelName={null} adoption={null} state={null} onClose={NOOP} />
+      </TooltipProvider>
+    </Wrap>,
+  );
+  expect(container.textContent ?? "").toContain("Model yükleniyor");
+  expect(container.textContent ?? "").not.toContain("Loading the model");
+});

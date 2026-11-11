@@ -2,6 +2,7 @@ import { Fan, Flame, TableProperties } from 'lucide-react'
 import { DEFAULT_FIELD_BLOCK_WIDTH_MM, sheetPaper, type ElementId, type Sheet, type Vec2 } from '@permitzip/bim-kernel'
 import type { RibbonCommand } from '../ribbon/types'
 import { newId, type SubmitCommand } from '../views-sheets/types'
+import { englishOnly, type Translate } from '../i18n/translate'
 import { VENTILATION_TABLE_TITLE, ZONE_VENTILATION_TEMPLATE, ZONE_VENTILATION_TITLE, type VentilationScope } from './pack'
 
 /**
@@ -11,40 +12,83 @@ import { VENTILATION_TABLE_TITLE, ZONE_VENTILATION_TEMPLATE, ZONE_VENTILATION_TI
  * sheet, beside Load summary. Each carries the reason it is disabled.
  */
 
-export function ventilationPanelCommand(tabId: string, open: (() => void) | null, blocked: string | null): RibbonCommand {
+export function ventilationPanelCommand(tabId: string, open: (() => void) | null, blocked: string | null, t: Translate = englishOnly): RibbonCommand {
   return {
     id: `${tabId}-ventilation`,
-    label: 'Ventilation',
+    label: t('ventilation.title', 'Ventilation', { ns: 'editor' }),
     icon: Fan,
-    description: 'Outdoor air and exhaust for every space (Vbz, Voz) under IMC and ASHRAE 62.1 side by side, the adopted code marked governing, and each zone against the unit that serves it',
-    keywords: ['outdoor air', 'oa', 'vbz', 'voz', 'imc 403', 'ashrae 62.1', 'exhaust', 'ventilation schedule', 'fresh air'],
-    disabledReason: open ? blocked : 'The model is still loading.',
+    description: t(
+      'ventilation.commandDescription',
+      'Outdoor air and exhaust for every space (Vbz, Voz) under IMC and ASHRAE 62.1 side by side, the adopted code marked governing, and each zone against the unit that serves it',
+      { ns: 'editor' },
+    ),
+    // Search words: the abbreviations (oa, vbz, voz, IMC, ASHRAE) are the same in
+    // both languages (§0.3 — international abbreviations are never translated).
+    keywords: [
+      t('ventilation.keyword.outdoorAir', 'outdoor air', { ns: 'editor' }),
+      t('ventilation.keyword.abbrOa', 'oa', { ns: 'editor' }),
+      t('ventilation.keyword.abbrVbz', 'vbz', { ns: 'editor' }),
+      t('ventilation.keyword.abbrVoz', 'voz', { ns: 'editor' }),
+      t('ventilation.keyword.abbrImc403', 'imc 403', { ns: 'editor' }),
+      t('ventilation.keyword.ashrae621', 'ashrae 62.1', { ns: 'editor' }),
+      t('ventilation.keyword.exhaust', 'exhaust', { ns: 'editor' }),
+      t('ventilation.keyword.schedule', 'ventilation schedule', { ns: 'editor' }),
+      t('ventilation.keyword.freshAir', 'fresh air', { ns: 'editor' }),
+    ],
+    disabledReason: open ? blocked : t('ventilation.modelStillLoading', 'The model is still loading.', { ns: 'editor' }),
     ...(open ? { run: open } : {}),
     testId: `ribbon-${tabId}-ventilation`,
   }
 }
 
-export function kitchenHeatPanelCommand(open: (() => void) | null, blocked: string | null): RibbonCommand {
+export function kitchenHeatPanelCommand(open: (() => void) | null, blocked: string | null, t: Translate = englishOnly): RibbonCommand {
   return {
     id: 'model-kitchen-heat',
-    label: 'Kitchen heat…',
+    label: t('ventilation.kitchenHeatCommand', 'Kitchen heat…', { ns: 'editor' }),
     icon: Flame,
-    description: 'Heat each space gains from its kitchen equipment, from the firm’s or the project’s kitchen heat table with its citation, or where to add the table',
-    keywords: ['kitchen', 'heat gain', 'fryer', 'range', 'appliance', 'sensible', 'latent', 'btu', 'lookup table', 'loads'],
-    disabledReason: open ? blocked : 'The model is still loading.',
+    description: t(
+      'ventilation.kitchenHeatDescription',
+      'Heat each space gains from its kitchen equipment, from the firm’s or the project’s kitchen heat table with its citation, or where to add the table',
+      { ns: 'editor' },
+    ),
+    keywords: [
+      t('ventilation.keyword.kitchen', 'kitchen', { ns: 'editor' }),
+      t('ventilation.keyword.heatGain', 'heat gain', { ns: 'editor' }),
+      t('ventilation.keyword.fryer', 'fryer', { ns: 'editor' }),
+      t('ventilation.keyword.range', 'range', { ns: 'editor' }),
+      t('ventilation.keyword.appliance', 'appliance', { ns: 'editor' }),
+      t('ventilation.keyword.sensible', 'sensible', { ns: 'editor' }),
+      t('ventilation.keyword.latent', 'latent', { ns: 'editor' }),
+      t('ventilation.keyword.abbrBtu', 'btu', { ns: 'editor' }),
+      t('ventilation.keyword.lookupTable', 'lookup table', { ns: 'editor' }),
+      t('ventilation.keyword.loads', 'loads', { ns: 'editor' }),
+    ],
+    disabledReason: open ? blocked : t('ventilation.modelStillLoading', 'The model is still loading.', { ns: 'editor' }),
     ...(open ? { run: open } : {}),
     testId: 'ribbon-model-kitchen-heat',
   }
 }
 
-export function ventilationTableCommand(place: (() => void) | null | undefined, editBlocked: string | null): RibbonCommand {
+export function ventilationTableCommand(place: (() => void) | null | undefined, editBlocked: string | null, t: Translate = englishOnly): RibbonCommand {
   return {
     id: 'sheet-ventilation-table',
-    label: 'Ventilation table',
+    label: t('ventilation.tableCommand', 'Ventilation table', { ns: 'editor' }),
     icon: TableProperties,
-    description: 'Put the live ventilation table on the sheet: outdoor air and exhaust per space and zone under the governing code, updated with every edit and frozen when the set is issued',
-    keywords: ['ventilation schedule', 'outdoor air', 'imc', 'ashrae 62.1', 'block', 'table', 'oa'],
-    disabledReason: place ? editBlocked : 'Open a sheet to place a ventilation table: Views and sheets › a sheet.',
+    description: t(
+      'ventilation.tableCommandDescription',
+      'Put the live ventilation table on the sheet: outdoor air and exhaust per space and zone under the governing code, updated with every edit and frozen when the set is issued',
+      { ns: 'editor' },
+    ),
+    keywords: [
+      t('ventilation.keyword.schedule', 'ventilation schedule', { ns: 'editor' }),
+      t('ventilation.keyword.outdoorAir', 'outdoor air', { ns: 'editor' }),
+      t('ventilation.keyword.abbrImc', 'imc', { ns: 'editor' }),
+      t('ventilation.keyword.ashrae621', 'ashrae 62.1', { ns: 'editor' }),
+      t('ventilation.keyword.block', 'block', { ns: 'editor' }),
+      t('ventilation.keyword.table', 'table', { ns: 'editor' }),
+      t('ventilation.keyword.abbrOa', 'oa', { ns: 'editor' }),
+    ],
+    disabledReason: place ? editBlocked : t('ventilation.tableNeedsSheet', 'Open a sheet to place a ventilation table: Views and sheets › a sheet.', { ns: 'editor' }),
     ...(place ? { run: place } : {}),
     testId: 'ribbon-sheet-ventilation-table',
   }
@@ -57,8 +101,8 @@ export function ventilationTableCorner(sheet: Sheet): Vec2 {
 }
 
 /** One table block for a scope (the block spec's `table`, blocks/table-spec.ts). */
-export function ventilationTableBlock(scope: VentilationScope) {
-  return { template: 'Ventilation table', title: VENTILATION_TABLE_TITLE, table: { kind: 'ventilation' as const, scope } }
+export function ventilationTableBlock(scope: VentilationScope, t: Translate = englishOnly) {
+  return { template: t('ventilation.templateName', 'Ventilation table', { ns: 'editor' }), title: VENTILATION_TABLE_TITLE, table: { kind: 'ventilation' as const, scope } }
 }
 
 /**
@@ -66,8 +110,11 @@ export function ventilationTableBlock(scope: VentilationScope) {
  * ordinary field block (works once the ventilation field provider is
  * registered). Returns the new item id, or the refusal in words.
  */
-export function placeZoneVentilation(sheet: Sheet, zoneId: ElementId, submit: SubmitCommand, at: Vec2 = ventilationTableCorner(sheet)): { readonly itemId: string } | { readonly refusal: string } {
+export function placeZoneVentilation(sheet: Sheet, zoneId: ElementId, submit: SubmitCommand, t: Translate = englishOnly, at: Vec2 = ventilationTableCorner(sheet)): { readonly itemId: string } | { readonly refusal: string } {
   const itemId = newId('blk')
-  const refusal = submit({ type: 'add_field_block', itemId, sheetId: sheet.id, at, block: { template: ZONE_VENTILATION_TEMPLATE, title: ZONE_VENTILATION_TITLE, subjectId: zoneId } }, 'place zone ventilation')
+  const refusal = submit(
+    { type: 'add_field_block', itemId, sheetId: sheet.id, at, block: { template: ZONE_VENTILATION_TEMPLATE, title: ZONE_VENTILATION_TITLE, subjectId: zoneId } },
+    t('ventilation.undo.placeZoneVentilation', 'place zone ventilation', { ns: 'editor' }),
+  )
   return refusal ? { refusal } : { itemId }
 }

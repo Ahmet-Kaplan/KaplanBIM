@@ -9,6 +9,7 @@ import { Badge } from '../../ui/badge'
 import { Button } from '../../ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '../../ui/empty'
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table'
+import { englishOnly, useEditorTranslate, type Translate } from '../i18n/translate'
 import { pressurizationView, type PressurizationRow, type PressurizationView } from './pressurization-rows'
 
 export interface PressurizationSectionProps {
@@ -26,30 +27,34 @@ export interface PressurizationSectionProps {
  * the unit that serves it. Read only: change the items' airflows to change it.
  */
 export function PressurizationSection({ model, scope, onSelectPart }: PressurizationSectionProps) {
+  const t = useEditorTranslate()
   const [open, setOpen] = useState<string | null>(null)
   const computed = useMemo((): { view: PressurizationView } | { failure: string } | null => {
     if (!scope) return null
     try {
-      return { view: pressurizationView(model.elements, scope) }
+      return { view: pressurizationView(model.elements, scope, t) }
     } catch (err) {
       console.error('[PressurizationSection] the pressurization balance failed', err)
       return { failure: err instanceof Error ? err.message : String(err) }
     }
-  }, [model, scope])
+  }, [model, scope, t])
 
   const view = computed && 'view' in computed ? computed.view : null
   const detail = view?.rows.find((r) => r.id === open) ?? null
 
   return (
-    <section className="flex flex-col gap-2" aria-label="Pressurization" data-testid="pressurization-section">
+    <section className="flex flex-col gap-2" aria-label={t('balance.pressurization', 'Pressurization', { ns: 'editor' })} data-testid="pressurization-section">
       <h3 className="flex items-center gap-1 text-xs font-semibold">
         <Wind className="size-3.5 text-muted-foreground" aria-hidden />
-        Pressurization
+        {t('balance.pressurization', 'Pressurization', { ns: 'editor' })}
       </h3>
       {computed && 'failure' in computed && (
         <Alert variant="destructive">
-          <AlertTitle>The pressurization couldn’t be worked out</AlertTitle>
-          <AlertDescription>{computed.failure}. Reload the page; if it keeps happening, tell the team which model this is.</AlertDescription>
+          <AlertTitle>{t('balance.failed', 'The pressurization couldn’t be worked out', { ns: 'editor' })}</AlertTitle>
+          <AlertDescription>
+            {computed.failure}
+            {t('balance.failedWhy', '. Reload the page; if it keeps happening, tell the team which model this is.', { ns: 'editor' })}
+          </AlertDescription>
         </Alert>
       )}
       {view?.empty && (
@@ -58,7 +63,7 @@ export function PressurizationSection({ model, scope, onSelectPart }: Pressuriza
             <EmptyMedia variant="icon">
               <Wind />
             </EmptyMedia>
-            <EmptyTitle>No air balance to show</EmptyTitle>
+            <EmptyTitle>{t('balance.emptyTitle', 'No air balance to show', { ns: 'editor' })}</EmptyTitle>
             <EmptyDescription>{view.empty}</EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -67,13 +72,13 @@ export function PressurizationSection({ model, scope, onSelectPart }: Pressuriza
         <>
           <Table>
             <TableCaption>
-              Net = makeup air + outdoor air − exhaust. {view.tolerance}
+              {t('balance.formula', 'Net = makeup air + outdoor air − exhaust. {{tolerance}}', { ns: 'editor', tolerance: view.tolerance })}
             </TableCaption>
             <TableHeader>
               <TableRow>
-                <TableHead>Zone</TableHead>
-                <TableHead className="text-right">Net</TableHead>
-                <TableHead>Pressure</TableHead>
+                <TableHead>{t('balance.zone', 'Zone', { ns: 'editor' })}</TableHead>
+                <TableHead className="text-right">{t('balance.net', 'Net', { ns: 'editor' })}</TableHead>
+                <TableHead>{t('balance.pressure', 'Pressure', { ns: 'editor' })}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -88,16 +93,16 @@ export function PressurizationSection({ model, scope, onSelectPart }: Pressuriza
                     {r.net}
                   </TableCell>
                   <TableCell>
-                    <VerdictBadge row={r} />
+                    <VerdictBadge row={r} t={t} />
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-          {detail && <RowDetail row={detail} onSelectPart={onSelectPart} />}
+          {detail && <RowDetail row={detail} onSelectPart={onSelectPart} t={t} />}
           {view.heat.length > 0 && (
             <div className="flex flex-col gap-1 text-xs" data-testid="pressurization-heat">
-              <span className="font-medium">Makeup air load</span>
+              <span className="font-medium">{t('balance.makeupAirLoad', 'Makeup air load', { ns: 'editor' })}</span>
               {view.heat.map((h) => (
                 <p key={h.partId} className={h.problem ? 'text-muted-foreground' : 'tabular-nums'}>
                   {h.problem ? h.text : `${h.mark}: ${h.text}`}
@@ -105,45 +110,55 @@ export function PressurizationSection({ model, scope, onSelectPart }: Pressuriza
               ))}
             </div>
           )}
-          {view.unassigned.length > 0 && <p className="text-xs text-muted-foreground">In no zone (counted for the building only): {view.unassigned.join(', ')}. Name a zone in its “serves zone” value, or place it inside a space.</p>}
+          {view.unassigned.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {t('balance.unassigned', 'In no zone (counted for the building only): {{names}}. Name a zone in its “serves zone” value, or place it inside a space.', {
+                ns: 'editor',
+                names: view.unassigned.join(', '),
+              })}
+            </p>
+          )}
         </>
       )}
     </section>
   )
 }
 
-function VerdictBadge({ row }: { readonly row: PressurizationRow }) {
-  if (row.verdict === 'incomplete') return <Badge variant="outline">can’t add up</Badge>
-  if (row.verdict === 'nothing') return <Badge variant="outline">no air moved</Badge>
+function VerdictBadge({ row, t }: { readonly row: PressurizationRow; readonly t: Translate }) {
+  if (row.verdict === 'incomplete') return <Badge variant="outline">{t('balance.incomplete', 'can’t add up', { ns: 'editor' })}</Badge>
+  if (row.verdict === 'nothing') return <Badge variant="outline">{t('balance.noAirMoved', 'no air moved', { ns: 'editor' })}</Badge>
   const word = row.state ?? '—'
-  if (row.verdict === 'misses') return <Badge variant="destructive">{`${word}, should be ${row.target}`}</Badge>
-  if (row.verdict === 'meets') return <Badge variant="secondary">{`${word}, as targeted`}</Badge>
+  if (row.verdict === 'misses')
+    return <Badge variant="destructive">{t('balance.misses', '{{word}}, should be {{target}}', { ns: 'editor', word, target: String(row.target) })}</Badge>
+  if (row.verdict === 'meets') return <Badge variant="secondary">{t('balance.meets', '{{word}}, as targeted', { ns: 'editor', word })}</Badge>
   return <Badge variant="outline">{word}</Badge>
 }
 
-function RowDetail({ row, onSelectPart }: { readonly row: PressurizationRow; readonly onSelectPart?: (id: ElementId) => void }) {
+function RowDetail({ row, onSelectPart, t = englishOnly }: { readonly row: PressurizationRow; readonly onSelectPart?: (id: ElementId) => void; readonly t?: Translate }) {
   return (
     <div className="flex flex-col gap-1 rounded-md border p-2 text-xs" data-testid="pressurization-detail">
       <span className="font-medium">{row.name}</span>
       <p className={row.verdict === 'incomplete' || row.verdict === 'misses' ? 'text-destructive' : 'text-muted-foreground'}>{row.text}</p>
-      {row.why && <p className="text-muted-foreground">Target: {row.why}</p>}
+      {row.why && <p className="text-muted-foreground">{t('balance.target', 'Target: {{reason}}', { ns: 'editor', reason: row.why })}</p>}
       <dl className="grid grid-cols-2 gap-x-2 tabular-nums">
-        <dt className="text-muted-foreground">Exhaust</dt>
+        <dt className="text-muted-foreground">{t('balance.exhaust', 'Exhaust', { ns: 'editor' })}</dt>
         <dd>{row.exhaust}</dd>
-        <dt className="text-muted-foreground">Makeup air</dt>
+        <dt className="text-muted-foreground">{t('balance.makeupAir', 'Makeup air', { ns: 'editor' })}</dt>
         <dd>{row.makeup}</dd>
-        <dt className="text-muted-foreground">Outdoor air</dt>
+        <dt className="text-muted-foreground">{t('balance.outdoorAir', 'Outdoor air', { ns: 'editor' })}</dt>
         <dd>{row.outdoor}</dd>
       </dl>
       {row.exhaustNote && <p className="text-muted-foreground">{row.exhaustNote}</p>}
       {row.items.length === 0 ? (
-        <p className="text-muted-foreground">Nothing here moves air in or out. Give exhaust fans an exhaust airflow, makeup air units a makeup airflow and units an outdoor airflow.</p>
+        <p className="text-muted-foreground">
+          {t('balance.noItems', 'Nothing here moves air in or out. Give exhaust fans an exhaust airflow, makeup air units a makeup airflow and units an outdoor airflow.', { ns: 'editor' })}
+        </p>
       ) : (
         <ul className="flex flex-col gap-0.5">
           {row.items.map((it) => (
             <li key={it.partId} className="flex items-center gap-2">
               {onSelectPart ? (
-                <Button variant="link" size="xs" className="h-auto p-0" onClick={() => onSelectPart(it.partId)} title={`Select ${it.label} in the model`}>
+                <Button variant="link" size="xs" className="h-auto p-0" onClick={() => onSelectPart(it.partId)} title={t('balance.selectInModel', 'Select {{name}} in the model', { ns: 'editor', name: it.label })}>
                   {it.label}
                 </Button>
               ) : (
@@ -151,9 +166,11 @@ function RowDetail({ row, onSelectPart }: { readonly row: PressurizationRow; rea
               )}
               <span className="text-muted-foreground">
                 {it.role}
-                {it.planned ? ' (planned)' : ''}
+                {it.planned ? t('balance.planned', ' (planned)', { ns: 'editor' }) : ''}
               </span>
-              <span className="ml-auto tabular-nums">{it.missing ? <Badge variant="outline">no airflow</Badge> : it.cfm}</span>
+              <span className="ml-auto tabular-nums">
+                {it.missing ? <Badge variant="outline">{t('balance.noAirflow', 'no airflow', { ns: 'editor' })}</Badge> : it.cfm}
+              </span>
             </li>
           ))}
         </ul>

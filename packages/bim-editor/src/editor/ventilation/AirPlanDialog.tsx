@@ -6,6 +6,7 @@ import { Button } from '../../ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../ui/dialog'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '../../ui/empty'
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia } from '../../ui/item'
+import { useEditorTranslate } from '../i18n/translate'
 
 /** One line of a plan: what happens to one element, or why it can't. */
 export interface AirPlanLine {
@@ -41,6 +42,7 @@ export interface AirPlanDialogProps {
  * until the button; one Undo takes it back. Esc and Cancel close it.
  */
 export function AirPlanDialog(p: AirPlanDialogProps) {
+  const t = useEditorTranslate()
   const ready = p.lines.filter((l) => l.ok).length
   return (
     <Dialog open={p.open} onOpenChange={p.onOpenChange}>
@@ -52,7 +54,7 @@ export function AirPlanDialog(p: AirPlanDialogProps) {
         {p.blocked && (
           <Alert data-testid={`${p.testId}-blocked`}>
             <CircleAlert />
-            <AlertTitle>Nothing can be changed here yet</AlertTitle>
+            <AlertTitle>{t('ventilation.nothingCanChange', 'Nothing can be changed here yet', { ns: 'editor' })}</AlertTitle>
             <AlertDescription>{p.blocked}</AlertDescription>
           </Alert>
         )}
@@ -62,7 +64,7 @@ export function AirPlanDialog(p: AirPlanDialogProps) {
               <EmptyMedia variant="icon">
                 <CircleAlert />
               </EmptyMedia>
-              <EmptyTitle>Nothing to do</EmptyTitle>
+              <EmptyTitle>{t('ventilation.nothingToDo', 'Nothing to do', { ns: 'editor' })}</EmptyTitle>
               <EmptyDescription>{p.empty}</EmptyDescription>
             </EmptyHeader>
           </Empty>
@@ -84,7 +86,7 @@ export function AirPlanDialog(p: AirPlanDialogProps) {
                   </ItemContent>
                   <ItemActions>
                     <Button variant="ghost" size="sm" onClick={() => p.onSelect(l.elementId)}>
-                      Select
+                      {t('ventilation.select', 'Select', { ns: 'editor' })}
                     </Button>
                   </ItemActions>
                 </Item>
@@ -97,7 +99,7 @@ export function AirPlanDialog(p: AirPlanDialogProps) {
           <Button variant="outline" onClick={() => p.onOpenChange(false)}>
             {p.closeLabel}
           </Button>
-          <Button onClick={p.onConfirm} disabled={ready === 0 || p.blocked !== null || p.empty !== null} title={p.blocked ?? (ready === 0 ? (p.empty ?? 'Each line says why it can’t be done.') : undefined)} data-testid={`${p.testId}-confirm`}>
+          <Button onClick={p.onConfirm} disabled={ready === 0 || p.blocked !== null || p.empty !== null} title={p.blocked ?? (ready === 0 ? (p.empty ?? t('ventilation.eachLineSaysWhy', 'Each line says why it can’t be done.', { ns: 'editor' })) : undefined)} data-testid={`${p.testId}-confirm`}>
             {p.confirmLabel}
           </Button>
         </DialogFooter>

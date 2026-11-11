@@ -6,6 +6,7 @@ import { versionEntries, type IssuedSet, type VersionEntry } from '../../contrac
 import { useEditorHost } from '@permitzip/bim-editor/host'
 import { fetchSetStatusFrom } from '../views-sheets/drawing-set-client'
 import { ask, type BranchChannel } from '../branches/useBranches'
+import { useEditorTranslate } from '../i18n/translate'
 
 export type VersionsState =
   | { readonly status: 'loading' }
@@ -18,6 +19,7 @@ export type VersionsState =
  * of the list and says what is missing; a model-server failure shows Retry.
  */
 export function useVersions(input: { readonly channel: BranchChannel | null; readonly connected: boolean; readonly projectId: string; readonly modelId: string | null; readonly names?: Readonly<Record<string, string>> }) {
+  const t = useEditorTranslate()
   const { channel, connected, projectId, modelId, names } = input
   const drawingSets = useEditorHost().data.drawingSets
   const [nonce, setNonce] = useState(0)
@@ -32,7 +34,7 @@ export function useVersions(input: { readonly channel: BranchChannel | null; rea
       (status) => ({ sets: status.history.issues, error: null }),
       (err: unknown) => {
         console.error('[versions] reading issued sets failed; listing the rest', err)
-        return { sets: [], error: err instanceof Error ? err.message : "Couldn't read issued sets." }
+        return { sets: [], error: err instanceof Error ? err.message : t('versions.issuedSetsUnread', 'Couldn\'t read issued sets.', { ns: 'editor' }) }
       },
     )
     Promise.all([ask(channel, { type: 'version_list' }, 'versions'), issued]).then(
@@ -43,7 +45,7 @@ export function useVersions(input: { readonly channel: BranchChannel | null; rea
       },
       (err: unknown) => {
         console.error('[versions] listing versions failed', err)
-        if (live) setAnswer({ key, channel, state: { status: 'error', message: err instanceof Error ? err.message : "Couldn't list versions." } })
+        if (live) setAnswer({ key, channel, state: { status: 'error', message: err instanceof Error ? err.message : t('versions.listFailed', 'Couldn\'t list versions.', { ns: 'editor' }) } })
       },
     )
     return () => {

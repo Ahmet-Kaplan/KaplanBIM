@@ -10,6 +10,7 @@ import {
 } from '../../contracts/building-model/ifc-import/contract'
 import type { EditorDataAnswer, EditorDataHost } from '@permitzip/bim-editor-host'
 import { EditorServiceUnavailableError } from '@permitzip/bim-editor/host/unavailable'
+import { englishOnly, type Translate } from '../i18n/translate'
 
 /** Browser calls for Propose changes to this model (round 9 I9; the host's `ifcImport` port). Each throws an Error whose message is the route's own words. */
 
@@ -40,18 +41,18 @@ async function call<T>(port: ProposePort, request: (port: NonNullable<ProposePor
   return parsed.data
 }
 
-export function fetchProposeStateFrom(port: ProposePort, projectId: string, referenceId: string, signal?: AbortSignal): Promise<ProposeState> {
-  return call(port, (p) => p.state({ projectId, referenceId }, { ...(signal ? { signal } : {}) }), proposeStateSchema, 'Reading the agreement')
+export function fetchProposeStateFrom(port: ProposePort, projectId: string, referenceId: string, signal?: AbortSignal, t: Translate = englishOnly): Promise<ProposeState> {
+  return call(port, (p) => p.state({ projectId, referenceId }, { ...(signal ? { signal } : {}) }), proposeStateSchema, t('ifcImport.readingTheAgreement', 'Reading the agreement', { ns: 'editor' }))
 }
 
-export function startProposalFrom(port: ProposePort, projectId: string, referenceId: string, body: ProposeStartBody): Promise<ProposeStarted> {
-  return call(port, (p) => p.start({ projectId, referenceId, body }), proposeStartedSchema, 'Starting the proposal')
+export function startProposalFrom(port: ProposePort, projectId: string, referenceId: string, body: ProposeStartBody, t: Translate = englishOnly): Promise<ProposeStarted> {
+  return call(port, (p) => p.start({ projectId, referenceId, body }), proposeStartedSchema, t('ifcImport.startingTheProposal', 'Starting the proposal', { ns: 'editor' }))
 }
 
-export function fetchProposalProgressFrom(port: ProposePort, projectId: string, referenceId: string, runId: string, jobId: string): Promise<ProposeProgress> {
-  return call(port, (p) => p.progress({ projectId, referenceId, runId, jobId }), proposeProgressSchema, 'Checking on the proposal')
+export function fetchProposalProgressFrom(port: ProposePort, projectId: string, referenceId: string, runId: string, jobId: string, t: Translate = englishOnly): Promise<ProposeProgress> {
+  return call(port, (p) => p.progress({ projectId, referenceId, runId, jobId }), proposeProgressSchema, t('ifcImport.checkingOnTheProposal', 'Checking on the proposal', { ns: 'editor' }))
 }
 
-export function stopProposalFrom(port: ProposePort, projectId: string, referenceId: string, runId: string): Promise<{ ok: boolean }> {
-  return call(port, (p) => p.stop({ projectId, referenceId, runId }), z.object({ ok: z.boolean() }), 'Stopping the proposal')
+export function stopProposalFrom(port: ProposePort, projectId: string, referenceId: string, runId: string, t: Translate = englishOnly): Promise<{ ok: boolean }> {
+  return call(port, (p) => p.stop({ projectId, referenceId, runId }), z.object({ ok: z.boolean() }), t('ifcImport.stoppingTheProposal', 'Stopping the proposal', { ns: 'editor' }))
 }

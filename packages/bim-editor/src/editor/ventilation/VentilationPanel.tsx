@@ -16,6 +16,7 @@ import { ToggleGroup, ToggleGroupItem } from '../../ui/toggle-group'
 import { PressurizationSection } from '../balance/PressurizationSection'
 import { resolveGoverningStandard, VENTILATION_STANDARDS, ventilationEngine, type VentilationScope, type VentilationStandardId } from './pack'
 import { ventilationView, type VentilationRow, type VentilationView } from './ventilation-rows'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
 
 export interface VentilationPanelProps {
   /** Null while the model is loading. */
@@ -45,6 +46,7 @@ type ScopeChoice = 'level' | 'model'
  * only: the numbers come from each space's use, people and area.
  */
 export function VentilationPanel(props: VentilationPanelProps) {
+  const t = useEditorTranslate()
   const { model, error, onRetry, levelId, levelName, adoption, state, onSelectSpace, onOpenSpaces, onClose } = props
   const [scopeChoice, setScopeChoice] = useState<ScopeChoice>(levelId ? 'level' : 'model')
   const [asked, setAsked] = useState<VentilationStandardId | null>(null)
@@ -58,12 +60,12 @@ export function VentilationPanel(props: VentilationPanelProps) {
   const computed = useMemo((): { view: VentilationView } | { failure: string } | null => {
     if (!model || !scope) return null
     try {
-      return { view: ventilationView(ventilationEngine().withGoverning(governing).table(model.elements, scope)) }
+      return { view: ventilationView(ventilationEngine().withGoverning(governing).table(model.elements, scope), t) }
     } catch (err) {
       console.error('[VentilationPanel] the ventilation table failed', err)
       return { failure: err instanceof Error ? err.message : String(err) }
     }
-  }, [model, governing, scope])
+  }, [model, governing, scope, t])
 
   const onKeyDown = (e: KeyboardEvent<HTMLElement>) => {
     if (e.key === 'Escape' && !fullOpen) {
@@ -78,8 +80,12 @@ export function VentilationPanel(props: VentilationPanelProps) {
   const header = (
     <header className="flex items-center gap-2">
       <Fan className="size-4 text-muted-foreground" aria-hidden />
-      <h2 className="text-sm font-semibold">Ventilation{view && !view.empty ? `: ${view.rows.length} spaces` : ''}</h2>
-      <Button variant="ghost" size="icon-sm" className="ml-auto" aria-label="Close Ventilation" onClick={onClose}>
+      <h2 className="text-sm font-semibold">
+        {view && !view.empty
+          ? t('ventilation.panelWithCount', 'Ventilation: {{count}} spaces', { ns: 'editor', count: view.rows.length })
+          : t('ventilation.title', 'Ventilation', { ns: 'editor' })}
+      </h2>
+      <Button variant="ghost" size="icon-sm" className="ml-auto" aria-label={t('ventilation.closePanel', 'Close Ventilation', { ns: 'editor' })} onClick={onClose}>
         <X />
       </Button>
     </header>
@@ -87,15 +93,15 @@ export function VentilationPanel(props: VentilationPanelProps) {
 
   if (error) {
     return (
-      <section className="flex flex-col gap-3" aria-label="Ventilation" onKeyDown={onKeyDown}>
+      <section className="flex flex-col gap-3" aria-label={t('ventilation.title', 'Ventilation', { ns: 'editor' })} onKeyDown={onKeyDown}>
         {header}
         <Alert variant="destructive">
-          <AlertTitle>The model didn’t load</AlertTitle>
+          <AlertTitle>{t('ventilation.modelDidntLoad', 'The model didn’t load', { ns: 'editor' })}</AlertTitle>
           <AlertDescription>
             {error}
             {onRetry && (
               <Button variant="outline" size="sm" className="mt-2" onClick={onRetry}>
-                Try again
+                {t('ventilation.tryAgain', 'Try again', { ns: 'editor' })}
               </Button>
             )}
           </AlertDescription>
@@ -106,9 +112,9 @@ export function VentilationPanel(props: VentilationPanelProps) {
 
   if (!model) {
     return (
-      <section className="flex flex-col gap-3" aria-label="Ventilation" aria-busy="true">
+      <section className="flex flex-col gap-3" aria-label={t('ventilation.title', 'Ventilation', { ns: 'editor' })} aria-busy="true">
         {header}
-        <p className="text-xs text-muted-foreground">Loading the model…</p>
+        <p className="text-xs text-muted-foreground">{t('ventilation.loadingModel', 'Loading the model…', { ns: 'editor' })}</p>
         <Skeleton className="h-6 w-full" />
         <Skeleton className="h-24 w-full" />
       </section>
@@ -116,44 +122,53 @@ export function VentilationPanel(props: VentilationPanelProps) {
   }
 
   return (
-    <section className="flex flex-col gap-3" aria-label="Ventilation" onKeyDown={onKeyDown}>
+    <section className="flex flex-col gap-3" aria-label={t('ventilation.title', 'Ventilation', { ns: 'editor' })} onKeyDown={onKeyDown}>
       {header}
 
       <div className="flex flex-col gap-2">
         <Select value={scopeChoice} onValueChange={(v) => setScopeChoice(v === 'level' ? 'level' : 'model')}>
-          <SelectTrigger size="sm" aria-label="Which spaces">
+          <SelectTrigger size="sm" aria-label={t('ventilation.whichSpaces', 'Which spaces', { ns: 'editor' })}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="level" disabled={!levelId}>
-              {levelId ? `This level${levelName ? ` (${levelName})` : ''}` : 'This level: open a floor plan first'}
+              {levelId
+                ? levelName
+                  ? t('ventilation.thisLevelNamed', 'This level ({{name}})', { ns: 'editor', name: levelName })
+                  : t('ventilation.thisLevel', 'This level', { ns: 'editor' })
+                : t('ventilation.thisLevelNeedsPlan', 'This level: open a floor plan first', { ns: 'editor' })}
             </SelectItem>
-            <SelectItem value="model">Whole model</SelectItem>
+            <SelectItem value="model">{t('ventilation.wholeModel', 'Whole model', { ns: 'editor' })}</SelectItem>
           </SelectContent>
         </Select>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">Governing</span>
-          <ToggleGroup type="single" size="sm" variant="outline" value={governing.standard} onValueChange={(v) => v && setAsked(v === 'ashrae_62_1' ? 'ashrae_62_1' : 'imc')} aria-label="Governing standard">
+          <span className="text-xs text-muted-foreground">{t('ventilation.governing', 'Governing', { ns: 'editor' })}</span>
+          <ToggleGroup type="single" size="sm" variant="outline" value={governing.standard} onValueChange={(v) => v && setAsked(v === 'ashrae_62_1' ? 'ashrae_62_1' : 'imc')} aria-label={t('ventilation.governingStandard', 'Governing standard', { ns: 'editor' })}>
             <ToggleGroupItem value="imc">IMC</ToggleGroupItem>
-            <ToggleGroupItem value="ashrae_62_1">ASHRAE 62.1</ToggleGroupItem>
+            <ToggleGroupItem value="ashrae_62_1">{t('ventilation.ashrae621', 'ASHRAE 62.1', { ns: 'editor' })}</ToggleGroupItem>
           </ToggleGroup>
-          <Button variant="ghost" size="sm" className="ml-auto" onClick={() => setFullOpen(true)} disabled={!view || view.rows.length === 0} title={!view || view.rows.length === 0 ? 'There are no spaces to show yet.' : 'Every column, both standards'}>
+          <Button variant="ghost" size="sm" className="ml-auto" onClick={() => setFullOpen(true)} disabled={!view || view.rows.length === 0} title={!view || view.rows.length === 0 ? t('ventilation.noSpacesToShow', 'There are no spaces to show yet.', { ns: 'editor' }) : t('ventilation.everyColumn', 'Every column, both standards', { ns: 'editor' })}>
             <Maximize2 />
-            Full table
+            {t('ventilation.fullTable', 'Full table', { ns: 'editor' })}
           </Button>
         </div>
         <p className="text-xs text-muted-foreground" data-testid="ventilation-governing">
           {governing.text}
-          {governing.from === 'asked' && adopted.standard !== governing.standard ? ` The adopted code is ${VENTILATION_STANDARDS[adopted.standard].label}; this switch is for this view only.` : ''}
+          {governing.from === 'asked' && adopted.standard !== governing.standard
+            ? t('ventilation.adoptedCodeIs', ' The adopted code is {{code}}; this switch is for this view only.', { ns: 'editor', code: VENTILATION_STANDARDS[adopted.standard].label })
+            : ''}
         </p>
       </div>
 
-      {scope === null && <p className="text-xs text-muted-foreground">Open a floor plan to list the spaces on its level, or choose Whole model.</p>}
+      {scope === null && <p className="text-xs text-muted-foreground">{t('ventilation.openPlanToList', 'Open a floor plan to list the spaces on its level, or choose Whole model.', { ns: 'editor' })}</p>}
 
       {computed && 'failure' in computed && (
         <Alert variant="destructive">
-          <AlertTitle>The ventilation table couldn’t be worked out</AlertTitle>
-          <AlertDescription>{computed.failure}. Try another level, or reload the page; if it keeps happening, tell the team which model this is.</AlertDescription>
+          <AlertTitle>{t('ventilation.tableFailed', 'The ventilation table couldn’t be worked out', { ns: 'editor' })}</AlertTitle>
+          <AlertDescription>
+            {computed.failure}
+            {t('ventilation.tableFailedWhy', '. Try another level, or reload the page; if it keeps happening, tell the team which model this is.', { ns: 'editor' })}
+          </AlertDescription>
         </Alert>
       )}
 
@@ -163,13 +178,13 @@ export function VentilationPanel(props: VentilationPanelProps) {
             <EmptyMedia variant="icon">
               <Fan />
             </EmptyMedia>
-            <EmptyTitle>No outdoor air to show</EmptyTitle>
+            <EmptyTitle>{t('ventilation.noOutdoorAir', 'No outdoor air to show', { ns: 'editor' })}</EmptyTitle>
             <EmptyDescription>{view.empty}</EmptyDescription>
           </EmptyHeader>
           {onOpenSpaces && (
             <EmptyContent>
               <Button variant="outline" size="sm" onClick={onOpenSpaces}>
-                Open Spaces
+                {t('ventilation.openSpaces', 'Open Spaces', { ns: 'editor' })}
               </Button>
             </EmptyContent>
           )}
@@ -180,13 +195,13 @@ export function VentilationPanel(props: VentilationPanelProps) {
         <>
           <Table>
             <TableCaption>
-              Total outdoor air: <span data-testid="ventilation-total">{view.total}</span>
+              {t('ventilation.totalOutdoorAirLabel', 'Total outdoor air:', { ns: 'editor' })} <span data-testid="ventilation-total">{view.total}</span>
             </TableCaption>
             <TableHeader>
               <TableRow>
-                <TableHead>Space</TableHead>
-                <TableHead className="text-right">People</TableHead>
-                <TableHead className="text-right">Voz</TableHead>
+                <TableHead>{t('ventilation.space', 'Space', { ns: 'editor' })}</TableHead>
+                <TableHead className="text-right">{t('ventilation.people', 'People', { ns: 'editor' })}</TableHead>
+                <TableHead className="text-right">{t('ventilation.voz', 'Voz', { ns: 'editor' })}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -199,17 +214,17 @@ export function VentilationPanel(props: VentilationPanelProps) {
                     <span className="block truncate text-xs text-muted-foreground">{r.use}</span>
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{r.people}</TableCell>
-                  <TableCell className="text-right tabular-nums">{r.problem && r.voz === '—' ? <Badge variant="outline">can’t calculate</Badge> : r.voz}</TableCell>
+                  <TableCell className="text-right tabular-nums">{r.problem && r.voz === '—' ? <Badge variant="outline">{t('ventilation.cantCalculate', 'can’t calculate', { ns: 'editor' })}</Badge> : r.voz}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
 
-          {detail && <SpaceDetail row={detail} onSelectSpace={onSelectSpace} />}
+          {detail && <SpaceDetail row={detail} onSelectSpace={onSelectSpace} t={t} />}
 
           {view.zones.length > 0 && (
             <div className="flex flex-col gap-2">
-              <h3 className="text-xs font-semibold">Zones</h3>
+              <h3 className="text-xs font-semibold">{t('ventilation.zones', 'Zones', { ns: 'editor' })}</h3>
               {view.zones.map((z) => (
                 <div key={z.zoneId} className="rounded-md border p-2 text-xs" data-testid={`ventilation-zone-${z.zoneId}`}>
                   <div className="flex items-center gap-2">
@@ -218,9 +233,11 @@ export function VentilationPanel(props: VentilationPanelProps) {
                   </div>
                   {z.problem && <p className="text-destructive">{z.problem}</p>}
                   <p className="text-muted-foreground">
-                    {z.unit ? `${z.unit} outdoor air: ${z.unitOa}` : 'No serving unit'}
-                    {z.verdict === 'meets' && <Badge variant="secondary" className="ml-1">enough</Badge>}
-                    {z.verdict === 'short' && <Badge variant="destructive" className="ml-1">short</Badge>}
+                    {z.unit
+                      ? t('ventilation.unitOutdoorAir', '{{unit}} outdoor air: {{value}}', { ns: 'editor', unit: z.unit, value: z.unitOa })
+                      : t('ventilation.noServingUnit', 'No serving unit', { ns: 'editor' })}
+                    {z.verdict === 'meets' && <Badge variant="secondary" className="ml-1">{t('ventilation.enough', 'enough', { ns: 'editor' })}</Badge>}
+                    {z.verdict === 'short' && <Badge variant="destructive" className="ml-1">{t('ventilation.short', 'short', { ns: 'editor' })}</Badge>}
                   </p>
                   <p className="text-muted-foreground">{z.note}</p>
                 </div>
@@ -236,51 +253,51 @@ export function VentilationPanel(props: VentilationPanelProps) {
       <Dialog open={fullOpen} onOpenChange={setFullOpen}>
         <DialogContent className="max-h-[85vh] max-w-6xl overflow-auto">
           <DialogHeader>
-            <DialogTitle>Ventilation table</DialogTitle>
+            <DialogTitle>{t('ventilation.tableCommand', 'Ventilation table', { ns: 'editor' })}</DialogTitle>
             <DialogDescription>{governing.text}</DialogDescription>
           </DialogHeader>
-          {view && <FullTable view={view} />}
+          {view && <FullTable view={view} t={t} />}
         </DialogContent>
       </Dialog>
     </section>
   )
 }
 
-function SpaceDetail({ row, onSelectSpace }: { readonly row: VentilationRow; readonly onSelectSpace?: (id: ElementId) => void }) {
+function SpaceDetail({ row, onSelectSpace, t }: { readonly row: VentilationRow; readonly onSelectSpace?: (id: ElementId) => void; readonly t: Translate }) {
   return (
     <div className="flex flex-col gap-1 rounded-md border p-2 text-xs" data-testid="ventilation-detail">
       <div className="flex items-center gap-2">
         <span className="font-medium">{row.label}</span>
         {onSelectSpace && (
           <Button variant="link" size="xs" className="ml-auto" onClick={() => onSelectSpace(row.spaceId)}>
-            Show on plan
+            {t('ventilation.showOnPlan', 'Show on plan', { ns: 'editor' })}
           </Button>
         )}
       </div>
       {row.problem && <p className={row.voz === '—' ? 'text-destructive' : 'text-muted-foreground'}>{row.problem}</p>}
       {row.arithmetic && <p className="tabular-nums">{row.arithmetic}</p>}
       <dl className="grid grid-cols-2 gap-x-2 tabular-nums">
-        <dt className="text-muted-foreground">Area</dt>
+        <dt className="text-muted-foreground">{t('ventilation.area', 'Area', { ns: 'editor' })}</dt>
         <dd>{row.area}</dd>
-        <dt className="text-muted-foreground">People</dt>
+        <dt className="text-muted-foreground">{t('ventilation.people', 'People', { ns: 'editor' })}</dt>
         <dd>
           {row.people} {row.peopleFrom}
         </dd>
-        <dt className="text-muted-foreground">Rp / Ra</dt>
+        <dt className="text-muted-foreground">{t('ventilation.rpRa', 'Rp / Ra', { ns: 'editor' })}</dt>
         <dd>
           {row.rp} / {row.ra}
         </dd>
-        <dt className="text-muted-foreground">Vbz / Ez</dt>
+        <dt className="text-muted-foreground">{t('ventilation.vbzEz', 'Vbz / Ez', { ns: 'editor' })}</dt>
         <dd>
           {row.vbz} / {row.ez}
         </dd>
-        <dt className="text-muted-foreground">Exhaust</dt>
+        <dt className="text-muted-foreground">{t('ventilation.exhaust', 'Exhaust', { ns: 'editor' })}</dt>
         <dd>{row.exhaust}</dd>
         {row.byStandard.map((s) => (
-          <FragmentPair key={s.id} label={`${s.label}${s.governing ? ' (governing)' : ''}`} value={s.voz} />
+          <FragmentPair key={s.id} label={`${s.label}${s.governing ? t('ventilation.governingParen', ' (governing)', { ns: 'editor' }) : ''}`} value={s.voz} />
         ))}
       </dl>
-      {row.exhaustNote && <p className="text-muted-foreground">Exhaust: {row.exhaustNote}</p>}
+      {row.exhaustNote && <p className="text-muted-foreground">{t('ventilation.exhaustColon', 'Exhaust: {{note}}', { ns: 'editor', note: row.exhaustNote })}</p>}
       {row.cites.length > 0 && <p className="text-muted-foreground">{row.cites.join(' · ')}</p>}
     </div>
   )
@@ -295,29 +312,29 @@ function FragmentPair({ label, value }: { readonly label: string; readonly value
   )
 }
 
-function FullTable({ view }: { readonly view: VentilationView }) {
+function FullTable({ view, t }: { readonly view: VentilationView; readonly t: Translate }) {
   const standards = view.rows[0]?.byStandard ?? []
   return (
     <Table>
       <TableCaption>
-        Total outdoor air {view.total}. Rates from the space-use library (IMC 2021 Table 403.3.1.1, ASHRAE 62.1-2019 Table 6-1), not yet checked against a code library record.
+        {t('ventilation.fullTableCaption', 'Total outdoor air {{total}}. Rates from the space-use library (IMC 2021 Table 403.3.1.1, ASHRAE 62.1-2019 Table 6-1), not yet checked against a code library record.', { ns: 'editor', total: view.total })}
       </TableCaption>
       <TableHeader>
         <TableRow>
-          <TableHead>Space</TableHead>
-          <TableHead>Use</TableHead>
-          <TableHead className="text-right">People</TableHead>
-          <TableHead className="text-right">Area</TableHead>
-          <TableHead className="text-right">Rp</TableHead>
-          <TableHead className="text-right">Ra</TableHead>
-          <TableHead className="text-right">Vbz</TableHead>
-          <TableHead className="text-right">Ez</TableHead>
-          <TableHead className="text-right">Voz</TableHead>
-          <TableHead className="text-right">Exhaust</TableHead>
+          <TableHead>{t('ventilation.space', 'Space', { ns: 'editor' })}</TableHead>
+          <TableHead>{t('ventilation.use', 'Use', { ns: 'editor' })}</TableHead>
+          <TableHead className="text-right">{t('ventilation.people', 'People', { ns: 'editor' })}</TableHead>
+          <TableHead className="text-right">{t('ventilation.area', 'Area', { ns: 'editor' })}</TableHead>
+          <TableHead className="text-right">{t('ventilation.rp', 'Rp', { ns: 'editor' })}</TableHead>
+          <TableHead className="text-right">{t('ventilation.ra', 'Ra', { ns: 'editor' })}</TableHead>
+          <TableHead className="text-right">{t('ventilation.vbz', 'Vbz', { ns: 'editor' })}</TableHead>
+          <TableHead className="text-right">{t('ventilation.ez', 'Ez', { ns: 'editor' })}</TableHead>
+          <TableHead className="text-right">{t('ventilation.voz', 'Voz', { ns: 'editor' })}</TableHead>
+          <TableHead className="text-right">{t('ventilation.exhaust', 'Exhaust', { ns: 'editor' })}</TableHead>
           {standards.map((s) => (
             <TableHead key={s.id} className="text-right">
               {s.label}
-              {s.governing ? ' (governing)' : ''}
+              {s.governing ? t('ventilation.governingParen', ' (governing)', { ns: 'editor' }) : ''}
             </TableHead>
           ))}
         </TableRow>

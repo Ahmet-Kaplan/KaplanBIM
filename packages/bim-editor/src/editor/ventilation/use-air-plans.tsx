@@ -4,11 +4,10 @@ import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { ROUTING_CONNECT_INTO_FEATURE, type ModelState } from '@permitzip/bim-kernel'
 import { airConnectBlocked, airSystemsOfSelection, planSizeAirSystems, previewAirConnect, sizeDuctsLines } from '@permitzip/bim-pack-mechanical'
 import { AIR_CONNECT_WORDS, SIZE_DUCTS_WORDS } from '@permitzip/bim-pack-mechanical/ui'
+import { englishOnly, useEditorTranslate, type Translate } from '../i18n/translate'
 import type { SubmitCommand } from '../views-sheets/types'
 import { AirPlanDialog } from './AirPlanDialog'
 import type { MechanicalAction } from './mechanical-tab'
-
-const LOADING = 'The model is still loading.'
 
 export interface AirPlanInput {
   readonly model: ModelState | null
@@ -25,14 +24,14 @@ type Open = { readonly kind: 'connect' | 'size'; readonly idPrefix: string } | n
 let opened = 0
 
 /** Why Connect › To duct can't run for this selection, or null. */
-export function connectToDuctBlocked(model: ModelState | null, selectedIds: readonly string[], editBlocked: string | null): string | null {
-  if (!model) return LOADING
+export function connectToDuctBlocked(model: ModelState | null, selectedIds: readonly string[], editBlocked: string | null, t: Translate = englishOnly): string | null {
+  if (!model) return t('ventilation.modelStillLoading', 'The model is still loading.', { ns: 'editor' })
   return editBlocked ?? airConnectBlocked(model.elements, selectedIds)
 }
 
 /** Why Analyze › Size ducts can't run for this selection, or null. */
-export function sizeDuctsBlocked(model: ModelState | null, selectedIds: readonly string[], editBlocked: string | null): string | null {
-  if (!model) return LOADING
+export function sizeDuctsBlocked(model: ModelState | null, selectedIds: readonly string[], editBlocked: string | null, t: Translate = englishOnly): string | null {
+  if (!model) return t('ventilation.modelStillLoading', 'The model is still loading.', { ns: 'editor' })
   if (editBlocked) return editBlocked
   if (selectedIds.length === 0) return SIZE_DUCTS_WORDS.selectFirst
   return airSystemsOfSelection(model.elements, selectedIds).length > 0 ? null : SIZE_DUCTS_WORDS.noAirSystem
@@ -46,14 +45,15 @@ export function sizeDuctsBlocked(model: ModelState | null, selectedIds: readonly
  */
 export function useAirPlans(input: AirPlanInput): { readonly connectToDuct: MechanicalAction; readonly sizeDucts: MechanicalAction; readonly overlay: ReactNode } {
   const { model, selectedIds, editBlocked, submit, select, notify, serverFeatures } = input
+  const t = useEditorTranslate()
   const [open, setOpen] = useState<Open>(null)
   const start = useCallback((kind: 'connect' | 'size') => {
     opened += 1
     setOpen({ kind, idPrefix: `air${opened}-r${model?.revision ?? 0}` })
   }, [model?.revision])
 
-  const connectBlocked = connectToDuctBlocked(model, selectedIds, editBlocked)
-  const sizeBlocked = sizeDuctsBlocked(model, selectedIds, editBlocked)
+  const connectBlocked = connectToDuctBlocked(model, selectedIds, editBlocked, t)
+  const sizeBlocked = sizeDuctsBlocked(model, selectedIds, editBlocked, t)
   const peerMissing = serverFeatures !== undefined && !serverFeatures.includes(ROUTING_CONNECT_INTO_FEATURE) ? AIR_CONNECT_WORDS.peerMissing : null
 
   const connect = useMemo(() => (open?.kind === 'connect' && model ? previewAirConnect(model, selectedIds, open.idPrefix) : null), [open, model, selectedIds])
@@ -114,7 +114,7 @@ export function useAirPlans(input: AirPlanInput): { readonly connectToDuct: Mech
         onOpenChange={(o) => !o && close()}
         title={SIZE_DUCTS_WORDS.title}
         description={SIZE_DUCTS_WORDS.description}
-        notes={[...size.rules, ...(size.plan.kept > 0 ? [`${size.plan.kept} already the size their airflow calls for.`] : [])]}
+        notes={[...size.rules, ...(size.plan.kept > 0 ? [t('ventilation.alreadySized', '{{count}} already the size their airflow calls for.', { ns: 'editor', count: size.plan.kept })] : [])]}
         lines={size.lines}
         empty={empty}
         blocked={editBlocked}

@@ -48,8 +48,10 @@
  *
  *  - anything inside a `t(…)`/`tr(…)` span — that is the keyed half;
  *  - comments (a docstring may quote a caption), and `import`/`export` lines;
- *  - `className`, `cn(…)`, `data-testid`, `id`, `key`, `role`, `type`, `name`:
- *    machine names, never read aloud;
+ *  - `className`, `cn(…)`, `data-testid`, `testId`, `id`, `key`, `role`, `type`,
+ *    `name`: machine names, never read aloud (a template id such as
+ *    `` `ribbon-${tabId}-ventilation` `` reads as words once its interpolation is
+ *    cut out, and is not a caption);
  *  - `d="M0 0…"` SVG path data and other geometry attributes;
  *  - `KeyboardEvent.key` values (`ArrowLeft`, `Enter`, `Escape`) — key names, not
  *    captions, and the same in every language;
@@ -113,6 +115,8 @@ const NOT_CAPTIONS = new Set([
   "KEYNOTES",
   "C S",
   "Promise",
+  // `window.open(…, '_blank', 'noopener,noreferrer')`: a browser feature list.
+  "noopener,noreferrer",
 ]);
 
 /** The calls whose string arguments a person reads. */
@@ -529,7 +533,7 @@ export function visibleEnglish(roots: readonly string[], root = path.join(__dirn
         if (inside(spans, literal.at)) continue;
         const lineStart = source.lastIndexOf("\n", literal.at) + 1;
         const line = source.slice(lineStart, source.indexOf("\n", literal.at) === -1 ? source.length : source.indexOf("\n", literal.at));
-        if (/\b(?:className|cn|data-testid|console\.|import |from |require\(|new Error|aria-|role=|data-|d=|id=|key=|type=|name=|href=|stroke|fill|style=|Math\.|JSON\.|process\.|localStorage|sessionStorage)\b/u.test(line)) continue;
+        if (/\b(?:className|cn|data-testid|testId|console\.|import |from |require\(|new Error|aria-|role=|data-|d=|id=|key=|type=|name=|href=|stroke|fill|style=|Math\.|JSON\.|process\.|localStorage|sessionStorage)\b/u.test(line)) continue;
         if (/^\s*(?:export |import )/u.test(line)) continue;
         if (!looksLikeProse(literal.text)) continue;
         add(literal.at, literal.text, "argument");

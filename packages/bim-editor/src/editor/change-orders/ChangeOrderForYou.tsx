@@ -14,6 +14,7 @@ import type { ChangeOrderDetailResponse, ChangeOrderForMe } from '../../contract
 import { AnswerChangeOrderDialog, type Answer } from './AnswerChangeOrderDialog'
 import { useAssuranceOffer } from '../signing/useAssuranceOffer'
 import { secureLatestEntryFrom, secureOutcomeWords } from '../../contracts/bim/signing/client'
+import { useEditorTranslate } from '../i18n/translate'
 
 type Load =
   | { readonly state: 'loading' }
@@ -29,6 +30,7 @@ type Load =
  * › Change orders.
  */
 export function ChangeOrderForYou({ changeOrderId }: { readonly changeOrderId: string }) {
+  const t = useEditorTranslate()
   const host = useEditorHost().data
   const [attempt, setAttempt] = useState(0)
   const [load, setLoad] = useState<Load>({ state: 'loading' })
@@ -49,7 +51,7 @@ export function ChangeOrderForYou({ changeOrderId }: { readonly changeOrderId: s
       .catch((err: unknown) => {
         if (controller.signal.aborted) return
         console.error('[ChangeOrderForYou] loading the change order failed', { changeOrderId, err })
-        setLoad({ state: 'error', message: err instanceof Error ? err.message : "Couldn't load the change order." })
+        setLoad({ state: 'error', message: err instanceof Error ? err.message : t('changeOrders.loadOneFailed', 'Couldn\'t load the change order.', { ns: 'editor' }) })
       })
     return () => controller.abort()
   }, [host.changeOrders, changeOrderId, attempt])
@@ -66,7 +68,7 @@ export function ChangeOrderForYou({ changeOrderId }: { readonly changeOrderId: s
           <EmptyMedia variant="icon">
             <FilePen />
           </EmptyMedia>
-          <EmptyTitle>Answer recorded</EmptyTitle>
+          <EmptyTitle>{t('changeOrders.answerRecorded', 'Answer recorded', { ns: 'editor' })}</EmptyTitle>
           <EmptyDescription>{answered}</EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -83,11 +85,11 @@ export function ChangeOrderForYou({ changeOrderId }: { readonly changeOrderId: s
   if (load.state === 'error') {
     return (
       <Alert variant="destructive" data-testid="change-order-for-you-error">
-        <AlertTitle>Couldn&apos;t load this change order</AlertTitle>
+        <AlertTitle>{t('changeOrders.couldntLoadOne', 'Couldn\'t load this change order', { ns: 'editor' })}</AlertTitle>
         <AlertDescription>{load.message}</AlertDescription>
         <AlertAction>
           <Button size="sm" variant="outline" onClick={retry}>
-            Retry
+            {t('changeOrders.retry', 'Retry', { ns: 'editor' })}
           </Button>
         </AlertAction>
       </Alert>
@@ -100,8 +102,8 @@ export function ChangeOrderForYou({ changeOrderId }: { readonly changeOrderId: s
           <EmptyMedia variant="icon">
             <FilePen />
           </EmptyMedia>
-          <EmptyTitle>This change order isn&apos;t waiting for you</EmptyTitle>
-          <EmptyDescription>It may have been answered already, withdrawn, or addressed to someone else.</EmptyDescription>
+          <EmptyTitle>{t('changeOrders.notWaitingForYou', 'This change order isn\'t waiting for you', { ns: 'editor' })}</EmptyTitle>
+          <EmptyDescription>{t('changeOrders.maybeAnswered', 'It may have been answered already, withdrawn, or addressed to someone else.', { ns: 'editor' })}</EmptyDescription>
         </EmptyHeader>
       </Empty>
     )
@@ -113,30 +115,30 @@ export function ChangeOrderForYou({ changeOrderId }: { readonly changeOrderId: s
     <Card data-testid="change-order-for-you">
       <CardHeader>
         <CardDescription>
-          {mine.projectLabel} · for {order.addressee.label}
+          {t('changeOrders.projectFor', '{{project}} · for {{to}}', { ns: 'editor', project: mine.projectLabel, to: order.addressee.label })}
         </CardDescription>
         <CardTitle className="flex items-center gap-2">
           {order.title}
           <Badge variant="secondary">{order.statusWords}</Badge>
         </CardTitle>
         <CardDescription>
-          {order.targetWords} · opened by {order.openedByLabel}
+          {t('changeOrders.targetOpenedBy', '{{target}} · opened by {{who}}', { ns: 'editor', target: order.targetWords, who: order.openedByLabel })}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3 text-sm">
         {order.description ? <p className="whitespace-pre-wrap">{order.description}</p> : null}
         {order.waitingWords ? <p className="text-muted-foreground">{order.waitingWords}</p> : null}
-        <p className="text-muted-foreground">Quantities only: no price is part of this change order. Price it with your own price book if you choose to.</p>
+        <p className="text-muted-foreground">{t('changeOrders.quantitiesOnly', 'Quantities only: no price is part of this change order. Price it with your own price book if you choose to.', { ns: 'editor' })}</p>
       </CardContent>
       <CardFooter className="flex flex-wrap gap-2">
         <Button onClick={() => setAnswer('accepted')} data-testid="change-order-for-you-accept">
-          Accept
+          {t('changeOrders.accept', 'Accept', { ns: 'editor' })}
         </Button>
         <Button variant="outline" onClick={() => setAnswer('refused')} data-testid="change-order-for-you-refuse">
-          Refuse
+          {t('changeOrders.refuse', 'Refuse', { ns: 'editor' })}
         </Button>
         <Button variant="outline" onClick={() => setAnswer('no_cost')} data-testid="change-order-for-you-no-cost">
-          No cost
+          {t('changeOrders.noCost', 'No cost', { ns: 'editor' })}
         </Button>
       </CardFooter>
       <AnswerChangeOrderDialog
@@ -146,7 +148,12 @@ export function ChangeOrderForYou({ changeOrderId }: { readonly changeOrderId: s
         signing={signing}
         onAnswer={async ({ status, reason, citation, assurance }) => {
           await setChangeOrderStatusFrom(host.changeOrders, mine.projectId, order.id, { status, reason, ...(citation ? { citation } : {}) })
-          const what = status === 'accepted' ? `You accepted “${order.title}”.` : status === 'refused' ? `You refused “${order.title}”.` : `You marked “${order.title}” no cost.`
+          const what =
+            status === 'accepted'
+              ? t('changeOrders.undo.accepted', 'You accepted “{{title}}”.', { ns: 'editor', title: order.title })
+              : status === 'refused'
+                ? t('changeOrders.undo.refused', 'You refused “{{title}}”.', { ns: 'editor', title: order.title })
+                : t('changeOrders.undo.markedNoCost', 'You marked “{{title}}” no cost.', { ns: 'editor', title: order.title })
           if (!assurance) return setAnswered(what)
           setAnswered(`${what} ${secureOutcomeWords(await secureLatestEntryFrom(host.signing, mine.projectId, order.id, assurance))}`)
         }}

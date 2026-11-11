@@ -9,6 +9,7 @@ import { Spinner } from '../../ui/spinner'
 import { useEditorHost } from '@permitzip/bim-editor/host'
 import { searchAddresseesFrom } from '../../contracts/bim/change-orders/client'
 import type { AddresseeOption } from '../../contracts/bim/change-orders/model'
+import { useEditorTranslate } from '../i18n/translate'
 
 type Search = { readonly state: 'loading' } | { readonly state: 'error'; readonly message: string } | { readonly state: 'ready'; readonly options: readonly AddresseeOption[]; readonly note: string | null }
 
@@ -18,6 +19,7 @@ type Search = { readonly state: 'loading' } | { readonly state: 'error'; readonl
  * Change button; the list explains when it is empty.
  */
 export function AddresseePicker({ projectId, value, onChange }: { readonly projectId: string; readonly value: AddresseeOption | null; readonly onChange: (next: AddresseeOption | null) => void }) {
+  const t = useEditorTranslate()
   const changeOrders = useEditorHost().data.changeOrders
   const [q, setQ] = useState('')
   const [attempt, setAttempt] = useState(0)
@@ -34,7 +36,7 @@ export function AddresseePicker({ projectId, value, onChange }: { readonly proje
         .catch((err: unknown) => {
           if (controller.signal.aborted) return
           console.error('[AddresseePicker] search failed', err)
-          setAnswer({ key, search: { state: 'error', message: err instanceof Error ? err.message : "The contact list didn't load." } })
+          setAnswer({ key, search: { state: 'error', message: err instanceof Error ? err.message : t('changeOrders.contactsFailed', 'The contact list didn\'t load.', { ns: 'editor' }) } })
         })
     }, 200)
     return () => {
@@ -52,7 +54,7 @@ export function AddresseePicker({ projectId, value, onChange }: { readonly proje
           {value.detail ? <ItemDescription>{value.detail}</ItemDescription> : null}
         </ItemContent>
         <Button size="sm" variant="outline" onClick={() => onChange(null)}>
-          Change
+          {t('changeOrders.change', 'Change', { ns: 'editor' })}
         </Button>
       </Item>
     )
@@ -61,22 +63,22 @@ export function AddresseePicker({ projectId, value, onChange }: { readonly proje
   const search: Search = answer && answer.key === key ? answer.search : { state: 'loading' }
   return (
     <div className="flex flex-col gap-2">
-      <Input aria-label="Search contacts and companies" placeholder="Search a name, an email or a company" value={q} maxLength={100} onChange={(e) => setQ(e.target.value)} />
+      <Input aria-label={t('changeOrders.searchContacts', 'Search contacts and companies', { ns: 'editor' })} placeholder={t('changeOrders.searchPlaceholder', 'Search a name, an email or a company', { ns: 'editor' })} value={q} maxLength={100} onChange={(e) => setQ(e.target.value)} />
       {search.state === 'loading' ? (
         <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Spinner aria-hidden /> Searching the contact list…
+          <Spinner aria-hidden /> {t('changeOrders.searching', 'Searching the contact list…', { ns: 'editor' })}
         </p>
       ) : search.state === 'error' ? (
         <p className="flex flex-wrap items-center gap-2 text-sm text-destructive">
           {search.message}
           <Button size="sm" variant="outline" onClick={() => setAttempt((n) => n + 1)}>
-            Retry
+            {t('changeOrders.retry', 'Retry', { ns: 'editor' })}
           </Button>
         </p>
       ) : search.options.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{search.note ?? 'Nothing matches.'}</p>
+        <p className="text-sm text-muted-foreground">{search.note ?? t('changeOrders.nothingMatches', 'Nothing matches.', { ns: 'editor' })}</p>
       ) : (
-        <ItemGroup aria-label="Contacts and companies" className="max-h-56 overflow-y-auto">
+        <ItemGroup aria-label={t('changeOrders.contactsAndCompanies', 'Contacts and companies', { ns: 'editor' })} className="max-h-56 overflow-y-auto">
           {search.options.map((o) => (
             <Item key={`${o.kind}:${o.id}`} size="sm">
               <ItemMedia>{o.kind === 'organization' ? <Building2Icon aria-hidden /> : <UserIcon aria-hidden />}</ItemMedia>
@@ -85,8 +87,8 @@ export function AddresseePicker({ projectId, value, onChange }: { readonly proje
                 {o.detail ? <ItemDescription>{o.detail}</ItemDescription> : null}
               </ItemContent>
               <ItemActions>
-                <Button size="sm" variant="outline" aria-label={`Address to ${o.label}`} onClick={() => onChange(o)}>
-                  Pick
+                <Button size="sm" variant="outline" aria-label={t('changeOrders.addressToNamed', 'Address to {{who}}', { ns: 'editor', who: o.label })} onClick={() => onChange(o)}>
+                  {t('changeOrders.pick', 'Pick', { ns: 'editor' })}
                 </Button>
               </ItemActions>
             </Item>

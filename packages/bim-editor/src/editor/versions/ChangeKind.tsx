@@ -28,6 +28,7 @@ import type { BranchChannel } from '../branches/useBranches'
 import { useQuantityDelta } from '../change-orders/useQuantityDelta'
 import type { ModelStore } from '../model-store'
 import { ModelFromStore } from '../state/model-from-store'
+import { useEditorTranslate } from '../i18n/translate'
 
 const ChangeKindDialog = dynamic(() => import('./ChangeKindDialog').then((m) => m.ChangeKindDialog), { ssr: false })
 
@@ -35,6 +36,7 @@ type Load = { readonly state: 'loading' } | { readonly state: 'error'; readonly 
 
 /** The current classifications and the viewer's own responsibilities, loaded once for the Versions list. */
 export function useChangeSignificance(projectId: string, active: boolean) {
+  const t = useEditorTranslate()
   const changeOrders = useEditorHost().data.changeOrders
   const [attempt, setAttempt] = useState(0)
   const key = `${projectId}|${attempt}`
@@ -47,7 +49,7 @@ export function useChangeSignificance(projectId: string, active: boolean) {
       .catch((err: unknown) => {
         if (controller.signal.aborted) return
         console.error('[ChangeKind] loading classifications failed', err)
-        setAnswer({ key, load: { state: 'error', message: err instanceof Error ? err.message : "What kind of changes these were didn't load." } })
+        setAnswer({ key, load: { state: 'error', message: err instanceof Error ? err.message : t('versions.kindLoadFailed', 'What kind of changes these were didn\'t load.', { ns: 'editor' }) } })
       })
     return () => controller.abort()
   }, [changeOrders, projectId, active, key])
@@ -71,6 +73,7 @@ export interface ChangeKindProps {
  * covers the change can set it, and the button says why when it is off.
  */
 export function ChangeKind({ projectId, target, load, onReload, channel, model }: ChangeKindProps) {
+  const t = useEditorTranslate()
   const changeOrders = useEditorHost().data.changeOrders
   const [open, setOpen] = useState(false)
   const { state: delta, retry } = useQuantityDelta(channel, model, open ? target : null)
@@ -92,7 +95,7 @@ export function ChangeKind({ projectId, target, load, onReload, channel, model }
       <p className="flex flex-wrap items-center gap-2 text-xs text-destructive">
         {load.message}
         <Button size="sm" variant="ghost" onClick={onReload}>
-          <RotateCwIcon aria-hidden /> Retry
+          <RotateCwIcon aria-hidden /> {t('versions.retry', 'Retry', { ns: 'editor' })}
         </Button>
       </p>
     )
@@ -118,7 +121,7 @@ export function ChangeKind({ projectId, target, load, onReload, channel, model }
         <span className="text-muted-foreground">{CHANGE_WORDS.notAChangeOrder}</span>
       )}
       <Button size="sm" variant="ghost" disabled={disabledWhy !== null} title={disabledWhy ?? undefined} onClick={() => setOpen(true)}>
-        What kind of change was this?
+        {t('versions.whatKindWasThis', 'What kind of change was this?', { ns: 'editor' })}
       </Button>
       {disabledWhy && noResponsibility ? <span className="basis-full text-muted-foreground">{disabledWhy}</span> : null}
       {open && load.state === 'ready' ? (
@@ -147,11 +150,12 @@ export function ChangeKind({ projectId, target, load, onReload, channel, model }
 }
 
 function ChangeKindBlocked({ message, onClose }: { readonly message: string; readonly onClose: () => void }) {
+  const t = useEditorTranslate()
   return (
     <p role="alert" className="flex basis-full flex-wrap items-center gap-2 text-muted-foreground">
       {message} {message === CHANGE_WORDS.noResponsibility ? CHANGE_WORDS.whoClassifies : ''}
       <Button size="sm" variant="ghost" onClick={onClose}>
-        Close
+        {t('versions.close', 'Close', { ns: 'editor' })}
       </Button>
     </p>
   )
@@ -163,6 +167,7 @@ function ChangeKindBlocked({ message, onClose }: { readonly message: string; rea
  * itself. "Now" has nothing to classify until it is saved.
  */
 export function useChangeKindSlot(input: { readonly projectId: string; readonly modelId: string | null; readonly entries: readonly VersionEntry[] | null; readonly channel: BranchChannel | null; readonly model: ModelState | null; readonly store?: ModelStore }): (entry: VersionEntry) => ReactNode {
+  const t = useEditorTranslate()
   const { projectId, modelId, entries, channel, model, store } = input
   const { load, reload } = useChangeSignificance(projectId, modelId !== null)
   return useCallback(
@@ -171,7 +176,7 @@ export function useChangeKindSlot(input: { readonly projectId: string; readonly 
       const at = entries.findIndex((e) => e.key === entry.key)
       const older = entries.slice(at + 1).find((e) => e.kind !== 'now' && e.revision < entry.revision)
       const target = versionRangeTarget(modelId, older?.revision ?? 0, entry.revision)
-      if (!target) return <span className="text-xs text-muted-foreground">Same version as the one below it: nothing to classify.</span>
+      if (!target) return <span className="text-xs text-muted-foreground">{t('versions.sameVersionBelow', 'Same version as the one below it: nothing to classify.', { ns: 'editor' })}</span>
       if (store) return <ModelFromStore store={store}>{(shown) => <ChangeKind projectId={projectId} target={target} load={load} onReload={reload} channel={channel} model={shown} />}</ModelFromStore>
       return <ChangeKind projectId={projectId} target={target} load={load} onReload={reload} channel={channel} model={model} />
     },
