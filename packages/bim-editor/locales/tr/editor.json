@@ -147,5 +147,116 @@
     "locked": "(kilitli)",
     "groupTooltip": "Yeni kanallar, borular ve parçalar bu gruba girer. Grupları {{path}} bölümünden düzenleyin.",
     "phaseTooltip": "Yeni elemanlar bu fazda oluşturulur; Yıkım onları bu fazda kaldırır."
+  },
+  "operator": {
+    "element_not_found": "O eleman başka biri tarafından kaldırıldı. Görünümünüz güncellendi.",
+    "wrong_kind": "O eleman bu şekilde değiştirilemez.",
+    "outside_host": "Branşman, ana hatın ucunu geçecek şekilde kaydırılamaz.",
+    "tap_spacing": "Başka bir branşman ayrımına çok yakın. Aralarında en az bir ayrım genişliği bırakın.",
+    "min_straight_length": "Bir kanal hattı en kısa düz uzunluğundan daha kısa kalır.",
+    "anchored_would_move": "Bu, yerine sabitlenmiş kanalı hareket ettirir.",
+    "unsupported_geometry": "Bu hat biçimi için bu değişiklik henüz desteklenmiyor.",
+    "profile_incompatible": "Bu boyut, bağlandığı bağlantı parçalarına uymuyor.",
+    "disconnected": "Bu, kanalın bağlantısını koparır.",
+    "invalid_value": "Pozitif bir boyut girin.",
+    "already_exists": "Bu adda veya numarada bir kayıt zaten var. Başka birini seçin.",
+    "in_use": "Bu hâlâ bir paftada kullanımda. Önce paftadan kaldırın.",
+    "stale_base": "Aynı anda başka biri bunu değiştirdi. Görünümünüz güncellendi; tekrar deneyin.",
+    "conflict": "Aynı anda başka biri bunu değiştirdi. Görünümünüz güncellendi; tekrar deneyin.",
+    "forbidden": "Bu modeli düzenleme yetkiniz yok.",
+    "has_dependents": "Buna bağlı elemanlar var. Hiçbir şey silinmedi.",
+    "undo_refused": "Bu değişiklik artık geri alınamıyor.",
+    "locked": "Bu, kilitli bir grupta. Önce Yönet › Gruplar ve fazlar bölümünden grubun kilidini açın."
+  },
+  "connection": {
+    "unreachable": {
+      "title": "Bağlantı kurulamıyor",
+      "message": "Bağlantınızı kontrol edin veya tekrar deneyin. Arka planda denemeye devam ediyor."
+    },
+    "device_offline": {
+      "title": "Bu bilgisayar çevrimdışı",
+      "message": "Önceden yaptığınız düzenlemeler burada kalır ve bağlantı geri geldiğinde gönderilir. Kendiliğinden yeniden bağlanır."
+    },
+    "quiet": {
+      "title": "Bağlantı kontrol ediliyor",
+      "message": "Model sunucusu birkaç saniyedir yanıt vermiyor. Düzenlemeleriniz bu bilgisayarda tutuluyor ve sunucu yanıt verdiğinde gönderiliyor."
+    },
+    "signed_out": {
+      "title": "Oturumunuz kapalı",
+      "message": "Tekrar oturum açın, sonra yeniden deneyin."
+    },
+    "sign_in_refused": {
+      "title": "Model sunucusu oturum açmanızı reddetti",
+      "message": "Oturumu kapatıp yeniden açın, sonra tekrar deneyin. Sürüyorsa yazılım ekibine bildirin."
+    },
+    "no_model": {
+      "title": "Bu proje için canlı düzenleme henüz kurulmadı",
+      "message": "Bağlı modeller burada görünmeye devam eder. Canlı düzenleme, bu projeyi düzenleyebilen biri projeyi ilk açtığında başlar."
+    },
+    "no_access": {
+      "title": "Bu modeli düzenleme yetkiniz yok",
+      "message": "Erişim için proje yöneticisinden izin isteyin."
+    },
+    "serverSaid": "Model sunucusu şunu söyledi: {{reason}}"
+  },
+  "paused": {
+    "whyOffline": "Bu bilgisayar çevrimdışı",
+    "whyReconnecting": "Model sunucusuna yeniden bağlanılıyor",
+    "toolsOff": "Bağlantı geri gelene kadar Taşı, Yerleştir, Güzergâh çiz ve Böl kapalı; böylece güncel olmayan bir model üzerine hiçbir şey çizilmez.",
+    "keptOne": "Önceki {{edits}} kuyruğa alındı ve gönderilecek.",
+    "keptMany": "Önceki {{edits}} kuyruğa alındı ve gönderilecek."
+  },
+  "tool": {
+    "doing": {
+      "place": "parça yerleştirme",
+      "route": "güzergâh çizme",
+      "move": "taşıma",
+      "split": "bölme"
+    },
+    "readOnlyTitle": "Burada {{doing}} işlemi yapılamaz",
+    "readOnlyMessage": "Canlı düzenleme bağlı değil, bu yüzden hiçbir şey eklenemez.",
+    "pausedTitle": "Yeniden bağlanırken {{doing}} işlemi yapılamaz",
+    "noModelViewTitle": "Önce bu paftada bir plan açın",
+    "noModelViewMessage": "Çalışmak için {{sheet}} üzerindeki bir plana veya kesite çift tıklayın. O zamana kadar tıklamalarınız {{doing}} işlemini yapmaz.",
+    "thisSheet": "bu pafta",
+    "noLevelTitle": "Önce bir kat ekleyin",
+    "noLevelMessage": "{{what}} bir kata oturur, ama bu modelde henüz kat yok. Modelin bir katı olana kadar tıklamalarınız hiçbir şey eklemez. Bağlı modelin katları, siz ekleyene kadar sayılmaz.",
+    "parts": "Parçalar",
+    "ductsAndPipes": "Kanallar ve borular",
+    "noPartTitle": "Bir parça seçin",
+    "noPartMessage": "Soldan bir parça tipi seçin, sonra yerleştirmek için bir zemine, bir çatıya veya modele tıklayın.",
+    "routeSizeTitle": "Önce boyutu düzeltin",
+    "routeSizeMessage": "{{reason}} Soldaki boyut geçerli olana kadar çizim yapılamaz.",
+    "noSystemTitle": "Bir sistem seçin",
+    "noSystemMessage": "Soldan bu hattın ait olduğu sistemi (veya yenisini) seçin, sonra başlamak için tıklayın.",
+    "fix": {
+      "addFirstLevel": "{{name}} katını {{at}} yüksekliğinde ekle",
+      "addLevel": "Kat ekle…",
+      "useArchitectLevels": "Mimarın katlarını kullan"
+    }
+  },
+  "empty": {
+    "noneYet": "Henüz yok",
+    "notSet": "Ayarlanmadı",
+    "mixedGroups": "Karışık gruplar",
+    "mixedPhases": "Karışık fazlar",
+    "mixed": "Karışık",
+    "allLevels": "Tüm katlar",
+    "notCalculated": "Hesaplanmadı",
+    "noFanYet": "Henüz fan yok",
+    "nothingYetField": "Henüz bir şey yok: biraz metin yazın veya bir alan ekleyin.",
+    "fromProject": "Projeden: {{name}}",
+    "notDemolished": "Yıkılmadı",
+    "nothingToRead": "Henüz okunacak bir şey yok: bir pano ve besleyicilerini çizin veya bu bloğun neyi okuyacağını seçin.",
+    "notFedYet": "Henüz beslenmiyor",
+    "pickADate": "Tarih seçin",
+    "notOnCircuit": "Devrede değil",
+    "noVoltageSet": "Gerilim ayarlanmadı: devreye almadan önce yukarıdan ayarlayın",
+    "noneLinkedYet": "Henüz bağlı yok. Bağlı model olmadan da modelleyebilirsiniz; mimarın modelini edindiğinizde Yönet › Model bağla onu getirir.",
+    "totalsNotConnected": "Model bağlandığında toplamlar görünür.",
+    "noChangeToSave": "Kaydedilecek değişiklik yok.",
+    "noChangeToPutBack": "Geri konacak değişiklik yok.",
+    "notSetAria": "ayarlanmadı",
+    "fromProjectAria": "projeden, {{name}}"
   }
 }

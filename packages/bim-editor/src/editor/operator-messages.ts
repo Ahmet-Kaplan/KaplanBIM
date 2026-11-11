@@ -1,31 +1,58 @@
 import type { ConnectionStatus, SaveState } from '@permitzip/bim-sync'
 import type { CommandError } from '@permitzip/bim-kernel'
-import { englishOnly, withValues, type Translate } from './i18n/translate'
+import { withValues, type Translate } from './i18n/translate'
+
+/**
+ * Every refusal and every "not connected yet" a person can meet, in the language
+ * the editor is drawn in.
+ *
+ * These are the sentences a person reads when an action *didn't* happen, so each
+ * one has to say two things: what stopped it, and what to do next. The Turkish
+ * is the glossary's (`docs/i18n/glossary.md` §8 status and error vocabulary,
+ * §2.1 *eleman*, §2.4 *pafta*), and it keeps both halves — a softer sentence that
+ * drops the "what to do next" step would leave someone stuck.
+ *
+ * **The translator is a required parameter everywhere, never defaulted to
+ * `englishOnly`.** That default returns its English argument verbatim, so a
+ * `{{placeholder}}` in a sentence would reach the screen as braces: it has
+ * happened twice in this project. Every path that can emit a placeholder also
+ * passes its values through `withValues`, so even that translator fills the holes.
+ *
+ * The namespace is written at each call site rather than read from a hook: this
+ * file is threaded a `Translate` (it has no `useT('editor')` to bind to), and
+ * `npm run i18n:review` binds a call to a namespace by the literal in the call.
+ */
 
 /** What a person sees when the model refuses an edit: what stopped it, in drawing terms, not element ids. */
-const MESSAGES: Record<CommandError['code'], string> = {
-  element_not_found: 'That piece was removed by someone else. The view has been refreshed.',
-  wrong_kind: "That piece can't be changed this way.",
-  outside_host: "The branch can't slide past the end of the trunk.",
-  tap_spacing: 'Too close to another branch takeoff. Keep them at least a takeoff width apart.',
-  min_straight_length: 'A duct run would get shorter than its minimum straight length.',
-  anchored_would_move: 'That would move ductwork that is pinned in place.',
-  unsupported_geometry: "That change isn't supported for this shape of run yet.",
-  profile_incompatible: "That size doesn't fit the fittings it connects to.",
-  disconnected: 'That would disconnect the ductwork.',
-  invalid_value: 'Enter a positive size.',
-  already_exists: 'Something with that name or number already exists. Pick another.',
-  in_use: "That's still placed on a sheet. Remove it from the sheet first.",
-  stale_base: 'Someone else changed this at the same time. Your view has been updated; try again.',
-  conflict: 'Someone else changed this at the same time. Your view has been updated; try again.',
-  forbidden: "You don't have permission to edit this model.",
-  has_dependents: 'Other things depend on this. Nothing was deleted.',
-  undo_refused: "That change can't be undone now.",
-  locked: 'That is in a locked group. Unlock the group in Manage › Groups & phases first.',
+const MESSAGES: Record<CommandError['code'], (t: Translate) => string> = {
+  element_not_found: (t) =>
+    t('operator.element_not_found', 'That piece was removed by someone else. The view has been refreshed.', { ns: 'editor' }),
+  wrong_kind: (t) => t('operator.wrong_kind', "That piece can't be changed this way.", { ns: 'editor' }),
+  outside_host: (t) => t('operator.outside_host', "The branch can't slide past the end of the trunk.", { ns: 'editor' }),
+  tap_spacing: (t) =>
+    t('operator.tap_spacing', 'Too close to another branch takeoff. Keep them at least a takeoff width apart.', { ns: 'editor' }),
+  min_straight_length: (t) =>
+    t('operator.min_straight_length', 'A duct run would get shorter than its minimum straight length.', { ns: 'editor' }),
+  anchored_would_move: (t) => t('operator.anchored_would_move', 'That would move ductwork that is pinned in place.', { ns: 'editor' }),
+  unsupported_geometry: (t) =>
+    t('operator.unsupported_geometry', "That change isn't supported for this shape of run yet.", { ns: 'editor' }),
+  profile_incompatible: (t) => t('operator.profile_incompatible', "That size doesn't fit the fittings it connects to.", { ns: 'editor' }),
+  disconnected: (t) => t('operator.disconnected', 'That would disconnect the ductwork.', { ns: 'editor' }),
+  invalid_value: (t) => t('operator.invalid_value', 'Enter a positive size.', { ns: 'editor' }),
+  already_exists: (t) => t('operator.already_exists', 'Something with that name or number already exists. Pick another.', { ns: 'editor' }),
+  in_use: (t) => t('operator.in_use', "That's still placed on a sheet. Remove it from the sheet first.", { ns: 'editor' }),
+  stale_base: (t) =>
+    t('operator.stale_base', 'Someone else changed this at the same time. Your view has been updated; try again.', { ns: 'editor' }),
+  conflict: (t) => t('operator.conflict', 'Someone else changed this at the same time. Your view has been updated; try again.', { ns: 'editor' }),
+  forbidden: (t) => t('operator.forbidden', "You don't have permission to edit this model.", { ns: 'editor' }),
+  has_dependents: (t) => t('operator.has_dependents', 'Other things depend on this. Nothing was deleted.', { ns: 'editor' }),
+  undo_refused: (t) => t('operator.undo_refused', "That change can't be undone now.", { ns: 'editor' }),
+  locked: (t) =>
+    t('operator.locked', 'That is in a locked group. Unlock the group in Manage › Groups & phases first.', { ns: 'editor' }),
 }
 
-export function operatorMessage(code: CommandError['code']): string {
-  return MESSAGES[code]
+export function operatorMessage(code: CommandError['code'], t: Translate): string {
+  return MESSAGES[code](t)
 }
 
 // The model server's wording (bim-sync NO_SUCH_MODEL) when a project you can see has no live model yet.
@@ -43,30 +70,77 @@ export interface ConnectionProblem {
   readonly retryable: boolean
 }
 
-export function connectionProblem(kind: ConnectionProblemKind, serverReason?: string): ConnectionProblem {
+/** The words of one problem; `kind` and `retryable` are facts, not language. */
+function problemWords(kind: ConnectionProblemKind, t: Translate, serverReason: string | undefined): Omit<ConnectionProblem, 'kind'> {
   switch (kind) {
     case 'unreachable':
-      return { kind, title: "Can't reach the model server", message: "Check your connection or try again. Still trying in the background.", retryable: true }
+      return {
+        title: t('connection.unreachable.title', "Can't reach the model server", { ns: 'editor' }),
+        message: t('connection.unreachable.message', 'Check your connection or try again. Still trying in the background.', { ns: 'editor' }),
+        retryable: true,
+      }
     case 'device_offline':
-      return { kind, title: 'This computer is offline', message: 'Edits you already made stay here and are sent when the connection is back. Reconnects on its own.', retryable: true }
+      return {
+        title: t('connection.device_offline.title', 'This computer is offline', { ns: 'editor' }),
+        message: t('connection.device_offline.message', 'Edits you already made stay here and are sent when the connection is back. Reconnects on its own.', {
+          ns: 'editor',
+        }),
+        retryable: true,
+      }
     case 'quiet':
-      return { kind, title: 'Checking the connection', message: "The model server hasn't answered for a few seconds. Your edits are kept on this computer and sent when it answers.", retryable: true }
+      return {
+        title: t('connection.quiet.title', 'Checking the connection', { ns: 'editor' }),
+        message: t('connection.quiet.message', "The model server hasn't answered for a few seconds. Your edits are kept on this computer and sent when it answers.", {
+          ns: 'editor',
+        }),
+        retryable: true,
+      }
     case 'signed_out':
-      return { kind, title: "You're signed out", message: 'Sign in again, then try again.', retryable: true }
+      return {
+        title: t('connection.signed_out.title', "You're signed out", { ns: 'editor' }),
+        message: t('connection.signed_out.message', 'Sign in again, then try again.', { ns: 'editor' }),
+        retryable: true,
+      }
     case 'sign_in_refused':
-      return { kind, title: 'The model server refused your sign-in', message: 'Sign out and back in, then try again. If it keeps happening, tell the software team.', retryable: true }
+      return {
+        title: t('connection.sign_in_refused.title', 'The model server refused your sign-in', { ns: 'editor' }),
+        message: t('connection.sign_in_refused.message', 'Sign out and back in, then try again. If it keeps happening, tell the software team.', {
+          ns: 'editor',
+        }),
+        retryable: true,
+      }
     case 'no_model':
-      return { kind, title: "Live editing isn't set up for this project yet", message: 'The linked models still show here. Live editing starts the first time someone who can edit this project opens it.', retryable: false }
-    case 'no_access':
-      return { kind, title: 'No access to edit this model', message: serverReason ? `The model server said: ${serverReason}` : 'Ask a project lead to give you access.', retryable: false }
+      return {
+        title: t('connection.no_model.title', "Live editing isn't set up for this project yet", { ns: 'editor' }),
+        message: t('connection.no_model.message', 'The linked models still show here. Live editing starts the first time someone who can edit this project opens it.', {
+          ns: 'editor',
+        }),
+        retryable: false,
+      }
+    case 'no_access': {
+      const title = t('connection.no_access.title', 'No access to edit this model', { ns: 'editor' })
+      // The server's own words travel inside our sentence: they are quoted, never
+      // reworded, and never dropped — they are the only thing that says which access was refused.
+      if (!serverReason) return { title, message: t('connection.no_access.message', 'Ask a project lead to give you access.', { ns: 'editor' }), retryable: false }
+      const reason = serverReason
+      return {
+        title,
+        message: withValues(t('connection.serverSaid', 'The model server said: {{reason}}', { reason, ns: 'editor' }), { reason }),
+        retryable: false,
+      }
+    }
   }
 }
 
+export function connectionProblem(kind: ConnectionProblemKind, t: Translate, serverReason?: string): ConnectionProblem {
+  return { kind, ...problemWords(kind, t, serverReason) }
+}
+
 /** Map the model server's refusal to a problem. */
-export function problemForDenied(reason: string): ConnectionProblem {
-  if (reason === NO_SUCH_MODEL) return connectionProblem('no_model')
-  if (/sign in/i.test(reason)) return connectionProblem('sign_in_refused', reason)
-  return connectionProblem('no_access', reason)
+export function problemForDenied(reason: string, t: Translate): ConnectionProblem {
+  if (reason === NO_SUCH_MODEL) return connectionProblem('no_model', t)
+  if (/sign in/i.test(reason)) return connectionProblem('sign_in_refused', t, reason)
+  return connectionProblem('no_access', t, reason)
 }
 
 /**
@@ -75,15 +149,24 @@ export function problemForDenied(reason: string): ConnectionProblem {
  * Turkish has one form after a number (§8): both are `{{n}} düzenleme`, so the
  * pair of keys is not a plural rule but two English sentences, each keyed.
  *
- * `withValues` is not decoration: the default translator is `englishOnly`, which
+ * `withValues` is not decoration: a `Translate` may be `englishOnly`, which
  * returns the English argument **verbatim** — `{{n}} edits` would reach the
- * screen as those seven characters. `editsPausedMessage` takes that path (it has
- * no translator), so without the fill an ordinary offline-with-queued-edits
- * status line would print `Your {{n}} edits from before are queued`.
+ * screen as those seven characters. The fill repairs every path, whichever
+ * translator arrives.
  */
-function edits(n: number, t: Translate = englishOnly): string {
+function edits(n: number, t: Translate): string {
   if (n === 1) return t('status.editOne', '1 edit', { ns: 'editor' })
   return withValues(t('status.editsMany', '{{n}} edits', { n, ns: 'editor' }), { n })
+}
+
+/** " Your 3 edits from before are queued and will be sent." — the half that says nothing was lost. */
+function keptWords(queued: number, t: Translate): string {
+  const count = edits(queued, t)
+  if (queued === 1)
+    return withValues(t('paused.keptOne', 'Your {{edits}} from before is queued and will be sent.', { edits: count, ns: 'editor' }), { edits: count })
+  return withValues(t('paused.keptMany', 'Your {{edits}} from before are queued and will be sent.', { edits: count, ns: 'editor' }), {
+    edits: count,
+  })
 }
 
 /**
@@ -91,10 +174,13 @@ function edits(n: number, t: Translate = englishOnly): string {
  * the live connection is down. They draw on the model as last seen, so they
  * wait; edits already made stay queued and are sent on reconnect.
  */
-export function editsPausedMessage(queued: number, deviceOffline: boolean): string {
-  const why = deviceOffline ? 'This computer is offline' : 'Reconnecting to the model server'
-  const kept = queued > 0 ? ` Your ${edits(queued)} from before ${queued === 1 ? 'is' : 'are'} queued and will be sent.` : ''
-  return `${why}. Move, Place, Route and Split are off until it's back, so nothing is drawn on an out-of-date model.${kept}`
+export function editsPausedMessage(queued: number, deviceOffline: boolean, t: Translate): string {
+  const why = deviceOffline
+    ? t('paused.whyOffline', 'This computer is offline', { ns: 'editor' })
+    : t('paused.whyReconnecting', 'Reconnecting to the model server', { ns: 'editor' })
+  const toolsOff = t('paused.toolsOff', "Move, Place, Route and Split are off until it's back, so nothing is drawn on an out-of-date model.", { ns: 'editor' })
+  const kept = queued > 0 ? ` ${keptWords(queued, t)}` : ''
+  return `${why}. ${toolsOff}${kept}`
 }
 
 export type BadgeTone = 'ok' | 'busy' | 'warn' | 'muted'
@@ -118,10 +204,8 @@ function offlineLabel(pending: number, t: Translate): string {
  * would let a future caller print `Offline: {{edits}}…`. A required parameter
  * turns that omission into a compile error instead of a screen with braces on it.
  *
- * The words it can show that are still English belong to Task 3.3: the 18
- * refusal codes, `editsPausedMessage`'s sentence, and the *title* of a known
- * connection problem — that one arrives on `problem`, worded by
- * `connectionProblem()`.
+ * The one word it can show that arrives already-worded is a known connection
+ * problem's *title*: `connectionProblem()` says it in the same language.
  */
 export function statusBadge(
   status: ConnectionStatus | 'read_only',

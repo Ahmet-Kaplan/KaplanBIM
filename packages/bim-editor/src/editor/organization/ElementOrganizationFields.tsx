@@ -6,6 +6,7 @@ import { groupIdOf, isOrganized, organizationOf, phaseCreatedOf, phaseDemolished
 import { Button } from '../../ui/button'
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '../../ui/field'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../ui/select'
+import { useEditorTranslate } from '../i18n/translate'
 import type { SubmitCommand } from '../views-sheets/types'
 
 const NOT_DEMOLISHED = 'none'
@@ -28,6 +29,7 @@ function common(values: readonly string[]): string {
 /** Group and phases of the selection, with controls to change them. */
 export function ElementOrganizationFields({ model, ids, canEdit, blockedReason, submit }: Props) {
   const [error, setError] = useState<string | null>(null)
+  const t = useEditorTranslate()
   const org = organizationOf(model)
   const elements = ids.map((id) => model.elements[id]).filter((el): el is BimElement => el !== undefined && isOrganized(el))
   if (elements.length === 0) return null
@@ -54,19 +56,19 @@ export function ElementOrganizationFields({ model, ids, canEdit, blockedReason, 
             onValueChange={(id) => id !== MIXED && run(submit({ type: 'assign_elements_to_group', ids: list, groupId: id }, `move ${what} to ${org.groupById.get(id)?.entry.name ?? 'that group'}`))}
           >
             <SelectTrigger id="el-group" size="sm" data-testid="element-group">
-              <SelectValue placeholder="Mixed groups" />
+              <SelectValue placeholder={t('empty.mixedGroups', 'Mixed groups', { ns: 'editor' })} />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
                 {group === MIXED && (
                   <SelectItem value={MIXED} disabled>
-                    Mixed groups
+                    {t('empty.mixedGroups', 'Mixed groups', { ns: 'editor' })}
                   </SelectItem>
                 )}
                 {org.groups.map((g) => (
                   <SelectItem key={g.id} value={g.id} disabled={g.entry.locked}>
                     {g.entry.name}
-                    {g.entry.locked ? ' (locked)' : ''}
+                    {g.entry.locked ? ` ${t('status.locked', '(locked)', { ns: 'editor' })}` : ''}
                   </SelectItem>
                 ))}
               </SelectGroup>
@@ -81,13 +83,13 @@ export function ElementOrganizationFields({ model, ids, canEdit, blockedReason, 
             onValueChange={(id) => id !== MIXED && run(submit({ type: 'set_element_phases', ids: list, phaseCreated: id }, `set ${what} as built in ${org.phases.find((p) => p.id === id)?.entry.name ?? 'that phase'}`))}
           >
             <SelectTrigger id="el-phase-created" size="sm" data-testid="element-phase-created">
-              <SelectValue placeholder="Mixed phases" />
+              <SelectValue placeholder={t('empty.mixedPhases', 'Mixed phases', { ns: 'editor' })} />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
                 {created === MIXED && (
                   <SelectItem value={MIXED} disabled>
-                    Mixed phases
+                    {t('empty.mixedPhases', 'Mixed phases', { ns: 'editor' })}
                   </SelectItem>
                 )}
                 {org.phases.map((p) => (
@@ -107,16 +109,16 @@ export function ElementOrganizationFields({ model, ids, canEdit, blockedReason, 
             onValueChange={(id) => id !== MIXED && run(submit({ type: 'set_element_phases', ids: list, phaseDemolished: id === NOT_DEMOLISHED ? null : id }, id === NOT_DEMOLISHED ? `restore ${what}` : `demolish ${what}`))}
           >
             <SelectTrigger id="el-phase-demolished" size="sm" data-testid="element-phase-demolished">
-              <SelectValue placeholder="Mixed" />
+              <SelectValue placeholder={t('empty.mixed', 'Mixed', { ns: 'editor' })} />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
                 {demolished === MIXED && (
                   <SelectItem value={MIXED} disabled>
-                    Mixed
+                    {t('empty.mixed', 'Mixed', { ns: 'editor' })}
                   </SelectItem>
                 )}
-                <SelectItem value={NOT_DEMOLISHED}>Not demolished</SelectItem>
+                <SelectItem value={NOT_DEMOLISHED}>{t('empty.notDemolished', 'Not demolished', { ns: 'editor' })}</SelectItem>
                 {org.phases.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
                     {p.entry.name}
@@ -129,7 +131,7 @@ export function ElementOrganizationFields({ model, ids, canEdit, blockedReason, 
         {anyDemolished ? (
           <Button variant="outline" size="sm" disabled={blocked !== null} onClick={() => run(submit({ type: 'undemolish_elements', ids: list }, `restore ${what}`))} data-testid="element-undemolish">
             <Undo2 data-icon="inline-start" />
-            Not demolished
+            {t('empty.notDemolished', 'Not demolished', { ns: 'editor' })}
           </Button>
         ) : (
           <Button variant="outline" size="sm" disabled={blocked !== null} onClick={() => run(submit({ type: 'demolish_elements', ids: list }, `demolish ${what}`))} data-testid="element-demolish">

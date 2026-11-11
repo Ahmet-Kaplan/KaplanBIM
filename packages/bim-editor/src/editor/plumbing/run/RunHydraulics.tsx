@@ -33,6 +33,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Separator } from '../../../ui/separator'
 import { useEditorHost } from '@permitzip/bim-editor/host'
 import { GasSizingFrom, RegulatorSettings } from '../GasSizing'
+import { useEditorTranslate } from '../../i18n/translate'
 import { PipeSizing } from '../PipeSizing'
 
 /** One engine for the panel: a system's report is reused until one of its elements changes. */
@@ -172,12 +173,13 @@ function FittingLosses({ fitting, unit }: { fitting: FittingLossResult; unit: st
 }
 
 function SystemSummary({ report }: { report: Exclude<PipeSystemReport, { kind: 'not_calculated' }> }) {
+  const t = useEditorTranslate()
   const verdict = report.pass === null ? null : report.pass ? 'Passes' : 'Fails'
   const rows: [string, string][] =
     report.kind === 'water'
       ? [
           [`${report.systemName}: critical fixture`, report.critical ? `${report.critical.label}, ${n(report.critical.pressure)} psi` : 'None connected yet'],
-          ['Needs', report.minFixturePsi !== null ? `${report.minFixturePsi} psi` : 'Not set'],
+          ['Needs', report.minFixturePsi !== null ? `${report.minFixturePsi} psi` : t('empty.notSet', 'Not set', { ns: 'editor' })],
         ]
       : report.kind === 'drainage'
         ? [[`${report.systemName}: total`, `${n(report.totalFixtureUnits)} DFU`]]

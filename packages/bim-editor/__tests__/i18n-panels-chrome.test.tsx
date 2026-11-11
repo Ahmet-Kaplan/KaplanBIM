@@ -10,7 +10,7 @@
  * than it did — it read the locale file, so a component that went back to a bare
  * literal still passed):
  *
- *   1. **The key is still in the source.** `sourceCaptions()` reads every
+ *   1. **The key is still in the source.** `editorSourceCaptions()` reads every
  *      `.ts`/`.tsx` under `src/editor` (comments stripped) and pulls out each
  *      `t('<key>', '<English>'` call. Every caption below must be in it, with
  *      the English it has today; and every `panel.*`/`status.*` key in the source
@@ -34,16 +34,15 @@
  *   - The surfaces that build these panels need a live model store, a socket and
  *     the whole editor host (Building Model, the coordination pane, the schedule
  *     pane). They are covered by (1) and (2), not by a render.
- *   - A known connection problem's *title* is owned by `connectionProblem()`
- *     (Task 3.3, `operator-messages.ts`): the badge shows that title as it
- *     arrives, so it stays English until 3.3 translates that record.
+ *   - A known connection problem's *title* arrives already worded by
+ *     `connectionProblem()`, so it is proven in `i18n-operator-messages.test.ts`
+ *     rather than here: the badge shows that title as it arrives.
  */
-import fs from "node:fs";
-import path from "node:path";
 import { render, screen } from "@testing-library/react";
 import type { SaveState } from "@permitzip/bim-sync";
 import { CONNECTED_LOAD_ONLY, ElectricalLoadEngine } from "@permitzip/bim-pack-electrical";
 import { editsPausedMessage, statusBadge } from "../src/editor/operator-messages";
+import { editorSourceCaptions } from "./helpers/editor-source-captions";
 import { ResizableSideRail } from "../src/editor/layout/ResizableSideRail";
 import { PanelView } from "../src/editor/electrical/PanelView";
 import type { NecRules } from "../src/editor/electrical/use-nec-rules";
@@ -71,7 +70,7 @@ interface Caption {
  * Namespaced by hand at the call sites: `useEditorTranslate()` hides its
  * `useT('editor')` from `npm run i18n:review`, so every call site names the
  * namespace itself. The keys here are read back out of the source by
- * `sourceCaptions()`, so a rename cannot leave this table quietly right.
+ * `editorSourceCaptions()`, so a rename cannot leave this table quietly right.
  */
 const PANEL_CAPTIONS: readonly Caption[] = [
   { key: "panel.properties", english: "Properties", turkish: "Özellikler" },
@@ -192,31 +191,6 @@ const EN: Translate = translateFor("en");
 // The source, read the way `npm run i18n:review` reads it
 // ---------------------------------------------------------------------------
 
-const EDITOR_SRC = path.join(__dirname, "..", "src", "editor");
-
-/** `t('<key>', '<English>'` — the shape every caption is written in. */
-const CAPTION_CALL = /\bt\('([A-Za-z][\w.]*)',\s*(['"])((?:\\.|(?!\2)[^\\])*)\2/g;
-
-/** One caption as the source writes it: the English the call site holds, and how many call sites hold it. */
-interface SourceCaption {
-  readonly english: string;
-  readonly sites: number;
-}
-
-/** Every keyed caption in the editor's source: key → what the call sites say. */
-function sourceCaptions(): ReadonlyMap<string, SourceCaption> {
-  const found = new Map<string, SourceCaption>();
-  for (const file of sourceFiles(EDITOR_SRC)) {
-    for (const match of stripComments(fs.readFileSync(file, "utf8")).matchAll(CAPTION_CALL)) {
-      const [, key, , english] = match;
-      if (key === undefined || english === undefined) continue;
-      const seen = found.get(key);
-      found.set(key, { english, sites: (seen?.sites ?? 0) + 1 });
-    }
-  }
-  return found;
-}
-
 /**
  * How many call sites each shared caption has today.
  *
@@ -242,25 +216,11 @@ const SITES: Readonly<Record<string, number>> = {
   "panel.versions": 2,
   "panel.viewsAndSheets": 3,
   "status.reconnecting": 2,
+  // The group picker marks a locked group the same way the status bar's strip does.
+  "status.locked": 2,
+  // The status bar's "Try now" is also the paused tool notice's button.
+  "status.tryNow": 2,
 };
-
-function sourceFiles(dir: string): string[] {
-  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) return sourceFiles(full);
-    return /\.tsx?$/u.test(entry.name) ? [full] : [];
-  });
-}
-
-/**
- * Drops `//` and `/* … *\/` comments, keeping string literals intact — the same
- * reason `tools/i18n/review-bundle.mjs` does: this very file, and the components'
- * docstrings, quote `t('…')` examples in prose. Without this a comment would
- * count as a call site and the scan would go green over a reverted caption.
- */
-function stripComments(source: string): string {
-  return source.replace(/\/\*[\s\S]*?\*\//gu, "").replace(/^\s*\/\/.*$/gmu, "");
-}
 
 /** `"{{n}} edits"` with `{ n: 3 }` → `"3 edits"`. The panel never shows a placeholder. */
 function fill(template: string, values: Values | undefined): string {
@@ -275,14 +235,14 @@ function fill(template: string, values: Values | undefined): string {
  * key — which is exactly the hole the first version of this file had.
  */
 test("every panel and status caption is still keyed in the source, with its English", () => {
-  const source = sourceCaptions();
+  const source = editorSourceCaptions();
   for (const caption of [...PANEL_CAPTIONS, ...STATUS_CAPTIONS]) {
     expect({ key: caption.key, english: source.get(caption.key)?.english }).toEqual({ key: caption.key, english: caption.english });
   }
 });
 
 test("a caption is still keyed at every place it is written", () => {
-  const source = sourceCaptions();
+  const source = editorSourceCaptions();
   for (const caption of [...PANEL_CAPTIONS, ...STATUS_CAPTIONS]) {
     expect({ key: caption.key, sites: source.get(caption.key)?.sites }).toEqual({ key: caption.key, sites: SITES[caption.key] ?? 1 });
   }
@@ -290,7 +250,7 @@ test("a caption is still keyed at every place it is written", () => {
 
 test("no panel or status caption in the source is missing from this file", () => {
   const listed = new Set([...PANEL_CAPTIONS, ...STATUS_CAPTIONS].map((c) => c.key));
-  const inSource = [...sourceCaptions().keys()].filter((key) => key.startsWith("panel.") || key.startsWith("status."));
+  const inSource = [...editorSourceCaptions().keys()].filter((key) => key.startsWith("panel.") || key.startsWith("status."));
   expect(inSource.filter((key) => !listed.has(key))).toEqual([]);
 });
 
@@ -481,22 +441,24 @@ test("status bar connection states are unchanged in English", () => {
 });
 
 /**
- * `editsPausedMessage` takes no translator — it is the reason Move/Place/Route are
- * off, produced by the model session and shown verbatim in the chip's popover and
- * at the tool. With `englishOnly` under it, `{{n}}` was reaching the screen. Both
- * of its paths (`editPausedReason()` and the `refusePaused()` hint) are held here.
+ * `editsPausedMessage` is the reason Move/Place/Route are off, produced by the
+ * model session and shown verbatim in the chip's popover and at the tool. It takes
+ * its translator from the session (Task 3.3), so this holds the English it must
+ * still say, while `i18n-operator-messages.test.ts` holds the Turkish and the
+ * `{{n}}` guard. Both of its paths (`editPausedReason()` and the `refusePaused()`
+ * hint) read the same function.
  */
 test("the paused-edit sentence never prints a placeholder", () => {
   for (const queued of [0, 1, 2, 3, 11]) {
     for (const deviceOffline of [false, true]) {
-      const words = editsPausedMessage(queued, deviceOffline);
+      const words = editsPausedMessage(queued, deviceOffline, EN);
       expect({ queued, deviceOffline, words }).toEqual({ queued, deviceOffline, words: expect.not.stringMatching(/\{\{/u) });
     }
   }
   // The two shapes a person actually reads.
-  expect(editsPausedMessage(3, false)).toContain("Your 3 edits from before are queued and will be sent.");
-  expect(editsPausedMessage(1, true)).toContain("Your 1 edit from before is queued and will be sent.");
-  expect(editsPausedMessage(0, true)).toBe("This computer is offline. Move, Place, Route and Split are off until it's back, so nothing is drawn on an out-of-date model.");
+  expect(editsPausedMessage(3, false, EN)).toContain("Your 3 edits from before are queued and will be sent.");
+  expect(editsPausedMessage(1, true, EN)).toContain("Your 1 edit from before is queued and will be sent.");
+  expect(editsPausedMessage(0, true, EN)).toBe("This computer is offline. Move, Place, Route and Split are off until it's back, so nothing is drawn on an out-of-date model.");
 });
 
 /**

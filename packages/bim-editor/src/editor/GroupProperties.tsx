@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Separator } from '../ui/separator'
 import { ToggleGroup, ToggleGroupItem } from '../ui/toggle-group'
 import { MM_PER_IN } from './placement'
+import { useEditorTranslate } from './i18n/translate'
 import { parseFeet } from './RunMoveForm'
 
 const MM_PER_FT = 304.8
@@ -73,6 +74,7 @@ interface Props {
 
 /** Properties of a run, branch, system or box selection: its totals, and Move / Resize / Delete for all of it at once. */
 export function GroupProperties({ scope, count, totals, canEdit, onMove, onResize, onDelete }: Props) {
+  const t = useEditorTranslate()
   const [dx, setDx] = useState('0')
   const [dy, setDy] = useState('0')
   const [dz, setDz] = useState('0')
@@ -123,16 +125,16 @@ export function GroupProperties({ scope, count, totals, canEdit, onMove, onResiz
           <dt className="text-muted-foreground">Length</dt>
           <dd>{(s.lengthMm / MM_PER_FT).toFixed(1)} ft</dd>
           <dt className="text-muted-foreground">{flowWord}</dt>
-          <dd data-testid="group-flow">{s.flowEntering === null ? 'None yet' : `${Math.round(s.flowEntering)}${isPipe ? '' : ' CFM'}`}</dd>
+          <dd data-testid="group-flow">{s.flowEntering === null ? t('empty.noneYet', 'None yet', { ns: 'editor' }) : `${Math.round(s.flowEntering)}${isPipe ? '' : ' CFM'}`}</dd>
           {(totals?.pressure ?? []).map((p) => (
             <div key={p.system} className="contents">
               <dt className="text-muted-foreground">{p.system} fan static</dt>
-              <dd data-testid="group-esp">{p.espInWc === null ? (p.reason ? 'Not calculated' : 'No fan yet') : `${p.espInWc.toFixed(2)} in. w.c.`}</dd>
+              <dd data-testid="group-esp">{p.espInWc === null ? (p.reason ? t('empty.notCalculated', 'Not calculated', { ns: 'editor' }) : t('empty.noFanYet', 'No fan yet', { ns: 'editor' })) : `${p.espInWc.toFixed(2)} in. w.c.`}</dd>
             </div>
           ))}
         </dl>
       ) : (
-        <FieldDescription>Totals appear once the model is connected.</FieldDescription>
+        <FieldDescription>{t('empty.totalsNotConnected', 'Totals appear once the model is connected.', { ns: 'editor' })}</FieldDescription>
       )}
       <Separator />
       <FieldSet disabled={!canEdit}>

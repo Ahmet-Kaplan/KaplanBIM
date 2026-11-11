@@ -183,11 +183,11 @@ export const SurfaceRail = memo<(props: SurfaceRailProps) => ReactNode>(function
             <FieldLabel htmlFor="bm-level">Level (3D model)</FieldLabel>
             <Select value={props.level} onValueChange={props.onLevel} disabled={props.referenceLevels.length === 0}>
               <SelectTrigger id="bm-level" size="sm">
-                <SelectValue placeholder="All levels" />
+                <SelectValue placeholder={t('empty.allLevels', 'All levels', { ns: 'editor' })} />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  <SelectItem value="all">All levels</SelectItem>
+                  <SelectItem value="all">{t('empty.allLevels', 'All levels', { ns: 'editor' })}</SelectItem>
                   {props.referenceLevels.map((name) => (
                     <SelectItem key={name} value={name}>
                       {name}
@@ -226,7 +226,11 @@ export const SurfaceRail = memo<(props: SurfaceRailProps) => ReactNode>(function
             {/* The Linked models section manages the links; this set only shows or hides them. */}
             <FieldLegend variant="label">{t('panel.linkedModels', 'Linked models', { ns: 'editor' })}</FieldLegend>
             <FieldGroup className="gap-2">
-              {props.references.length === 0 && <p className="text-xs text-muted-foreground" data-testid="references-empty-hint">None linked yet. You can model without one; Manage › Link a model brings in the architect&apos;s model when you have it.</p>}
+              {props.references.length === 0 && (
+                <p className="text-xs text-muted-foreground" data-testid="references-empty-hint">
+                  {t('empty.noneLinkedYet', "None linked yet. You can model without one; Manage › Link a model brings in the architect's model when you have it.", { ns: 'editor' })}
+                </p>
+              )}
               {props.references.map((ref) => (
                 <Field key={ref.id} orientation="horizontal">
                   <Checkbox

@@ -11,6 +11,7 @@ import { Spinner } from '../../ui/spinner'
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table'
 import { ToggleGroup, ToggleGroupItem } from '../../ui/toggle-group'
 import { CODE_OF_RECORD_DISCIPLINES as DISCIPLINES, CODE_OF_RECORD_DISCIPLINE_LABELS } from '../../contracts/bim/code-change/words'
+import { useEditorTranslate } from '../i18n/translate'
 
 type Save = { readonly state: 'idle' } | { readonly state: 'saving' } | { readonly state: 'saved'; readonly words: string } | { readonly state: 'error'; readonly message: string }
 
@@ -36,6 +37,7 @@ export function CodesOfRecordForm({
   readonly onSaveCode: (code: CodeOfRecord) => Promise<string>
   readonly onSaveJurisdiction: (j: JurisdictionId) => Promise<void>
 }) {
+  const t = useEditorTranslate()
   const [view, setView] = useState<'codes' | 'place'>('codes')
   const [discipline, setDiscipline] = useState<string>('building')
   const existing = codes.find((c) => c.discipline === discipline)
@@ -125,7 +127,7 @@ export function CodesOfRecordForm({
             return (
               <TableRow key={d}>
                 <TableCell>{CODE_OF_RECORD_DISCIPLINE_LABELS[d] ?? d}</TableCell>
-                <TableCell className={c ? '' : 'text-muted-foreground'}>{c ? codeLabel(c) : 'Not set'}</TableCell>
+                <TableCell className={c ? '' : 'text-muted-foreground'}>{c ? codeLabel(c) : t('empty.notSet', 'Not set', { ns: 'editor' })}</TableCell>
               </TableRow>
             )
           })}

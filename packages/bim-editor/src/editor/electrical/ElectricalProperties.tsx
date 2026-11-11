@@ -9,6 +9,7 @@ import { Separator } from '../../ui/separator'
 import type { SubmitCommand } from '../views-sheets/types'
 import { ConnectionTypePicker } from './ConnectionTypePicker'
 import { DedicatedSpaceForm } from './DedicatedSpaceForm'
+import { useEditorTranslate } from '../i18n/translate'
 import type { ElectricalTarget } from './selection'
 
 /**
@@ -39,6 +40,7 @@ export function ElectricalProperties({
   readonly editBlocked: string | null
   readonly onManageTypes: () => void
 }) {
+  const t = useEditorTranslate()
   const els = model.elements
   const body = (() => {
     if (target.panels.length === 1 && target.loads.length === 0) {
@@ -60,7 +62,7 @@ export function ElectricalProperties({
               <ItemContent>
                 <ItemDescription className="text-xs">Supply from</ItemDescription>
                 <ItemTitle className="text-xs font-normal" data-testid="electrical-props-supply">
-                  {s.fedBy ? `${s.fedBy.sourceName} (${s.fedBy.name})` : 'Not fed yet'}
+                  {s.fedBy ? `${s.fedBy.sourceName} (${s.fedBy.name})` : t('empty.notFedYet', 'Not fed yet', { ns: 'editor' })}
                 </ItemTitle>
               </ItemContent>
             </Item>
@@ -68,7 +70,7 @@ export function ElectricalProperties({
               <ItemContent>
                 <ItemDescription className="text-xs">{hasPositions(s.kind) ? 'Circuits' : 'Feeds'}</ItemDescription>
                 <ItemTitle className="text-xs font-normal" data-testid="electrical-props-circuits">
-                  {s.circuits.length === 0 ? 'None yet' : s.circuits.slice(0, 8).map((c) => (c.role === 'feeder' ? `${c.name} (feeder)` : `${c.name} ${c.description}`.trim())).join(' · ')}
+                  {s.circuits.length === 0 ? t('empty.noneYet', 'None yet', { ns: 'editor' }) : s.circuits.slice(0, 8).map((c) => (c.role === 'feeder' ? `${c.name} (feeder)` : `${c.name} ${c.description}`.trim())).join(' · ')}
                   {s.circuits.length > 8 ? ` · and ${s.circuits.length - 8} more` : ''}
                 </ItemTitle>
               </ItemContent>
@@ -109,7 +111,7 @@ export function ElectricalProperties({
               <ItemContent>
                 <ItemDescription className="text-xs">Circuit</ItemDescription>
                 <ItemTitle className="text-xs font-normal" data-testid="electrical-props-circuit">
-                  {circuit ? `${circuit.name} (panel ${circuit.sourceName})` : 'Not on a circuit'}
+                  {circuit ? `${circuit.name} (panel ${circuit.sourceName})` : t('empty.notOnCircuit', 'Not on a circuit', { ns: 'editor' })}
                 </ItemTitle>
               </ItemContent>
             </Item>
@@ -117,7 +119,7 @@ export function ElectricalProperties({
               <ItemContent>
                 <ItemDescription className="text-xs">Needs</ItemDescription>
                 <ItemTitle className="text-xs font-normal">
-                  {conn?.voltage ? `${conn.voltage} V, ${conn.poles ?? 1} pole${(conn.poles ?? 1) === 1 ? '' : 's'}` : 'No voltage set: set it above before circuiting'}
+                  {conn?.voltage ? `${conn.voltage} V, ${conn.poles ?? 1} pole${(conn.poles ?? 1) === 1 ? '' : 's'}` : t('empty.noVoltageSet', 'No voltage set: set it above before circuiting', { ns: 'editor' })}
                   {conn?.loadVa ? `, ${Math.round(conn.loadVa)} VA` : ''}
                 </ItemTitle>
               </ItemContent>

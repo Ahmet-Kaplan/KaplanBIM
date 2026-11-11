@@ -304,6 +304,11 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
   const sheetTitle = useMemo<SheetTitle>(() => ({ projectName, projectNumber: projectNumber ?? '', firmName: SHEET_FIRM_NAME }), [projectName, projectNumber])
   const canvasRef = useRef<HTMLDivElement | null>(null)
   const sessionRef = useRef<ModelSession | null>(null)
+  // The ribbon's and the model's words come out in the host's language (`<I18nProvider>`); with none
+  // it is English. Declared here because the model session takes it at construction (the refusals it
+  // reports are its words) and the tool blocker below draws with it; named `t` so
+  // `npm run i18n:review` reads the captions written in this file.
+  const t = useEditorTranslate()
   const autoSize = useAutoSize(projectId, (command, label) => sessionRef.current?.submitCommand(command, label) ?? "Live editing isn't connected, so changes can't be saved.")
   const dragRef = useRef<{ drag: SlideDrag; s: number | null } | null>(null)
   const [requested, setOpen] = useState<OpenItem>({ kind: 'model', mode: initialView === 'plan' ? 'plan' : '3d' })
@@ -573,7 +578,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
         setRouteChecks(checks)
         setRouteTickMarks(checks.length > 0 ? { ticks: session.routeTicks(), pieces: session.routeTickPieces() } : null)
       },
-    }, getAccessToken, referencesPort, hostCapabilities)
+    }, getAccessToken, t, referencesPort, hostCapabilities)
     session.setViewerColors(viewerColorsRef.current)
     sessionRef.current = session
     sessionChromeStore.setSource(session)
@@ -592,6 +597,12 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
       setViewer(null)
     }
   }, [openConfig, addOnsReady, actor, statsFeed, autoSize, loadsLayer, modelStore, viewStore, sessionChromeStore, getAccessToken, referencesPort, hostCapabilities])
+
+  // The language can be switched while the model stays open: the session says the next refusal in
+  // the new one. The session is not recreated for it — that would drop the 3D view and reconnect.
+  useEffect(() => {
+    sessionRef.current?.setTranslator(t)
+  }, [t])
 
   // Route checks read the firm's and the project's design limits (clearances); until they load, the add-ons' defaults.
   useEffect(() => {
@@ -1646,20 +1657,23 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
   const architectLevelsAvailable = canEdit && references.length > 0
   const blocker = useMemo(
     () =>
-      toolBlocker({
-        tool,
-        canEdit,
-        blockedReason,
-        editPaused,
-        levelCount: levels.length,
-        partChosen: placeType !== null || plannedPlacing !== null,
-        routeSizeProblem: typeof routeSizeOrReason === 'string' ? routeSizeOrReason : null,
-        routeSystemKnown: routeKindKnown,
-        modelToolsOff,
-        sheetLabel,
-        architectLevelsAvailable,
-      }),
-    [tool, canEdit, blockedReason, levels.length, placeType, plannedPlacing, routeSizeOrReason, routeKindKnown, editPaused, modelToolsOff, sheetLabel, architectLevelsAvailable],
+      toolBlocker(
+        {
+          tool,
+          canEdit,
+          blockedReason,
+          editPaused,
+          levelCount: levels.length,
+          partChosen: placeType !== null || plannedPlacing !== null,
+          routeSizeProblem: typeof routeSizeOrReason === 'string' ? routeSizeOrReason : null,
+          routeSystemKnown: routeKindKnown,
+          modelToolsOff,
+          sheetLabel,
+          architectLevelsAvailable,
+        },
+        t,
+      ),
+    [tool, canEdit, blockedReason, levels.length, placeType, plannedPlacing, routeSizeOrReason, routeKindKnown, editPaused, modelToolsOff, sheetLabel, architectLevelsAvailable, t],
   )
 
   // Keep the armed placement in step with the panel's choices.
@@ -2786,9 +2800,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
       else setDrawingPick({ openKey, tool: 'select' })
     }
   }, [tool, spacesDrawing, ceilingTool.active, drawingTool, stopSpacesTool, stopCeilingTool, openKey])
-  // The ribbon's words come out in the host's language (`<I18nProvider>`); with none it is English.
-  // Named `t` so `npm run i18n:review` reads the captions drawn here; the ribbon's builder gets the same function.
-  const t = useEditorTranslate()
+  // The ribbon's builder gets the same translator the model session and the tool blocker were given.
   const ribbonInput: Parameters<typeof buildingModelRibbon>[0] = {
     t,
     addons,

@@ -7,6 +7,7 @@ import { Field, FieldDescription, FieldLabel } from '../../ui/field'
 import { Input } from '../../ui/input'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '../../ui/select'
 import { Textarea } from '../../ui/textarea'
+import { useEditorTranslate } from '../i18n/translate'
 
 /** A field the block can print (the kernel's blockFieldChoices). */
 export interface BlockFieldOption {
@@ -58,6 +59,7 @@ const FIRST_SERVICE = '__first_service'
  * what the sheet prints now; tokens that read nothing print "—" and are named.
  */
 export function FieldBlockProperties({ value, subjects, fieldsFor, preview, templateProblem, defaultTemplate, canEdit, blockedReason, onSave, onDelete, freshness }: FieldBlockPropertiesProps) {
+  const t = useEditorTranslate()
   const [draft, setDraft] = useState(value.template)
   const [notSaved, setNotSaved] = useState<string | null>(null)
   const area = useRef<HTMLTextAreaElement>(null)
@@ -88,8 +90,13 @@ export function FieldBlockProperties({ value, subjects, fieldsFor, preview, temp
     })
   }
 
-  const saveReason = !canEdit ? blockedReason : problem ? problem : !dirty ? 'No change to save.' : undefined
-  const pickerReason = !canEdit ? blockedReason : fields.length === 0 ? 'Nothing to read yet: draw a panel and its feeders, or pick what this block reads.' : undefined
+  const saveReason = !canEdit ? blockedReason : problem ? problem : !dirty ? t('empty.noChangeToSave', 'No change to save.', { ns: 'editor' }) : undefined
+  const pickerReason =
+    !canEdit
+      ? blockedReason
+      : fields.length === 0
+        ? t('empty.nothingToRead', 'Nothing to read yet: draw a panel and its feeders, or pick what this block reads.', { ns: 'editor' })
+        : undefined
 
   return (
     <div className="flex flex-col gap-3" data-testid="field-block-properties">
@@ -198,11 +205,11 @@ export function FieldBlockProperties({ value, subjects, fieldsFor, preview, temp
       <Field>
         <FieldLabel>Prints now</FieldLabel>
         <pre className="rounded-md border bg-muted/40 p-2 text-xs whitespace-pre-wrap" data-testid="field-block-preview">
-          {shown.text || 'Nothing yet: type some text or insert a field.'}
+          {shown.text || t('empty.nothingYetField', 'Nothing yet: type some text or insert a field.', { ns: 'editor' })}
         </pre>
         {shown.unresolved.length > 0 && (
           <FieldDescription className="text-warning-700" data-testid="field-block-unresolved">
-            {shown.unresolved.map((t) => `{${t}}`).join(', ')} {shown.unresolved.length === 1 ? 'reads' : 'read'} nothing here and print{shown.unresolved.length === 1 ? 's' : ''} “—”. Check the spelling, or pick what this block reads.
+            {shown.unresolved.map((token) => `{${token}}`).join(', ')} {shown.unresolved.length === 1 ? 'reads' : 'read'} nothing here and print{shown.unresolved.length === 1 ? 's' : ''} “—”. Check the spelling, or pick what this block reads.
           </FieldDescription>
         )}
       </Field>
@@ -211,7 +218,7 @@ export function FieldBlockProperties({ value, subjects, fieldsFor, preview, temp
         <Button type="button" size="sm" disabled={Boolean(saveReason)} title={saveReason} onClick={() => save({ ...value, template: draft }, 'edit the load summary')} data-testid="field-block-save">
           Save text
         </Button>
-        <Button type="button" variant="ghost" size="sm" disabled={!dirty} title={dirty ? undefined : 'No change to put back.'} onClick={() => setDraft(value.template)}>
+        <Button type="button" variant="ghost" size="sm" disabled={!dirty} title={dirty ? undefined : t('empty.noChangeToPutBack', 'No change to put back.', { ns: 'editor' })} onClick={() => setDraft(value.template)}>
           <RotateCcw data-icon="inline-start" />
           Put back
         </Button>

@@ -15,6 +15,7 @@ import type { EditorHostCapabilities, EditorReferencesPort } from '@permitzip/bi
 import { unavailableWords } from '@permitzip/bim-editor/host/unavailable'
 import type { RevitElementParameters, RevitParametersResponse, UnplacedElementsResponse, UnplacedElementView } from '../contracts/building-model/revit-parameters-contract'
 import { connectionProblem, editsPausedMessage, operatorMessage, problemForDenied, type ConnectionProblem } from './operator-messages'
+import type { Translate } from './i18n/translate'
 import { ALIGN_SNAP_MM, GRID_MM, MM_PER_FT, MM_PER_IN, POINT_SNAP_MM, defaultHeightMm, describeElement, feetInches, newElementId, partLabel, snapHint, snapPoint, snapTargets, type SnapTarget } from './placement'
 import { linkedSnapNear } from './linked-reference/linked-reference-store'
 import { isStarterLevelRace, starterLevelCommand } from './levels/starter-level'
@@ -629,6 +630,12 @@ export class ModelSession {
     private readonly events: SessionEvents,
     /** The person's current access token from the host (kept fresh by its sign-in), or null when signed out. */
     private readonly getToken: () => Promise<string | null>,
+    /**
+     * The language the model's refusals and connection problems come out in: the
+     * surface's `useEditorTranslate()`. Required, not defaulted, because a
+     * `{{placeholder}}` under `englishOnly` reaches the screen as braces.
+     */
+    private translator: Translate,
     /** The host's linked-model files and parameters; absent where the host serves none (the view then says so). */
     private readonly references?: EditorReferencesPort,
     /** Where the host says a missing service can be connected, for that plain message. */
@@ -638,6 +645,16 @@ export class ModelSession {
   /** Why linked models can't be shown here, in words a person can act on. */
   private referencesUnavailable(): string {
     return unavailableWords('Linked models', this.capabilities)
+  }
+
+  /** A new language was picked while the model is open: the next refusal comes out in it. */
+  setTranslator(t: Translate): void {
+    this.translator = t
+  }
+
+  /** The language the refusals come out in. */
+  private get t(): Translate {
+    return this.translator
   }
 
   /** The theme's viewer colors (selection, edges, backgrounds, axes). Safe to call before the viewer exists. */
@@ -926,7 +943,7 @@ export class ModelSession {
         onDenied: (reason) => {
           this.halted = true
           this.clearConnectTimer()
-          const problem = problemForDenied(reason)
+          const problem = problemForDenied(reason, this.t)
           if (problem.kind !== 'no_model') console.error('[building-model] model server refused live editing', { modelId: authority.modelId, reason })
           this.events.onProblem(problem)
         },
@@ -947,7 +964,7 @@ export class ModelSession {
     const client = this.client
     if (!client || this.halted || !this.accepted) return null
     if (!this.deviceOffline && (this.status === 'live' || this.status === 'degraded')) return null
-    return editsPausedMessage(client.saveState().pending, this.deviceOffline)
+    return editsPausedMessage(client.saveState().pending, this.deviceOffline, this.t)
   }
 
   /** The paused reason, also shown at the tool (the hint line), so a press that does nothing says why. */
@@ -982,7 +999,7 @@ export class ModelSession {
     const offline = () => {
       this.deviceOffline = true
       console.error('[building-model] the browser went offline; live editing paused', { modelId: this.authority?.modelId })
-      this.events.onProblem(connectionProblem('device_offline'))
+      this.events.onProblem(connectionProblem('device_offline', this.t))
       this.dropSocket('browser offline')
     }
     const online = () => {
@@ -1070,7 +1087,7 @@ export class ModelSession {
         attempts: this.attempts,
         status: this.status,
       })
-      this.events.onProblem(connectionProblem('unreachable'))
+      this.events.onProblem(connectionProblem('unreachable', this.t))
     }, CONNECT_TIMEOUT_MS)
   }
 
@@ -1104,7 +1121,7 @@ export class ModelSession {
     if (this.disposed || this.halted) return
     if (!token) {
       console.error('[building-model] no host session; not connecting live editing', { modelId: authority.modelId })
-      this.events.onProblem(connectionProblem('signed_out'))
+      this.events.onProblem(connectionProblem('signed_out', this.t))
       this.scheduleReconnect()
       return
     }
@@ -2150,7 +2167,7 @@ export class ModelSession {
     }
     const limited = limit.binding !== null
     this.client?.publishPresence({ kind: 'dragging_tap', tapId: drag.tapId, s: limit.accepted, limited, binding: limit.binding?.message ?? null })
-    return { s: limit.accepted, limited, reason: limit.binding ? (limit.binding.code === 'locked' ? limit.binding.message : operatorMessage(limit.binding.code)) : null }
+    return { s: limit.accepted, limited, reason: limit.binding ? (limit.binding.code === 'locked' ? limit.binding.message : operatorMessage(limit.binding.code, this.t)) : null }
   }
 
   /** Tell everyone what you're doing (e.g. editing a note, which others then can't open). Never a model edit. */
@@ -2163,7 +2180,7 @@ export class ModelSession {
     this.client?.publishPresence({ kind: 'idle' })
     if (s !== null && this.client) {
       const res = this.sendToClient(this.client, { type: 'slide_branch', tapId: drag.tapId, s })
-      if (!res.ok) this.events.onActivity(res.error.code === 'locked' ? res.error.message : operatorMessage(res.error.code))
+      if (!res.ok) this.events.onActivity(res.error.code === 'locked' ? res.error.message : operatorMessage(res.error.code, this.t))
     }
     this.redraw()
   }
@@ -2171,7 +2188,7 @@ export class ModelSession {
   resizeRun(segmentId: string, widthMm: number, heightMm: number): string | null {
     if (!this.client) return "Live editing isn't connected, so changes can't be saved."
     const res = this.sendToClient(this.client, { type: 'resize_run', segmentId, profile: { shape: 'rect', width: widthMm, height: heightMm } })
-    return res.ok ? null : res.error.code === 'locked' ? res.error.message : operatorMessage(res.error.code)
+    return res.ok ? null : res.error.code === 'locked' ? res.error.message : operatorMessage(res.error.code, this.t)
   }
 
   canEdit(): boolean {
@@ -2214,7 +2231,7 @@ export class ModelSession {
     if (outcome.status === 'rejected') {
       const notUnderstood = this.notUnderstood.delete(request.idempotencyKey)
       const kernelWords = outcome.error.code === 'has_dependents' || outcome.error.code === 'undo_refused' || outcome.error.code === 'conflict' || outcome.error.code === 'already_exists' || outcome.error.code === 'in_use' || outcome.error.code === 'locked'
-      const message = notUnderstood || kernelWords ? outcome.error.message : operatorMessage(outcome.error.code)
+      const message = notUnderstood || kernelWords ? outcome.error.message : operatorMessage(outcome.error.code, this.t)
       this.events.onActivity(notUnderstood ? message : `Your change wasn't saved. ${message}`)
       this.events.onRefused?.(message)
       this.emitUndoState()

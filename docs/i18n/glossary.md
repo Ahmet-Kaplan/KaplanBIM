@@ -194,6 +194,22 @@ Her sayfanın başlığı (üst çubuk), alt bilgisi ve dil/tema denetimleri. 20
 | Terms / Privacy (alt bilgi) | **Kullanım koşulları / Gizlilik bildirimi** | bkz. §2.5 ve `legal.*` |
 | Source code | **kaynak kodu** | |
 
+### 2.8 MEP kanal ve boru ağı (2026-11-10, Aşama 3 · Task 3.3)
+
+Aşama 3, modelin ret cümlelerini (`operator-messages.ts`) çevirirken bu ağ sözcüklerinin sözlükte hiç olmadığı görüldü: §9/Ç8 yalnızca *branch*'in iki anlamını ayırıyordu, geri kalanı yoktu. Ret cümleleri bu sözcükleri adlarıyla kullandığı için karara bağlandı.
+
+| EN | TR | Not |
+|----|----|-----|
+| Branch (MEP) | **branşman** | §9/Ç8; tasarım dalı **dal** kalır |
+| Trunk | **ana hat** | Branşmanın ayrıldığı gövde hat |
+| Tap / Branch takeoff (fitting) | **ayrım** | §6 *Takeoff* = **metraj** ile karışmaz: bu bir bağlantı parçasıdır, miktar kalemi değil |
+| Takeoff width | **ayrım genişliği** | Aynı gerekçe |
+| Fitting | **bağlantı parçası** | §4.1'de ribbon grubu olarak vardı; §2.3 *Connector* = **bağlantı noktası**, ayrı kavram |
+| Run (MEP) / Duct run / Pipe run | **hat** / **kanal hattı** / **boru hattı** | §9/Ç9; §2.4 *Run* ile (fiil) karışmaz |
+| Pinned (sıfat) | **sabitlenmiş** | §3 *Pin* = **Sabitle**; cümle içindeki sıfat hâli |
+| Fan | **fan** | §2.6 ekipman ailesi |
+| Architect's levels | **mimarın katları** | Bağlı modelin katları; §2.2 *linked model* = **bağlı model** |
+
 ---
 
 ## 3. Komutlar ve eylemler
@@ -319,6 +335,44 @@ Yukarıdaki listeler bağlayıcıydı ama eksikti: ribbon'un bazı sekme ve grup
 | (locked) | **(kilitli)** | §8 *kilitli*; grup seçicide ada eklenir |
 | New ducts, pipes and parts go in this group. Edit groups in {{path}}. | **Yeni kanallar, borular ve parçalar bu gruba girer. Grupları {{path}} bölümünden düzenleyin.** | §9/Ç17 kanal/boru; yol (`{{path}}`) kodda `Manage › Groups & phases` |
 | New elements are created in this phase; Demolish removes them in it. | **Yeni elemanlar bu fazda oluşturulur; Yıkım onları bu fazda kaldırır.** | §2.1 *Element* = eleman |
+
+### 4.3 Aşama 3'te eklenen operatör ve boş durum sözcükleri (2026-11-10, Task 3.3)
+
+Modelin **ret cümleleri** (18 kod), **bağlantı sorunları**, **araç engelleri** ve **boş değerler** çevrilirken eklenen sözcükler. Cümlelerin tamamı `packages/bim-editor/locales/tr/editor.json` içinde ve `__tests__/i18n-operator-messages.test.ts` ile sabitlenmiştir; buraya **terim kararları** yazılır.
+
+> **Kural (bu bölüm için bağlayıcı):** ret cümlesi iki şeyi söyler — *neyin durdurduğunu* ve *ne yapılacağını*. Çevirirken cümle yumuşatılmaz, iki ayrı sebep tek belirsiz cümleye indirilmez, "ne yapmalı" adımı atlanmaz.
+
+| EN | TR | Not |
+|----|----|-----|
+| Can't reach the model server / This computer is offline / Checking the connection | **Bağlantı kurulamıyor** / **Bu bilgisayar çevrimdışı** / **Bağlantı kontrol ediliyor** | §8 durum sözlüğü birebir |
+| You're signed out / The model server refused your sign-in | **Oturumunuz kapalı** / **Model sunucusu oturum açmanızı reddetti** | §8 |
+| Live editing isn't set up for this project yet / No access to edit this model | **Bu proje için canlı düzenleme henüz kurulmadı** / **Bu modeli düzenleme yetkiniz yok** | §8 |
+| The model server said: {{reason}} | **Model sunucusu şunu söyledi: {{reason}}** | Sunucunun kendi sözü **çevrilmez**, olduğu gibi aktarılır: reddin hangi erişim olduğunu yalnız o söyler |
+| project lead | **proje yöneticisi** | §6 *Owner* = **işveren** değil; projeye erişim veren kişi |
+| Reconnecting to the model server | **Model sunucusuna yeniden bağlanılıyor** | §8 *Yeniden bağlanıyor…* ile aynı kök |
+| out-of-date model | **güncel olmayan model** | Bayat model üzerine çizim yapılmadığını söyleyen cümlede |
+| Add a level first / Choose a part / Fix the size first / Choose a system | **Önce bir kat ekleyin** / **Bir parça seçin** / **Önce boyutu düzeltin** / **Bir sistem seçin** | §0.7 kibar çoğul emir; §2.1 *part* = **parça** |
+| Open a plan on this sheet first / this sheet | **Önce bu paftada bir plan açın** / **bu pafta** | §2.4 *Sheet* = **pafta** |
+| Add a level… / Add {{name}} at {{at}} | **Kat ekle…** / **{{name}} katını {{at}} yüksekliğinde ekle** | §2.3 *Level* = **kat**; `{{at}}` = `0'-0"` ve §7 gereği birim sembolü çevrilmez |
+| Use the architect's levels | **Mimarın katlarını kullan** | §2.8 |
+| Can't {{doing}} here / Can't {{doing}} while reconnecting | **Burada {{doing}} işlemi yapılamaz** / **Yeniden bağlanırken {{doing}} işlemi yapılamaz** | `{{doing}}` burada **ad** hâlidir, fiil değil: Türkçe aynı fiili üç kalıba (burada / yeniden bağlanırken / tıklamalar hiçbir şey …) koyamaz |
+| place parts / route / move / split (eylem adı) | **parça yerleştirme** / **güzergâh çizme** / **taşıma** / **bölme** | §3 *Place* = Yerleştir, *Route* = Güzergâh çiz, *Move* = Taşı, *Split* = Böl |
+| Nothing yet: … / Nothing to read yet | **Henüz bir şey yok: …** / **Henüz okunacak bir şey yok** | §8 *Nothing …* = **Hiçbir şey …** kalıbının "henüz" hâli |
+| None yet | **Henüz yok** | §8 |
+| Not set | **Ayarlanmadı** | §8 |
+| Mixed groups | **Karışık gruplar** | §8 *Mixed phases* = **Karışık fazlar** |
+| Not demolished | **Yıkılmadı** | §2.3 *Phase* = **faz**; *Demolish* = **Yıkım** |
+| Not calculated | **Hesaplanmadı** | §2.4 *Calculation* = **hesap** |
+| No fan yet / Not fed yet | **Henüz fan yok** / **Henüz beslenmiyor** | §2.8 *fan*; besleme = bir elemanın kaynağı |
+| From project: {{name}} | **Projeden: {{name}}** | Bir parametrenin proje varsayılanı; düğmede, seçicide ve yer tutucuda **aynı** anahtar |
+| from the project, {{name}} / not set (erişilebilir ad) | **projeden, {{name}}** / **ayarlanmadı** | Aynı alanın ekran okuyucuya söylenen hâli; cümle içinde küçük harf |
+| Pick a date | **Tarih seçin** | Tarih parametresinin boş hâli |
+| Not on a circuit / Not fed yet | **Devrede değil** / **Henüz beslenmiyor** | Bir yükün bağlantı durumu |
+| No voltage set: … | **Gerilim ayarlanmadı: …** | §0.7 kibar çoğul emir; "ne yapmalı" adımı korunur |
+| None linked yet. … | **Henüz bağlı yok. …** | §8 *None yet* = **Henüz yok** + bağlı model (§2.2) |
+| Totals appear once the model is connected. | **Model bağlandığında toplamlar görünür.** | Boş toplam listesi |
+| No change to save. / No change to put back. | **Kaydedilecek değişiklik yok.** / **Geri konacak değişiklik yok.** | Devre dışı düğmenin sebebi (`title`) |
+| All levels | **Tüm katlar** | §8 |
 
 
 ---

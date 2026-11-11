@@ -5,12 +5,14 @@ import { Field, FieldDescription, FieldLabel } from '../../ui/field'
 import { Input } from '../../ui/input'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../ui/select'
 import { Switch } from '../../ui/switch'
+import { useEditorTranslate } from '../i18n/translate'
 import type { DraftValue, TypeField } from './type-fields'
 
 const NONE = '__none__'
 
 /** One type parameter's control (Edit type and Firm library › Types). */
 export function TypeFieldControl({ idPrefix, field, value, disabled, onChange }: { readonly idPrefix: string; readonly field: TypeField; readonly value: DraftValue; readonly disabled: boolean; readonly onChange: (v: DraftValue) => void }): ReactNode {
+  const t = useEditorTranslate()
   const id = `${idPrefix}-${field.key}`
   const label = field.unit ? `${field.label} (${field.unit})` : field.label
   if (field.control === 'boolean') {
@@ -31,7 +33,7 @@ export function TypeFieldControl({ idPrefix, field, value, disabled, onChange }:
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
-              <SelectItem value={NONE}>Not set</SelectItem>
+              <SelectItem value={NONE}>{t('empty.notSet', 'Not set', { ns: 'editor' })}</SelectItem>
               {(field.choices ?? []).map((c) => (
                 <SelectItem key={c} value={c}>
                   {c}
