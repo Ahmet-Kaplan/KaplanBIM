@@ -105,13 +105,16 @@ const REFUSALS: Readonly<Record<(typeof CODES)[number], { readonly english: stri
   anchored_would_move: { english: "That would move what it is attached to. Detach it first.", turkish: "Bu, bağlı olduğu şeyi hareket ettirir. Önce bağlantısını kesin." },
   unsupported_geometry: { english: "The model can't build that shape yet. Change the route and try again.", turkish: "Model bu biçimi henüz kuramıyor. Güzergâhı değiştirip tekrar deneyin." },
   profile_incompatible: {
-    english: "That size doesn't fit the fittings it connects to.",
-    turkish: "Bu boyut, bağlandığı bağlantı parçalarına uymuyor.",
+    english: "That size doesn't fit the fittings it joins.",
+    turkish: "Bu boyut, birleştiği bağlantı parçalarına uymuyor.",
   },
   disconnected: { english: "The ends could not be joined. Check that they face each other.", turkish: "Uçlar birleştirilemedi. Birbirine baktıklarını kontrol edin." },
   invalid_value: { english: "That value isn't valid. Check it and try again.", turkish: "Bu değer geçerli değil. Kontrol edip tekrar deneyin." },
   already_exists: { english: "That is already there or clashes with something else. Choose another.", turkish: "Bu zaten var ya da başka bir şeyle çakışıyor. Başka birini seçin." },
-  in_use: { english: "That is still used somewhere else, so nothing was changed.", turkish: "Bu hâlâ başka bir yerde kullanıldığı için işlem yapılmadı. Hiçbir şey değişmedi." },
+  in_use: {
+    english: "That couldn't be done. It may be locked, pinned or still in use somewhere else.",
+    turkish: "Bu işlem yapılamadı. Öğe kilitli, sabitlenmiş ya da başka bir yerde kullanımda olabilir.",
+  },
   stale_base: { english: "Someone else changed this at the same time. Reload before trying again.", turkish: "Aynı anda başka biri bunu değiştirdi. Tekrar denemeden önce yenileyin." },
   conflict: { english: "Someone else changed this at the same time, so nothing was saved. Check it and try again.", turkish: "Aynı anda başka biri bunu değiştirdi, bu yüzden hiçbir şey kaydedilmedi. Kontrol edip tekrar deneyin." },
   forbidden: { english: "You don't have permission to edit this model.", turkish: "Bu modeli düzenleme yetkiniz yok." },
@@ -148,10 +151,13 @@ test("a refusal sent to every sentence of a code stays true for all of them", ()
   // neutral one, so the wording names the code's own vocabulary and no screen.
   expect(operatorMessage("locked", TR)).toContain("Kilitli");
   expect(operatorMessage("locked", TR)).not.toContain("Gruplar");
-  expect(operatorMessage("in_use", TR)).toContain("kullanıldığı için");
+  expect(operatorMessage("in_use", TR)).toContain("olabilir");
   expect(operatorMessage("in_use", TR)).not.toContain("pafta");
-  // And no invented step: the nineteen sentences behind `in_use` need different ones.
+  // And no invented step and no single asserted cause: the nineteen sentences behind
+  // `in_use` are a lock, a pinned item, a full panel, the default group, a shared circuit,
+  // a view's phase or filter — so the sentence offers the possibilities instead.
   expect(operatorMessage("in_use", TR)).not.toContain("çıkarın");
+  expect(operatorMessage("in_use", TR)).toContain("ya da");
   expect(operatorMessage("has_dependents", TR)).toContain("Buna bağlı başka şeyler var");
   expect(operatorMessage("has_dependents", TR)).toContain("hiçbir şey değişmedi");
   expect(operatorMessage("has_dependents", TR)).not.toContain("ayırın");

@@ -468,7 +468,20 @@ Türkçede **çoğul eki yoktur** sayıdan sonra: "3 eleman" (~~"3 elemanlar"~~)
 | `Mixed phases` / `Mixed` | `Karışık fazlar` / `Karışık` |
 | `Not set` | `Ayarlanmadı` |
 
-**Durum/hata sözlüğü (kelimeler):** bağlantı kurulamıyor · Bu bilgisayar çevrimdışı · Bağlantı kontrol ediliyor · Oturumunuz kapalı · Model sunucusu oturum açmanızı reddetti · Bu proje için canlı düzenleme henüz kurulmadı · Bu modeli düzenleme yetkiniz yok · Yalnızca görüntüleme · Salt okunur · Bağlandı. Tüm değişiklikler kaydedildi · Bağlanıyor… · Yeniden bağlanıyor… · Kaydediliyor… · Kaydedilmemiş değişiklikler · Kaydedilmemiş değişiklik yok · Kaydedilmedi · Hazır değil · İlgi gerekiyor · Önce boyutu düzeltin · reddedildi · çakışma · geçersiz · kilitli · kullanımda · eski · desteklenmiyor · yasak · bağlı elemanlar var · geri alınamadı · devre dışı · engellendi
+**Durum/hata terimleri (kelime dağarcığı — cümle değil).** Bu liste çevirirken kullanılacak
+**terimlerdir**; hiçbiri gönderilen bir cümlenin birebir alıntısı değildir. Gönderilen
+cümleler §8.1'dedir ve sözlük onlarla eşleşmek zorundadır. (Bu satır bir zamanlar alıntı
+listesi gibi okunuyordu: `Salt okunur`, `Hazır değil`, `İlgi gerekiyor` hiçbir tr dosyasında
+geçmiyor — terim olarak duruyorlar, cümle olarak değil; `bağlı elemanlar var` ise artık
+gönderilen cümle değil, §8.1'de `Buna bağlı başka şeyler var`.)
+
+bağlantı kurulamıyor · Bu bilgisayar çevrimdışı · Bağlantı kontrol ediliyor · Oturumunuz kapalı ·
+Model sunucusu oturum açmanızı reddetti · Bu proje için canlı düzenleme henüz kurulmadı · Bu
+modeli düzenleme yetkiniz yok · Yalnızca görüntüleme · Salt okunur · Bağlandı. Tüm değişiklikler
+kaydedildi · Bağlanıyor… · Yeniden bağlanıyor… · Kaydediliyor… · Kaydedilmemiş değişiklikler ·
+Kaydedilmemiş değişiklik yok · Kaydedilmedi · Hazır değil · İlgi gerekiyor · Önce boyutu düzeltin ·
+reddedildi · çakışma · geçersiz · kilitli · kullanımda · eski · desteklenmiyor · yasak ·
+bağlı · sabitlenmiş · dolu · geri alınamadı · devre dışı · engellendi
 
 #### §8.1 Hata kodu → cümle (gönderilen metin)
 
@@ -486,11 +499,11 @@ cümlelerdir ve **gönderilen metindir** — sözlük gerçeğe uymak zorundadı
 | `min_straight_length` | Bu, bir elemanı en kısa düz uzunluğundan kısa bırakır. Kaydırıp tekrar deneyin. |
 | `anchored_would_move` | Bu, bağlı olduğu şeyi hareket ettirir. Önce bağlantısını kesin. |
 | `unsupported_geometry` | Model bu biçimi henüz kuramıyor. Güzergâhı değiştirip tekrar deneyin. |
-| `profile_incompatible` | Bu boyut, bağlandığı bağlantı parçalarına uymuyor. |
+| `profile_incompatible` | Bu boyut, birleştiği bağlantı parçalarına uymuyor. |
 | `disconnected` | Uçlar birleştirilemedi. Birbirine baktıklarını kontrol edin. |
 | `invalid_value` | Bu değer geçerli değil. Kontrol edip tekrar deneyin. |
 | `already_exists` | Bu zaten var ya da başka bir şeyle çakışıyor. Başka birini seçin. |
-| `in_use` | Bu hâlâ başka bir yerde kullanıldığı için işlem yapılmadı. Hiçbir şey değişmedi. |
+| `in_use` | Bu işlem yapılamadı. Öğe kilitli, sabitlenmiş ya da başka bir yerde kullanımda olabilir. |
 | `stale_base` | Aynı anda başka biri bunu değiştirdi. Tekrar denemeden önce yenileyin. |
 | `conflict` | Aynı anda başka biri bunu değiştirdi, bu yüzden hiçbir şey kaydedilmedi. Kontrol edip tekrar deneyin. |
 | `forbidden` | Bu modeli düzenleme yetkiniz yok. |
@@ -498,14 +511,28 @@ cümlelerdir ve **gönderilen metindir** — sözlük gerçeğe uymak zorundadı
 | `undo_refused` | Bu değişiklik artık geri alınamıyor. |
 | `locked` | Kilitli olduğu için değiştirilemedi. Kilidi açıp tekrar deneyin. |
 
-> **Kural — genel cümle nedensiz olmalı.** Bir kodun cümlesi, o koda düşen **her**
-> cümle için doğru olmak zorundadır; tek bir cümle için yazılmış özel bir çare
-> (ekran adı, "paftadan kaldırın", "grubun kilidini açın") yanlış olur. `in_use`
-> kodunun 19 cümlesi kilit, varsayılan grup, devre, yük noktası ve faz ataması
-> hakkındadır: çareleri farklıdır, bu yüzden genel cümle **hiçbir çare adı
-> vermez**. Ölçüt `packages/bim-editor/__tests__/i18n-refusal-sentences.test.ts`
-> içindeki *"no generic refusal names a screen that only some of its sentences are
-> about"* testidir; sözlüğe cümle eklerken o testi çalıştırın.
+> **Kural — genel cümle tek bir neden ileri sürmez.** Bir kodun cümlesi, o koda düşen
+> **her** cümle için doğru olmak zorundadır. İki ayrı yasak vardır ve ikisi de
+> `packages/bim-editor/__tests__/i18n-refusal-sentences.test.ts` içinde ölçülür:
+>
+> 1. **Ekran adı yasağı** (`SCREEN_NOUNS`): genel cümle bir ekranı (*pafta*, *grup*,
+>    *faz*, *devre*…) ancak o kodun **bütün** cümleleri o ekrandan söz ediyorsa
+>    adlandırabilir.
+> 2. **Tek neden yasağı** (`CAUSE_WORDS`): genel cümle bir neden (*kilit*, *sabitlen*,
+>    *dolu*, *kullan*…) ancak o kodun **bütün** cümleleri o nedenle ilgiliyse ileri
+>    sürebilir; aksi hâlde cümle **seçenek sunmak** zorundadır (`ya da` / `veya` /
+>    `or`).
+>
+> `in_use` bunun örneğidir: 19 cümlesi kilit, sabitlenmiş pafta öğesi, dolu pano,
+> varsayılan grup/faz, paylaşılan devre ve yük noktası hakkındadır — nedeni tek
+> değildir, çaresi de. Bu yüzden gönderilen cümle nedeni **seçenek olarak** sayar ve
+> **hiçbir çare adı vermez**: ekranın yapamayacağı bir adım önermek, yanlış nedeni
+> söylemekten daha kötüdür. Tek nedenli bir kod (`locked`) tek nedenini söyleyebilir,
+> çünkü bütün cümleleri aynı nedenledir.
+>
+> **Bilinen sınır:** bu iki liste elle yazılmıştır; test, listede olmayan bir neden
+> kelimesini göremez. Bir koda yeni bir cümle ailesi eklenirse listeye o ailenin
+> kelimesini de ekleyin — sayıyı test değil, liste belirler.
 
 ---
 

@@ -87,6 +87,12 @@ test("`in` is inches only where it is not a preposition", () => {
   expect(normalizeProse("0.5 in. w.c.")).toEqual({ template: "{0} w.c.", slots: ["0.5 in."] });
   expect(normalizeProse("1,5 in per joint")).toEqual({ template: "{0} per joint", slots: ["1,5 in"] });
   expect(normalizeProse("12 in wide")).toEqual({ template: "{0} wide", slots: ["12 in"] });
+  // A capitalised word after `in` is a proper noun, never a unit continuation: inches are
+  // not followed by `Electrical`, `Model` or `Level`. Decided, therefore pinned — the cost of
+  // being wrong is a slot that keeps the word (`{0} in Model space`), which loses nothing,
+  // while the other direction deletes the preposition from the sentence.
+  expect(normalizeProse("12 in Model space")).toEqual({ template: "{0} in Model space", slots: ["12"] });
+  expect(normalizeProse("add a type in Electrical types")).toEqual({ template: "add a type in Electrical types", slots: [] });
 });
 
 test("a negative measurement keeps its sign and its unit", () => {

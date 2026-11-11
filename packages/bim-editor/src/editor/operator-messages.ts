@@ -41,16 +41,20 @@ const MESSAGES: Record<CommandError['code'], (t: Translate) => string> = {
     t('operator.anchored_would_move', 'That would move what it is attached to. Detach it first.', { ns: 'editor' }),
   unsupported_geometry: (t) =>
     t('operator.unsupported_geometry', "The model can't build that shape yet. Change the route and try again.", { ns: 'editor' }),
-  profile_incompatible: (t) => t('operator.profile_incompatible', "That size doesn't fit the fittings it connects to.", { ns: 'editor' }),
+  profile_incompatible: (t) => t('operator.profile_incompatible', "That size doesn't fit the fittings it joins.", { ns: 'editor' }),
   disconnected: (t) => t('operator.disconnected', 'The ends could not be joined. Check that they face each other.', { ns: 'editor' }),
   invalid_value: (t) => t('operator.invalid_value', "That value isn't valid. Check it and try again.", { ns: 'editor' }),
   already_exists: (t) =>
     t('operator.already_exists', 'That is already there or clashes with something else. Choose another.', { ns: 'editor' }),
-  // No remedy named on purpose. The nineteen sentences behind `in_use` need different
-  // ones — an unlock, a rename, another phase, another filter, a free circuit, a
-  // detached load point — and a single invented step would be wrong for most of them.
+  // An OR over the causes, and no remedy. The nineteen sentences behind `in_use` are not
+  // one situation: a lock (`"{0}" is locked. Unlock it before deleting it.`), a pinned sheet
+  // item, a panel with no free pole space, the default group or phase, a view holding a
+  // phase or filter, a shared circuit, a load point already on an end. Naming any single
+  // cause would be false for the others — the round-2 wording ("still used somewhere else")
+  // was — and naming a remedy would be wrong for most of them, so this says *may be* and
+  // lists what is worth checking.
   in_use: (t) =>
-    t('operator.in_use', 'That is still used somewhere else, so nothing was changed.', { ns: 'editor' }),
+    t('operator.in_use', "That couldn't be done. It may be locked, pinned or still in use somewhere else.", { ns: 'editor' }),
   stale_base: (t) =>
     t('operator.stale_base', 'Someone else changed this at the same time. Reload before trying again.', { ns: 'editor' }),
   conflict: (t) =>

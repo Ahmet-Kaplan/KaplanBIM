@@ -92,6 +92,52 @@ const SCREEN_NOUNS: readonly (readonly [string, string])[] = [
 ];
 
 /**
+ * The letters *after* a stem that make a different word, so `kat` is not `kategori` and
+ * `oda` is not `odak`. Nothing shipped trips these today; the list is here so a future
+ * sentence does not have to be rewritten to satisfy a matcher that misread it.
+ *
+ * Tails, not whole words: the matcher stands right after the stem, so `kategori` would
+ * never match a lookahead written as `kategori` — the text there is `egori`.
+ */
+const STEM_NEIGHBOURS: Readonly<Record<string, readonly string[]>> = {
+  kat: ["egori", "man", "kı", "al", "ı"],
+  oda: ["k"],
+  faz: ["la"],
+  pano: ["ram"],
+};
+
+/**
+ * The causes a refusal can have, and the English each code's sentences would carry if the
+ * whole code were about that cause. Used to decide whether a generic sentence may *assert*
+ * a cause.
+ *
+ * A generic sentence is shown in place of sentences it never saw. Asserting one cause over
+ * a family that has several is the defect this round found: the round-2 `in_use` sentence
+ * said "still used somewhere else", which is false for a lock, a pinned sheet item and a
+ * panel with no free poles. So a cause may be asserted only when **every** backing sentence
+ * agrees with it; otherwise the sentence has to offer alternatives.
+ */
+const CAUSE_WORDS: readonly { readonly turkish: string; readonly english: readonly string[] }[] = [
+  { turkish: "kilit", english: ["lock"] },
+  { turkish: "sabitlen", english: ["pin"] },
+  { turkish: "dolu", english: ["full", "no free", "no room"] },
+  {
+    // The stem, not the noun: Turkish says `kullanımda`, `kullanıldığı`, `kullanılıyor`.
+    // `kullanım` alone missed every one of those and made this rule decorative — the same
+    // mistake the right-hand boundary made two rounds ago.
+    turkish: "kullan",
+    english: ["in use", "already used", "already on", "already stands", "spread over", "needs at least one", "use circuit", "already connects"],
+  },
+  // The relationship `has_dependents` is *defined* by: every one of its four sentences is
+  // another thing referring to this element (a pointer, a connector, a group, a pin).
+  { turkish: "bağlı", english: ["depend", "attach", "connect", "pointing at", "filed under", "group", "pin"] },
+];
+
+/** A disjunction: the sentence offers alternatives instead of asserting one cause. */
+const DISJUNCTION_TR = /ya da|veya|yahut/iu;
+const DISJUNCTION_EN = /\bor\b|either/iu;
+
+/**
  * True when `text` names `word`.
  *
  * **Left boundary only, on purpose.** Turkish builds a word from a stem plus suffixes
@@ -107,7 +153,17 @@ const SCREEN_NOUNS: readonly (readonly [string, string])[] = [
  */
 function namesWord(text: string, word: string): boolean {
   const escaped = word.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-  return new RegExp(String.raw`(?<![\p{L}])${escaped}`, "iu").test(text);
+  // Longest-first over the neighbours the stems collide with, so a shorter neighbour never
+  // hides a longer one.
+  const neighbours = ((STEM_NEIGHBOURS as Readonly<Record<string, readonly string[]>>)[word] ?? [])
+    .slice()
+    .sort((left, right) => right.length - left.length)
+    // Each tail is a whole word of its own, so it needs a right boundary: `fazla` is not
+    // `fazlar`, and without it the plural — the very thing the guard looks for — was excluded.
+    .map((tail) => `${tail.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}(?![\\p{L}])`)
+    .join("|");
+  const notANeighbour = neighbours === "" ? "" : `(?!${neighbours})`;
+  return new RegExp(String.raw`(?<![\p{L}])${escaped}${notANeighbour}`, "iu").test(text);
 }
 
 const TR = translateFor("tr");
@@ -309,6 +365,22 @@ function genericSentenceDefects(
   backing: readonly { readonly template: string }[],
 ): string[] {
   const defects: string[] = [];
+
+  // A cause may be asserted only when every backing sentence agrees with it; otherwise the
+  // sentence has to present alternatives. This is the rule the round-2 `in_use` sentence
+  // broke, and the one `SCREEN_NOUNS` alone could not see.
+  const alternativesOffered = DISJUNCTION_TR.test(generic) || DISJUNCTION_EN.test(genericEnglish);
+  for (const cause of CAUSE_WORDS) {
+    const named = namesWord(generic, cause.turkish) || cause.english.some((signal) => namesWord(genericEnglish, signal));
+    if (!named) continue;
+    const everySentenceAgrees = backing.length > 0 && backing.every((row) => cause.english.some((signal) => namesWord(row.template, signal)));
+    if (everySentenceAgrees || alternativesOffered) continue;
+    const howMany = backing.filter((row) => cause.english.some((signal) => namesWord(row.template, signal))).length;
+    defects.push(
+      `${code}: "${generic}" asserts the cause "${cause.turkish}" but only ${howMany} of ${backing.length} of its sentences are about it, and it offers no alternative ("ya da"/"or")`,
+    );
+  }
+
   for (const [turkish, english] of SCREEN_NOUNS) {
     const said = namesWord(generic, turkish) || namesWord(genericEnglish, english);
     if (!said) continue;
@@ -345,6 +417,50 @@ test("the cause-neutrality guard sees Turkish suffixes, so it can fire at all", 
   // Quiet where there is genuinely no such noun.
   expect(namesWord("Bu değer geçerli değil. Kontrol edip tekrar deneyin.", "pafta")).toBe(false);
   expect(namesWord("Kilitli olduğu için değiştirilemedi.", "grup")).toBe(false);
+});
+
+test("the cause rule fires on a sentence that asserts one cause over many", () => {
+  const inUse = catalogue.templates.filter((row) => row.codes.includes("in_use"));
+
+  // The round-2 sentence. It passed the screen-noun rule with the fixed matcher only
+  // because it named no screen — and it is still wrong, because "still used somewhere
+  // else" is false for a lock, for a pinned sheet item and for a full panel. This is the
+  // assertion the guard was missing.
+  const oldSentence =
+    "Bu hâlâ başka bir yerde kullanıldığı için işlem yapılmadı. Hiçbir şey değişmedi.";
+  expect(genericSentenceDefects("in_use", oldSentence, "That is still used somewhere else, so nothing was changed.", inUse)).not.toEqual([]);
+
+  // A hypothetical single-cause sentence fails the same way.
+  expect(genericSentenceDefects("in_use", "Kilitli olduğu için yapılamadı.", "That couldn't be done because it is locked.", inUse)).not.toEqual(
+    [],
+  );
+
+  // What ships offers the alternatives instead, and passes.
+  expect(genericSentenceDefects("in_use", operatorMessage("in_use", TR), operatorMessage("in_use", EN), inUse)).toEqual([]);
+});
+
+test("the cause rule allows a cause every sentence agrees with", () => {
+  // `locked` asserts a lock and may: its only sentence is about a lock. The disjunction is
+  // not needed when the whole family really is one cause.
+  const locked = catalogue.templates.filter((row) => row.codes.includes("locked"));
+  expect(locked.length).toBeGreaterThan(0);
+  expect(genericSentenceDefects("locked", operatorMessage("locked", TR), operatorMessage("locked", EN), locked)).toEqual([]);
+  // The same sentence over a family with other causes is refused.
+  const inUse = catalogue.templates.filter((row) => row.codes.includes("in_use"));
+  expect(genericSentenceDefects("in_use", "Kilitli olduğu için değiştirilemedi. Kilidi açıp tekrar deneyin.", "That is locked, so it couldn't be changed.", inUse)).not.toEqual([]);
+});
+
+test("the stem matcher has an exception list, so `kat` is not `kategori`", () => {
+  // The looser matcher (left boundary only) is what lets it see `paftada`; the price is that
+  // a short stem can sit inside an unrelated word. Nothing shipped trips these, and the list
+  // is here so a future sentence does not have to be rewritten to satisfy a misreading.
+  expect(namesWord("Kategori filtresi", "kat")).toBe(false);
+  expect(namesWord("Katman listesi", "kat")).toBe(false);
+  expect(namesWord("Odak noktası", "oda")).toBe(false);
+  expect(namesWord("Fazla değer", "faz")).toBe(false);
+  // The real words still match.
+  expect(namesWord("Kilitli bir grupta", "grup")).toBe(true);
+  expect(namesWord("Üç kat seçili", "kat")).toBe(true);
 });
 
 test("the cause-neutrality guard fires on the sentence from the Turkish side alone", () => {
