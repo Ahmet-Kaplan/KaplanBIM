@@ -4,11 +4,23 @@ import { useId } from "react";
 import { Button } from "../../ui/button";
 import { ToggleGroup, ToggleGroupItem } from "../../ui/toggle-group";
 import { cn } from "../../ui/cn";
-import {
-  MOVE_MODE_HELP,
-  MOVE_MODE_LABEL,
-  type OriginMoveMode,
-} from "../coordinates";
+
+import type { OriginMoveMode } from "../coordinates";
+import { useEditorTranslate, type Translate } from "../i18n/translate";
+
+/** What each way of moving the origin is called, in the language on screen. */
+function moveModeLabel(mode: OriginMoveMode, t: Translate): string {
+  return mode === "move_point"
+    ? t("coordinates.moveModeLabel", "Move the origin marker only", { ns: "editor" })
+    : t("coordinates.relocateLabel", "Move the building on the site", { ns: "editor" });
+}
+
+function moveModeHelp(mode: OriginMoveMode, t: Translate): string {
+  return mode === "move_point"
+    ? t("coordinates.moveModeHelp", "Coordinates of everything else stay the same.", { ns: "editor" })
+    : t("coordinates.relocateHelp", "Site coordinates of everything change; geometry stays put.", { ns: "editor" });
+}
+
 
 const MODES: readonly OriginMoveMode[] = ["move_point", "relocate_project"];
 
@@ -93,15 +105,20 @@ function Illustration({ mode }: { readonly mode: OriginMoveMode }) {
   );
 }
 
+
 function Option({ mode }: { readonly mode: OriginMoveMode }) {
+  const t = useEditorTranslate();
   return (
+
     <span className="flex items-center gap-2.5 text-left">
       <Illustration mode={mode} />
       <span className="flex min-w-0 flex-col gap-0.5 whitespace-normal">
-        <span className="text-sm font-medium">{MOVE_MODE_LABEL[mode]}</span>
+
+        <span className="text-sm font-medium">{moveModeLabel(mode, t)}</span>
         <span className="text-xs font-normal text-muted-foreground">
-          {MOVE_MODE_HELP[mode]}
+          {moveModeHelp(mode, t)}
         </span>
+
       </span>
     </span>
   );
@@ -118,14 +135,19 @@ export function MoveModeChoice(
     | { readonly onChange: (mode: OriginMoveMode) => void }
   ),
 ) {
+
   const { value, testIdPrefix } = props;
+  const t = useEditorTranslate();
+
   if ("onCommit" in props) {
     return (
       <div
         className="flex flex-col gap-1.5"
         role="group"
-        aria-label="How the origin moves"
+
+        aria-label={t("coordinates.howOriginMoves", "How the origin moves", { ns: "editor" })}
       >
+
         {MODES.map((m) => (
           <Button
             key={m}
@@ -153,8 +175,10 @@ export function MoveModeChoice(
       onValueChange={(v) =>
         (v === "move_point" || v === "relocate_project") && props.onChange(v)
       }
-      aria-label="How the origin moves"
+
+      aria-label={t("coordinates.howOriginMoves", "How the origin moves", { ns: "editor" })}
     >
+
       {MODES.map((m) => (
         <ToggleGroupItem
           key={m}

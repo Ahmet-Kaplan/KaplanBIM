@@ -20,8 +20,13 @@ import path from "node:path";
 /** The editor's source root: the tree the review tool scans for `t()` calls. */
 export const EDITOR_SRC = path.join(__dirname, "..", "..", "src", "editor");
 
-/** `t('<key>', '<English>'` — the shape every caption is written in. */
-const CAPTION_CALL = /\bt\('([A-Za-z][\w.]*)',\s*(['"])((?:\\.|(?!\2)[^\\])*)\2/g;
+/**
+ * `t('<key>', '<English>'` — the shape every caption is written in. The key may be
+ * single- or double-quoted: the editor writes single quotes, the schedule
+ * surfaces (`@permitzip/bim-schedules-ui`) double, and the scan has to read both
+ * or their guard would pass over a literal it never saw.
+ */
+const CAPTION_CALL = /\bt\((['"])([A-Za-z][\w.]*)\1,\s*(['"])((?:\\.|(?!\3)[^\\])*)\3/g;
 
 /** One caption as the source writes it: the English the call sites hold, and how many call sites hold it. */
 export interface SourceCaption {
@@ -31,10 +36,20 @@ export interface SourceCaption {
 
 /** Every keyed caption in the editor's source: key → what the call sites say. */
 export function editorSourceCaptions(): ReadonlyMap<string, SourceCaption> {
+  return captionsIn(EDITOR_SRC);
+}
+
+/**
+ * The same scan, over any source root — the schedule surfaces keep their Turkish
+ * in their own namespace (`packages/bim-schedules-ui/locales/tr/schedules.json`)
+ * and their captions in `packages/bim-schedules-ui/src`, so their guard reads that
+ * tree with this one scanner rather than growing a second.
+ */
+export function captionsIn(root: string): ReadonlyMap<string, SourceCaption> {
   const found = new Map<string, SourceCaption>();
-  for (const file of sourceFiles(EDITOR_SRC)) {
+  for (const file of sourceFiles(root)) {
     for (const match of stripComments(fs.readFileSync(file, "utf8")).matchAll(CAPTION_CALL)) {
-      const [, key, , english] = match;
+      const [, , key, , english] = match;
       if (key === undefined || english === undefined) continue;
       const seen = found.get(key);
       found.set(key, { english, sites: (seen?.sites ?? 0) + 1 });

@@ -7,7 +7,10 @@ import { documentIndex, type ModelState } from '@permitzip/bim-kernel'
 import { ScheduleDefinitionError, buildRowSet } from '@permitzip/bim-kernel/schedules'
 import { Button } from '../../ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '../../ui/dropdown-menu'
+
 import { viewScheduleDefinition } from '../../contracts/bim/schedules/view-definition'
+import { useEditorTranslate } from '../i18n/translate'
+
 
 /** The model's list schedules that have a row for this element. */
 export function schedulesListing(model: ModelState, elementId: string): { id: string; name: string }[] {
@@ -33,8 +36,11 @@ export function schedulesListing(model: ModelState, elementId: string): { id: st
  * so a large model pays nothing while the item is merely selected). One
  * opens straight away; several offer a menu; none says so.
  */
+
 export function ShowInScheduleButton({ model, elementId, onOpen }: { readonly model: ModelState; readonly elementId: string; readonly onOpen: (viewId: string) => void }) {
+  const t = useEditorTranslate()
   const [listing, setListing] = useState<{ elementId: string; items: { id: string; name: string }[] } | null>(null)
+
   const items = listing?.elementId === elementId ? listing.items : null
   const press = () => {
     const found = schedulesListing(model, elementId)
@@ -43,7 +49,10 @@ export function ShowInScheduleButton({ model, elementId, onOpen }: { readonly mo
       onOpen(only.id)
       return
     }
-    if (found.length === 0) toast.info('No schedule lists this item yet. Make one with New schedule… on the ribbon.')
+
+if (found.length === 0)
+      toast.info(t('schedule.noListYet', 'No schedule lists this item yet. Make one with New schedule… on the ribbon.', { ns: 'editor' }))
+
     setListing({ elementId, items: found })
   }
   return (
@@ -62,12 +71,16 @@ export function ShowInScheduleButton({ model, elementId, onOpen }: { readonly mo
             }
           }}
         >
-          <TableProperties data-icon="inline-start" />
-          Show in schedule
+
+<TableProperties data-icon="inline-start" />
+          {t('schedule.showInSchedule', 'Show in schedule', { ns: 'editor' })}
+
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">
-        <DropdownMenuLabel>Schedules listing this item</DropdownMenuLabel>
+
+<DropdownMenuLabel>{t('schedule.listingThis', 'Schedules listing this item', { ns: 'editor' })}</DropdownMenuLabel>
+
         <DropdownMenuGroup>
           {(items ?? []).map((s) => (
             <DropdownMenuItem key={s.id} onSelect={() => onOpen(s.id)}>

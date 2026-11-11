@@ -8,6 +8,8 @@ import { LibraryBrowser } from "./LibraryBrowser";
 import type { CatalogField, FormulaEnginePort, FormulaError, FormulaSchema, FormulaType, LibraryProviderPort, ScheduleCatalog } from "./ports";
 import { SaveToLibraryDialog } from "./SaveToLibrary";
 import { Sheet } from "./ui/overlays";
+import { useSchedulesTranslate, type Translate } from "./i18n/translate";
+import { rollUpLabel, scheduleFieldLabel } from "./i18n/words";
 
 export type BuilderSectionId = "source" | "fields" | "formulas" | "filters" | "arrange" | "paper";
 
@@ -17,15 +19,18 @@ function disciplineWords(id: string): string {
   return words ? words.charAt(0).toUpperCase() + words.slice(1) : id;
 }
 
-const FILTER_OPS: readonly { readonly value: FilterOp; readonly label: string; readonly needsValue: boolean }[] = [
-  { value: "equals", label: "is", needsValue: true },
-  { value: "not_equals", label: "is not", needsValue: true },
-  { value: "contains", label: "contains", needsValue: true },
-  { value: "greater_than", label: "is more than", needsValue: true },
-  { value: "less_than", label: "is less than", needsValue: true },
-  { value: "present", label: "has a value", needsValue: false },
-  { value: "absent", label: "is empty", needsValue: false },
-];
+/** The conditions a filter can test, in the language on screen. */
+function filterOps(t: Translate): readonly { readonly value: FilterOp; readonly label: string; readonly needsValue: boolean }[] {
+  return [
+    { value: "equals", label: t("builder.opIs", "is", { ns: "schedules" }), needsValue: true },
+    { value: "not_equals", label: t("builder.opIsNot", "is not", { ns: "schedules" }), needsValue: true },
+    { value: "contains", label: t("builder.opContains", "contains", { ns: "schedules" }), needsValue: true },
+    { value: "greater_than", label: t("builder.opMoreThan", "is more than", { ns: "schedules" }), needsValue: true },
+    { value: "less_than", label: t("builder.opLessThan", "is less than", { ns: "schedules" }), needsValue: true },
+    { value: "present", label: t("builder.opHasValue", "has a value", { ns: "schedules" }), needsValue: false },
+    { value: "absent", label: t("builder.opIsEmpty", "is empty", { ns: "schedules" }), needsValue: false },
+  ];
+}
 
 export function emptyDefinition(name = "New schedule"): ScheduleDefinitionV2 {
   return {
@@ -86,6 +91,7 @@ export function ScheduleBuilder({ open, onOpenChange, catalog, formulaEngine, li
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const t = useSchedulesTranslate();
 
   // Each opening starts from the schedule as it is now (reset during render, not in an effect).
   const [openedWith, setOpenedWith] = useState<{ open: boolean; initial: ScheduleDefinitionV2 | undefined }>({ open, initial });
@@ -136,21 +142,24 @@ export function ScheduleBuilder({ open, onOpenChange, catalog, formulaEngine, li
   const available = fields.filter((f) => !usedPaths.has(f.path) && (!q || f.label.toLowerCase().includes(q) || f.path.includes(q)));
 
   const headingOf = (c: ScheduleColumnDef): string => {
-    if (c.heading) return c.heading;
-    if (c.kind === "field" || c.kind === "parameter") return fieldByPath.get(c.path)?.label ?? c.path;
+    if (c.heading) return scheduleFieldLabel(c.heading, t);
+    if (c.kind === "field" || c.kind === "parameter") return scheduleFieldLabel(fieldByPath.get(c.path)?.label ?? c.path, t);
     if (c.kind === "formula") return c.calculation ?? c.expression;
-    if (c.kind === "aggregate") return `${c.fn} of ${c.relationship}`;
+    // A related-item column reads "pipes · total": both halves are words, so neither is glued on in English.
+    if (c.kind === "aggregate")
+      return t("builder.aggregateHeading", "{{relationship}} · {{fn}}", { ns: "schedules", relationship: c.relationship, fn: rollUpLabel(c.fn, t).toLowerCase() });
     return c.relationship;
   };
 
   const totalRefusal = (c: ScheduleColumnDef): string | null => {
-    if (c.kind === "expand") return "Sub-lists aren't totalled; total a column inside them instead.";
+    if (c.kind === "expand") return t("builder.subListsNotTotalled", "Sub-lists aren't totalled; total a column inside them instead.", { ns: "schedules" });
     if (c.kind === "field" || c.kind === "parameter") {
       const f = fieldByPath.get(c.path);
       if (!f) return null;
       if (f.totalRefusedReason) return f.totalRefusedReason;
-      if (f.valueType !== "quantity") return `${f.label} is text, so it has no total.`;
-      if (f.aggregation === "none") return `${f.label} values aren't added together.`;
+      const name = scheduleFieldLabel(f.label, t);
+      if (f.valueType !== "quantity") return t("builder.textHasNoTotal", "{{name}} is text, so it has no total.", { ns: "schedules", name });
+      if (f.aggregation === "none") return t("builder.valuesNotAdded", "{{name}} values aren't added together.", { ns: "schedules", name });
     }
     return null;
   };
@@ -172,8 +181,19 @@ export function ScheduleBuilder({ open, onOpenChange, catalog, formulaEngine, li
     setFormulaHeading("");
   };
 
-  const addFormulaBlocked = !expression.trim() ? "Type a formula first." : firstError ? "Fix the formula first." : null;
-  const saveBlocked = classes.length === 0 ? "Choose at least one kind of item to list." : draft.columns.length === 0 ? "Add at least one column." : draft.name.trim() === "" ? "Give the schedule a name." : null;
+  const addFormulaBlocked = !expression.trim()
+    ? t("builder.typeFormulaFirst", "Type a formula first.", { ns: "schedules" })
+    : firstError
+      ? t("builder.fixFormulaFirst", "Fix the formula first.", { ns: "schedules" })
+      : null;
+  const saveBlocked =
+    classes.length === 0
+      ? t("builder.chooseOneKind", "Choose at least one kind of item to list.", { ns: "schedules" })
+      : draft.columns.length === 0
+        ? t("builder.addOneColumn", "Add at least one column.", { ns: "schedules" })
+        : draft.name.trim() === ""
+          ? t("builder.giveName", "Give the schedule a name.", { ns: "schedules" })
+          : null;
   const hasExpand = draft.columns.some((c) => c.kind === "expand");
   const expandCol = draft.columns.find((c): c is Extract<ScheduleColumnDef, { kind: "expand" }> => c.kind === "expand");
 
@@ -186,7 +206,11 @@ export function ScheduleBuilder({ open, onOpenChange, catalog, formulaEngine, li
       onOpenChange(false);
     } catch (err) {
       console.error("[ScheduleBuilder] save failed", err);
-      setSaveError(err instanceof Error ? `Not saved: ${err.message}` : "Not saved. Try again.");
+      setSaveError(
+        err instanceof Error
+          ? t("builder.notSaved", "Not saved: {{reason}}", { ns: "schedules", reason: err.message })
+          : t("builder.notSavedTry", "Not saved. Try again.", { ns: "schedules" }),
+      );
     } finally {
       setSaving(false);
     }
@@ -199,8 +223,8 @@ export function ScheduleBuilder({ open, onOpenChange, catalog, formulaEngine, li
       <Sheet
         open={open}
         onOpenChange={onOpenChange}
-        title={initial ? `Edit ${initial.name}` : "New schedule"}
-        description="Choose what this schedule lists, its columns and how it reads on paper."
+        title={initial ? t("builder.editTitle", "Edit {{name}}", { ns: "schedules", name: initial.name }) : t("builder.newTitle", "New schedule", { ns: "schedules" })}
+        description={t("builder.description", "Choose what this schedule lists, its columns and how it reads on paper.", { ns: "schedules" })}
         initialFocusId={section ? `${ids}-${section}` : undefined}
         footer={
           <>
@@ -211,20 +235,20 @@ export function ScheduleBuilder({ open, onOpenChange, catalog, formulaEngine, li
               </span>
             ) : null}
             <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
-              Cancel
+              {t("builder.cancel", "Cancel", { ns: "schedules" })}
             </Button>
             <Button variant="default" size="sm" disabled={saveBlocked !== null || saving} onClick={() => void save()}>
-              {saving ? "Saving…" : "Save schedule"}
+              {saving ? t("builder.saving", "Saving…", { ns: "schedules" }) : t("builder.save", "Save schedule", { ns: "schedules" })}
             </Button>
           </>
         }
       >
         <section className="mutiny-sched-section" aria-labelledby={`${ids}-source`}>
           <h3 id={`${ids}-source`} tabIndex={-1} className="mutiny-sched-section-title">
-            What to list
+            {t("builder.whatToList", "What to list", { ns: "schedules" })}
           </h3>
           <div className="mutiny-sched-field">
-            <label htmlFor={`${ids}-name`}>Schedule name</label>
+            <label htmlFor={`${ids}-name`}>{t("builder.scheduleName", "Schedule name", { ns: "schedules" })}</label>
             <Input id={`${ids}-name`} value={draft.name} onChange={(e) => update({ name: e.target.value })} />
           </div>
           {byDiscipline.map(([discipline, { label: disciplineHeading, list }]) => (
@@ -241,24 +265,33 @@ export function ScheduleBuilder({ open, onOpenChange, catalog, formulaEngine, li
           ))}
           {draft.source.kind === "classes" ? (
             <label className="mutiny-sched-row">
-              <Checkbox checked={draft.source.includeSubclasses} onChange={(e) => update({ source: { kind: "classes", classes, includeSubclasses: e.target.checked } })} /> Include more specific kinds (a pump schedule also lists booster pumps)
+              <Checkbox checked={draft.source.includeSubclasses} onChange={(e) => update({ source: { kind: "classes", classes, includeSubclasses: e.target.checked } })} />{" "}
+              {t("builder.includeSubclasses", "Include more specific kinds (a pump schedule also lists booster pumps)", { ns: "schedules" })}
             </label>
           ) : null}
         </section>
 
         <section className="mutiny-sched-section" aria-labelledby={`${ids}-fields`}>
           <h3 id={`${ids}-fields`} tabIndex={-1} className="mutiny-sched-section-title">
-            Columns
+            {t("builder.columns", "Columns", { ns: "schedules" })}
           </h3>
-          {draft.columns.length === 0 ? <p className="mutiny-sched-muted">No columns yet. Add fields or a calculation below.</p> : null}
-          <ul className="mutiny-sched-list" aria-label="Columns in this schedule">
+          {draft.columns.length === 0 ? <p className="mutiny-sched-muted">{t("builder.noColumns", "No columns yet. Add fields or a calculation below.", { ns: "schedules" })}</p> : null}
+          <ul className="mutiny-sched-list" aria-label={t("builder.columnsList", "Columns in this schedule", { ns: "schedules" })}>
             {draft.columns.map((c, i) => {
               const refusal = totalRefusal(c);
               const heading = headingOf(c);
               return (
                 <li key={c.id} className="mutiny-sched-list-item">
                   <span className="mutiny-sched-grow">{heading}</span>
-                  <span className="mutiny-sched-badge">{c.kind === "formula" ? "Calculation" : c.kind === "expand" ? "Sub-list" : c.kind === "aggregate" ? "Total" : "Field"}</span>
+                  <span className="mutiny-sched-badge">
+                    {c.kind === "formula"
+                      ? t("builder.badgeCalculation", "Calculation", { ns: "schedules" })
+                      : c.kind === "expand"
+                        ? t("builder.badgeSubList", "Sub-list", { ns: "schedules" })
+                        : c.kind === "aggregate"
+                          ? t("builder.badgeTotal", "Total", { ns: "schedules" })
+                          : t("builder.badgeField", "Field", { ns: "schedules" })}
+                  </span>
                   <label className="mutiny-sched-row" title={refusal ?? undefined}>
                     <Input
                       type="checkbox"
@@ -267,20 +300,31 @@ export function ScheduleBuilder({ open, onOpenChange, catalog, formulaEngine, li
                       aria-describedby={refusal ? `${ids}-total-${c.id}` : undefined}
                       onChange={(e) => update({ columns: draft.columns.map((x) => (x.id === c.id ? { ...x, total: e.target.checked } : x)) })}
                     />
-                    Total
+                    {t("builder.total", "Total", { ns: "schedules" })}
                   </label>
                   {refusal ? (
                     <span id={`${ids}-total-${c.id}`} className="mutiny-sched-help mutiny-sched-list-note">
                       {refusal}
                     </span>
                   ) : null}
-                  <Button variant="ghost" size="icon-sm" aria-label={`Move ${heading} up`} disabled={i === 0} onClick={() => move(i, -1)}>
+                  <Button variant="ghost" size="icon-sm" aria-label={t("builder.moveUp", "Move {{name}} up", { ns: "schedules", name: heading })} disabled={i === 0} onClick={() => move(i, -1)}>
                     ↑
                   </Button>
-                  <Button variant="ghost" size="icon-sm" aria-label={`Move ${heading} down`} disabled={i === draft.columns.length - 1} onClick={() => move(i, 1)}>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t("builder.moveDown", "Move {{name}} down", { ns: "schedules", name: heading })}
+                    disabled={i === draft.columns.length - 1}
+                    onClick={() => move(i, 1)}
+                  >
                     ↓
                   </Button>
-                  <Button variant="ghost" size="icon-sm" aria-label={`Remove ${heading}`} onClick={() => update({ columns: draft.columns.filter((x) => x.id !== c.id) })}>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t("builder.remove", "Remove {{name}}", { ns: "schedules", name: heading })}
+                    onClick={() => update({ columns: draft.columns.filter((x) => x.id !== c.id) })}
+                  >
                     ×
                   </Button>
                 </li>
@@ -288,12 +332,12 @@ export function ScheduleBuilder({ open, onOpenChange, catalog, formulaEngine, li
             })}
           </ul>
           <div className="mutiny-sched-field">
-            <label htmlFor={`${ids}-fieldq`}>Add a field</label>
+            <label htmlFor={`${ids}-fieldq`}>{t("builder.addField", "Add a field", { ns: "schedules" })}</label>
             <Input
               id={`${ids}-fieldq`}
               type="search"
              
-              placeholder={classes.length ? "Search fields" : "Choose what to list first"}
+              placeholder={classes.length ? t("builder.searchFields", "Search fields", { ns: "schedules" }) : t("builder.chooseWhatFirst", "Choose what to list first", { ns: "schedules" })}
               disabled={classes.length === 0}
               value={fieldQuery}
               onChange={(e) => setFieldQuery(e.target.value)}
@@ -301,21 +345,27 @@ export function ScheduleBuilder({ open, onOpenChange, catalog, formulaEngine, li
           </div>
           {classes.length > 0 ? (
             available.length ? (
-              <ul className="mutiny-sched-list" aria-label="Fields you can add">
+              <ul className="mutiny-sched-list" aria-label={t("builder.fieldsYouCanAdd", "Fields you can add", { ns: "schedules" })}>
                 {available.map((f) => (
                   <li key={f.path} className="mutiny-sched-list-item">
                     <span className="mutiny-sched-grow">
-                      {f.label} <span className="mutiny-sched-muted">{f.unit ? `(${f.unit})` : ""}</span>
-                      {!f.editable ? <span className="mutiny-sched-muted"> · from the model</span> : null}
+                      {scheduleFieldLabel(f.label, t)} <span className="mutiny-sched-muted">{f.unit ? `(${f.unit})` : ""}</span>
+                      {!f.editable ? (
+                        <span className="mutiny-sched-muted"> {t("builder.fromModel", "· from the model", { ns: "schedules" })}</span>
+                      ) : null}
                     </span>
-                    <Button variant="outline" size="sm" aria-label={`Add ${f.label}`} onClick={() => addField(f)}>
-                      Add
+                    <Button variant="outline" size="sm" aria-label={t("builder.addNamed", "Add {{name}}", { ns: "schedules", name: scheduleFieldLabel(f.label, t) })} onClick={() => addField(f)}>
+                      {t("builder.add", "Add", { ns: "schedules" })}
                     </Button>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="mutiny-sched-muted">{q ? `No fields match “${fieldQuery.trim()}”.` : "Every field is already a column."}</p>
+              <p className="mutiny-sched-muted">
+                {q
+                  ? t("builder.noFieldsMatch", "No fields match “{{query}}”.", { ns: "schedules", query: fieldQuery.trim() })
+                  : t("builder.everyFieldIsColumn", "Every field is already a column.", { ns: "schedules" })}
+              </p>
             )
           ) : null}
           {relationships.map((r) => (
@@ -326,7 +376,7 @@ export function ScheduleBuilder({ open, onOpenChange, catalog, formulaEngine, li
                 disabled={draft.columns.some((c) => c.kind === "aggregate" && c.relationship === r.id && c.fn === "count")}
                 onClick={() => update({ columns: [...draft.columns, { id: nextColumnId("agg"), kind: "aggregate", fn: "count", relationship: r.id, heading: `${r.label} count` }] })}
               >
-                Add {r.label} count
+                {t("builder.addCount", "Add {{name}} count", { ns: "schedules", name: r.label })}
               </Button>
               <Button
                 variant="outline"
@@ -334,7 +384,7 @@ export function ScheduleBuilder({ open, onOpenChange, catalog, formulaEngine, li
                 disabled={draft.columns.some((c) => c.kind === "expand" && c.relationship === r.id)}
                 onClick={() => update({ columns: [...draft.columns, { id: nextColumnId("exp"), kind: "expand", relationship: r.id, columns: ["mark"], paper: "nested", heading: r.label }] })}
               >
-                Add {r.label} as a sub-list
+                {t("builder.addSubList", "Add {{name}} as a sub-list", { ns: "schedules", name: r.label })}
               </Button>
             </div>
           ))}
@@ -342,14 +392,19 @@ export function ScheduleBuilder({ open, onOpenChange, catalog, formulaEngine, li
 
         <section className="mutiny-sched-section" aria-labelledby={`${ids}-formulas`}>
           <h3 id={`${ids}-formulas`} tabIndex={-1} className="mutiny-sched-section-title">
-            Calculations
+            {t("builder.calculations", "Calculations", { ns: "schedules" })}
           </h3>
           <div className="mutiny-sched-field">
-            <label htmlFor={`${ids}-fh`}>Column heading</label>
-            <Input id={`${ids}-fh`} value={formulaHeading} placeholder="Gas input (Btu/h)" onChange={(e) => setFormulaHeading(e.target.value)} />
+            <label htmlFor={`${ids}-fh`}>{t("builder.columnHeading", "Column heading", { ns: "schedules" })}</label>
+            <Input
+              id={`${ids}-fh`}
+              value={formulaHeading}
+              placeholder={t("builder.headingPlaceholder", "Gas input (Btu/h)", { ns: "schedules" })}
+              onChange={(e) => setFormulaHeading(e.target.value)}
+            />
           </div>
           <div className="mutiny-sched-field">
-            <label htmlFor={`${ids}-expr`}>Formula</label>
+            <label htmlFor={`${ids}-expr`}>{t("builder.formula", "Formula", { ns: "schedules" })}</label>
             <Textarea
               id={`${ids}-expr`}
              
@@ -368,31 +423,46 @@ export function ScheduleBuilder({ open, onOpenChange, catalog, formulaEngine, li
                   <SpanView source={expression} error={firstError} />
                 </>
               ) : check?.ok ? (
-                <p className="mutiny-sched-help">Result: {check.formula.type.type === "quantity" ? `${check.formula.type.kind.replace(/_/g, " ")} (${check.formula.type.unit})` : check.formula.type.type}</p>
+                <p className="mutiny-sched-help">
+                  {t("builder.result", "Result: {{type}}", {
+                    ns: "schedules",
+                    type: check.formula.type.type === "quantity" ? `${check.formula.type.kind.replace(/_/g, " ")} (${check.formula.type.unit})` : check.formula.type.type,
+                  })}
+                </p>
               ) : (
-                <p className="mutiny-sched-help">{classes.length ? "Use fields in braces, like {own.mbh} * 1000. Units are checked as you type." : "Choose what to list first."}</p>
+                <p className="mutiny-sched-help">
+                  {classes.length
+                    ? t("builder.formulaHint", "Use fields in braces, like {own.mbh} * 1000. Units are checked as you type.", { ns: "schedules" })
+                    : t("builder.chooseWhatFirst", "Choose what to list first", { ns: "schedules" })}
+                </p>
               )}
             </div>
           </div>
           <div className="mutiny-sched-row">
             <Button variant="outline" size="sm" disabled={addFormulaBlocked !== null} title={addFormulaBlocked ?? undefined} onClick={addFormula}>
-              Add as column
+              {t("builder.addAsColumn", "Add as column", { ns: "schedules" })}
             </Button>
             {library ? (
-              <Button variant="outline" size="sm" disabled={!check?.ok} title={check?.ok ? undefined : "Fix the formula first."} onClick={() => setSaveOpen(true)}>
-                Save to firm library
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!check?.ok}
+                title={check?.ok ? undefined : t("builder.fixFormulaFirst", "Fix the formula first.", { ns: "schedules" })}
+                onClick={() => setSaveOpen(true)}
+              >
+                {t("builder.saveToFirmLibrary", "Save to firm library", { ns: "schedules" })}
               </Button>
             ) : null}
             {addFormulaBlocked && expression.trim() ? <span className="mutiny-sched-help">{addFormulaBlocked}</span> : null}
           </div>
           {library ? (
             <details open={libraryOpen} onToggle={(e) => setLibraryOpen(e.currentTarget.open)}>
-              <summary>Use a calculation from a library</summary>
+              <summary>{t("builder.useLibraryCalculation", "Use a calculation from a library", { ns: "schedules" })}</summary>
               {libraryOpen ? (
               <LibraryBrowser
                 provider={library}
                 types={["formula"]}
-                useLabel="Add"
+                useLabel={t("builder.add", "Add", { ns: "schedules" })}
                 onUse={(item) => update({ columns: [...draft.columns, { id: nextColumnId("lib"), kind: "formula", calculation: item.key, expression: "", heading: item.name }] })}
               />
               ) : null}
@@ -402,37 +472,43 @@ export function ScheduleBuilder({ open, onOpenChange, catalog, formulaEngine, li
 
         <section className="mutiny-sched-section" aria-labelledby={`${ids}-filters`}>
           <h3 id={`${ids}-filters`} tabIndex={-1} className="mutiny-sched-section-title">
-            Filters
+            {t("builder.filters", "Filters", { ns: "schedules" })}
           </h3>
-          {draft.filters.length === 0 ? <p className="mutiny-sched-muted">Every matching item is listed.</p> : null}
+          {draft.filters.length === 0 ? <p className="mutiny-sched-muted">{t("builder.everyItemListed", "Every matching item is listed.", { ns: "schedules" })}</p> : null}
           {draft.filters.map((f, i) => {
-            const op = FILTER_OPS.find((o) => o.value === f.op);
+            const op = filterOps(t).find((o) => o.value === f.op);
             return (
-              <div key={i} className="mutiny-sched-row" role="group" aria-label={`Filter ${i + 1}`}>
-                <NativeSelect aria-label="Field" value={f.path} onChange={(e) => setFilter(i, { path: e.target.value })}>
+              <div key={i} className="mutiny-sched-row" role="group" aria-label={t("builder.filterGroup", "Filter {{n}}", { ns: "schedules", n: i + 1 })}>
+                <NativeSelect aria-label={t("builder.field", "Field", { ns: "schedules" })} value={f.path} onChange={(e) => setFilter(i, { path: e.target.value })}>
                   {fields.map((x) => (
                     <NativeSelectOption key={x.path} value={x.path}>
-                      {x.label}
+                      {scheduleFieldLabel(x.label, t)}
                     </NativeSelectOption>
                   ))}
                 </NativeSelect>
                 <NativeSelect
-                  aria-label="Condition"
-                 
+                  aria-label={t("builder.condition", "Condition", { ns: "schedules" })}
                   value={f.op}
                   onChange={(e) => {
-                    const next = FILTER_OPS.find((o) => o.value === e.target.value);
+                    const next = filterOps(t).find((o) => o.value === e.target.value);
                     if (next) setFilter(i, { op: next.value });
                   }}
                 >
-                  {FILTER_OPS.map((o) => (
+                  {filterOps(t).map((o) => (
                     <NativeSelectOption key={o.value} value={o.value}>
                       {o.label}
                     </NativeSelectOption>
                   ))}
                 </NativeSelect>
-                {op?.needsValue ? <Input aria-label="Value" value={f.value ?? ""} onChange={(e) => setFilter(i, { value: e.target.value })} /> : null}
-                <Button variant="ghost" size="icon-sm" aria-label={`Remove filter ${i + 1}`} onClick={() => update({ filters: draft.filters.filter((_, k) => k !== i) })}>
+                {op?.needsValue ? (
+                  <Input aria-label={t("builder.value", "Value", { ns: "schedules" })} value={f.value ?? ""} onChange={(e) => setFilter(i, { value: e.target.value })} />
+                ) : null}
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t("builder.removeFilter", "Remove filter {{n}}", { ns: "schedules", n: i + 1 })}
+                  onClick={() => update({ filters: draft.filters.filter((_, k) => k !== i) })}
+                >
                   ×
                 </Button>
               </div>
@@ -440,34 +516,34 @@ export function ScheduleBuilder({ open, onOpenChange, catalog, formulaEngine, li
           })}
           <div>
             <Button variant="outline" size="sm" disabled={fields.length === 0} onClick={() => update({ filters: [...draft.filters, { path: fields[0]?.path ?? "mark", op: "equals", value: "" }] })}>
-              Add filter
+              {t("builder.addFilter", "Add filter", { ns: "schedules" })}
             </Button>
           </div>
         </section>
 
         <section className="mutiny-sched-section" aria-labelledby={`${ids}-arrange`}>
           <h3 id={`${ids}-arrange`} tabIndex={-1} className="mutiny-sched-section-title">
-            Sort, group and totals
+            {t("builder.sortGroupTotals", "Sort, group and totals", { ns: "schedules" })}
           </h3>
           <div className="mutiny-sched-row">
             <div className="mutiny-sched-field">
-              <label htmlFor={`${ids}-sort`}>Sort by</label>
+              <label htmlFor={`${ids}-sort`}>{t("builder.sortBy", "Sort by", { ns: "schedules" })}</label>
               <NativeSelect
                 id={`${ids}-sort`}
                
                 value={draft.sort[0]?.path ?? ""}
                 onChange={(e) => update({ sort: e.target.value ? [{ path: e.target.value, direction: draft.sort[0]?.direction ?? "asc" }] : [] })}
               >
-                <NativeSelectOption value="">Model order</NativeSelectOption>
+                <NativeSelectOption value="">{t("builder.modelOrder", "Model order", { ns: "schedules" })}</NativeSelectOption>
                 {fields.map((f) => (
                   <NativeSelectOption key={f.path} value={f.path}>
-                    {f.label}
+                    {scheduleFieldLabel(f.label, t)}
                   </NativeSelectOption>
                 ))}
               </NativeSelect>
             </div>
             <div className="mutiny-sched-field">
-              <label htmlFor={`${ids}-dir`}>Order</label>
+              <label htmlFor={`${ids}-dir`}>{t("builder.order", "Order", { ns: "schedules" })}</label>
               <NativeSelect
                 id={`${ids}-dir`}
                
@@ -478,45 +554,49 @@ export function ScheduleBuilder({ open, onOpenChange, catalog, formulaEngine, li
                   if (first) update({ sort: [{ path: first.path, direction: e.target.value === "desc" ? "desc" : "asc" }] });
                 }}
               >
-                <NativeSelectOption value="asc">A to Z, smallest first</NativeSelectOption>
-                <NativeSelectOption value="desc">Z to A, largest first</NativeSelectOption>
+                <NativeSelectOption value="asc">{t("builder.ascending", "A to Z, smallest first", { ns: "schedules" })}</NativeSelectOption>
+                <NativeSelectOption value="desc">{t("builder.descending", "Z to A, largest first", { ns: "schedules" })}</NativeSelectOption>
               </NativeSelect>
             </div>
             <div className="mutiny-sched-field">
-              <label htmlFor={`${ids}-group`}>Group by</label>
+              <label htmlFor={`${ids}-group`}>{t("builder.groupBy", "Group by", { ns: "schedules" })}</label>
               <NativeSelect
                 id={`${ids}-group`}
                
                 value={draft.groups[0]?.path ?? ""}
                 onChange={(e) => update({ groups: e.target.value ? [{ path: e.target.value, header: true, footer: true, totals: draft.groups[0]?.totals ?? true }] : [] })}
               >
-                <NativeSelectOption value="">No groups</NativeSelectOption>
+                <NativeSelectOption value="">{t("builder.noGroups", "No groups", { ns: "schedules" })}</NativeSelectOption>
                 {fields
                   .filter((f) => f.valueType !== "quantity")
                   .map((f) => (
                     <NativeSelectOption key={f.path} value={f.path}>
-                      {f.label}
+                      {scheduleFieldLabel(f.label, t)}
                     </NativeSelectOption>
                   ))}
               </NativeSelect>
             </div>
           </div>
           <label className="mutiny-sched-row">
-            <Checkbox checked={draft.groups[0]?.totals ?? false} disabled={!draft.groups[0]} onChange={(e) => update({ groups: draft.groups.map((g, k) => (k === 0 ? { ...g, totals: e.target.checked } : g)) })} /> Totals for each group
+            <Checkbox checked={draft.groups[0]?.totals ?? false} disabled={!draft.groups[0]} onChange={(e) => update({ groups: draft.groups.map((g, k) => (k === 0 ? { ...g, totals: e.target.checked } : g)) })} />{" "}
+            {t("builder.totalsForEachGroup", "Totals for each group", { ns: "schedules" })}
           </label>
           <label className="mutiny-sched-row">
-            <Checkbox checked={draft.grandTotals} onChange={(e) => update({ grandTotals: e.target.checked })} /> Grand totals at the bottom
+            <Checkbox checked={draft.grandTotals} onChange={(e) => update({ grandTotals: e.target.checked })} />{" "}
+            {t("builder.grandTotals", "Grand totals at the bottom", { ns: "schedules" })}
           </label>
-          <p className="mutiny-sched-help">Only columns ticked “Total” are added up, and only where adding makes sense for that kind of value.</p>
+          <p className="mutiny-sched-help">
+            {t("builder.totalsHint", "Only columns ticked “Total” are added up, and only where adding makes sense for that kind of value.", { ns: "schedules" })}
+          </p>
         </section>
 
         <section className="mutiny-sched-section" aria-labelledby={`${ids}-paper`}>
           <h3 id={`${ids}-paper`} tabIndex={-1} className="mutiny-sched-section-title">
-            Presentation and paper
+            {t("builder.presentation", "Presentation and paper", { ns: "schedules" })}
           </h3>
           {hasExpand && expandCol ? (
             <div className="mutiny-sched-field">
-              <label htmlFor={`${ids}-paper-expand`}>{headingOf(expandCol)} on the sheet</label>
+              <label htmlFor={`${ids}-paper-expand`}>{t("builder.onTheSheet", "{{name}} on the sheet", { ns: "schedules", name: headingOf(expandCol) })}</label>
               <NativeSelect
                 id={`${ids}-paper-expand`}
                
@@ -526,15 +606,15 @@ export function ScheduleBuilder({ open, onOpenChange, catalog, formulaEngine, li
                   update({ columns: draft.columns.map((c) => (c.id === expandCol.id ? { ...expandCol, paper } : c)) });
                 }}
               >
-                <NativeSelectOption value="nested">Indented rows under each item</NativeSelectOption>
-                <NativeSelectOption value="summary">One summary value</NativeSelectOption>
-                <NativeSelectOption value="hidden">Not printed</NativeSelectOption>
+                <NativeSelectOption value="nested">{t("builder.nestedRows", "Indented rows under each item", { ns: "schedules" })}</NativeSelectOption>
+                <NativeSelectOption value="summary">{t("builder.summaryValue", "One summary value", { ns: "schedules" })}</NativeSelectOption>
+                <NativeSelectOption value="hidden">{t("builder.notPrinted", "Not printed", { ns: "schedules" })}</NativeSelectOption>
               </NativeSelect>
             </div>
           ) : null}
           <div className="mutiny-sched-row">
             <div className="mutiny-sched-field">
-              <label htmlFor={`${ids}-text`}>Text height on paper (mm)</label>
+              <label htmlFor={`${ids}-text`}>{t("builder.textHeight", "Text height on paper (mm)", { ns: "schedules" })}</label>
               <Input
                 id={`${ids}-text`}
                 type="number"
@@ -547,8 +627,13 @@ export function ScheduleBuilder({ open, onOpenChange, catalog, formulaEngine, li
               />
             </div>
             <div className="mutiny-sched-field">
-              <label htmlFor={`${ids}-empty`}>Empty cells show</label>
-              <Input id={`${ids}-empty`} value={draft.display.emptyText} placeholder="(blank)" onChange={(e) => update({ display: { ...draft.display, emptyText: e.target.value } })} />
+              <label htmlFor={`${ids}-empty`}>{t("builder.emptyCells", "Empty cells show", { ns: "schedules" })}</label>
+              <Input
+                id={`${ids}-empty`}
+                value={draft.display.emptyText}
+                placeholder={t("builder.blankPlaceholder", "(blank)", { ns: "schedules" })}
+                onChange={(e) => update({ display: { ...draft.display, emptyText: e.target.value } })}
+              />
             </div>
           </div>
         </section>

@@ -13,6 +13,7 @@ import { ToggleGroup, ToggleGroupItem } from '../../ui/toggle-group'
 import type { SubmitCommand } from '../views-sheets/types'
 import { hintsCommand, isPipingDiagram, reorderCommand, siblingsOf, movedCount } from './diagram-commands'
 import { PipingDiagramProperties } from './PipingDiagramProperties'
+import { useEditorTranslate } from '../i18n/translate'
 
 interface Props {
   readonly model: ModelState
@@ -37,7 +38,10 @@ export function DiagramProperties({ model, view, selectedIds, canEdit, blockedRe
   const evaluation = useMemo(() => evaluateDiagram(model.elements, view), [model.elements, view])
   if (!def || !evaluation) return null
   const hints: DiagramHints = def.hints ?? {}
+
+  const t = useEditorTranslate()
   const isOneLine = def.kind === 'one_line'
+
   const piping = isPipingDiagram(view)
   if (piping) return <PipingDiagramProperties model={model} view={view} selectedIds={selectedIds} canEdit={canEdit} blockedReason={blockedReason} submit={submit} />
   const disabledReason = canEdit ? null : blockedReason
@@ -54,31 +58,61 @@ export function DiagramProperties({ model, view, selectedIds, canEdit, blockedRe
   const reorder = (step: -1 | 1) => {
     if (!selectedId || !selectedBox) return
     const command = reorderCommand(model, view, selectedId, step)
-    if (command) setError(submit(command, `move ${selectedBox.name} ${step < 0 ? 'earlier' : 'later'} on ${view.name}`))
+
+    if (command)
+      setError(
+        submit(
+          command,
+          step < 0
+            ? t('diagram.moveEarlier', 'move {{name}} earlier on {{view}}', { ns: 'editor', name: selectedBox.name, view: view.name })
+            : t('diagram.moveLater', 'move {{name}} later on {{view}}', { ns: 'editor', name: selectedBox.name, view: view.name }),
+        ),
+      )
+
   }
 
   return (
-    <section className="flex flex-col gap-3" aria-label="Diagram" data-testid="diagram-properties">
+
+    <section
+      className="flex flex-col gap-3"
+      aria-label={t('diagram.properties', 'Diagram', { ns: 'editor' })}
+      data-testid="diagram-properties"
+    >
+
       <Separator />
       <div className="flex flex-col gap-1">
         <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{DIAGRAM_KIND_LABELS[def.kind]}</span>
         <p className="text-xs text-muted-foreground" data-testid="diagram-summary">
-          Drawn from the model: {evaluation.equipment.length === 0 ? 'nothing to draw yet. Place and feed panels from the Electrical tab.' : `${evaluation.equipment.length} piece${evaluation.equipment.length === 1 ? '' : 's'} of equipment, redrawn whenever the model changes.`} Click equipment to select it; drag it to move it on this diagram.
+
+          {t('diagram.summaryLead', 'Drawn from the model:', { ns: 'editor' })}{' '}
+          {evaluation.equipment.length === 0
+            ? t('diagram.summaryNothing', 'nothing to draw yet. Place and feed panels from the Electrical tab.', { ns: 'editor' })
+            : t('diagram.summaryEquipment', '{{n}} pieces of equipment, redrawn whenever the model changes.', { ns: 'editor', n: evaluation.equipment.length })}{' '}
+          {t('diagram.summaryHow', 'Click equipment to select it; drag it to move it on this diagram.', { ns: 'editor' })}
+
         </p>
       </div>
 
       {evaluation.warnings.length > 0 && (
         <Alert data-testid="diagram-warnings">
           <TriangleAlert />
-          <AlertTitle>{evaluation.warnings.length === 1 ? '1 thing to check' : `${evaluation.warnings.length} things to check`}</AlertTitle>
+
+          <AlertTitle>
+            {evaluation.warnings.length === 1
+              ? t('diagram.oneThingToCheck', '1 thing to check', { ns: 'editor' })
+              : t('diagram.thingsToCheck', '{{n}} things to check', { ns: 'editor', n: evaluation.warnings.length })}
+          </AlertTitle>
+
           <AlertDescription>
             <ul className="flex flex-col gap-1">
               {evaluation.warnings.map((w) => (
                 <li key={`${w.kind}:${w.elementId}`} className="flex items-start justify-between gap-2">
                   <span data-testid="diagram-warning">{w.message}</span>
                   <Button variant="ghost" size="sm" onClick={() => onSelect(w.elementId)}>
-                    Select
+
+                    {t('diagram.select', 'Select', { ns: 'editor' })}
                   </Button>
+
                 </li>
               ))}
             </ul>
@@ -88,48 +122,96 @@ export function DiagramProperties({ model, view, selectedIds, canEdit, blockedRe
 
       {isOneLine && (
         <Field>
-          <FieldLabel>Power flows</FieldLabel>
+
+          <FieldLabel>{t('diagram.powerFlows', 'Power flows', { ns: 'editor' })}</FieldLabel>
+
           <ToggleGroup
             type="single"
             variant="outline"
             size="sm"
             value={hints.orientation ?? 'vertical'}
-            onValueChange={(v) => v && set({ orientation: v === 'horizontal' ? 'horizontal' : undefined }, v === 'horizontal' ? 'lay the diagram out left to right' : 'lay the diagram out top to bottom')}
+
+            onValueChange={(v) =>
+              v &&
+              set(
+                { orientation: v === 'horizontal' ? 'horizontal' : undefined },
+                v === 'horizontal'
+                  ? t('diagram.layLeftToRight', 'lay the diagram out left to right', { ns: 'editor' })
+                  : t('diagram.layTopToBottom', 'lay the diagram out top to bottom', { ns: 'editor' }),
+              )
+            }
+
             disabled={!canEdit}
             title={disabledReason ?? undefined}
             data-testid="diagram-orientation"
           >
-            <ToggleGroupItem value="vertical">Top to bottom</ToggleGroupItem>
-            <ToggleGroupItem value="horizontal">Left to right</ToggleGroupItem>
+
+            <ToggleGroupItem value="vertical">{t('diagram.topToBottom', 'Top to bottom', { ns: 'editor' })}</ToggleGroupItem>
+            <ToggleGroupItem value="horizontal">{t('diagram.leftToRight', 'Left to right', { ns: 'editor' })}</ToggleGroupItem>
+
           </ToggleGroup>
         </Field>
       )}
 
       <div className="grid grid-cols-2 gap-2">
         <Field>
-          <FieldLabel htmlFor="diagram-style">Look</FieldLabel>
-          <Select value={hints.style ?? 'flat'} onValueChange={(v) => set({ style: v === 'box3d' ? 'box3d' : undefined }, v === 'box3d' ? 'draw equipment as 3D boxes' : 'draw equipment flat')} disabled={!canEdit}>
+
+          <FieldLabel htmlFor="diagram-style">{t('diagram.look', 'Look', { ns: 'editor' })}</FieldLabel>
+
+
+          <Select
+            value={hints.style ?? 'flat'}
+            onValueChange={(v) =>
+              set(
+                { style: v === 'box3d' ? 'box3d' : undefined },
+                v === 'box3d'
+                  ? t('diagram.drawAs3d', 'draw equipment as 3D boxes', { ns: 'editor' })
+                  : t('diagram.drawFlat', 'draw equipment flat', { ns: 'editor' }),
+              )
+            }
+            disabled={!canEdit}
+          >
+
             <SelectTrigger id="diagram-style" size="sm" data-testid="diagram-style">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectItem value="flat">Flat</SelectItem>
-                <SelectItem value="box3d">3D boxes</SelectItem>
+
+                <SelectItem value="flat">{t('diagram.styleFlat', 'Flat', { ns: 'editor' })}</SelectItem>
+                <SelectItem value="box3d">{t('diagram.styleBox3d', '3D boxes', { ns: 'editor' })}</SelectItem>
+
               </SelectGroup>
             </SelectContent>
           </Select>
         </Field>
         <Field>
-          <FieldLabel htmlFor="diagram-detail">Detail</FieldLabel>
-          <Select value={hints.detail ?? 'full'} onValueChange={(v) => set({ detail: v === 'schematic' ? 'schematic' : undefined }, v === 'schematic' ? 'show the diagram schematic' : 'show every rating')} disabled={!canEdit}>
+
+          <FieldLabel htmlFor="diagram-detail">{t('diagram.detail', 'Detail', { ns: 'editor' })}</FieldLabel>
+
+
+          <Select
+            value={hints.detail ?? 'full'}
+            onValueChange={(v) =>
+              set(
+                { detail: v === 'schematic' ? 'schematic' : undefined },
+                v === 'schematic'
+                  ? t('diagram.showSchematic', 'show the diagram schematic', { ns: 'editor' })
+                  : t('diagram.showEveryRating', 'show every rating', { ns: 'editor' }),
+              )
+            }
+            disabled={!canEdit}
+          >
+
             <SelectTrigger id="diagram-detail" size="sm" data-testid="diagram-detail">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectItem value="full">Every rating</SelectItem>
-                <SelectItem value="schematic">Schematic</SelectItem>
+
+                <SelectItem value="full">{t('diagram.everyRating', 'Every rating', { ns: 'editor' })}</SelectItem>
+                <SelectItem value="schematic">{t('diagram.schematic', 'Schematic', { ns: 'editor' })}</SelectItem>
+
               </SelectGroup>
             </SelectContent>
           </Select>
@@ -138,30 +220,59 @@ export function DiagramProperties({ model, view, selectedIds, canEdit, blockedRe
 
       {(
         [
-          ...(isOneLine ? ([['utility', 'Utility source above each service', hints.utility !== false]] as const) : []),
-          ['showWarnings', 'Warnings on the drawing', hints.showWarnings !== false],
-          ...(def.kind !== 'plumbing_riser' ? ([['showLoads', 'Equipment loads (motors, units)', hints.showLoads === true]] as const) : []),
+
+          ...(isOneLine
+            ? ([['utility', t('diagram.utilitySource', 'Utility source above each service', { ns: 'editor' }), hints.utility !== false]] as const)
+            : []),
+          ['showWarnings', t('diagram.warningsOnDrawing', 'Warnings on the drawing', { ns: 'editor' }), hints.showWarnings !== false],
+          ...(def.kind !== 'plumbing_riser'
+            ? ([['showLoads', t('diagram.equipmentLoads', 'Equipment loads (motors, units)', { ns: 'editor' }), hints.showLoads === true]] as const)
+            : []),
+
         ] as ReadonlyArray<readonly ['utility' | 'showWarnings' | 'showLoads', string, boolean]>
       ).map(([key, label, on]) => (
         <Field key={key} orientation="horizontal">
-          <Switch id={`diagram-${key}`} checked={on} disabled={!canEdit} onCheckedChange={(next) => set({ [key]: key === 'showLoads' ? (next ? true : undefined) : next ? undefined : false }, `${next ? 'show' : 'hide'} ${label.toLowerCase()}`)} data-testid={`diagram-${key}`} />
+
+          <Switch
+            id={`diagram-${key}`}
+            checked={on}
+            disabled={!canEdit}
+            onCheckedChange={(next) =>
+              set(
+                { [key]: key === 'showLoads' ? (next ? true : undefined) : next ? undefined : false },
+                next
+                  ? t('diagram.showNamed', 'show {{name}}', { ns: 'editor', name: label.toLowerCase() })
+                  : t('diagram.hideNamed', 'hide {{name}}', { ns: 'editor', name: label.toLowerCase() }),
+              )
+            }
+            data-testid={`diagram-${key}`}
+          />
+
           <FieldLabel htmlFor={`diagram-${key}`}>{label}</FieldLabel>
         </Field>
       ))}
 
       {selectedBox && selectedId && (
         <div className="flex flex-col gap-2 rounded-md border p-2" data-testid="diagram-selected">
-          <span className="text-xs font-medium">{selectedBox.name} on this diagram</span>
+
+          <span className="text-xs font-medium">
+            {t('diagram.namedOnThisDiagram', '{{name}} on this diagram', { ns: 'editor', name: selectedBox.name })}
+          </span>
+
           <div className="flex flex-wrap gap-2">
             {siblings && siblings.ids.length > 1 && (
               <>
-                <Button variant="outline" size="sm" onClick={() => reorder(-1)} disabled={!canEdit || at <= 0} title={at <= 0 ? 'Already first under what feeds it' : (disabledReason ?? undefined)} data-testid="diagram-earlier">
+                <Button variant="outline" size="sm" onClick={() => reorder(-1)} disabled={!canEdit || at <= 0}
+title={at <= 0 ? t('diagram.alreadyFirst', 'Already first under what feeds it', { ns: 'editor' }) : (disabledReason ?? undefined)} data-testid="diagram-earlier">
                   <ArrowUp data-icon="inline-start" />
-                  Earlier
+                  {t('diagram.earlier', 'Earlier', { ns: 'editor' })}
+
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => reorder(1)} disabled={!canEdit || at < 0 || at >= siblings.ids.length - 1} title={at >= siblings.ids.length - 1 ? 'Already last under what feeds it' : (disabledReason ?? undefined)} data-testid="diagram-later">
+                <Button variant="outline" size="sm" onClick={() => reorder(1)} disabled={!canEdit || at < 0 || at >= siblings.ids.length - 1}
+title={at >= siblings.ids.length - 1 ? t('diagram.alreadyLast', 'Already last under what feeds it', { ns: 'editor' }) : (disabledReason ?? undefined)} data-testid="diagram-later">
                   <ArrowDown data-icon="inline-start" />
-                  Later
+                  {t('diagram.later', 'Later', { ns: 'editor' })}
+
                 </Button>
               </>
             )}
@@ -170,41 +281,94 @@ export function DiagramProperties({ model, view, selectedIds, canEdit, blockedRe
                 variant="outline"
                 size="sm"
                 disabled={!canEdit}
-                onClick={() => set({ futureSpaces: { ...(hints.futureSpaces ?? {}), [selectedId]: Math.min(12, (hints.futureSpaces?.[selectedId] ?? 0) + 1) } }, `add a future space under ${selectedBox.name}`)}
+
+                onClick={() =>
+                  set(
+                    { futureSpaces: { ...(hints.futureSpaces ?? {}), [selectedId]: Math.min(12, (hints.futureSpaces?.[selectedId] ?? 0) + 1) } },
+                    t('diagram.addFutureSpaceWhat', 'add a future space under {{name}}', { ns: 'editor', name: selectedBox.name }),
+                  )
+                }
                 data-testid="diagram-future-add"
               >
-                Add future space{hints.futureSpaces?.[selectedId] ? ` (${hints.futureSpaces[selectedId]})` : ''}
+                {hints.futureSpaces?.[selectedId]
+                  ? t('diagram.addFutureSpaceN', 'Add future space ({{n}})', { ns: 'editor', n: hints.futureSpaces[selectedId] })
+                  : t('diagram.addFutureSpace', 'Add future space', { ns: 'editor' })}
+
               </Button>
             )}
             {isOneLine && (hints.futureSpaces?.[selectedId] ?? 0) > 0 && (
-              <Button variant="ghost" size="sm" disabled={!canEdit} onClick={() => set({ futureSpaces: { ...(hints.futureSpaces ?? {}), [selectedId]: 0 } }, `remove future spaces under ${selectedBox.name}`)}>
-                Remove spaces
+
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={!canEdit}
+                onClick={() =>
+                  set(
+                    { futureSpaces: { ...(hints.futureSpaces ?? {}), [selectedId]: 0 } },
+                    t('diagram.removeFutureSpacesWhat', 'remove future spaces under {{name}}', { ns: 'editor', name: selectedBox.name }),
+                  )
+                }
+              >
+                {t('diagram.removeSpaces', 'Remove spaces', { ns: 'editor' })}
               </Button>
+
             )}
-            <Button variant="ghost" size="sm" disabled={!canEdit} onClick={() => set({ hidden: [...hidden, selectedId] }, `leave ${selectedBox.name} off ${view.name}`)} data-testid="diagram-hide">
+
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={!canEdit}
+              onClick={() =>
+                set(
+                  { hidden: [...hidden, selectedId] },
+                  t('diagram.leaveOffWhat', 'leave {{name}} off {{view}}', { ns: 'editor', name: selectedBox.name, view: view.name }),
+                )
+              }
+              data-testid="diagram-hide"
+            >
               <EyeOff data-icon="inline-start" />
-              Leave off this diagram
+              {t('diagram.leaveOff', 'Leave off this diagram', { ns: 'editor' })}
             </Button>
+
           </div>
         </div>
       )}
 
       {hidden.length > 0 && (
         <Field>
-          <FieldLabel>Left off this diagram</FieldLabel>
+
+          <FieldLabel>{t('diagram.leftOff', 'Left off this diagram', { ns: 'editor' })}</FieldLabel>
+
           <div className="flex flex-wrap gap-1">
             {hidden.map((id) => (
-              <Button key={id} variant="outline" size="sm" disabled={!canEdit} onClick={() => set({ hidden: hidden.filter((h) => h !== id) }, `show ${id} on ${view.name} again`)}>
-                Show {resolveField(model.elements, id, 'name').text || id} again
+
+              <Button
+                key={id}
+                variant="outline"
+                size="sm"
+                disabled={!canEdit}
+                onClick={() =>
+                  set(
+                    { hidden: hidden.filter((h) => h !== id) },
+                    t('diagram.showAgainWhat', 'show {{name}} on {{view}} again', { ns: 'editor', name: id, view: view.name }),
+                  )
+                }
+              >
+                {t('diagram.showAgain', 'Show {{name}} again', { ns: 'editor', name: resolveField(model.elements, id, 'name').text || id })}
               </Button>
+
             ))}
           </div>
         </Field>
       )}
 
-      <Button variant="outline" size="sm" className="self-start" disabled={!canEdit || pins === 0} title={pins === 0 ? 'Nothing has been moved on this diagram' : (disabledReason ?? undefined)} onClick={() => set({ pins: undefined, textOffsets: undefined }, `reset positions on ${view.name}`)} data-testid="diagram-reset-pins">
+      <Button variant="outline" size="sm" className="self-start" disabled={!canEdit || pins === 0}
+title={pins === 0 ? t('diagram.nothingMoved', 'Nothing has been moved on this diagram', { ns: 'editor' }) : (disabledReason ?? undefined)} onClick={() => set({ pins: undefined, textOffsets: undefined }, t('diagram.resetWhat', 'reset positions on {{view}}', { ns: 'editor', view: view.name }))} data-testid="diagram-reset-pins">
         <RotateCcw data-icon="inline-start" />
-        Reset positions{pins > 0 ? ` (${pins} moved)` : ''}
+        {pins > 0
+          ? t('diagram.resetPositionsN', 'Reset positions ({{n}} moved)', { ns: 'editor', n: pins })
+          : t('diagram.resetPositions', 'Reset positions', { ns: 'editor' })}
+
       </Button>
       {error && <FieldDescription className="text-danger-600">{error}</FieldDescription>}
     </section>

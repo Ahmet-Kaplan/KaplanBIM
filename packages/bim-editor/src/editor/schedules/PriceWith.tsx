@@ -14,7 +14,9 @@ import { useEditorHost } from '@permitzip/bim-editor/host'
 import { priceBooksApiFrom } from '../../contracts/bim/cost-source/client'
 import { priceWithBook } from '../../contracts/bim/cost-source/cost-source'
 import { PRICE_BOOK_BASIS_LABELS, type PriceBookSummary, type ReadablePriceBook } from '../../contracts/bim/cost-source/types'
-import { useEditorTranslate } from '../i18n/translate'
+
+import { useEditorTranslate, type Translate } from '../i18n/translate'
+
 
 /** True for a schedule laid out as the takeoff (grouped by cost code), the one Price with applies to. */
 export function isTakeoffSchedule(definition: ScheduleDefinitionV2 | null): boolean {
@@ -30,8 +32,10 @@ type Picked = { readonly kind: 'none' } | { readonly kind: 'loading'; readonly i
 
 const NOT_PRICED = '__not_priced__'
 
-function stageName(model: ModelState, stageId: string | null): string {
-  if (stageId === null) return 'No stage'
+
+function stageName(model: ModelState, stageId: string | null, t: Translate): string {
+  if (stageId === null) return t('schedule.priceWith.noStage', 'No stage', { ns: 'editor' })
+
   const el = model.elements[stageId]
   return el && el.kind === 'construction_stage' ? el.stage.name : stageId
 }
@@ -63,7 +67,9 @@ export function PriceWith({ projectId, model }: { readonly projectId: string; re
       .then((r) => live && setBooks({ kind: 'ready', books: r.books, hasCompany: r.companies.length > 0 }))
       .catch((err: unknown) => {
         console.error('[PriceWith] loading price books failed', err)
-        if (live) setBooks({ kind: 'error', message: err instanceof Error ? err.message : 'The connection dropped.' })
+
+        if (live) setBooks({ kind: 'error', message: err instanceof Error ? err.message : t('schedule.priceWith.connectionDropped', 'The connection dropped.', { ns: 'editor' }) })
+
       })
     return () => {
       live = false
@@ -79,7 +85,13 @@ export function PriceWith({ projectId, model }: { readonly projectId: string; re
         .then((readable) => setPicked((p) => (p.kind === 'loading' && p.id === id ? { kind: 'ready', readable } : p)))
         .catch((err: unknown) => {
           console.error('[PriceWith] loading the price book failed', err)
-          setPicked((p) => (p.kind === 'loading' && p.id === id ? { kind: 'error', id, message: err instanceof Error ? err.message : 'The book did not load.' } : p))
+
+          setPicked((p) =>
+            p.kind === 'loading' && p.id === id
+              ? { kind: 'error', id, message: err instanceof Error ? err.message : t('schedule.priceWith.bookDidNotLoad', 'The book did not load.', { ns: 'editor' }) }
+              : p,
+          )
+
         })
     },
     [priceBooksApi, projectId],
@@ -91,36 +103,56 @@ export function PriceWith({ projectId, model }: { readonly projectId: string; re
       return { ok: true, value: priceWithBook(model, picked.readable) }
     } catch (err) {
       console.error('[PriceWith] pricing the takeoff failed', err)
-      return { ok: false, message: err instanceof Error ? err.message : 'The takeoff could not be priced.' }
+
+      return { ok: false, message: err instanceof Error ? err.message : t('schedule.priceWith.notPricedMessage', 'The takeoff could not be priced.', { ns: 'editor' }) }
+
     }
   }, [picked, model])
 
   const pickedId = picked.kind === 'none' ? NOT_PRICED : picked.kind === 'ready' ? picked.readable.book.id : picked.id
 
   return (
-    <section className="mb-3 flex flex-col gap-2 rounded-md border p-3" aria-label="Price with" data-testid="price-with">
+
+<section
+      className="mb-3 flex flex-col gap-2 rounded-md border p-3"
+      aria-label={t('schedule.priceWith.title', 'Price with', { ns: 'editor' })}
+      data-testid="price-with"
+    >
+
       <div className="flex flex-wrap items-center gap-2">
         <Calculator className="size-4 text-muted-foreground" aria-hidden />
-        <span className="text-sm font-medium">Price with</span>
+
+<span className="text-sm font-medium">{t('schedule.priceWith.title', 'Price with', { ns: 'editor' })}</span>
+
         {books.kind === 'loading' && (
           <span className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Spinner /> Loading the price books you can use here…
+
+<Spinner /> {t('schedule.priceWith.loadingBooks', 'Loading the price books you can use here…', { ns: 'editor' })}
+
           </span>
         )}
         {books.kind === 'error' && (
           <>
-            <span className="text-sm text-danger-700">Price books didn&apos;t load: {books.message}</span>
+
+<span className="text-sm text-danger-700">
+              {t('schedule.priceWith.booksFailed', 'Price books didn’t load: {{message}}', { ns: 'editor', message: books.message })}
+            </span>
             <Button size="sm" variant="outline" onClick={retryBooks}>
-              Retry
+              {t('schedule.priceWith.retry', 'Retry', { ns: 'editor' })}
             </Button>
+
           </>
         )}
         {books.kind === 'ready' && books.books.length === 0 && (
           <span className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground" data-testid="price-with-empty">
-            {books.hasCompany ? 'Your company has no price books yet, and none are shared with it on this project.' : "You aren't part of a company with price books yet."}
+
+{books.hasCompany
+              ? t('schedule.priceWith.noCompanyBooks', 'Your company has no price books yet, and none are shared with it on this project.', { ns: 'editor' })
+              : t('schedule.priceWith.noCompany', "You aren't part of a company with price books yet.", { ns: 'editor' })}
             <Button asChild size="sm" variant="link" className="h-auto p-0">
-              <Link href="/settings/price-books">Add one in Settings › Price books</Link>
+              <Link href="/settings/price-books">{t('schedule.priceWith.addInSettings', 'Add one in Settings › Price books', { ns: 'editor' })}</Link>
             </Button>
+
           </span>
         )}
         {books.kind === 'ready' && books.books.length > 0 && (
@@ -130,7 +162,9 @@ export function PriceWith({ projectId, model }: { readonly projectId: string; re
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectItem value={NOT_PRICED}>Not priced (quantities only)</SelectItem>
+
+<SelectItem value={NOT_PRICED}>{t('schedule.priceWith.notPriced', 'Not priced (quantities only)', { ns: 'editor' })}</SelectItem>
+
                 {books.books.map((b) => (
                   <SelectItem key={b.id} value={b.id}>
                     {bookLabel(b)}
@@ -140,62 +174,108 @@ export function PriceWith({ projectId, model }: { readonly projectId: string; re
             </SelectContent>
           </Select>
         )}
-        {picked.kind === 'loading' && <Spinner aria-label="Loading the book" />}
+
+{picked.kind === 'loading' && <Spinner aria-label={t('schedule.priceWith.loadingBook', 'Loading the book', { ns: 'editor' })} />}
+
       </div>
-      <p className="text-xs text-muted-foreground">Prices are worked out here in your browser from your company&apos;s book. They are never saved to the model or seen by anyone else.</p>
+
+<p className="text-xs text-muted-foreground">
+        {t(
+          'schedule.priceWith.privacy',
+          'Prices are worked out here in your browser from your company’s book. They are never saved to the model or seen by anyone else.',
+          { ns: 'editor' },
+        )}
+      </p>
+
 
       {picked.kind === 'error' && (
         <Alert variant="destructive">
-          <AlertTitle>That book didn&apos;t load</AlertTitle>
+
+<AlertTitle>{t('schedule.priceWith.thatBookFailed', 'That book didn’t load', { ns: 'editor' })}</AlertTitle>
+
           <AlertDescription className="flex flex-col items-start gap-2">
-            {picked.message}
+
+{picked.message}
             <Button size="sm" variant="outline" onClick={() => pick(picked.id)}>
-              Retry
+              {t('schedule.priceWith.retry', 'Retry', { ns: 'editor' })}
             </Button>
+
           </AlertDescription>
         </Alert>
       )}
       {priced && !priced.ok && (
         <Alert variant="destructive">
-          <AlertTitle>Not priced</AlertTitle>
+
+<AlertTitle>{t('schedule.priceWith.notPricedTitle', 'Not priced', { ns: 'editor' })}</AlertTitle>
+
           <AlertDescription>{priced.message}</AlertDescription>
         </Alert>
       )}
-      {picked.kind === 'ready' && priced?.ok && model && <PricedTable model={model} readable={picked.readable} priced={priced.value} />}
+
+{picked.kind === 'ready' && priced?.ok && model && <PricedTable model={model} readable={picked.readable} priced={priced.value} t={t} />}
+
     </section>
   )
 }
 
-function PricedTable({ model, readable, priced }: { readonly model: ModelState; readonly readable: ReadablePriceBook; readonly priced: PricedTakeoff }) {
+
+function PricedTable({ model, readable, priced, t }: { readonly model: ModelState; readonly readable: ReadablePriceBook; readonly priced: PricedTakeoff; readonly t: Translate }) {
   const { book } = readable
+
   const owner = book.owner.name ?? 'another company'
   const whose = `${book.name}, ${owner}'s ${PRICE_BOOK_BASIS_LABELS[book.basis].toLowerCase()} as of ${book.effectiveDate}`
   const fmt = (minor: number) => formatMoney(money(minor, book.currency))
   if (priced.lines.length === 0 && priced.noRate.length === 0 && priced.unpriced.length === 0) {
-    return <p className="text-sm text-muted-foreground">Nothing in this model has a cost code from {book.name}&apos;s code lists yet. Set cost codes on types or elements, then price again.</p>
+
+    return (
+      <p className="text-sm text-muted-foreground">
+        {t('schedule.priceWith.noCostCodes', 'Nothing in this model has a cost code from {{book}}’s code lists yet. Set cost codes on types or elements, then price again.', {
+          ns: 'editor',
+          book: book.name,
+        })}
+      </p>
+    )
+
   }
   return (
     <Table data-testid="price-with-table">
-      <TableCaption>Prices from {whose}.</TableCaption>
+
+<TableCaption>{t('schedule.priceWith.caption', 'Prices from {{whose}}.', { ns: 'editor', whose })}</TableCaption>
+
       <TableHeader>
         <TableRow>
-          <TableHead>Cost code</TableHead>
-          <TableHead>Stage</TableHead>
-          <TableHead className="text-right">Quantity</TableHead>
-          <TableHead className="text-right">Unit price</TableHead>
-          <TableHead className="text-right">Amount</TableHead>
+
+<TableHead>{t('schedule.costCode', 'Cost code', { ns: 'editor' })}</TableHead>
+          <TableHead>{t('schedule.stage', 'Stage', { ns: 'editor' })}</TableHead>
+          <TableHead className="text-right">{t('schedule.quantity', 'Quantity', { ns: 'editor' })}</TableHead>
+          <TableHead className="text-right">{t('schedule.unitPrice', 'Unit price', { ns: 'editor' })}</TableHead>
+          <TableHead className="text-right">{t('schedule.amount', 'Amount', { ns: 'editor' })}</TableHead>
+
         </TableRow>
       </TableHeader>
       <TableBody>
         {priced.lines.map((l) => (
           <TableRow key={l.takeoffKey} data-testid="price-with-line">
             <TableCell className="font-medium">{l.code}</TableCell>
-            <TableCell>{stageName(model, l.stageId)}</TableCell>
-            <TableCell className="text-right tabular-nums" title={`${l.quantityFrom.from}, ${l.quantityFrom.elementCount} element${l.quantityFrom.elementCount === 1 ? '' : 's'}`}>
+
+<TableCell>{stageName(model, l.stageId, t)}</TableCell>
+
+
+<TableCell
+              className="text-right tabular-nums"
+              title={`${l.quantityFrom.from}, ${
+                l.quantityFrom.elementCount === 1
+                  ? t('schedule.oneElement', '1 element', { ns: 'editor' })
+                  : t('schedule.elements', '{{n}} elements', { ns: 'editor', n: l.quantityFrom.elementCount })
+              }`}
+            >
+
               {l.quantity.toLocaleString('en-US', { maximumFractionDigits: 2 })} {l.per}
             </TableCell>
             <TableCell className="text-right tabular-nums">{fmt(l.unitRate.minor)}</TableCell>
-            <TableCell className="text-right tabular-nums" title={`From ${whose}`}>
+
+<TableCell className="text-right tabular-nums" title={t('schedule.priceWith.fromWhose', 'From {{whose}}', { ns: 'editor', whose })}>
+
               {fmt(l.amount.minor)}
             </TableCell>
           </TableRow>
@@ -203,12 +283,20 @@ function PricedTable({ model, readable, priced }: { readonly model: ModelState; 
         {priced.noRate.map((l) => (
           <TableRow key={`no-rate-${l.system}-${l.code}-${l.stageId ?? ''}`} data-testid="price-with-no-price">
             <TableCell className="font-medium">{l.code}</TableCell>
-            <TableCell>{stageName(model, l.stageId)}</TableCell>
+
+<TableCell>{stageName(model, l.stageId, t)}</TableCell>
+
             <TableCell className="text-right text-muted-foreground">
-              {l.elementCount} element{l.elementCount === 1 ? '' : 's'}
+
+              {l.elementCount === 1
+                ? t('schedule.oneElement', '1 element', { ns: 'editor' })
+                : t('schedule.elements', '{{n}} elements', { ns: 'editor', n: l.elementCount })}
+
             </TableCell>
             <TableCell colSpan={2} className="text-right text-muted-foreground">
-              No price: {book.name} has no rate for {l.code}
+
+{t('schedule.priceWith.noRate', 'No price: {{book}} has no rate for {{code}}', { ns: 'editor', book: book.name, code: l.code })}
+
             </TableCell>
           </TableRow>
         ))}
@@ -218,14 +306,22 @@ function PricedTable({ model, readable, priced }: { readonly model: ModelState; 
             <TableCell />
             <TableCell className="text-right text-muted-foreground">{u.measure.replace(/^qto\./, '').replace(/_/g, ' ')}</TableCell>
             <TableCell colSpan={2} className="text-right text-muted-foreground">
-              No price: {u.reason}
+
+{t('schedule.priceWith.noPriceReason', 'No price: {{reason}}', { ns: 'editor', reason: u.reason })}
+
             </TableCell>
           </TableRow>
         ))}
       </TableBody>
       <TableFooter>
         <TableRow>
-          <TableCell colSpan={4}>Total of priced lines ({owner}&apos;s prices{priced.noRate.length + priced.unpriced.length > 0 ? '; lines with no price are not included' : ''})</TableCell>
+
+<TableCell colSpan={4}>
+            {priced.noRate.length + priced.unpriced.length > 0
+              ? t('schedule.priceWith.totalSome', 'Total of priced lines ({{owner}}’s prices; lines with no price are not included)', { ns: 'editor', owner })
+              : t('schedule.priceWith.total', 'Total of priced lines ({{owner}}’s prices)', { ns: 'editor', owner })}
+          </TableCell>
+
           <TableCell className="text-right font-semibold tabular-nums" data-testid="price-with-total">
             {fmt(priced.total.minor)}
           </TableCell>

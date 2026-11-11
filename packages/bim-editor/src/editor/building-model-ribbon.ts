@@ -642,7 +642,7 @@ export function buildingModelRibbon(ctx: BuildingModelRibbonContext): RibbonTab[
                 { id: 'sheet-load-summary', label: 'Load summary', icon: Sigma, description: 'Put the live electrical load summary on the sheet: total connected kVA and amps at the service, updated with every edit and frozen when the set is issued', keywords: ['load study', 'block', 'kva', 'amps', 'service'], disabledReason: ctx.sheet?.loadSummary ? ctx.editBlocked : 'Open a sheet to place a load summary: Views and sheets › a sheet.', run: ctx.sheet?.loadSummary, testId: 'ribbon-sheet-load-summary' },
                 { id: 'sheet-keynote-list', label: 'Keynote list', icon: KeyRound, description: 'Put the keynote list on the sheet: each keynote used on the views placed here, with its words, updated with every edit and frozen when the set is issued', keywords: ['keynotes', 'legend', 'general notes', 'key notes'], disabledReason: ctx.sheet?.placeTable ? ctx.editBlocked : 'Open a sheet to place a keynote list: Views and sheets › a sheet.', run: ctx.sheet?.placeTable ? () => ctx.sheet?.placeTable?.((sheet, submit) => placeKeynoteList(sheet, submit)) : undefined, testId: 'ribbon-sheet-keynote-list' },
                 ...contributedCommands('sheet-live-table', ctx),
-                calculationCommand(ctx.sheet?.calculation, ctx.editBlocked),
+                calculationCommand(ctx.sheet?.calculation, ctx.editBlocked, t),
               ],
               testId: 'ribbon-sheet-live-table',
             },

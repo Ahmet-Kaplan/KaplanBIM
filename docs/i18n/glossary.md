@@ -388,6 +388,37 @@ Modelin **ret cümleleri** (18 kod), **bağlantı sorunları**, **araç engeller
 
 **Miktar türleri:** Sayı · Oran · Eğim · Adet · Kullanıcı yükü · Uzunluk · Alan · Hacim · Ağırlık · Süre · Açı · Kuvvet · Moment · Gerilme · Basınç · Alan yükü · Çizgi yükü · Yoğunluk · Hız · Hava debisi · Sıvı debisi · Gaz debisi · Kütle debisi · Aktif güç · Motor gücü · Görünür güç · Reaktif güç · Isıtma/soğutma kapasitesi · Gaz girişi · Enerji · Akım · Gerilim · Direnç · Birim uzunluk direnci · Frekans · Sıcaklık · Sıcaklık farkı · Işık akısı · Aydınlık düzeyi · Işık şiddeti · Sprinkler yoğunluğu · K faktörü · Su tesisatı yük birimi (WSFU) · Pis su yük birimi (DFU) · Sürtünme oranı · Yağış şiddeti · Kullanıcı yük faktörü · Maliyet · Güç yoğunluğu · Alan başına hava debisi · Kişi başına hava debisi · Kesit modülü · Atalet momenti
 
+### 5.1 Aşama 4'te eklenen çizelge, pafta ve görünüm sözcükleri (2026-11-10)
+
+Aşama 4 (Task 4.1–4.2) çizelgeleri, hesap sayfalarını, paftaları, görünüm özelliklerini, yönlendirmeyi ve diyagramları çevirirken bu sözcükler gerekti. Yukarıda **zaten** karara bağlı olanlar tekrar yazılmadı (`İşaret`, `Tip`, `Kat`, `Oda`, `Açıklama`, `Birim`, `Genişlik`, `Gaz girişi`, `Pafta`, `Antet`, `Çizelge`, `Görünüm`, `Detay seviyesi`, `Bölge`, `Etiket`, `Metin`, `Ölçü`, `Sembol`, `Maliyet kodu`, `Birim fiyat`, `Toplam`, `Metraj`).
+
+| EN | TR | Not |
+|----|----|-----|
+| Roll-up: sum / max / min / none | **toplam / azami / asgari / yok** | §5'in "Toplam" alanının dört seçeneği; kodda `sum/max/min/none` |
+| Roll-up: count / avg / list | **adet / ortalama / liste** | İlişkili eleman sütununun özet fonksiyonları (`count`, `avg`, `list`) |
+| Stage (inşaat aşaması) | **aşama** | §2.3 *Phase* = faz ile karışmaz; maliyet tablosunun sütunu |
+| Quantity | **miktar** | §6 |
+| Amount | **tutar** | Maliyet tablosunun son sütunu |
+| Element (çizelge satırı) | **eleman** | §2.1 |
+| Calculation | **hesap** | §2.4 |
+| Governing cell | **belirleyici hücre** | Hesap tablosunda sonucu belirleyen satır/hücre |
+| Explanation / trace | **açıklama** | §2.4 *Annotation* = açıklama ile aynı sözcük; bağlam ayrıştırır |
+| Visual style: wireframe / hidden line / shaded / shaded with edges | **tel kafes / gizli çizgi / gölgeli / gölgeli ve kenarlı** | Görünüm özellikleri › Çizgiler ve renkler |
+| Cut fill: cross / solid / hatch | **artı / dolu / tarama** | Kesilen kanal ve borunun dolgusu |
+| Drafting: detail lines / hatching / masking regions / detail components / insulation / text and notes / dimensions / tags / revision clouds | **detay çizgileri / tarama ve dolgular / maskeleme bölgeleri / detay bileşenleri / yalıtım / metin ve notlar / ölçüler / etiketler / revizyon bulutları** | §2.4 |
+| Perspective / Orthographic | **perspektif / ortografik** | 3B görünümün izdüşümü; kısa düğme yazısı **Orto** |
+| Crop box / Crop view / Annotation crop | **kırpma kutusu / görünümü kırp / açıklama kırpması** | Paftaya yerleşen görüntü alanı kırpmayı izler |
+| Fit crop to content / to the drawing | **kırpmayı içeriğe sığdır / çizime sığdır** | Plan vs detay görünümü |
+| Far clip depth | **uzak kırpma derinliği** | Kesitin kesit çizgisinin ötesini görme mesafesi |
+| View orientation / Home view | **görünüm yönü / ana görünüm** | Yönlendirme araç çubuğu |
+| Above, from the south-east | **yukarıdan, güneydoğudan** | Çeyrek açılı görünümler; yön adları §2.3 |
+| Three-quarter views | **çeyrek açılı görünümler** | |
+| Diagram / One-line / Riser / Isometric | **diyagram / tek hat / kolon şeması / izometrik** | §2.4 *Riser diagram* = kolon şeması |
+| Grid | **ızgara** | §2.3 |
+| Title block / Paper | **antet / kâğıt** | §2.4 |
+| Machine / Project information | **proje bilgileri** | Her paftanın antedine yazılan künye |
+| Retired (library item) | **kullanımdan kaldırıldı** | §5 alan adları |
+
 ---
 
 ## 6. Maliyet ve ticari terimler

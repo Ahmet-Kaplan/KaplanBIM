@@ -21,6 +21,7 @@ import {
 import { buildGridModel, cellKey, intentToEdits, rowSetToCsv, type CellOverlay } from "./rowset-grid";
 import { ConfirmDialog, OverflowMenu, type MenuItem } from "./ui/overlays";
 import { createScheduleUnits, type ScheduleUnits } from "./units";
+import { useSchedulesTranslate } from "./i18n/translate";
 
 export type BuilderSection = "fields" | "arrange";
 
@@ -75,13 +76,10 @@ function downloadCsv(csv: string, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
-function plural(n: number, one: string, many = `${one}s`): string {
-  return `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
-}
-
 /** A model schedule as a live spreadsheet. See SCHEDULES-PLAN §6–§7. */
 export function ScheduleGrid(props: ScheduleGridProps) {
   const { connection, target, title, height = 520, onOpenBuilder, onShowInModel, onGoToSource } = props;
+  const t = useSchedulesTranslate();
   const units = useMemo(() => props.units ?? createScheduleUnits(), [props.units]);
   const me = connection.actor;
 
@@ -173,19 +171,42 @@ export function ScheduleGrid(props: ScheduleGridProps) {
       if (!sub) return;
       const keys = batch.edits.map((e) => cellKey(e));
       setOverlay(keys.map((k) => [k, { state: "pending", text: texts.get(k) ?? "" }] as const));
-      setMessage(`Saving ${plural(batch.edits.length, "change")}…`);
+      setMessage(
+        batch.edits.length === 1
+          ? t("grid.savingOne", "Saving 1 change…", { ns: "schedules" })
+          : t("grid.savingMany", "Saving {{n}} changes…", { ns: "schedules", n: batch.edits.length }),
+      );
       try {
         const outcome = await sub.edit(batch);
         if (!outcome.ok) {
           setOverlay(keys.map((k) => [k, { state: "refused", reason: outcome.message, text: texts.get(k) ?? "" }] as const));
-          setMessage(`Not saved: ${outcome.message}`);
+          setMessage(t("grid.notSaved", "Not saved: {{reason}}", { ns: "schedules", reason: outcome.message }));
           return;
         }
         const refusedKeys = new Map(outcome.refusals.map((r) => [cellKey(r), r.reason] as const));
         setOverlay(keys.map((k) => [k, refusedKeys.has(k) ? { state: "refused", reason: refusedKeys.get(k) ?? "", text: texts.get(k) ?? "" } : { state: "saved" }] as const));
         const savedCount = keys.length - refusedKeys.size;
-        if (refusedKeys.size === 0) setMessage(savedCount === 1 ? "Saved." : `Saved ${plural(savedCount, "change")}.`);
-        else setMessage(`Saved ${savedCount} of ${keys.length}. ${plural(refusedKeys.size, "cell")} weren't changed: ${[...refusedKeys.values()][0] ?? ""}`);
+        if (refusedKeys.size === 0)
+          setMessage(
+            savedCount === 1
+              ? t("grid.saved", "Saved.", { ns: "schedules" })
+              : t("grid.savedMany", "Saved {{n}} changes.", { ns: "schedules", n: savedCount }),
+          );
+        else {
+          const cells =
+            refusedKeys.size === 1
+              ? t("grid.cellOne", "1 cell", { ns: "schedules" })
+              : t("grid.cellMany", "{{n}} cells", { ns: "schedules", n: refusedKeys.size });
+          setMessage(
+            t("grid.savedSome", "Saved {{saved}} of {{total}}. {{cells}} weren't changed: {{first}}", {
+              ns: "schedules",
+              saved: savedCount,
+              total: keys.length,
+              cells,
+              first: [...refusedKeys.values()][0] ?? "",
+            }),
+          );
+        }
         setTimeout(() => {
           setOverlays((prev) => {
             const next = new Map(prev);
@@ -195,9 +216,9 @@ export function ScheduleGrid(props: ScheduleGridProps) {
         }, SAVED_FLASH_MS);
       } catch (err) {
         console.error("[ScheduleGrid] edit failed", err);
-        const reason = err instanceof Error ? err.message : "The connection dropped before the change was saved.";
+        const reason = err instanceof Error ? err.message : t("grid.editFailed", "The connection dropped before the change was saved.", { ns: "schedules" });
         setOverlay(keys.map((k) => [k, { state: "refused", reason, text: texts.get(k) ?? "" }] as const));
-        setMessage(`Not saved: ${reason} Try again.`);
+        setMessage(t("grid.notSavedTryAgain", "Not saved: {{reason}} Try again.", { ns: "schedules", reason }));
       }
     },
     [setOverlay],
@@ -216,7 +237,7 @@ export function ScheduleGrid(props: ScheduleGridProps) {
         }
       } catch (err) {
         console.error("[ScheduleGrid] preview failed", err);
-        setMessage("Couldn't check what this change affects. Nothing was changed; try again.");
+        setMessage(t("grid.previewFailed", "Couldn't check what this change affects. Nothing was changed; try again.", { ns: "schedules" }));
         return;
       }
       await send(batch, texts);
@@ -272,6 +293,7 @@ export function ScheduleGrid(props: ScheduleGridProps) {
             presence: livePresence,
             explanations,
             widths,
+            t,
             onGoToSource: (column, cell) => {
               const el = cell.parent ? null : (rowSet.elementIds[rowSet.rowKeys.indexOf(cell.rowKey)] ?? null);
               onGoToSource?.(column, cell, el);
@@ -284,11 +306,23 @@ export function ScheduleGrid(props: ScheduleGridProps) {
   const onEdit = useCallback(
     (intent: GridEditIntent) => {
       if (!model) return;
-      const { edits, refused, texts } = intentToEdits(intent, model, units);
+      const { edits, refused, texts } = intentToEdits(intent, model, units, t);
       if (refused.length) {
         setOverlay(refused.filter((r) => r.text !== "").map((r) => [cellKey(r.ref), { state: "refused", reason: r.reason, text: r.text }] as const));
         const first = refused[0];
-        if (first) setMessage(edits.length ? `${plural(refused.length, "cell")} skipped: ${first.reason}` : `Not changed: ${first.reason}`);
+        if (first)
+          setMessage(
+            edits.length
+              ? t("grid.cellsSkipped", "{{cells}} skipped: {{reason}}", {
+                  ns: "schedules",
+                  cells:
+                    refused.length === 1
+                      ? t("grid.cellOne", "1 cell", { ns: "schedules" })
+                      : t("grid.cellMany", "{{n}} cells", { ns: "schedules", n: refused.length }),
+                  reason: first.reason,
+                })
+              : t("grid.notChanged", "Not changed: {{reason}}", { ns: "schedules", reason: first.reason }),
+          );
       }
       if (edits.length === 0) return;
       const batch: CellEditBatch = { source: intent.source, edits };
@@ -298,7 +332,7 @@ export function ScheduleGrid(props: ScheduleGridProps) {
         heldRef.current = [...heldRef.current, { batch, texts, keys, heldSince: Date.now() }];
         setHeldTick((n) => n + 1);
         setOverlay(keys.map((k) => [k, { state: "held", heldBy: holder.actor.name, text: texts.get(k) ?? "" }] as const));
-        setMessage(`${holder.actor.name} is editing this cell. Your change will be sent when they finish.`);
+        setMessage(t("grid.heldBy", "{{name}} is editing this cell. Your change will be sent when they finish.", { ns: "schedules", name: holder.actor.name }));
         return;
       }
       void previewAndSend(batch, texts);
@@ -354,65 +388,102 @@ export function ScheduleGrid(props: ScheduleGridProps) {
 
   const exportCsv = () => {
     if (!rowSet) return;
-    const csv = rowSetToCsv(rowSet, units);
+    const csv = rowSetToCsv(rowSet, units, t);
     const filename = `${title.replace(/[^\w-]+/g, "-").toLowerCase()}.csv`;
     if (props.onExportCsv) props.onExportCsv(csv, filename);
     else downloadCsv(csv, filename);
-    setMessage(`Exported ${plural(rowSet.rowCount, "row")} to ${filename}.`);
+    setMessage(
+      t("grid.exported", "Exported {{rows}} to {{file}}.", {
+        ns: "schedules",
+        rows:
+          rowSet.rowCount === 1
+            ? t("grid.rowOne", "1 row", { ns: "schedules" })
+            : t("grid.rowMany", "{{n}} rows", { ns: "schedules", n: rowSet.rowCount.toLocaleString("en-US") }),
+        file: filename,
+      }),
+    );
   };
 
-  const notHere = "Not available in this view.";
+  const notHere = t("grid.notHere", "Not available in this view.", { ns: "schedules" });
   const menuItems: MenuItem[] = [
-    { label: "Place on sheet", ...(props.onPlaceOnSheet ? { onSelect: props.onPlaceOnSheet } : { disabledReason: notHere }) },
-    { label: "Duplicate", ...(props.onDuplicate ? { onSelect: props.onDuplicate } : { disabledReason: notHere }) },
-    { label: "Save as template", ...(props.onSaveAsTemplate ? { onSelect: props.onSaveAsTemplate } : { disabledReason: notHere }) },
-    { label: "Export CSV", ...(rowSet ? { onSelect: exportCsv } : { disabledReason: "Wait for the rows to load." }) },
-    { label: "Print preview", ...(props.onPrintPreview ? { onSelect: props.onPrintPreview } : { disabledReason: notHere }) },
+    { label: t("grid.placeOnSheet", "Place on sheet", { ns: "schedules" }), ...(props.onPlaceOnSheet ? { onSelect: props.onPlaceOnSheet } : { disabledReason: notHere }) },
+    { label: t("grid.duplicate", "Duplicate", { ns: "schedules" }), ...(props.onDuplicate ? { onSelect: props.onDuplicate } : { disabledReason: notHere }) },
+    { label: t("grid.saveAsTemplate", "Save as template", { ns: "schedules" }), ...(props.onSaveAsTemplate ? { onSelect: props.onSaveAsTemplate } : { disabledReason: notHere }) },
+    {
+      label: t("grid.exportCsv", "Export CSV", { ns: "schedules" }),
+      ...(rowSet ? { onSelect: exportCsv } : { disabledReason: t("grid.waitForRows", "Wait for the rows to load.", { ns: "schedules" }) }),
+    },
+    { label: t("grid.printPreview", "Print preview", { ns: "schedules" }), ...(props.onPrintPreview ? { onSelect: props.onPrintPreview } : { disabledReason: notHere }) },
   ];
 
-  const showInModelReason = !onShowInModel ? "Not available in this view." : !activeRow?.elementId ? "Pick a row first." : null;
+  const showInModelReason = !onShowInModel
+    ? t("grid.notHere", "Not available in this view.", { ns: "schedules" })
+    : !activeRow?.elementId
+      ? t("grid.pickRowFirst", "Pick a row first.", { ns: "schedules" })
+      : null;
 
   return (
     <section className="mutiny-sched" aria-label={title}>
-      <div className="mutiny-sched-toolbar" role="toolbar" aria-label={`${title} tools`}>
+      <div className="mutiny-sched-toolbar" role="toolbar" aria-label={t("grid.tools", "{{title}} tools", { ns: "schedules", title })}>
         <h2 className="mutiny-sched-title">{title}</h2>
         <div className="mutiny-sched-toolbar-actions">
           {props.onOpenColumns ? (
-            <Button variant="outline" size="sm" onClick={props.onOpenColumns} title="Add, remove, move, rename, sort, group and total columns; each change undoes on its own" data-testid="schedule-columns-open">
-              <Columns3 aria-hidden /> Columns
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={props.onOpenColumns}
+              title={t("grid.columnsHint", "Add, remove, move, rename, sort, group and total columns; each change undoes on its own", { ns: "schedules" })}
+              data-testid="schedule-columns-open"
+            >
+              <Columns3 aria-hidden /> {t("grid.columns", "Columns", { ns: "schedules" })}
             </Button>
           ) : (
-            <Button variant="outline" size="sm" onClick={() => onOpenBuilder?.("fields")} disabled={!onOpenBuilder} title={onOpenBuilder ? "Choose what this schedule lists and which columns it shows" : notHere}>
-              <Columns3 aria-hidden /> Fields
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onOpenBuilder?.("fields")}
+              disabled={!onOpenBuilder}
+              title={onOpenBuilder ? t("grid.fieldsHint", "Choose what this schedule lists and which columns it shows", { ns: "schedules" }) : notHere}
+            >
+              <Columns3 aria-hidden /> {t("grid.fields", "Fields", { ns: "schedules" })}
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={() => onOpenBuilder?.("arrange")} disabled={!onOpenBuilder} title={onOpenBuilder ? "Sort, group and total" : notHere}>
-            <ListOrdered aria-hidden /> Arrange
+          <Button variant="outline" size="sm" onClick={() => onOpenBuilder?.("arrange")} disabled={!onOpenBuilder} title={onOpenBuilder ? t("grid.arrangeHint", "Sort, group and total", { ns: "schedules" }) : notHere}>
+            <ListOrdered aria-hidden /> {t("grid.arrange", "Arrange", { ns: "schedules" })}
           </Button>
           <Button
             variant="outline"
             size="sm"
             disabled={showInModelReason !== null}
-            title={showInModelReason ?? "Select this row's item in plan and 3D"}
+            title={showInModelReason ?? t("grid.showInModelHint", "Select this row's item in plan and 3D", { ns: "schedules" })}
             onClick={() => activeRow?.elementId && onShowInModel?.([activeRow.elementId])}
           >
-            <Crosshair aria-hidden /> Show in model
+            <Crosshair aria-hidden /> {t("grid.showInModel", "Show in model", { ns: "schedules" })}
           </Button>
-          <OverflowMenu label="More schedule actions" items={menuItems} />
+          <OverflowMenu label={t("grid.moreActions", "More schedule actions", { ns: "schedules" })} items={menuItems} />
         </div>
       </div>
       <p className="mutiny-sched-status" role="status" aria-live="polite">
-        {reconnecting ? "Connection lost. Reconnecting… your unsaved edits are kept." : message}
+        {reconnecting ? t("grid.reconnecting", "Connection lost. Reconnecting… your unsaved edits are kept.", { ns: "schedules" }) : message}
       </p>
       {status.kind === "loading" ? (
         <div className="mutiny-sched-loading" style={{ height }}>
-          <Spinner /> Loading {title}…
+          <Spinner /> {t("grid.loading", "Loading {{title}}…", { ns: "schedules", title })}
         </div>
       ) : status.kind === "closed" ? (
         <Alert variant={status.reason === "denied" ? "destructive" : "default"}>
-          <AlertTitle>{status.reason === "denied" ? "You can't see this schedule any more" : status.reason === "deleted" ? "This schedule was deleted" : "This schedule was closed"}</AlertTitle>
+          <AlertTitle>
+            {status.reason === "denied"
+              ? t("grid.closedDeniedTitle", "You can't see this schedule any more", { ns: "schedules" })
+              : status.reason === "deleted"
+                ? t("grid.closedDeletedTitle", "This schedule was deleted", { ns: "schedules" })
+                : t("grid.closedTitle", "This schedule was closed", { ns: "schedules" })}
+          </AlertTitle>
           <AlertDescription>
-            {status.message} {status.reason === "denied" ? "Ask the project lead for access, then open it again." : "Open another schedule from Views and Sheets."}
+            {status.message}{" "}
+            {status.reason === "denied"
+              ? t("grid.closedDeniedWhy", "Ask the project lead for access, then open it again.", { ns: "schedules" })
+              : t("grid.closedWhy", "Open another schedule from Views and Sheets.", { ns: "schedules" })}
           </AlertDescription>
         </Alert>
       ) : model ? (
@@ -434,8 +505,15 @@ export function ScheduleGrid(props: ScheduleGridProps) {
           emptyState={
             <Empty>
               <EmptyHeader>
-                <EmptyTitle>Nothing to list yet</EmptyTitle>
-                <EmptyDescription>No items in the model match this schedule. Change what it lists with {props.onOpenColumns ? "Columns › What it lists, formulas and paper" : "Fields"}.</EmptyDescription>
+                <EmptyTitle>{t("grid.emptyTitle", "Nothing to list yet", { ns: "schedules" })}</EmptyTitle>
+                <EmptyDescription>
+                  {t("grid.emptyBody", "No items in the model match this schedule. Change what it lists with {{where}}.", {
+                    ns: "schedules",
+                    where: props.onOpenColumns
+                      ? t("grid.whereColumns", "Columns › What it lists, formulas and paper", { ns: "schedules" })
+                      : t("grid.whereFields", "Fields", { ns: "schedules" }),
+                  })}
+                </EmptyDescription>
               </EmptyHeader>
             </Empty>
           }
@@ -443,12 +521,16 @@ export function ScheduleGrid(props: ScheduleGridProps) {
       ) : null}
       <ConfirmDialog
         open={confirm !== null}
-        title="Change every part of this type?"
-        confirmLabel={confirm ? `Change all ${confirm.impacts.reduce((n, i) => n + i.instanceCount, 0).toLocaleString("en-US")}` : "Change all"}
+        title={t("grid.changeTypeTitle", "Change every part of this type?", { ns: "schedules" })}
+        confirmLabel={
+          confirm
+            ? t("grid.changeAll", "Change all {{n}}", { ns: "schedules", n: confirm.impacts.reduce((n, i) => n + i.instanceCount, 0).toLocaleString("en-US") })
+            : t("grid.changeAllBare", "Change all", { ns: "schedules" })
+        }
         onCancel={() => {
           if (confirm) {
             setOverlay(confirm.batch.edits.map((e) => [cellKey(e), null] as const));
-            setMessage("Not changed.");
+            setMessage(t("grid.notChangedBare", "Not changed.", { ns: "schedules" }));
           }
           setConfirm(null);
           gridRef.current?.focus();
@@ -463,7 +545,15 @@ export function ScheduleGrid(props: ScheduleGridProps) {
         <ul className="mutiny-sched-impacts">
           {(confirm?.impacts ?? []).map((i) => (
             <li key={`${i.typeLabel}|${i.columnHeading}`}>
-              Changes all {plural(i.instanceCount, "part")} of type {i.typeLabel} ({i.columnHeading}), including any not in this schedule.
+              {t("grid.typeImpact", "Changes all {{parts}} of type {{type}} ({{column}}), including any not in this schedule.", {
+                ns: "schedules",
+                parts:
+                  i.instanceCount === 1
+                    ? t("grid.partOne", "1 part", { ns: "schedules" })
+                    : t("grid.partMany", "{{n}} parts", { ns: "schedules", n: i.instanceCount }),
+                type: i.typeLabel,
+                column: i.columnHeading,
+              })}
             </li>
           ))}
         </ul>

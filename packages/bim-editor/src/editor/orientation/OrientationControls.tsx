@@ -29,16 +29,63 @@ import {
 } from '../../ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip'
 import { PROJECTION_SHORTCUT } from '../building-model-ribbon'
+
 import { OrientationBall } from './OrientationBall'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
+
 
 /** The flat list of views in the Orientation options menu: the six sides, then the three-quarter views. */
 const SIDE_VIEWS: readonly Side[] = ['top', 'south', 'north', 'east', 'west', 'bottom']
-export const THREE_QUARTER_VIEWS: ReadonlyArray<{ readonly label: string; readonly view: ViewVector }> = [
-  { label: 'Above, from the south-east', view: { x: 1, y: -1, z: 1 } },
-  { label: 'Above, from the south-west', view: { x: -1, y: -1, z: 1 } },
-  { label: 'Above, from the north-east', view: { x: 1, y: 1, z: 1 } },
-  { label: 'Above, from the north-west', view: { x: -1, y: 1, z: 1 } },
+
+export const THREE_QUARTER_VIEWS: ReadonlyArray<{ readonly key: string; readonly west: boolean; readonly north: boolean; readonly view: ViewVector }> = [
+  { key: 'southEast', west: false, north: false, view: { x: 1, y: -1, z: 1 } },
+  { key: 'southWest', west: true, north: false, view: { x: -1, y: -1, z: 1 } },
+  { key: 'northEast', west: false, north: true, view: { x: 1, y: 1, z: 1 } },
+  { key: 'northWest', west: true, north: true, view: { x: -1, y: 1, z: 1 } },
 ]
+
+/** The four three-quarter views (§2.3's norths and easts are the model's own words). */
+function threeQuarterLabel(view: { readonly key: string }, t: Translate): string {
+  switch (view.key) {
+    case 'southEast':
+      return t('orientation.aboveSouthEast', 'Above, from the south-east', { ns: 'editor' })
+    case 'southWest':
+      return t('orientation.aboveSouthWest', 'Above, from the south-west', { ns: 'editor' })
+    case 'northEast':
+      return t('orientation.aboveNorthEast', 'Above, from the north-east', { ns: 'editor' })
+    case 'northWest':
+      return t('orientation.aboveNorthWest', 'Above, from the north-west', { ns: 'editor' })
+    default:
+      return view.key
+  }
+}
+
+/** A side of the model, in the language on screen: the viewer's own label is English. */
+function sideLabel(side: Side, t: Translate): string {
+  switch (side) {
+    case 'top':
+      return t('orientation.side.top', 'Top', { ns: 'editor' })
+    case 'bottom':
+      return t('orientation.side.bottom', 'Bottom', { ns: 'editor' })
+    case 'north':
+      return t('orientation.side.north', 'North', { ns: 'editor' })
+    case 'south':
+      return t('orientation.side.south', 'South', { ns: 'editor' })
+    case 'east':
+      return t('orientation.side.east', 'East', { ns: 'editor' })
+    case 'west':
+      return t('orientation.side.west', 'West', { ns: 'editor' })
+    default:
+      return SIDE_LABEL[side]
+  }
+}
+
+function projectionLabel(projection: Projection, t: Translate): string {
+  return projection === 'orthographic'
+    ? t('orientation.orthographic', 'Orthographic', { ns: 'editor' })
+    : t('orientation.perspective', 'Perspective', { ns: 'editor' })
+}
+
 
 const RAD_TO_DEG = 180 / Math.PI
 
@@ -103,9 +150,12 @@ export function OrientationControls({ viewer, rightInset, canCreateViews, blocke
     [viewer],
   )
 
+
   if (!available) return null
 
+  const t = useEditorTranslate()
   const onTop = squareOn === 'top'
+
   const side = isElevationSide(squareOn) ? squareOn : null
 
   return (
@@ -118,14 +168,30 @@ export function OrientationControls({ viewer, rightInset, canCreateViews, blocke
       data-projection={projection}
     >
       <OrientationBall viewer={viewer} />
-      <div className="flex items-center gap-1 rounded-md border bg-background/95 p-0.5 shadow-sm" role="toolbar" aria-label="View orientation">
+
+      <div
+        className="flex items-center gap-1 rounded-md border bg-background/95 p-0.5 shadow-sm"
+        role="toolbar"
+        aria-label={t('orientation.viewOrientation', 'View orientation', { ns: 'editor' })}
+      >
+
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label="Home view" data-testid="orientation-home" onClick={() => void viewer.frame().catch((err: unknown) => console.error('[OrientationControls] home failed', err))}>
+
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={t('orientation.homeView', 'Home view', { ns: 'editor' })}
+              data-testid="orientation-home"
+              onClick={() => void viewer.frame().catch((err: unknown) => console.error('[OrientationControls] home failed', err))}
+            >
+
               <Home />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Home: everything in view from the south-east (F)</TooltipContent>
+
+          <TooltipContent>{t('orientation.homeWhy', 'Home: everything in view from the south-east (F)', { ns: 'editor' })}</TooltipContent>
+
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -133,15 +199,30 @@ export function OrientationControls({ viewer, rightInset, canCreateViews, blocke
               variant="ghost"
               size="sm"
               className="h-7 px-1.5 text-[11px] font-medium"
-              aria-label={`${PROJECTION_LABEL[projection]} projection. Switch to ${PROJECTION_LABEL[otherProjection(projection)].toLowerCase()}`}
+
+              aria-label={t('orientation.projectionToggle', '{{current}} projection. Switch to {{other}}', {
+                ns: 'editor',
+                current: projectionLabel(projection, t),
+                other: projectionLabel(otherProjection(projection), t).toLowerCase(),
+              })}
+
               data-testid="orientation-projection-toggle"
               onClick={() => onProjectionChange(otherProjection(projection))}
             >
-              {projection === 'orthographic' ? 'Ortho' : 'Persp'}
+
+              {projection === 'orthographic' ? t('orientation.orthoShort', 'Ortho', { ns: 'editor' }) : t('orientation.perspShort', 'Persp', { ns: 'editor' })}
+
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            {PROJECTION_LABEL[projection]}. Switch to {PROJECTION_LABEL[otherProjection(projection)].toLowerCase()} ({PROJECTION_SHORTCUT})
+
+            {t('orientation.projectionSwitch', '{{current}}. Switch to {{other}} ({{shortcut}})', {
+              ns: 'editor',
+              current: projectionLabel(projection, t),
+              other: projectionLabel(otherProjection(projection), t).toLowerCase(),
+              shortcut: PROJECTION_SHORTCUT,
+            })}
+
           </TooltipContent>
         </Tooltip>
         <Tooltip>
@@ -149,7 +230,9 @@ export function OrientationControls({ viewer, rightInset, canCreateViews, blocke
             <span
               role="img"
               tabIndex={0}
-              aria-label={`Compass. True north is ${trueNorthDeg}° clockwise from plan north.`}
+
+              aria-label={t('orientation.compassAria', 'Compass. True north is {{deg}}° clockwise from plan north.', { ns: 'editor', deg: trueNorthDeg })}
+
               data-testid="compass-dial"
               data-true-north={trueNorthDeg}
               className="relative flex size-7 items-center justify-center rounded-full border border-muted-foreground/40 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
@@ -160,34 +243,56 @@ export function OrientationControls({ viewer, rightInset, canCreateViews, blocke
               </span>
             </span>
           </TooltipTrigger>
-          <TooltipContent>True north is {trueNorthDeg}° clockwise from plan north. Set it under Manage › True north.</TooltipContent>
+
+          <TooltipContent>
+            {t('orientation.trueNorthIs', 'True north is {{deg}}° clockwise from plan north. Set it under Manage › True north.', { ns: 'editor', deg: trueNorthDeg })}
+          </TooltipContent>
+
         </Tooltip>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label="Orientation options">
+
+            <Button variant="ghost" size="icon-sm" aria-label={t('orientation.options', 'Orientation options', { ns: 'editor' })}>
+
               <ChevronDown />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-64">
-            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">{squareOn ? `Looking from: ${SIDE_LABEL[squareOn]}` : 'Turn to'}</DropdownMenuLabel>
+
+            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+              {squareOn
+                ? t('orientation.lookingFrom', 'Looking from: {{side}}', { ns: 'editor', side: sideLabel(squareOn, t) })
+                : t('orientation.turnTo', 'Turn to', { ns: 'editor' })}
+            </DropdownMenuLabel>
+
             <DropdownMenuGroup>
               {SIDE_VIEWS.map((s) => (
+
                 <DropdownMenuItem key={s} onSelect={() => turnTo(s)}>
-                  {SIDE_LABEL[s]}
+                  {sideLabel(s, t)}
+
                 </DropdownMenuItem>
               ))}
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Three-quarter views</DropdownMenuLabel>
+
+            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+              {t('orientation.threeQuarter', 'Three-quarter views', { ns: 'editor' })}
+            </DropdownMenuLabel>
+
             <DropdownMenuGroup>
-              {THREE_QUARTER_VIEWS.map(({ label, view }) => (
-                <DropdownMenuItem key={label} onSelect={() => turnTo(view)}>
-                  {label}
+
+              {THREE_QUARTER_VIEWS.map((entry) => (
+                <DropdownMenuItem key={entry.key} onSelect={() => turnTo(entry.view)}>
+                  {threeQuarterLabel(entry, t)}
                 </DropdownMenuItem>
               ))}
+
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Projection</DropdownMenuLabel>
+
+            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">{t('view.projection', 'Projection', { ns: 'editor' })}</DropdownMenuLabel>
+
             <DropdownMenuRadioGroup
               value={projection}
               onValueChange={(v) => {
@@ -197,7 +302,9 @@ export function OrientationControls({ viewer, rightInset, canCreateViews, blocke
             >
               {PROJECTIONS.map((p) => (
                 <DropdownMenuRadioItem key={p} value={p} data-testid={`orientation-projection-${p}`}>
-                  {PROJECTION_LABEL[p]}
+
+                  {projectionLabel(p, t)}
+
                   {p !== projection && <DropdownMenuShortcut>{PROJECTION_SHORTCUT}</DropdownMenuShortcut>}
                 </DropdownMenuRadioItem>
               ))}
@@ -206,11 +313,23 @@ export function OrientationControls({ viewer, rightInset, canCreateViews, blocke
             <DropdownMenuGroup>
               <DropdownMenuItem disabled={!canCreateViews || !onTop} onSelect={onCreatePlan}>
                 <LayoutTemplate data-icon="inline-start" />
-                {canCreateViews ? (onTop ? 'Create plan view from here' : 'Create plan view from here (turn to Top first)') : blockedReason}
+
+                {canCreateViews
+                  ? onTop
+                    ? t('orientation.createPlan', 'Create plan view from here', { ns: 'editor' })
+                    : t('orientation.createPlanFirstTop', 'Create plan view from here (turn to Top first)', { ns: 'editor' })
+                  : blockedReason}
+
               </DropdownMenuItem>
               <DropdownMenuItem disabled={!canCreateViews || !side} onSelect={() => side && onCreateElevation(side)}>
                 <Scan data-icon="inline-start" />
-                {canCreateViews ? (side ? `Create ${side} elevation from here` : 'Create elevation from here (turn to a side first)') : blockedReason}
+
+                {canCreateViews
+                  ? side
+                    ? t('orientation.createElevation', 'Create {{side}} elevation from here', { ns: 'editor', side: sideLabel(side, t).toLowerCase() })
+                    : t('orientation.createElevationFirstSide', 'Create elevation from here (turn to a side first)', { ns: 'editor' })
+                  : blockedReason}
+
               </DropdownMenuItem>
             </DropdownMenuGroup>
           </DropdownMenuContent>
@@ -229,11 +348,26 @@ export function OrientationControls({ viewer, rightInset, canCreateViews, blocke
                 onClick={() => (onTop ? onCreatePlan() : side && onCreateElevation(side))}
               >
                 {onTop ? <LayoutTemplate data-icon="inline-start" /> : <Scan data-icon="inline-start" />}
-                {onTop ? 'Plan view from here' : `${side ? side.charAt(0).toUpperCase() + side.slice(1) : ''} elevation from here`}
+
+                {onTop
+                  ? t('orientation.planViewFromHere', 'Plan view from here', { ns: 'editor' })
+                  : t('orientation.elevationFromHere', '{{side}} elevation from here', {
+                      ns: 'editor',
+                      side: side ? sideLabel(side, t) : '',
+                    })}
+
               </Button>
             </span>
           </TooltipTrigger>
-          <TooltipContent>{canCreateViews ? (onTop ? 'Save a floor plan view for a level' : 'Save this side as an elevation view (a section just outside the model)') : blockedReason}</TooltipContent>
+
+          <TooltipContent>
+            {canCreateViews
+              ? onTop
+                ? t('orientation.savePlanView', 'Save a floor plan view for a level', { ns: 'editor' })
+                : t('orientation.saveElevationView', 'Save this side as an elevation view (a section just outside the model)', { ns: 'editor' })
+              : blockedReason}
+          </TooltipContent>
+
         </Tooltip>
       )}
     </div>

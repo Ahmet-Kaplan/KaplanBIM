@@ -16,7 +16,10 @@ import {
 } from '../../ui/alert-dialog'
 import { Button } from '../../ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip'
+
 import { CalcSheetTable } from './CalcSheetTable'
+import { useEditorTranslate } from '../i18n/translate'
+
 
 /**
  * Properties of a calculation on a sheet: which calculation it is, its
@@ -25,14 +28,19 @@ import { CalcSheetTable } from './CalcSheetTable'
  * first; undo brings it back.
  */
 export function CalcBlockProperties({ item, block, model, canEdit, blockedReason, freshness, onDelete }: { readonly item: DrawingItem; readonly block: FieldBlockSpec; readonly model: ModelState; readonly canEdit: boolean; readonly blockedReason: string; readonly freshness: ReactNode; readonly onDelete: () => void }) {
+
+  const t = useEditorTranslate()
   const [confirm, setConfirm] = useState(false)
   const rendered = useMemo(() => renderFieldBlock(model, block), [model, block])
   const template = block.calc ? calcSheetTemplate(block.calc.template) : null
-  const name = block.title ?? template?.label ?? 'Calculation'
+  const name = block.title ?? template?.label ?? t('calc.calculation', 'Calculation', { ns: 'editor' })
+
   const remove = (
     <Button variant="outline" size="sm" disabled={!canEdit} onClick={() => setConfirm(true)} data-testid="calc-block-delete">
+
       <Trash2 data-icon="inline-start" />
-      Remove
+      {t('calc.remove', 'Remove', { ns: 'editor' })}
+
     </Button>
   )
   return (
@@ -40,11 +48,19 @@ export function CalcBlockProperties({ item, block, model, canEdit, blockedReason
       <div className="flex items-center justify-between gap-2">
         <div className="flex flex-col">
           <span className="font-medium">{name}</span>
-          <span className="text-xs text-muted-foreground">{template ? `Calculation: ${template.label}` : `This model has no add-on with the ${block.calc?.template ?? ''} calculation; it shows what it last could.`}</span>
+
+          <span className="text-xs text-muted-foreground">
+            {template
+              ? t('calc.calculationIs', 'Calculation: {{name}}', { ns: 'editor', name: template.label })
+              : t('calc.addonGone', 'This model has no add-on with the {{name}} calculation; it shows what it last could.', { ns: 'editor', name: block.calc?.template ?? '' })}
+          </span>
+
         </div>
         {freshness}
       </div>
-      <CalcSheetTable text={rendered.text} caption={`${name}: inputs, table lookups and steps`} />
+
+      <CalcSheetTable text={rendered.text} caption={t('calc.tableCaption', '{{name}}: inputs, table lookups and steps', { ns: 'editor', name })} />
+
       <div className="flex justify-end">
         {canEdit ? (
           remove
@@ -60,19 +76,27 @@ export function CalcBlockProperties({ item, block, model, canEdit, blockedReason
       <AlertDialog open={confirm} onOpenChange={setConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove {name} from this sheet?</AlertDialogTitle>
-            <AlertDialogDescription>Copies already issued keep what they said. Undo puts it back.</AlertDialogDescription>
+
+            <AlertDialogTitle>{t('calc.removeTitle', 'Remove {{name}} from this sheet?', { ns: 'editor', name })}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('calc.removeBody', 'Copies already issued keep what they said. Undo puts it back.', { ns: 'editor' })}
+            </AlertDialogDescription>
+
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep it</AlertDialogCancel>
+
+            <AlertDialogCancel>{t('calc.keepIt', 'Keep it', { ns: 'editor' })}</AlertDialogCancel>
+
             <AlertDialogAction
               onClick={() => {
                 setConfirm(false)
                 onDelete()
               }}
+
               data-testid="calc-block-delete-confirm"
             >
-              Remove
+              {t('calc.remove', 'Remove', { ns: 'editor' })}
+
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

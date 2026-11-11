@@ -2,7 +2,10 @@
 
 import { blockTextTable } from '@permitzip/bim-kernel'
 import { Badge } from '../../ui/badge'
+
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table'
+import { useEditorTranslate } from '../i18n/translate'
+
 
 const GOVERNING = 'governing cell'
 
@@ -13,22 +16,26 @@ const GOVERNING = 'governing cell'
  * colour alone. Checks, references and what the sheet still needs follow as
  * lines, failures in the danger colour with the word FAIL.
  */
+
 export function CalcSheetTable({ text, caption }: { readonly text: string; readonly caption: string }) {
-  const t = blockTextTable(text)
+  const t = useEditorTranslate()
+  // The worked calculation's own text, split into cells; `table` is the data, `t` the words around it.
+  const table = blockTextTable(text)
+
   return (
     <div className="flex flex-col gap-2" data-testid="calc-sheet-table">
-      {t.header && (
+      {table.header && (
         <Table>
           <TableCaption className="sr-only">{caption}</TableCaption>
           <TableHeader>
             <TableRow>
-              {t.header.map((h) => (
+              {table.header.map((h) => (
                 <TableHead key={h}>{h}</TableHead>
               ))}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {t.rows.map((row, i) => {
+            {table.rows.map((row, i) => {
               const how = row[3] ?? ''
               const governing = how.startsWith(GOVERNING)
               return (
@@ -39,9 +46,11 @@ export function CalcSheetTable({ text, caption }: { readonly text: string; reado
                   <TableCell className="text-sm">
                     {governing ? (
                       <div className="flex flex-col gap-1">
+
                         <Badge variant="outline" className="w-fit border-warning-300">
-                          Governing cell
+                          {t('calc.governingCell', 'Governing cell', { ns: 'editor' })}
                         </Badge>
+
                         <span>{how.slice(GOVERNING.length + 2)}</span>
                       </div>
                     ) : (
@@ -54,7 +63,7 @@ export function CalcSheetTable({ text, caption }: { readonly text: string; reado
           </TableBody>
         </Table>
       )}
-      {[...t.lead, ...t.notes].map((line, i) => (
+      {[...table.lead, ...table.notes].map((line, i) => (
         <p key={`${i}-${line}`} className={line.startsWith('FAIL') ? 'text-sm text-danger-600' : line.startsWith('Needs:') ? 'text-sm text-warning-700' : 'text-sm text-muted-foreground'}>
           {line}
         </p>

@@ -2,7 +2,10 @@
 
 import { useMutinyPortalContainer } from "@permitzip/bim-ui";
 import { AlertDialog as AlertDialogPrimitive, Dialog as DialogPrimitive, DropdownMenu as MenuPrimitive } from "radix-ui";
+
 import { useRef, type ReactNode } from "react";
+import { useSchedulesTranslate } from "../i18n/translate";
+
 
 /**
  * shadcn-shaped overlays (Radix, MIT) for the schedule surfaces: a confirm
@@ -67,8 +70,11 @@ export interface SheetProps {
   readonly initialFocusId?: string;
 }
 
+
 export function Sheet({ open, onOpenChange, title, description, children, footer, side = "right", initialFocusId }: SheetProps) {
   const container = useMutinyPortalContainer();
+  const t = useSchedulesTranslate();
+
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal container={container ?? undefined}>
@@ -88,7 +94,9 @@ export function Sheet({ open, onOpenChange, title, description, children, footer
           <header className="mutiny-sched-sheet-header">
             <DialogPrimitive.Title className="mutiny-sched-dialog-title">{title}</DialogPrimitive.Title>
             {description ? <DialogPrimitive.Description className="mutiny-sched-muted">{description}</DialogPrimitive.Description> : null}
-            <DialogPrimitive.Close className="mutiny-sched-icon-button" aria-label="Close">
+
+<DialogPrimitive.Close className="mutiny-sched-icon-button" aria-label={t("grid.close", "Close", { ns: "schedules" })}>
+
               ×
             </DialogPrimitive.Close>
           </header>

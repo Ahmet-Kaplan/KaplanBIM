@@ -7,9 +7,22 @@ import { Button } from '../../ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../ui/dialog'
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '../../ui/field'
 import { ParameterInput } from './ParameterInput'
-import type { SubmitCommand } from './types'
 
-const GROUP_TITLE: Record<ProjectParameterGroup, string> = { project: 'Project', people: 'People', issue: 'Issue' }
+import type { SubmitCommand } from './types'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
+
+/** The three groups the project's facts are stated in. */
+function groupTitle(group: ProjectParameterGroup, t: Translate): string {
+  switch (group) {
+    case 'project':
+      return t('projectInfo.group.project', 'Project', { ns: 'editor' })
+    case 'people':
+      return t('projectInfo.group.people', 'People', { ns: 'editor' })
+    case 'issue':
+      return t('projectInfo.group.issue', 'Issue', { ns: 'editor' })
+  }
+}
+
 
 /** What the host fills in when the project states nothing (its own name and number). */
 export interface HostProjectFacts {
@@ -23,8 +36,11 @@ export interface HostProjectFacts {
  * A sheet's own value still wins (Sheets › Title block). One save is one
  * edit, so Undo takes it back.
  */
+
 export function ProjectInfoDialog({ model, host, canEdit, blockedReason, submit, onClose }: { model: ModelState; host: HostProjectFacts; canEdit: boolean; blockedReason: string; submit: SubmitCommand; onClose: () => void }) {
+  const t = useEditorTranslate()
   const params = useMemo(() => projectParametersOf(model), [model])
+
   const [values, setValues] = useState<Record<string, string>>(() => ({ ...params.values }))
   const [error, setError] = useState<string | null>(null)
   const changed = params.defs.filter((d) => (values[d.key] ?? '') !== (params.values[d.key] ?? ''))
@@ -40,12 +56,23 @@ export function ProjectInfoDialog({ model, host, canEdit, blockedReason, submit,
       onClose()
       return
     }
-    const refusal = submit({ type: 'set_project_parameters', values: Object.fromEntries(changed.map((d) => [d.key, values[d.key]?.trim() ? (values[d.key] ?? '') : null])) }, 'update the project information')
+
+    const refusal = submit(
+      { type: 'set_project_parameters', values: Object.fromEntries(changed.map((d) => [d.key, values[d.key]?.trim() ? (values[d.key] ?? '') : null])) },
+      t('projectInfo.update', 'update the project information', { ns: 'editor' }),
+    )
+
     if (refusal) {
       setError(refusal)
       return
     }
-    toast.success(`Project information saved: every sheet shows ${changed.length === 1 ? 'the change' : `the ${changed.length} changes`}.`)
+
+    toast.success(
+      changed.length === 1
+        ? t('projectInfo.savedOne', 'Project information saved: every sheet shows the change.', { ns: 'editor' })
+        : t('projectInfo.savedMany', 'Project information saved: every sheet shows the {{n}} changes.', { ns: 'editor', n: changed.length }),
+    )
+
     onClose()
   }
 
@@ -54,15 +81,25 @@ export function ProjectInfoDialog({ model, host, canEdit, blockedReason, submit,
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl" data-testid="project-info-dialog">
         <form onSubmit={save} className="flex flex-col gap-4">
           <DialogHeader>
-            <DialogTitle>Project information</DialogTitle>
-            <DialogDescription>Filled in once, printed in every sheet&apos;s title block. A sheet can still say something else in its own Title block.</DialogDescription>
+
+            <DialogTitle>{t('projectInfo.title', 'Project information', { ns: 'editor' })}</DialogTitle>
+            <DialogDescription>
+              {t(
+                'projectInfo.description',
+                'Filled in once, printed in every sheet’s title block. A sheet can still say something else in its own Title block.',
+                { ns: 'editor' },
+              )}
+            </DialogDescription>
+
           </DialogHeader>
           {PROJECT_PARAMETER_GROUPS.map((group) => {
             const defs = params.defs.filter((d) => d.group === group)
             if (defs.length === 0) return null
             return (
               <FieldSet key={group}>
-                <FieldLegend>{GROUP_TITLE[group]}</FieldLegend>
+
+                <FieldLegend>{groupTitle(group, t)}</FieldLegend>
+
                 <FieldGroup className="grid grid-cols-2 gap-3">
                   {defs.map((d) => (
                     <Field key={d.key}>
@@ -78,11 +115,15 @@ export function ProjectInfoDialog({ model, host, canEdit, blockedReason, submit,
           {!canEdit && <FieldDescription>{blockedReason}</FieldDescription>}
           {error && <FieldError>{error}</FieldError>}
           <DialogFooter>
+
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
+              {t('projectInfo.cancel', 'Cancel', { ns: 'editor' })}
             </Button>
+
             <Button type="submit" disabled={!canEdit} data-testid="project-info-save">
-              {changed.length > 1 ? `Save ${changed.length} changes` : 'Save'}
+
+              {changed.length > 1 ? t('projectInfo.saveMany', 'Save {{n}} changes', { ns: 'editor', n: changed.length }) : t('projectInfo.save', 'Save', { ns: 'editor' })}
+
             </Button>
           </DialogFooter>
         </form>

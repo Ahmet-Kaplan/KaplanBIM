@@ -57,18 +57,23 @@ interface Props {
 }
 
 /** The list's "+" (New view or sheet) button and menu. */
+
 export function NewViewOrSheetMenu({ onRequest, canEdit, blockedReason }: { onRequest: (request: PanelRequest) => void; canEdit: boolean; blockedReason: string }) {
+  const t = useEditorTranslate()
   return (
+
     <DropdownMenu>
       <Tooltip>
         <TooltipTrigger asChild>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label="New view or sheet">
+
+            <Button variant="ghost" size="icon-sm" aria-label={t('panel.newViewOrSheet', 'New view or sheet', { ns: 'editor' })}>
               <Plus />
             </Button>
           </DropdownMenuTrigger>
         </TooltipTrigger>
-        <TooltipContent>{canEdit ? 'New view or sheet' : blockedReason}</TooltipContent>
+        <TooltipContent>{canEdit ? t('panel.newViewOrSheet', 'New view or sheet', { ns: 'editor' }) : blockedReason}</TooltipContent>
+
       </Tooltip>
       <DropdownMenuContent align="end">
         <NewMenuItems onRequest={onRequest} disabled={!canEdit} />
@@ -97,68 +102,98 @@ export function viewGroups(t: Translate): ReadonlyArray<{ type: ViewElement['vie
 }
 
 /** The New menu, shared by the toolbar and the list's header. */
+
 export function NewMenuItems({ onRequest, disabled }: { onRequest: (request: PanelRequest) => void; disabled: boolean }) {
+  const t = useEditorTranslate()
+  const items = newMenuItems(t, onRequest)
   return (
     <>
-      <DropdownMenuLabel>New view</DropdownMenuLabel>
+      <DropdownMenuLabel>{t('panel.newView', 'New view', { ns: 'editor' })}</DropdownMenuLabel>
       <DropdownMenuGroup>
-        <DropdownMenuItem disabled={disabled} onSelect={() => onRequest({ kind: 'new_view', viewType: 'floor_plan' })}>
-          <Layers data-icon="inline-start" />
-          Floor plan for a level
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled={disabled} onSelect={() => onRequest({ kind: 'new_view', viewType: 'ceiling_plan' })}>
-          <SquareDashed data-icon="inline-start" />
-          Ceiling plan
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled={disabled} onSelect={() => onRequest({ kind: 'new_view', viewType: 'section' })}>
-          <Scissors data-icon="inline-start" />
-          Section (draw a cut line)
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled={disabled} onSelect={() => onRequest({ kind: 'new_view', viewType: 'three_d' })}>
-          <Box data-icon="inline-start" />
-          3D view
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled={disabled} onSelect={() => onRequest({ kind: 'new_view', viewType: 'detail' })}>
-          <PenLine data-icon="inline-start" />
-          Detail view (drawing-only)
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled={disabled} onSelect={() => onRequest({ kind: 'new_schedule' })} data-testid="new-menu-schedule">
-          <TableProperties data-icon="inline-start" />
-          New schedule…
-        </DropdownMenuItem>
+        {items.views.map((item) => (
+          <DropdownMenuItem key={item.key} disabled={disabled} onSelect={item.onSelect} {...(item.testId ? { 'data-testid': item.testId } : {})}>
+            <item.icon data-icon="inline-start" />
+            {item.label}
+          </DropdownMenuItem>
+        ))}
       </DropdownMenuGroup>
       <DropdownMenuSeparator />
-      <DropdownMenuLabel>Diagrams from the model</DropdownMenuLabel>
+      <DropdownMenuLabel>{t('panel.diagramsFromModel', 'Diagrams from the model', { ns: 'editor' })}</DropdownMenuLabel>
       <DropdownMenuGroup>
-        <DropdownMenuItem disabled={disabled} onSelect={() => onRequest({ kind: 'new_diagram', diagramKind: 'one_line' })} data-testid="new-view-one-line">
-          <Network data-icon="inline-start" />
-          One-line diagram
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled={disabled} onSelect={() => onRequest({ kind: 'new_diagram', diagramKind: 'electrical_riser' })}>
-          <Network data-icon="inline-start" />
-          Electrical riser diagram
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled={disabled} onSelect={() => onRequest({ kind: 'new_diagram', diagramKind: 'plumbing_riser' })} data-testid="new-view-plumbing-riser">
-          <Network data-icon="inline-start" />
-          Plumbing riser diagram
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled={disabled} onSelect={() => onRequest({ kind: 'new_diagram', diagramKind: 'plumbing_isometric' })} data-testid="new-view-plumbing-isometric">
-          <Network data-icon="inline-start" />
-          Plumbing isometric
-        </DropdownMenuItem>
+        {items.diagrams.map((item) => (
+          <DropdownMenuItem key={item.key} disabled={disabled} onSelect={item.onSelect} {...(item.testId ? { 'data-testid': item.testId } : {})}>
+            <item.icon data-icon="inline-start" />
+            {item.label}
+          </DropdownMenuItem>
+        ))}
       </DropdownMenuGroup>
       <DropdownMenuSeparator />
       <DropdownMenuItem disabled={disabled} onSelect={() => onRequest({ kind: 'new_sheet' })}>
         <FileText data-icon="inline-start" />
-        New sheet
+        {t('panel.newSheet', 'New sheet', { ns: 'editor' })}
       </DropdownMenuItem>
       <DropdownMenuSeparator />
       <DropdownMenuItem disabled={disabled} onSelect={() => onRequest({ kind: 'agent_make' })} data-testid="new-menu-agent-make">
         <Sparkles data-icon="inline-start" />
-        Make sheets, views and schedules with the agent…
+        {t('panel.agentMake', 'Make sheets, views and schedules with the agent…', { ns: 'editor' })}
       </DropdownMenuItem>
     </>
   )
+}
+
+/** The New menu's items as data: every caption keyed, in one place, so the list and its words cannot drift apart. */
+function newMenuItems(t: Translate, onRequest: (request: PanelRequest) => void) {
+  const icon = (component: typeof Layers) => component
+  return {
+    views: [
+      { key: 'floor_plan', icon: icon(Layers), label: t('panel.new.floorPlan', 'Floor plan for a level', { ns: 'editor' }), onSelect: () => onRequest({ kind: 'new_view', viewType: 'floor_plan' }) },
+      { key: 'ceiling_plan', icon: icon(SquareDashed), label: t('panel.new.ceilingPlan', 'Ceiling plan', { ns: 'editor' }), onSelect: () => onRequest({ kind: 'new_view', viewType: 'ceiling_plan' }) },
+      {
+        key: 'section',
+        icon: icon(Scissors),
+        label: t('panel.new.section', 'Section (draw a cut line)', { ns: 'editor' }),
+        onSelect: () => onRequest({ kind: 'new_view', viewType: 'section' }),
+      },
+      { key: 'three_d', icon: icon(Box), label: t('panel.new.threeD', '3D view', { ns: 'editor' }), onSelect: () => onRequest({ kind: 'new_view', viewType: 'three_d' }) },
+      { key: 'detail', icon: icon(PenLine), label: t('panel.new.detail', 'Detail view (drawing-only)', { ns: 'editor' }), onSelect: () => onRequest({ kind: 'new_view', viewType: 'detail' }) },
+      {
+        key: 'schedule',
+        icon: icon(TableProperties),
+        label: t('panel.new.schedule', 'New schedule…', { ns: 'editor' }),
+        onSelect: () => onRequest({ kind: 'new_schedule' }),
+        testId: 'new-menu-schedule',
+      },
+    ],
+    diagrams: [
+      {
+        key: 'one_line',
+        icon: icon(Network),
+        label: t('panel.new.oneLine', 'One-line diagram', { ns: 'editor' }),
+        onSelect: () => onRequest({ kind: 'new_diagram', diagramKind: 'one_line' }),
+        testId: 'new-view-one-line',
+      },
+      {
+        key: 'electrical_riser',
+        icon: icon(Network),
+        label: t('panel.new.electricalRiser', 'Electrical riser diagram', { ns: 'editor' }),
+        onSelect: () => onRequest({ kind: 'new_diagram', diagramKind: 'electrical_riser' }),
+      },
+      {
+        key: 'plumbing_riser',
+        icon: icon(Network),
+        label: t('panel.new.plumbingRiser', 'Plumbing riser diagram', { ns: 'editor' }),
+        onSelect: () => onRequest({ kind: 'new_diagram', diagramKind: 'plumbing_riser' }),
+        testId: 'new-view-plumbing-riser',
+      },
+      {
+        key: 'plumbing_isometric',
+        icon: icon(Network),
+        label: t('panel.new.plumbingIsometric', 'Plumbing isometric', { ns: 'editor' }),
+        onSelect: () => onRequest({ kind: 'new_diagram', diagramKind: 'plumbing_isometric' }),
+        testId: 'new-view-plumbing-isometric',
+      },
+    ],
+  }
 }
 
 export function ViewsSheetsPanel({ model, canEdit, blockedReason, open, onOpen, onRequest, userId, headerless = false }: Props) {
@@ -184,14 +219,28 @@ export function ViewsSheetsPanel({ model, canEdit, blockedReason, open, onOpen, 
       )}
 
       <ItemGroup className="gap-0.5">
-        <OpenRow label="3D model" description="Everything, live" active={sameOpen(open, { kind: 'model', mode: '3d' })} onOpen={() => onOpen({ kind: 'model', mode: '3d' })} />
-        <OpenRow label="Top-down plan" description="All levels, looking down" active={sameOpen(open, { kind: 'model', mode: 'plan' })} onOpen={() => onOpen({ kind: 'model', mode: 'plan' })} />
+
+        <OpenRow
+          label={t('panel.threeDModel', '3D model', { ns: 'editor' })}
+          description={t('panel.threeDModelWhy', 'Everything, live', { ns: 'editor' })}
+          active={sameOpen(open, { kind: 'model', mode: '3d' })}
+          onOpen={() => onOpen({ kind: 'model', mode: '3d' })}
+        />
+        <OpenRow
+          label={t('panel.topDownPlan', 'Top-down plan', { ns: 'editor' })}
+          description={t('panel.topDownPlanWhy', 'All levels, looking down', { ns: 'editor' })}
+          active={sameOpen(open, { kind: 'model', mode: 'plan' })}
+          onOpen={() => onOpen({ kind: 'model', mode: 'plan' })}
+        />
+
       </ItemGroup>
 
       {!model ? (
         <Empty className="border p-3">
           <EmptyHeader>
-            <EmptyTitle className="text-sm">No saved views yet</EmptyTitle>
+
+            <EmptyTitle className="text-sm">{t('panel.noViewsYet', 'No saved views yet', { ns: 'editor' })}</EmptyTitle>
+
             <EmptyDescription className="text-xs">{blockedReason}</EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -220,7 +269,11 @@ export function ViewsSheetsPanel({ model, canEdit, blockedReason, open, onOpen, 
           })}
           <Group title={t('panel.group.sheets', 'Sheets', { ns: 'editor' })} count={sheets.length}>
             {sheets.length === 0 ? (
-              <p className="px-2 py-1 text-xs text-muted-foreground">No sheets yet. Use + to make one, then drag views onto it, or have the agent make the set.</p>
+
+              <p className="px-2 py-1 text-xs text-muted-foreground">
+                {t('panel.noSheetsYet', 'No sheets yet. Use + to make one, then drag views onto it, or have the agent make the set.', { ns: 'editor' })}
+              </p>
+
             ) : (
               sheets.map((sheet) => (
                 <SheetRow
@@ -240,36 +293,58 @@ export function ViewsSheetsPanel({ model, canEdit, blockedReason, open, onOpen, 
                 <TooltipTrigger asChild>
                   <span className="flex">
                     <Button variant="outline" size="sm" className="flex-1" disabled={!canEdit} onClick={() => onRequest({ kind: 'agent_make' })} data-testid="views-agent-make">
+
                       <Sparkles data-icon="inline-start" />
-                      Make with the agent…
+                      {t('panel.makeWithAgent', 'Make with the agent…', { ns: 'editor' })}
+
                     </Button>
                   </span>
                 </TooltipTrigger>
-                <TooltipContent>{canEdit ? 'Opens Cmd+J with a drafted request for sheets, views and schedules. Edit it, send it; nothing changes until you approve.' : blockedReason}</TooltipContent>
+
+                <TooltipContent>
+                  {canEdit
+                    ? t('panel.makeWithAgentWhy', 'Opens Cmd+J with a drafted request for sheets, views and schedules. Edit it, send it; nothing changes until you approve.', {
+                        ns: 'editor',
+                      })
+                    : blockedReason}
+                </TooltipContent>
+
               </Tooltip>
             </div>
             {sheets.length > 0 && (
               <div className="flex gap-1 px-1 pt-1">
                 <Button variant="outline" size="sm" className="flex-1" onClick={() => onRequest({ kind: 'print_set' })} data-testid="panel-print-set">
+
                   <Printer data-icon="inline-start" />
-                  Print set…
+                  {t('panel.printSet', 'Print set…', { ns: 'editor' })}
+
                 </Button>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className="flex flex-1">
                       <Button variant="outline" size="sm" className="flex-1" disabled={!canEdit} onClick={() => onRequest({ kind: 'issue_set' })} data-testid="panel-issue-set">
+
                         <Stamp data-icon="inline-start" />
-                        Issue set…
+                        {t('panel.issueSet', 'Issue set…', { ns: 'editor' })}
+
                       </Button>
                     </span>
                   </TooltipTrigger>
-                  <TooltipContent>{canEdit ? 'Check the set against its last print, add the revision row and issue it' : blockedReason}</TooltipContent>
+
+                  <TooltipContent>
+                    {canEdit ? t('panel.issueSetWhy', 'Check the set against its last print, add the revision row and issue it', { ns: 'editor' }) : blockedReason}
+                  </TooltipContent>
+
                 </Tooltip>
               </div>
             )}
           </Group>
           {(index?.views.length ?? 0) === 0 && (
-            <p className="text-xs text-muted-foreground">Make a floor plan for a level, draw a section in it, then put both on a sheet.</p>
+
+            <p className="text-xs text-muted-foreground">
+              {t('panel.noViewsHow', 'Make a floor plan for a level, draw a section in it, then put both on a sheet.', { ns: 'editor' })}
+            </p>
+
           )}
         </>
       )}
@@ -338,8 +413,11 @@ function ViewRow({
   blockedReason: string
   onOpen: () => void
   onRequest: (request: PanelRequest) => void
+
 }) {
+  const t = useEditorTranslate()
   const draggable = canEdit && onSheet === null
+
   return (
     <Item size="xs" variant={active ? 'muted' : 'default'} className="flex-nowrap gap-1 py-0.5 pl-2 pr-0.5" data-testid={`view-row-${view.id}`}>
       <Tooltip>
@@ -360,9 +438,15 @@ function ViewRow({
             {levelName && <span className="shrink-0 text-muted-foreground">{levelName}</span>}
           </Button>
         </TooltipTrigger>
+
         <TooltipContent>
-          {onSheet ? `${VIEW_TYPE_LABEL[view.viewType]}. On sheet ${onSheet}.` : canEdit ? `${VIEW_TYPE_LABEL[view.viewType]}. Open it, or drag it onto an open sheet.` : VIEW_TYPE_LABEL[view.viewType]}
+          {onSheet
+            ? t('panel.viewOnSheet', '{{type}}. On sheet {{number}}.', { ns: 'editor', type: VIEW_TYPE_LABEL[view.viewType], number: onSheet })
+            : canEdit
+              ? t('panel.viewOpenOrDrag', '{{type}}. Open it, or drag it onto an open sheet.', { ns: 'editor', type: VIEW_TYPE_LABEL[view.viewType] })
+              : VIEW_TYPE_LABEL[view.viewType]}
         </TooltipContent>
+
       </Tooltip>
       {onSheet && (
         <Badge variant="outline" className="shrink-0 text-[10px]">
@@ -370,14 +454,18 @@ function ViewRow({
         </Badge>
       )}
       <ItemActions>
+
         <RowMenu
-          label={`Actions for view ${view.name}`}
+          label={t('panel.actionsForView', 'Actions for view {{name}}', { ns: 'editor', name: view.name })}
+
           canEdit={canEdit}
           blockedReason={blockedReason}
           items={[
-            { label: 'Rename…', onSelect: () => onRequest({ kind: 'rename_view', view }) },
-            { label: 'Duplicate', onSelect: () => onRequest({ kind: 'duplicate_view', view }) },
-            { label: 'Delete…', destructive: true, onSelect: () => onRequest({ kind: 'delete_view', view }) },
+
+            { label: t('panel.rename', 'Rename…', { ns: 'editor' }), onSelect: () => onRequest({ kind: 'rename_view', view }) },
+            { label: t('panel.duplicate', 'Duplicate', { ns: 'editor' }), onSelect: () => onRequest({ kind: 'duplicate_view', view }) },
+            { label: t('panel.delete', 'Delete…', { ns: 'editor' }), destructive: true, onSelect: () => onRequest({ kind: 'delete_view', view }) },
+
           ]}
         />
       </ItemActions>
@@ -401,26 +489,38 @@ function SheetRow({
   blockedReason: string
   onOpen: () => void
   onRequest: (request: PanelRequest) => void
+
 }) {
+  const t = useEditorTranslate()
   return (
     <Item size="xs" variant={active ? 'muted' : 'default'} className="flex-nowrap gap-1 py-0.5 pl-2 pr-0.5" data-testid={`sheet-row-${sheet.number}`}>
+
       <Button variant="ghost" size="sm" className="min-w-0 flex-1 justify-start px-1 font-normal" aria-current={active ? 'page' : undefined} onClick={onOpen}>
         <span className="shrink-0 font-medium">{sheet.number}</span>
         <span className="truncate text-muted-foreground">{sheet.title}</span>
       </Button>
-      <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums" aria-label={`${viewCount} views placed`}>
+
+      <span
+        className="shrink-0 text-[10px] text-muted-foreground tabular-nums"
+        aria-label={t('panel.viewsPlaced', '{{n}} views placed', { ns: 'editor', n: viewCount })}
+      >
+
         {viewCount}
       </span>
       <ItemActions>
+
         <RowMenu
-          label={`Actions for sheet ${sheet.number}`}
+          label={t('panel.actionsForSheet', 'Actions for sheet {{number}}', { ns: 'editor', number: sheet.number })}
+
           canEdit={canEdit}
           blockedReason={blockedReason}
           items={[
-            { label: 'Number, name and title block…', onSelect: () => onRequest({ kind: 'edit_sheet', sheet }) },
-            { label: 'Arrange views…', onSelect: () => onRequest({ kind: 'arrange_sheet', sheet }) },
-            { label: 'Revisions…', onSelect: () => onRequest({ kind: 'sheet_revisions', sheet }) },
-            { label: 'Delete…', destructive: true, onSelect: () => onRequest({ kind: 'delete_sheet', sheet }) },
+
+            { label: t('panel.sheetProperties', 'Number, name and title block…', { ns: 'editor' }), onSelect: () => onRequest({ kind: 'edit_sheet', sheet }) },
+            { label: t('panel.arrangeViews', 'Arrange views…', { ns: 'editor' }), onSelect: () => onRequest({ kind: 'arrange_sheet', sheet }) },
+            { label: t('panel.revisions', 'Revisions…', { ns: 'editor' }), onSelect: () => onRequest({ kind: 'sheet_revisions', sheet }) },
+            { label: t('panel.delete', 'Delete…', { ns: 'editor' }), destructive: true, onSelect: () => onRequest({ kind: 'delete_sheet', sheet }) },
+
           ]}
         />
       </ItemActions>

@@ -44,7 +44,10 @@ import { Crop3dFields, type Crop3dControls } from './Crop3dFields'
 import { CircuitGraphicsFields } from './CircuitGraphicsFields'
 import { LinkedModelDisplayFields } from '../linked-display/LinkedModelDisplayControls'
 import { makeLinkedDisplay } from '../linked-display/use-linked-display'
+
 import { CategoryGraphicsTable } from '../graphics/CategoryGraphicsTable'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
+
 
 const FT = 304.8
 
@@ -55,27 +58,80 @@ const CATEGORY_LABEL: Readonly<Record<ViewCategory, string>> = VIEW_CATEGORY_LAB
  * Disciplines a view can be drawn for, from the registry (the model's add-ons and firm rows included); documentation and general draw nothing of their own.
  * A discipline the view already carries that this registry doesn't know (an add-on turned off since) stays listed, in its own words, so the field never reads blank.
  */
-function viewDisciplineChoices(current?: string | null): ReadonlyArray<{ readonly value: string; readonly label: string }> {
-  const rows = [{ value: 'all', label: 'All in ink' }, ...listDisciplines().filter((d) => d.id !== 'documentation' && d.id !== 'general').map((d) => ({ value: d.id, label: d.parent ? `${disciplineLabel(d.parent)} › ${d.label}` : d.label }))]
-  return current && !rows.some((r) => r.value === current) ? [...rows, { value: current, label: `${disciplineLabel(current)} (not in this model's add-ons)` }] : rows
+
+function viewDisciplineChoices(t: Translate, current?: string | null): ReadonlyArray<{ readonly value: string; readonly label: string }> {
+  const rows = [
+    { value: 'all', label: t('view.disciplineAllInk', 'All in ink', { ns: 'editor' }) },
+    ...listDisciplines()
+      .filter((d) => d.id !== 'documentation' && d.id !== 'general')
+      .map((d) => ({ value: d.id, label: d.parent ? `${disciplineLabel(d.parent)} › ${d.label}` : d.label })),
+  ]
+  // A discipline this registry no longer knows stays listed, in its own words, so the field never reads blank.
+  return current && !rows.some((r) => r.value === current)
+    ? [...rows, { value: current, label: t('view.disciplineUnknown', '{{name}} (not in this model’s add-ons)', { ns: 'editor', name: disciplineLabel(current) }) }]
+    : rows
 }
+
 
 const DETAIL_LEVELS: readonly DetailLevel[] = ['coarse', 'medium', 'fine']
 
-const VISUAL_STYLE_LABEL: Record<VisualStyle, { label: string; hint: string }> = {
-  wireframe: { label: 'Wireframe', hint: 'Every edge, nothing hides anything.' },
-  hidden_line: { label: 'Hidden line', hint: 'Edges behind nearer elements are hidden.' },
-  shaded: { label: 'Shaded', hint: 'Surfaces filled grey, no edges.' },
-  shaded_edges: { label: 'Shaded with edges', hint: 'Surfaces filled grey with their edges.' },
+
+function visualStyleLabel(style: VisualStyle, t: Translate): { label: string; hint: string } {
+  switch (style) {
+    case 'wireframe':
+      return {
+        label: t('view.style.wireframe', 'Wireframe', { ns: 'editor' }),
+        hint: t('view.style.wireframeHint', 'Every edge, nothing hides anything.', { ns: 'editor' }),
+      }
+    case 'hidden_line':
+      return {
+        label: t('view.style.hiddenLine', 'Hidden line', { ns: 'editor' }),
+        hint: t('view.style.hiddenLineHint', 'Edges behind nearer elements are hidden.', { ns: 'editor' }),
+      }
+    case 'shaded':
+      return {
+        label: t('view.style.shaded', 'Shaded', { ns: 'editor' }),
+        hint: t('view.style.shadedHint', 'Surfaces filled grey, no edges.', { ns: 'editor' }),
+      }
+    case 'shaded_edges':
+      return {
+        label: t('view.style.shadedEdges', 'Shaded with edges', { ns: 'editor' }),
+        hint: t('view.style.shadedEdgesHint', 'Surfaces filled grey with their edges.', { ns: 'editor' }),
+      }
+  }
 }
 
-const DETAIL_HINT: Record<DetailLevel, string> = {
-  coarse: 'Duct and pipe as single lines; fittings as their centrelines.',
-  medium: 'Duct double-line with fitting outlines.',
-  fine: 'Adds turning vanes and fitting joints.',
+/**
+ * "Detail level" — §9/Ç6: the *view's* detail level is **detay seviyesi**, never
+ * `kat` (that is a storey, §2.3) and never `seviye` alone (the glossary keeps the
+ * whole term). The three values under it (coarse/medium/fine) are separate words.
+ */
+export function detailLevelLabel(t: Translate): string {
+  return t('view.detailLevel', 'Detail level', { ns: 'editor' })
 }
 
-const CUT_PATTERN_LABEL: Record<CutPattern, string> = { cross: 'Cross', solid: 'Solid', hatch: 'Hatch' }
+function detailHint(level: DetailLevel, t: Translate): string {
+  switch (level) {
+    case 'coarse':
+      return t('view.detail.coarseHint', 'Duct and pipe as single lines; fittings as their centrelines.', { ns: 'editor' })
+    case 'medium':
+      return t('view.detail.mediumHint', 'Duct double-line with fitting outlines.', { ns: 'editor' })
+    case 'fine':
+      return t('view.detail.fineHint', 'Adds turning vanes and fitting joints.', { ns: 'editor' })
+  }
+}
+
+function cutPatternLabel(pattern: CutPattern, t: Translate): string {
+  switch (pattern) {
+    case 'cross':
+      return t('view.cutPattern.cross', 'Cross', { ns: 'editor' })
+    case 'solid':
+      return t('view.cutPattern.solid', 'Solid', { ns: 'editor' })
+    case 'hatch':
+      return t('view.cutPattern.hatch', 'Hatch', { ns: 'editor' })
+  }
+}
+
 
 /** View categories with bodies (their hidden edges can draw dashed): the registry's view categories less annotation and room labels. */
 const NO_HIDDEN_EDGES: ReadonlySet<ViewCategory> = new Set<ViewCategory>(['tags', 'dimensions', 'rooms', 'grids', 'doors_windows'])
@@ -114,7 +170,31 @@ interface Props {
 }
 
 /** The open view's own properties. Each change saves on its own and can be undone. */
-const DRAFTING_LABEL: Record<DraftingCategory, string> = { detail_lines: 'Detail lines', hatching: 'Hatching and fills', masking: 'Masking regions', components: 'Detail components', insulation: 'Insulation', text: 'Text and notes', dimensions: 'Dimensions', tags: 'Tags', clouds: 'Revision clouds' }
+
+/** The kinds of drafting a view can hide, in the language on screen (§2.4). */
+function draftingLabel(category: DraftingCategory, t: Translate): string {
+  switch (category) {
+    case 'detail_lines':
+      return t('view.drafting.detailLines', 'Detail lines', { ns: 'editor' })
+    case 'hatching':
+      return t('view.drafting.hatching', 'Hatching and fills', { ns: 'editor' })
+    case 'masking':
+      return t('view.drafting.masking', 'Masking regions', { ns: 'editor' })
+    case 'components':
+      return t('view.drafting.components', 'Detail components', { ns: 'editor' })
+    case 'insulation':
+      return t('view.drafting.insulation', 'Insulation', { ns: 'editor' })
+    case 'text':
+      return t('view.drafting.text', 'Text and notes', { ns: 'editor' })
+    case 'dimensions':
+      return t('view.drafting.dimensions', 'Dimensions', { ns: 'editor' })
+    case 'tags':
+      return t('view.drafting.tags', 'Tags', { ns: 'editor' })
+    case 'clouds':
+      return t('view.drafting.clouds', 'Revision clouds', { ns: 'editor' })
+  }
+}
+
 
 /** The on/off settings that tick at once: they show the new value before the view redraws. */
 export type QuickProps = Partial<Pick<ViewPropsPatch, 'hiddenCategories' | 'hiddenDraftingCategories' | 'showHiddenLines' | 'hiddenLineCategories' | 'linkedHiddenLines' | 'cropView' | 'showCropBox' | 'annotationCrop'>>
@@ -175,14 +255,19 @@ export function useQuickViewProps(view: ViewElement, onRefused: (message: string
   return { view: shown, updating: Object.keys(pending).length > 0, setQuick }
 }
 
+
 export function ViewPropertiesPanel({ view: saved, canEdit, blockedReason, submit, references, display, onDisplay, onRename, background, hostLevelId = null, levelName = null, phaseFields, crop3d, schedule, diagram }: Props) {
+  const t = useEditorTranslate()
   const [error, setError] = useState<string | null>(null)
+
   const quick = useQuickViewProps(saved, setError)
   const view = quick.view
   const props = view.props ?? {}
   const send = (patch: ViewPropsPatch, label: string): string | null => submit({ type: 'set_view_properties', viewId: view.id, props: patch }, label)
   const set = (patch: ViewPropsPatch, label: string) => setError(send(patch, label))
-  const disciplineChoices = useMemo(() => viewDisciplineChoices(props.discipline), [props.discipline])
+
+  const disciplineChoices = useMemo(() => viewDisciplineChoices(t, props.discipline), [t, props.discipline])
+
   const setQuick = (patch: QuickProps, label: string) => {
     setError(null)
     quick.setQuick(patch, () => send(patch, label))
@@ -206,30 +291,62 @@ export function ViewPropertiesPanel({ view: saved, canEdit, blockedReason, submi
         <div className="flex min-w-0 flex-col">
           <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{VIEW_TYPE_LABEL[view.viewType]}</span>
           <span className="truncate text-sm font-medium">{view.name}</span>
-          {props.level && view.viewType !== 'detail' && <span className="text-xs text-muted-foreground" data-testid="view-properties-level">Level {levelName ?? props.level}</span>}
+
+          {props.level && view.viewType !== 'detail' && (
+            <span className="text-xs text-muted-foreground" data-testid="view-properties-level">
+              {t('view.levelNamed', 'Level {{name}}', { ns: 'editor', name: levelName ?? props.level })}
+            </span>
+          )}
         </div>
         <Button variant="ghost" size="sm" onClick={onRename} disabled={!canEdit}>
-          Rename
+          {t('view.rename', 'Rename', { ns: 'editor' })}
         </Button>
+
       </div>
       {quick.updating && (
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground" role="status" aria-live="polite" data-testid="view-updating">
+
           <Spinner className="size-3" />
-          Updating the view…
+          {t('view.updating', 'Updating the view…', { ns: 'editor' })}
+
         </p>
       )}
 
       {schedule}
       {diagram}
-      {view.viewType === 'section' && <p className="text-xs text-muted-foreground">A section opens as its drawing: the cut at the line, what is beyond it, and its levels. Show the live model to edit in it.</p>}
+
+      {view.viewType === 'section' && (
+        <p className="text-xs text-muted-foreground">
+          {t(
+            'view.sectionOpens',
+            'A section opens as its drawing: the cut at the line, what is beyond it, and its levels. Show the live model to edit in it.',
+            { ns: 'editor' },
+          )}
+        </p>
+      )}
+
       {view.viewType !== 'detail' && (
         <Field>
-          <FieldLabel>Show</FieldLabel>
-          <ToggleGroup type="single" size="sm" variant="outline" value={display} onValueChange={(v) => (v === 'model' || v === 'drawing') && onDisplay(v)} aria-label="Show the live model or the printed drawing" data-testid="view-display">
-            <ToggleGroupItem value="model">{view.viewType === 'schedule' ? 'Spreadsheet' : 'Live model'}</ToggleGroupItem>
-            <ToggleGroupItem value="drawing">Printed drawing</ToggleGroupItem>
+
+          <FieldLabel>{t('view.show', 'Show', { ns: 'editor' })}</FieldLabel>
+          <ToggleGroup
+            type="single"
+            size="sm"
+            variant="outline"
+            value={display}
+            onValueChange={(v) => (v === 'model' || v === 'drawing') && onDisplay(v)}
+            aria-label={t('view.showAria', 'Show the live model or the printed drawing', { ns: 'editor' })}
+            data-testid="view-display"
+          >
+            <ToggleGroupItem value="model">
+              {view.viewType === 'schedule' ? t('view.spreadsheet', 'Spreadsheet', { ns: 'editor' }) : t('view.liveModel', 'Live model', { ns: 'editor' })}
+            </ToggleGroupItem>
+            <ToggleGroupItem value="drawing">{t('view.printedDrawing', 'Printed drawing', { ns: 'editor' })}</ToggleGroupItem>
           </ToggleGroup>
-          <FieldDescription className="text-xs">This view opens this way for you next time, on any computer.</FieldDescription>
+          <FieldDescription className="text-xs">
+            {t('view.shownForYou', 'This view opens this way for you next time, on any computer.', { ns: 'editor' })}
+          </FieldDescription>
+
         </Field>
       )}
 
@@ -250,11 +367,23 @@ export function ViewPropertiesPanel({ view: saved, canEdit, blockedReason, submi
       )}
       <Separator />
       <FieldGroup className="gap-3">
-        {props.diagram && <p className="text-xs text-muted-foreground">Scale: none. A live diagram prints at its own size on any sheet, like a schedule.</p>}
+
+        {props.diagram && (
+          <p className="text-xs text-muted-foreground">
+            {t('view.diagramNoScale', 'Scale: none. A live diagram prints at its own size on any sheet, like a schedule.', { ns: 'editor' })}
+          </p>
+        )}
+
         {view.viewType !== 'three_d' && !props.diagram && (
           <Field>
-            <FieldLabel htmlFor="vp-view-scale">Scale</FieldLabel>
-            <Select value={String(props.scale ?? 48)} onValueChange={(v) => set({ scale: Number(v) }, 'change the scale')} disabled={!canEdit}>
+
+            <FieldLabel htmlFor="vp-view-scale">{t('view.scale', 'Scale', { ns: 'editor' })}</FieldLabel>
+            <Select
+              value={String(props.scale ?? 48)}
+              onValueChange={(v) => set({ scale: Number(v) }, t('view.changeScale', 'change the scale', { ns: 'editor' }))}
+              disabled={!canEdit}
+            >
+
               <SelectTrigger id="vp-view-scale" size="sm">
                 <SelectValue />
               </SelectTrigger>
@@ -268,34 +397,58 @@ export function ViewPropertiesPanel({ view: saved, canEdit, blockedReason, submi
                 </SelectGroup>
               </SelectContent>
             </Select>
-            <FieldDescription>{disabledHint ?? 'Used when this view is placed on a sheet.'}</FieldDescription>
+
+            <FieldDescription>{disabledHint ?? t('view.scaleUsedOnSheet', 'Used when this view is placed on a sheet.', { ns: 'editor' })}</FieldDescription>
+
           </Field>
         )}
 
         {view.viewType === 'three_d' && (
           <Field>
-            <FieldLabel>Projection</FieldLabel>
+
+            <FieldLabel>{t('view.projection', 'Projection', { ns: 'editor' })}</FieldLabel>
+
             <ToggleGroup
               type="single"
               size="sm"
               variant="outline"
               value={props.projection ?? 'perspective'}
               disabled={!canEdit}
-              aria-label="Projection"
+
+              aria-label={t('view.projection', 'Projection', { ns: 'editor' })}
               data-testid="view-projection"
+
               onValueChange={(v) => {
                 const picked = VIEW_PROJECTIONS.find((p) => p === v)
-                if (picked) set({ projection: picked }, picked === 'orthographic' ? 'switch to orthographic' : 'switch to perspective')
+
+                if (picked)
+                  set(
+                    { projection: picked },
+                    picked === 'orthographic' ? t('view.toOrthographic', 'switch to orthographic', { ns: 'editor' }) : t('view.toPerspective', 'switch to perspective', { ns: 'editor' }),
+                  )
+
               }}
             >
-              <ToggleGroupItem value="perspective">Perspective</ToggleGroupItem>
-              <ToggleGroupItem value="orthographic">Orthographic</ToggleGroupItem>
+
+              <ToggleGroupItem value="perspective">{t('view.perspective', 'Perspective', { ns: 'editor' })}</ToggleGroupItem>
+              <ToggleGroupItem value="orthographic">{t('view.orthographic', 'Orthographic', { ns: 'editor' })}</ToggleGroupItem>
+
             </ToggleGroup>
             <FieldDescription className="text-xs">
               {disabledHint ??
+
                 ((props.projection ?? 'perspective') === 'orthographic'
-                  ? 'Parallel lines stay parallel: cube faces give true elevations and corners true isometrics. Prints the same way.'
-                  : 'Farther things look smaller, like a photo. On a sheet a 3D view still prints orthographic (isometric).')}
+                  ? t(
+                      'view.orthographicHint',
+                      'Parallel lines stay parallel: cube faces give true elevations and corners true isometrics. Prints the same way.',
+                      { ns: 'editor' },
+                    )
+                  : t(
+                      'view.perspectiveHint',
+                      'Farther things look smaller, like a photo. On a sheet a 3D view still prints orthographic (isometric).',
+                      { ns: 'editor' },
+                    ))}
+
             </FieldDescription>
           </Field>
         )}
@@ -307,11 +460,13 @@ export function ViewPropertiesPanel({ view: saved, canEdit, blockedReason, submi
             <NumberField
               key={`vp-depth:${props.section.depthMm}`}
               id="vp-depth"
-              label="Far clip depth (ft)"
+
+              label={t('view.farClip', 'Far clip depth (ft)', { ns: 'editor' })}
               value={props.section.depthMm / FT}
               disabled={!canEdit}
-              description="How far past the cut line the section sees. Drag the depth grip on the plan, too."
-              onCommit={(ft) => setCrop({ farClipMm: Math.max(1, ft) * FT }, 'change how far the section sees')}
+              description={t('view.farClipHint', 'How far past the cut line the section sees. Drag the depth grip on the plan, too.', { ns: 'editor' })}
+              onCommit={(ft) => setCrop({ farClipMm: Math.max(1, ft) * FT }, t('view.changeFarClip', 'change how far the section sees', { ns: 'editor' }))}
+
             />
             <Tooltip>
               <TooltipTrigger asChild>
@@ -321,21 +476,29 @@ export function ViewPropertiesPanel({ view: saved, canEdit, blockedReason, submi
                     size="sm"
                     className="w-full"
                     disabled={!canEdit}
-                    onClick={() => props.section && set({ section: { ...props.section, direction: props.section.direction === 1 ? -1 : 1 } }, 'flip the section')}
+
+                    onClick={() =>
+                      props.section && set({ section: { ...props.section, direction: props.section.direction === 1 ? -1 : 1 } }, t('view.flipSection', 'flip the section', { ns: 'editor' }))
+                    }
                   >
                     <ArrowLeftRight data-icon="inline-start" />
-                    Look the other way
+                    {t('view.lookOtherWay', 'Look the other way', { ns: 'editor' })}
+
                   </Button>
                 </span>
               </TooltipTrigger>
-              <TooltipContent>{disabledHint ?? 'Flip which side of the cut line the section shows'}</TooltipContent>
+
+              <TooltipContent>{disabledHint ?? t('view.flipSectionHint', 'Flip which side of the cut line the section shows', { ns: 'editor' })}</TooltipContent>
+
             </Tooltip>
           </>
         )}
 
         {view.viewType !== 'three_d' && (
           <FieldSet>
-            <FieldLegend variant="label">Drafting shown</FieldLegend>
+
+            <FieldLegend variant="label">{t('view.draftingShown', 'Drafting shown', { ns: 'editor' })}</FieldLegend>
+
             <FieldGroup className="gap-1.5">
               {DRAFTING_CATEGORIES.map((c) => (
                 <Field key={c} orientation="horizontal">
@@ -348,26 +511,44 @@ export function ViewPropertiesPanel({ view: saved, canEdit, blockedReason, submi
                       const next = new Set(hiddenDrafting)
                       if (v === true) next.delete(c)
                       else next.add(c)
-                      setQuick({ hiddenDraftingCategories: [...next] }, `${v === true ? 'show' : 'hide'} ${DRAFTING_LABEL[c].toLowerCase()}`)
+
+                      setQuick(
+                        { hiddenDraftingCategories: [...next] },
+                        v === true
+                          ? t('view.showCategory', 'show {{name}}', { ns: 'editor', name: draftingLabel(c, t).toLowerCase() })
+                          : t('view.hideCategory', 'hide {{name}}', { ns: 'editor', name: draftingLabel(c, t).toLowerCase() }),
+                      )
+
                     }}
                   />
                   <FieldLabel htmlFor={`vp-draft-${c}`} className="font-normal">
-                    {DRAFTING_LABEL[c]}
+
+                    {draftingLabel(c, t)}
+
                   </FieldLabel>
                 </Field>
               ))}
             </FieldGroup>
-            <FieldDescription>Hidden drafting stays in the view; it just doesn&apos;t show or print here.</FieldDescription>
+
+            <FieldDescription>
+              {t('view.draftingHiddenStays', 'Hidden drafting stays in the view; it just doesn’t show or print here.', { ns: 'editor' })}
+            </FieldDescription>
+
           </FieldSet>
         )}
 
         {view.viewType !== 'detail' && (
           <>
             <Field>
-              <FieldLabel htmlFor="vp-disc">Discipline</FieldLabel>
+
+              <FieldLabel htmlFor="vp-disc">{t('view.discipline', 'Discipline', { ns: 'editor' })}</FieldLabel>
+
               <Select value={props.discipline ?? 'all'} onValueChange={(v) => {
                   const picked = disciplineChoices.find((d) => d.value === v)
-                  if (picked) set({ discipline: picked.value === 'all' ? null : picked.value }, 'change the discipline')
+
+                  if (picked)
+                    set({ discipline: picked.value === 'all' ? null : picked.value }, t('view.changeDiscipline', 'change the discipline', { ns: 'editor' }))
+
                 }} disabled={!canEdit}>
                 <SelectTrigger id="vp-disc" size="sm">
                   <SelectValue />
@@ -382,20 +563,38 @@ export function ViewPropertiesPanel({ view: saved, canEdit, blockedReason, submi
                   </SelectGroup>
                 </SelectContent>
               </Select>
-              <FieldDescription>{props.discipline ? "Other disciplines print in halftone; plans leave out their runs." : 'Every discipline prints in ink.'}</FieldDescription>
+
+              <FieldDescription>
+                {props.discipline
+                  ? t('view.disciplineOthersHalftone', 'Other disciplines print in halftone; plans leave out their runs.', { ns: 'editor' })
+                  : t('view.disciplineAllInkWhy', 'Every discipline prints in ink.', { ns: 'editor' })}
+              </FieldDescription>
+
             </Field>
             {isPlan && <CircuitGraphicsFields view={view} canEdit={canEdit} disabledHint={disabledHint} set={set} />}
             <LinesFields view={view} canEdit={canEdit} set={set} setQuick={setQuick}>
               {references.length > 0 && (
                 <FieldSet data-testid="view-linked-models">
-                  <FieldLegend variant="label">Linked models</FieldLegend>
+
+                  <FieldLegend variant="label">{t('panel.linkedModels', 'Linked models', { ns: 'editor' })}</FieldLegend>
+
                   <BackgroundStatus
                     background={background}
                     choice={{ canEdit, blockedReason, hostLevelId, submit }}
                     onUndo={
                       simplifyBefore && (props.linkedMinObjectMm ?? 0) !== simplifyBefore.linkedMinObjectMm
                         ? () => {
-                            set({ linkedMinObjectMm: simplifyBefore.linkedMinObjectMm }, simplifyBefore.linkedMinObjectMm === 0 ? 'draw every linked object' : `leave out linked objects under ${Math.round(simplifyBefore.linkedMinObjectMm / 25.4)}"`)
+
+                            set(
+                              { linkedMinObjectMm: simplifyBefore.linkedMinObjectMm },
+                              simplifyBefore.linkedMinObjectMm === 0
+                                ? t('view.drawEveryLinkedObject', 'draw every linked object', { ns: 'editor' })
+                                : t('view.leaveOutLinkedUnder', 'leave out linked objects under {{inches}}″', {
+                                    ns: 'editor',
+                                    inches: Math.round(simplifyBefore.linkedMinObjectMm / 25.4),
+                                  }),
+                            )
+
                             setSimplifyBefore(null)
                           }
                         : null
@@ -404,7 +603,11 @@ export function ViewPropertiesPanel({ view: saved, canEdit, blockedReason, submi
                   {view.viewType !== 'three_d' && <LinkedSimplifyFields view={view} canEdit={canEdit} set={set} setQuick={setQuick} onChangeSmall={(previousMm) => setSimplifyBefore({ linkedMinObjectMm: previousMm })} />}
                   <LinkedModelDisplayFields
                     display={makeLinkedDisplay({
-                      targetLabel: view.props?.workingFor ? 'your 3D view' : 'this view',
+
+                      targetLabel: view.props?.workingFor
+                        ? t('view.your3dView', 'your 3D view', { ns: 'editor' })
+                        : t('view.thisView', 'this view', { ns: 'editor' }),
+
                       surface: referenceSurfaceOf(view),
                       stored: (id) => props.references?.[id],
                       discipline: (id) => references.find((r) => r.id === id)?.discipline ?? 'architecture',
@@ -465,16 +668,30 @@ const MAX_LEVEL_BUTTONS = 8
  * level, nearest first. The choice is kept on our level for that linked model,
  * so every plan of the level draws it; undo takes it back.
  */
+
 function LinkedLevelChoice({ note, ctx }: { note: ChoiceNote; ctx: LinkedLevelChoiceContext }) {
+  const t = useEditorTranslate()
   const [error, setError] = useState<string | null>(null)
   const why = !ctx.canEdit
     ? ctx.blockedReason
     : ctx.hostLevelId === null
-      ? `${note.levelChoice.level} isn't one of this model's levels yet, so the choice has nowhere to be kept. Add it as a level first (Model › Add level), at its height.`
+      ? t(
+          'view.levelNotOursYet',
+          '{{name}} isn’t one of this model’s levels yet, so the choice has nowhere to be kept. Add it as a level first (Model › Add level), at its height.',
+          { ns: 'editor', name: note.levelChoice.level },
+        )
       : null
+
   const options = note.levelChoice.options.slice(0, MAX_LEVEL_BUTTONS)
   return (
-    <div className="flex flex-col gap-1" data-testid="linked-level-choice" role="group" aria-label={`Which level of ${note.label} is ${note.levelChoice.level}`}>
+
+    <div
+      className="flex flex-col gap-1"
+      data-testid="linked-level-choice"
+      role="group"
+      aria-label={t('view.whichLevelIs', 'Which level of {{model}} is {{level}}', { ns: 'editor', model: note.label, level: note.levelChoice.level })}
+    >
+
       <FieldDescription className="text-xs text-warning-700">
         {note.label}: {note.reason}
       </FieldDescription>
@@ -486,10 +703,19 @@ function LinkedLevelChoice({ note, ctx }: { note: ChoiceNote; ctx: LinkedLevelCh
               size="sm"
               variant="outline"
               disabled={why !== null}
-              title={why ?? `Draw ${note.label}'s ${o} on ${note.levelChoice.level}`}
+
+              title={why ?? t('view.drawLinkedOn', 'Draw {{model}}’s {{other}} on {{level}}', { ns: 'editor', model: note.label, other: o, level: note.levelChoice.level })}
+
               onClick={() => {
                 if (ctx.hostLevelId === null) return
-                setError(ctx.submit({ type: 'set_level_linked_storey', levelId: ctx.hostLevelId, linkId: note.levelChoice.linkId, storeyName: o }, `${note.levelChoice.level} draws ${note.label}'s ${o}`))
+
+                setError(
+                  ctx.submit(
+                    { type: 'set_level_linked_storey', levelId: ctx.hostLevelId, linkId: note.levelChoice.linkId, storeyName: o },
+                    t('view.levelDrawsLinked', '{{level}} draws {{model}}’s {{other}}', { ns: 'editor', level: note.levelChoice.level, model: note.label, other: o }),
+                  ),
+                )
+
               }}
             >
               {o}
@@ -508,29 +734,44 @@ function LinkedLevelChoice({ note, ctx }: { note: ChoiceNote; ctx: LinkedLevelCh
 }
 
 /** What the linked models drew in this view's printed drawing, or why one drew nothing. */
+
 function BackgroundStatus({ background, onUndo, choice }: { background: BackgroundState | undefined; onUndo: (() => void) | null; choice: LinkedLevelChoiceContext }) {
+  const t = useEditorTranslate()
   if (!background) return null
+
   if (background.state === 'loading') {
-    return <FieldDescription className="text-xs" data-testid="view-background-status">Cutting the linked models for this view…</FieldDescription>
+
+    return (
+      <FieldDescription className="text-xs" data-testid="view-background-status">
+        {t('view.cuttingLinked', 'Cutting the linked models for this view…', { ns: 'editor' })}
+      </FieldDescription>
+    )
+
   }
   if (background.state === 'updating') {
     return (
       <FieldDescription className="flex items-center gap-1.5 text-xs" data-testid="view-background-status" data-state="updating">
+
         <Spinner className="size-3" />
-        Redrawing the linked models with the new settings. The old drawing stays until it&apos;s ready.
+        {t('view.redrawingLinked', 'Redrawing the linked models with the new settings. The old drawing stays until it’s ready.', { ns: 'editor' })}
+
       </FieldDescription>
     )
   }
   if (background.state === 'ready' && background.leftNothing) {
     return (
       <Alert data-testid="view-background-left-nothing">
-        <AlertTitle>Nothing of the linked models is left in this view</AlertTitle>
+
+        <AlertTitle>{t('view.linkedLeftNothingTitle', 'Nothing of the linked models is left in this view', { ns: 'editor' })}</AlertTitle>
         <AlertDescription>
-          <p>The last change leaves out every line they drew here. Undo it to bring them back.</p>
+          <p>{t('view.linkedLeftNothingBody', 'The last change leaves out every line they drew here. Undo it to bring them back.', { ns: 'editor' })}</p>
+
           {onUndo && (
             <Button size="sm" variant="outline" className="mt-2" onClick={onUndo} data-testid="view-background-undo">
+
               <Undo2 data-icon="inline-start" />
-              Undo
+              {t('view.undo', 'Undo', { ns: 'editor' })}
+
             </Button>
           )}
         </AlertDescription>
@@ -540,13 +781,24 @@ function BackgroundStatus({ background, onUndo, choice }: { background: Backgrou
   if (background.state === 'error') {
     return (
       <FieldDescription className="text-xs text-danger-600" data-testid="view-background-status" role="alert">
-        The linked models couldn&apos;t be cut for this drawing ({background.message}). It prints without them; reopen the view to try again.
+
+        {t('view.linkedCouldNotCut', 'The linked models couldn’t be cut for this drawing ({{message}}). It prints without them; reopen the view to try again.', {
+          ns: 'editor',
+          message: background.message,
+        })}
+
       </FieldDescription>
     )
   }
   return (
     <div className="flex flex-col gap-0.5" data-testid="view-background-status">
-      {background.drawn.length > 0 && <FieldDescription className="text-xs">Drawn under this view: {background.drawn.join(', ')}.</FieldDescription>}
+
+      {background.drawn.length > 0 && (
+        <FieldDescription className="text-xs">
+          {t('view.drawnUnderThisView', 'Drawn under this view: {{names}}.', { ns: 'editor', names: background.drawn.join(', ') })}
+        </FieldDescription>
+      )}
+
       {background.notes.map((n) =>
         n.levelChoice ? (
           <LinkedLevelChoice key={n.referenceId} note={{ ...n, levelChoice: n.levelChoice }} ctx={choice} />
@@ -566,20 +818,29 @@ function BackgroundStatus({ background, onUndo, choice }: { background: Backgrou
  * beyond, and the linked models' look. Always open: it is where a person
  * looks for line weights.
  */
+
 function LinesFields({ view, canEdit, set, setQuick, children }: { view: ViewElement; canEdit: boolean; set: (patch: ViewPropsPatch, label: string) => void; setQuick: (patch: QuickProps, label: string) => void; children?: ReactNode }) {
+  const t = useEditorTranslate()
   const props = view.props ?? {}
+
   const style = props.visualStyle ?? 'hidden_line'
   const detail = props.detailLevel ?? 'medium'
   const dashedCategories = new Set(props.hiddenLineCategories ?? [])
   return (
     <FieldSet id="view-lines" data-testid="view-graphics" className="scroll-mt-4">
-      <FieldLegend variant="label">Lines and colours</FieldLegend>
+
+      <FieldLegend variant="label">{t('view.linesAndColours', 'Lines and colours', { ns: 'editor' })}</FieldLegend>
+
       <FieldGroup className="gap-3">
         <Field>
-          <FieldLabel htmlFor="vp-style">Visual style</FieldLabel>
+
+          <FieldLabel htmlFor="vp-style">{t('view.visualStyle', 'Visual style', { ns: 'editor' })}</FieldLabel>
+
           <Select value={style} onValueChange={(v) => {
               const picked = VISUAL_STYLES.find((s) => s === v)
-              if (picked) set({ visualStyle: picked }, 'change the visual style')
+
+              if (picked) set({ visualStyle: picked }, t('view.changeVisualStyle', 'change the visual style', { ns: 'editor' }))
+
             }} disabled={!canEdit}>
             <SelectTrigger id="vp-style" size="sm" data-testid="view-visual-style">
               <SelectValue />
@@ -588,67 +849,122 @@ function LinesFields({ view, canEdit, set, setQuick, children }: { view: ViewEle
               <SelectGroup>
                 {VISUAL_STYLES.map((s) => (
                   <SelectItem key={s} value={s}>
-                    {VISUAL_STYLE_LABEL[s].label}
+
+                    {visualStyleLabel(s, t).label}
+
                   </SelectItem>
                 ))}
               </SelectGroup>
             </SelectContent>
           </Select>
-          <FieldDescription className="text-xs">{VISUAL_STYLE_LABEL[style].hint} Applies to the drawing, the print and the 3D view.</FieldDescription>
+
+          <FieldDescription className="text-xs">
+            {visualStyleLabel(style, t).hint} {t('view.styleApplies', 'Applies to the drawing, the print and the 3D view.', { ns: 'editor' })}
+          </FieldDescription>
+
         </Field>
         <Field>
-          <FieldLabel>Detail level</FieldLabel>
-          <ToggleGroup type="single" size="sm" variant="outline" value={detail} disabled={!canEdit} aria-label="Detail level" data-testid="view-detail-level" onValueChange={(v) => {
+
+          <FieldLabel>{detailLevelLabel(t)}</FieldLabel>
+          <ToggleGroup
+            type="single"
+            size="sm"
+            variant="outline"
+            value={detail}
+            disabled={!canEdit}
+            aria-label={detailLevelLabel(t)}
+            data-testid="view-detail-level"
+            onValueChange={(v) => {
               const level = DETAIL_LEVELS.find((d) => d === v)
-              if (level) set({ detailLevel: level }, 'change the detail level')
-            }}>
-            <ToggleGroupItem value="coarse">Coarse</ToggleGroupItem>
-            <ToggleGroupItem value="medium">Medium</ToggleGroupItem>
-            <ToggleGroupItem value="fine">Fine</ToggleGroupItem>
+              if (level) set({ detailLevel: level }, t('view.changeDetailLevel', 'change the detail level', { ns: 'editor' }))
+            }}
+          >
+            <ToggleGroupItem value="coarse">{t('view.detail.coarse', 'Coarse', { ns: 'editor' })}</ToggleGroupItem>
+            <ToggleGroupItem value="medium">{t('view.detail.medium', 'Medium', { ns: 'editor' })}</ToggleGroupItem>
+            <ToggleGroupItem value="fine">{t('view.detail.fine', 'Fine', { ns: 'editor' })}</ToggleGroupItem>
           </ToggleGroup>
-          <FieldDescription className="text-xs">{DETAIL_HINT[detail]}</FieldDescription>
+          <FieldDescription className="text-xs">{detailHint(detail, t)}</FieldDescription>
+
         </Field>
         <Field orientation="horizontal">
-          <Checkbox id="vp-hidden-lines" checked={props.showHiddenLines === true} disabled={!canEdit || style === 'wireframe' || style === 'shaded'} onCheckedChange={(v) => setQuick({ showHiddenLines: v === true }, v === true ? 'show hidden lines' : 'remove hidden lines')} />
+
+          <Checkbox
+            id="vp-hidden-lines"
+            checked={props.showHiddenLines === true}
+            disabled={!canEdit || style === 'wireframe' || style === 'shaded'}
+            onCheckedChange={(v) =>
+              setQuick(
+                { showHiddenLines: v === true },
+                v === true ? t('view.showHiddenLines', 'show hidden lines', { ns: 'editor' }) : t('view.removeHiddenLines', 'remove hidden lines', { ns: 'editor' }),
+              )
+            }
+          />
+
           <FieldContent>
+
             <FieldLabel htmlFor="vp-hidden-lines" className="font-normal">
-              Show hidden lines
+              {t('view.showHiddenLinesLabel', 'Show hidden lines', { ns: 'editor' })}
             </FieldLabel>
             <FieldDescription className="text-xs">
-              {style === 'wireframe' ? 'Wireframe already draws every edge.' : style === 'shaded' ? 'Shaded draws no edges; pick Shaded with edges or Hidden line.' : 'Edges behind other elements draw dashed instead of disappearing.'}
+              {style === 'wireframe'
+                ? t('view.wireframeEveryEdge', 'Wireframe already draws every edge.', { ns: 'editor' })
+                : style === 'shaded'
+                  ? t('view.shadedNoEdges', 'Shaded draws no edges; pick Shaded with edges or Hidden line.', { ns: 'editor' })
+                  : t('view.hiddenEdgesDashed', 'Edges behind other elements draw dashed instead of disappearing.', { ns: 'editor' })}
             </FieldDescription>
+
           </FieldContent>
         </Field>
         {view.viewType === 'section' && (
           <Field>
-            <FieldLabel>Cut duct and pipe</FieldLabel>
-            <ToggleGroup type="single" size="sm" variant="outline" value={props.cutPattern ?? 'cross'} disabled={!canEdit} aria-label="How cut duct and pipe are filled" onValueChange={(v) => {
+
+            <FieldLabel>{t('view.cutDuctAndPipe', 'Cut duct and pipe', { ns: 'editor' })}</FieldLabel>
+            <ToggleGroup
+              type="single"
+              size="sm"
+              variant="outline"
+              value={props.cutPattern ?? 'cross'}
+              disabled={!canEdit}
+              aria-label={t('view.cutFillAria', 'How cut duct and pipe are filled', { ns: 'editor' })}
+              onValueChange={(v) => {
                 const picked = (['cross', 'solid', 'hatch'] as const).find((c) => c === v)
-                if (picked) set({ cutPattern: picked }, 'change the cut fill')
-              }}>
+                if (picked) set({ cutPattern: picked }, t('view.changeCutFill', 'change the cut fill', { ns: 'editor' }))
+              }}
+            >
               {(['cross', 'solid', 'hatch'] as const).map((c) => (
                 <ToggleGroupItem key={c} value={c}>
-                  {CUT_PATTERN_LABEL[c]}
+                  {cutPatternLabel(c, t)}
                 </ToggleGroupItem>
               ))}
             </ToggleGroup>
+
           </Field>
         )}
         <div className="flex flex-col gap-1" data-testid="view-line-weights">
-          <span className="text-xs font-medium">Hidden lines by category</span>
+
+          <span className="text-xs font-medium">{t('view.hiddenLinesByCategory', 'Hidden lines by category', { ns: 'editor' })}</span>
+
           <FieldDescription className="text-xs">
-            Pens, halftone and line patterns for each category are in{' '}
+
+            {t('view.pensAreIn', 'Pens, halftone and line patterns for each category are in', { ns: 'editor' })}{' '}
             <a href="#view-visibility-graphics" className="underline underline-offset-2">
-              Visibility/Graphics
+              {t('view.visibilityGraphics', 'Visibility/Graphics', { ns: 'editor' })}
             </a>{' '}
-            below.
+            {t('view.below', 'below.', { ns: 'editor' })}
+
           </FieldDescription>
           <Table className="text-xs">
-            <TableCaption className="sr-only">Whether each category&apos;s hidden edges draw dashed</TableCaption>
+
+            <TableCaption className="sr-only">
+              {t('view.dashHiddenCaption', 'Whether each category’s hidden edges draw dashed', { ns: 'editor' })}
+            </TableCaption>
+
             <TableHeader>
               <TableRow>
-                <TableHead className="h-7 px-1">Category</TableHead>
-                <TableHead className="h-7 px-1 text-center">Dash hidden</TableHead>
+
+                <TableHead className="h-7 px-1">{t('view.category', 'Category', { ns: 'editor' })}</TableHead>
+                <TableHead className="h-7 px-1 text-center">{t('view.dashHidden', 'Dash hidden', { ns: 'editor' })}</TableHead>
+
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -658,14 +974,23 @@ function LinesFields({ view, canEdit, set, setQuick, children }: { view: ViewEle
                   <TableCell className="px-1 py-1 text-center">
                     <Checkbox
                       id={`vp-hidden-${c}`}
-                      aria-label={`Dash hidden ${CATEGORY_LABEL[c].toLowerCase()}`}
+
+                      aria-label={t('view.dashHiddenNamed', 'Dash hidden {{name}}', { ns: 'editor', name: CATEGORY_LABEL[c].toLowerCase() })}
+
                       checked={props.showHiddenLines === true || dashedCategories.has(c)}
                       disabled={!canEdit || props.showHiddenLines === true}
                       onCheckedChange={(v) => {
                         const next = new Set(dashedCategories)
                         if (v === true) next.add(c)
                         else next.delete(c)
-                        setQuick({ hiddenLineCategories: [...next] }, `${v === true ? 'dash' : 'hide'} hidden ${CATEGORY_LABEL[c].toLowerCase()}`)
+
+                        setQuick(
+                          { hiddenLineCategories: [...next] },
+                          v === true
+                            ? t('view.dashHiddenOn', 'dash hidden {{name}}', { ns: 'editor', name: CATEGORY_LABEL[c].toLowerCase() })
+                            : t('view.dashHiddenOff', 'hide hidden {{name}}', { ns: 'editor', name: CATEGORY_LABEL[c].toLowerCase() }),
+                        )
+
                       }}
                     />
                   </TableCell>
@@ -685,56 +1010,80 @@ function LinesFields({ view, canEdit, set, setQuick, children }: { view: ViewEle
  * the bottom, and how far below the bottom it still sees. Applies to our model
  * and to the linked models alike. Top and bottom are blank until set (no limit).
  */
+
 function HeightRangeFields({ view, canEdit, set }: { view: ViewElement; canEdit: boolean; set: (patch: ViewPropsPatch, label: string) => void }) {
+  const t = useEditorTranslate()
   const props = view.props ?? {}
+
   const cut = props.cutHeightMm ?? DEFAULT_CUT_HEIGHT_MM
   return (
     <FieldSet id="view-range" data-testid="view-range" className="scroll-mt-4">
-      <FieldLegend variant="label">What this view shows</FieldLegend>
-      <FieldDescription className="text-xs">Heights above this level. Our model and the linked models both follow them.</FieldDescription>
+
+      <FieldLegend variant="label">{t('view.whatThisViewShows', 'What this view shows', { ns: 'editor' })}</FieldLegend>
+      <FieldDescription className="text-xs">
+        {t('view.heightsAboveLevel', 'Heights above this level. Our model and the linked models both follow them.', { ns: 'editor' })}
+      </FieldDescription>
+
       <div className="grid grid-cols-2 gap-2">
         <NumberField
           key={`vp-top:${props.viewTopMm ?? 'none'}`}
           id="vp-top"
-          label="Top (ft)"
+
+          label={t('view.topFt', 'Top (ft)', { ns: 'editor' })}
           value={props.viewTopMm === undefined ? null : props.viewTopMm / FT}
           disabled={!canEdit}
           optional
-          placeholder="No limit"
-          description="Above this, nothing shows."
-          onCommit={(ft) => set({ viewTopMm: ft * FT }, 'change the top of the view')}
-          onClear={() => set({ viewTopMm: null }, 'show everything above the cut')}
+          placeholder={t('view.noLimit', 'No limit', { ns: 'editor' })}
+          description={t('view.aboveThisNothing', 'Above this, nothing shows.', { ns: 'editor' })}
+          onCommit={(ft) => set({ viewTopMm: ft * FT }, t('view.changeTop', 'change the top of the view', { ns: 'editor' }))}
+          onClear={() => set({ viewTopMm: null }, t('view.showEverythingAbove', 'show everything above the cut', { ns: 'editor' }))}
+
         />
         <NumberField
           key={`vp-cut:${cut}`}
           id="vp-cut"
-          label="Cut height (ft)"
+
+          label={t('view.cutHeightFt', 'Cut height (ft)', { ns: 'editor' })}
           value={cut / FT}
           disabled={!canEdit}
-          description="Walls are cut here."
-          onCommit={(ft) => set({ cutHeightMm: ft * FT }, 'change the cut height')}
+          description={t('view.wallsCutHere', 'Walls are cut here.', { ns: 'editor' })}
+          onCommit={(ft) => set({ cutHeightMm: ft * FT }, t('view.changeCutHeight', 'change the cut height', { ns: 'editor' }))}
+
         />
         <NumberField
           key={`vp-bottom:${props.viewBottomMm ?? 'none'}`}
           id="vp-bottom"
-          label="Bottom (ft)"
+
+          label={t('view.bottomFt', 'Bottom (ft)', { ns: 'editor' })}
           value={props.viewBottomMm === undefined ? null : props.viewBottomMm / FT}
           disabled={!canEdit}
           optional
           allowNegative
-          placeholder="No limit"
-          description="Below this, only what the depth reaches."
-          onCommit={(ft) => set({ viewBottomMm: ft * FT }, 'change the bottom of the view')}
-          onClear={() => set({ viewBottomMm: null }, 'show everything below the cut')}
+          placeholder={t('view.noLimit', 'No limit', { ns: 'editor' })}
+          description={t('view.belowThisDepth', 'Below this, only what the depth reaches.', { ns: 'editor' })}
+          onCommit={(ft) => set({ viewBottomMm: ft * FT }, t('view.changeBottom', 'change the bottom of the view', { ns: 'editor' }))}
+          onClear={() => set({ viewBottomMm: null }, t('view.showEverythingBelow', 'show everything below the cut', { ns: 'editor' }))}
+
         />
         <NumberField
           key={`vp-depth:${props.viewDepthMm ?? 0}`}
           id="vp-view-depth"
-          label="Depth below bottom (ft)"
+
+          label={t('view.depthBelowBottomFt', 'Depth below bottom (ft)', { ns: 'editor' })}
           value={(props.viewDepthMm ?? 0) / FT}
           disabled={!canEdit}
-          description={props.viewBottomMm === undefined ? 'Sets the bottom at the level too.' : 'Seen past the bottom.'}
-          onCommit={(ft) => set({ viewDepthMm: ft * FT, ...(props.viewBottomMm === undefined ? { viewBottomMm: 0 } : {}) }, 'change how far below the bottom the view sees')}
+          description={
+            props.viewBottomMm === undefined
+              ? t('view.setsBottomToo', 'Sets the bottom at the level too.', { ns: 'editor' })
+              : t('view.seenPastBottom', 'Seen past the bottom.', { ns: 'editor' })
+          }
+          onCommit={(ft) =>
+            set(
+              { viewDepthMm: ft * FT, ...(props.viewBottomMm === undefined ? { viewBottomMm: 0 } : {}) },
+              t('view.changeDepthBelow', 'change how far below the bottom the view sees', { ns: 'editor' }),
+            )
+          }
+
         />
       </div>
     </FieldSet>
@@ -755,28 +1104,62 @@ function LinkedSimplifyFields({
   setQuick: (patch: QuickProps, label: string) => void
   /** The size it was before this change, mm (for Undo if the change leaves nothing). */
   onChangeSmall: (previousMm: number) => void
+
 }) {
+  const t = useEditorTranslate()
   const props = view.props ?? {}
   const hidden = props.linkedHiddenLines !== false
+
   const minIn = (props.linkedMinObjectMm ?? 0) / 25.4
   return (
     <FieldGroup className="gap-2" data-testid="linked-simplify">
       <Field orientation="horizontal">
-        <Checkbox id="vp-linked-hidden" checked={hidden} disabled={!canEdit} onCheckedChange={(v) => setQuick({ linkedHiddenLines: v === true }, v === true ? "hide linked lines under nearer things" : 'draw every linked line')} />
+
+        <Checkbox
+          id="vp-linked-hidden"
+          checked={hidden}
+          disabled={!canEdit}
+          onCheckedChange={(v) =>
+            setQuick(
+              { linkedHiddenLines: v === true },
+              v === true
+                ? t('view.hideLinkedLines', 'hide linked lines under nearer things', { ns: 'editor' })
+                : t('view.drawEveryLinkedLine', 'draw every linked line', { ns: 'editor' }),
+            )
+          }
+        />
+
         <FieldContent>
+
           <FieldLabel htmlFor="vp-linked-hidden" className="font-normal">
-            Hide what is underneath
+            {t('view.hideWhatIsUnderneath', 'Hide what is underneath', { ns: 'editor' })}
           </FieldLabel>
-          <FieldDescription className="text-xs">A chair under a table, a counter under a shelf: lines covered by something nearer are left out of the drawing.</FieldDescription>
+          <FieldDescription className="text-xs">
+            {t(
+              'view.hideWhatIsUnderneathWhy',
+              'A chair under a table, a counter under a shelf: lines covered by something nearer are left out of the drawing.',
+              { ns: 'editor' },
+            )}
+          </FieldDescription>
+
         </FieldContent>
       </Field>
       <Field>
-        <FieldLabel htmlFor="vp-linked-small">Leave out things smaller than</FieldLabel>
+
+        <FieldLabel htmlFor="vp-linked-small">{t('view.leaveOutSmallerThan', 'Leave out things smaller than', { ns: 'editor' })}</FieldLabel>
+
         <Select value={String(minIn)} disabled={!canEdit} onValueChange={(v) => {
             const inches = Number(v)
             if (!Number.isFinite(inches) || inches === minIn) return
             onChangeSmall(props.linkedMinObjectMm ?? 0)
-            set({ linkedMinObjectMm: inches * 25.4 }, inches === 0 ? 'draw every linked object' : `leave out linked objects under ${inches}"`)
+
+            set(
+              { linkedMinObjectMm: inches * 25.4 },
+              inches === 0
+                ? t('view.drawEveryLinkedObject', 'draw every linked object', { ns: 'editor' })
+                : t('view.leaveOutLinkedUnder', 'leave out linked objects under {{inches}}″', { ns: 'editor', inches }),
+            )
+
           }}>
           <SelectTrigger id="vp-linked-small" size="sm" data-testid="linked-min-object">
             <SelectValue />
@@ -785,13 +1168,23 @@ function LinkedSimplifyFields({
             <SelectGroup>
               {SMALL_OBJECT_CHOICES_IN.map((inches) => (
                 <SelectItem key={inches} value={String(inches)}>
-                  {inches === 0 ? 'Draw everything' : `${inches}" across`}
+
+                  {inches === 0 ? t('view.drawEverything', 'Draw everything', { ns: 'editor' }) : t('view.inchesAcross', '{{inches}}″ across', { ns: 'editor', inches })}
+
                 </SelectItem>
               ))}
             </SelectGroup>
           </SelectContent>
         </Select>
-        <FieldDescription className="text-xs">Simplifies a busy architect&apos;s model: cups, outlets, small accessories. Walls and anything the cut passes through are always drawn, and your selection stays.</FieldDescription>
+
+        <FieldDescription className="text-xs">
+          {t(
+            'view.simplifyWhy',
+            'Simplifies a busy architect’s model: cups, outlets, small accessories. Walls and anything the cut passes through are always drawn, and your selection stays.',
+            { ns: 'editor' },
+          )}
+        </FieldDescription>
+
       </Field>
     </FieldGroup>
   )
@@ -812,8 +1205,11 @@ function CropFields({
   /** An on/off crop setting: ticks at once, saved right after. */
   onQuickCrop: (patch: QuickProps, change: Omit<Extract<Command, { type: 'set_view_crop' }>, 'type' | 'viewId'>, label: string) => void
 }) {
+
+  const t = useEditorTranslate()
   const props = view.props ?? {}
   const cropOn = props.cropView !== false
+
   const crop: Rect = { min: view.cropMin, max: view.cropMax }
   const section = view.viewType === 'section'
   const edge = (key: 'minX' | 'maxX' | 'minY' | 'maxY', ft: number) => {
@@ -822,11 +1218,25 @@ function CropFields({
       min: { x: key === 'minX' ? mm : crop.min.x, y: key === 'minY' ? mm : crop.min.y },
       max: { x: key === 'maxX' ? mm : crop.max.x, y: key === 'maxY' ? mm : crop.max.y },
     }
-    onCrop({ crop: next }, 'change the crop box')
+
+    onCrop({ crop: next }, t('view.changeCropBox', 'change the crop box', { ns: 'editor' }))
+
   }
+
   const labels = section
-    ? { minX: 'Start along cut (ft)', maxX: 'End along cut (ft)', minY: 'Bottom elevation (ft)', maxY: 'Top elevation (ft)' }
-    : { minX: 'Left edge (ft)', maxX: 'Right edge (ft)', minY: 'Bottom edge (ft)', maxY: 'Top edge (ft)' }
+    ? {
+        minX: t('view.crop.startAlongCut', 'Start along cut (ft)', { ns: 'editor' }),
+        maxX: t('view.crop.endAlongCut', 'End along cut (ft)', { ns: 'editor' }),
+        minY: t('view.crop.bottomElevation', 'Bottom elevation (ft)', { ns: 'editor' }),
+        maxY: t('view.crop.topElevation', 'Top elevation (ft)', { ns: 'editor' }),
+      }
+    : {
+        minX: t('view.crop.leftEdge', 'Left edge (ft)', { ns: 'editor' }),
+        maxX: t('view.crop.rightEdge', 'Right edge (ft)', { ns: 'editor' }),
+        minY: t('view.crop.bottomEdge', 'Bottom edge (ft)', { ns: 'editor' }),
+        maxY: t('view.crop.topEdge', 'Top edge (ft)', { ns: 'editor' }),
+      }
+
   const fields: ReadonlyArray<{ key: 'minX' | 'maxX' | 'minY' | 'maxY'; value: number }> = [
     { key: 'minX', value: crop.min.x },
     { key: 'maxX', value: crop.max.x },
@@ -835,33 +1245,84 @@ function CropFields({
   ]
   return (
     <FieldSet data-testid="crop-properties">
-      <FieldLegend variant="label">Crop box</FieldLegend>
+
+      <FieldLegend variant="label">{t('view.cropBox', 'Crop box', { ns: 'editor' })}</FieldLegend>
+
       <FieldGroup className="gap-2">
         <Field orientation="horizontal">
-          <Checkbox id="vp-crop-on" checked={cropOn} disabled={!canEdit} onCheckedChange={(v) => onQuickCrop({ cropView: v === true }, { cropView: v === true }, v === true ? 'crop the view' : 'stop cropping the view')} />
+
+          <Checkbox
+            id="vp-crop-on"
+            checked={cropOn}
+            disabled={!canEdit}
+            onCheckedChange={(v) =>
+              onQuickCrop(
+                { cropView: v === true },
+                { cropView: v === true },
+                v === true ? t('view.cropTheView', 'crop the view', { ns: 'editor' }) : t('view.stopCropping', 'stop cropping the view', { ns: 'editor' }),
+              )
+            }
+          />
           <FieldContent>
             <FieldLabel htmlFor="vp-crop-on" className="font-normal">
-              Crop view
+              {t('view.cropView', 'Crop view', { ns: 'editor' })}
             </FieldLabel>
-            <FieldDescription className="text-xs">{cropOn ? 'Only what is inside the crop box draws and prints.' : 'Showing everything; the viewport on a sheet fits all of it.'}</FieldDescription>
+            <FieldDescription className="text-xs">
+              {cropOn
+                ? t('view.croppedWhatDraws', 'Only what is inside the crop box draws and prints.', { ns: 'editor' })
+                : t('view.showingEverything', 'Showing everything; the viewport on a sheet fits all of it.', { ns: 'editor' })}
+            </FieldDescription>
+
           </FieldContent>
         </Field>
         <Field orientation="horizontal">
-          <Checkbox id="vp-crop-show" checked={props.showCropBox !== false} disabled={!canEdit} onCheckedChange={(v) => onQuickCrop({ showCropBox: v === true }, { showCropBox: v === true }, v === true ? 'show the crop box' : 'hide the crop box')} />
+
+          <Checkbox
+            id="vp-crop-show"
+            checked={props.showCropBox !== false}
+            disabled={!canEdit}
+            onCheckedChange={(v) =>
+              onQuickCrop(
+                { showCropBox: v === true },
+                { showCropBox: v === true },
+                v === true ? t('view.showCropBox', 'show the crop box', { ns: 'editor' }) : t('view.hideCropBox', 'hide the crop box', { ns: 'editor' }),
+              )
+            }
+          />
           <FieldContent>
             <FieldLabel htmlFor="vp-crop-show" className="font-normal">
-              Show crop box
+              {t('view.showCropBoxLabel', 'Show crop box', { ns: 'editor' })}
             </FieldLabel>
-            <FieldDescription className="text-xs">Its boundary and grips show while editing. It never prints.</FieldDescription>
+            <FieldDescription className="text-xs">
+              {t('view.cropBoxNeverPrints', 'Its boundary and grips show while editing. It never prints.', { ns: 'editor' })}
+            </FieldDescription>
+
           </FieldContent>
         </Field>
         <Field orientation="horizontal">
-          <Checkbox id="vp-crop-notes" checked={props.annotationCrop === true} disabled={!canEdit} onCheckedChange={(v) => onQuickCrop({ annotationCrop: v === true }, { annotationCrop: v === true }, v === true ? 'let notes reach past the crop' : 'clip notes at the crop')} />
+
+          <Checkbox
+            id="vp-crop-notes"
+            checked={props.annotationCrop === true}
+            disabled={!canEdit}
+            onCheckedChange={(v) =>
+              onQuickCrop(
+                { annotationCrop: v === true },
+                { annotationCrop: v === true },
+                v === true
+                  ? t('view.notesPastCrop', 'let notes reach past the crop', { ns: 'editor' })
+                  : t('view.clipNotesAtCrop', 'clip notes at the crop', { ns: 'editor' }),
+              )
+            }
+          />
           <FieldContent>
             <FieldLabel htmlFor="vp-crop-notes" className="font-normal">
-              Annotation crop
+              {t('view.annotationCrop', 'Annotation crop', { ns: 'editor' })}
             </FieldLabel>
-            <FieldDescription className="text-xs">Notes, tags and dimensions may reach 1/4&quot; past the crop box instead of being cut at it.</FieldDescription>
+            <FieldDescription className="text-xs">
+              {t('view.annotationCropWhy', 'Notes, tags and dimensions may reach 1/4″ past the crop box instead of being cut at it.', { ns: 'editor' })}
+            </FieldDescription>
+
           </FieldContent>
         </Field>
         <div className="grid grid-cols-2 gap-2">
@@ -879,18 +1340,42 @@ function CropFields({
           ))}
         </div>
         <FieldDescription className="text-xs">
-          {disabledHint ?? `${((crop.max.x - crop.min.x) / FT).toFixed(1)} × ${((crop.max.y - crop.min.y) / FT).toFixed(1)} ft. Drag its edges or corners in the view, or the viewport's edges on a sheet.`}
+
+          {disabledHint ??
+            t('view.cropSize', '{{width}} × {{height}} ft. Drag its edges or corners in the view, or the viewport’s edges on a sheet.', {
+              ns: 'editor',
+              width: ((crop.max.x - crop.min.x) / FT).toFixed(1),
+              height: ((crop.max.y - crop.min.y) / FT).toFixed(1),
+            })}
+
         </FieldDescription>
         <Tooltip>
           <TooltipTrigger asChild>
             <span>
-              <Button variant="outline" size="sm" className="w-full" disabled={!canEdit} onClick={() => onCrop({ fit: true }, 'fit the crop box')}>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                disabled={!canEdit}
+                onClick={() => onCrop({ fit: true }, t('view.fitCropBox', 'fit the crop box', { ns: 'editor' }))}
+              >
                 <Scan data-icon="inline-start" />
-                {view.viewType === 'detail' ? 'Fit crop to the drawing' : 'Fit crop to content'}
+                {view.viewType === 'detail'
+                  ? t('view.fitCropToDrawing', 'Fit crop to the drawing', { ns: 'editor' })
+                  : t('view.fitCropToContent', 'Fit crop to content', { ns: 'editor' })}
               </Button>
+
             </span>
           </TooltipTrigger>
-          <TooltipContent>{disabledHint ?? (view.viewType === 'detail' ? 'Size the crop box around the lines, text and dimensions drawn here' : 'Size the crop box around everything on this level')}</TooltipContent>
+
+          <TooltipContent>
+            {disabledHint ??
+              (view.viewType === 'detail'
+                ? t('view.fitCropToDrawingHint', 'Size the crop box around the lines, text and dimensions drawn here', { ns: 'editor' })
+                : t('view.fitCropToContentHint', 'Size the crop box around everything on this level', { ns: 'editor' }))}
+          </TooltipContent>
+
         </Tooltip>
       </FieldGroup>
     </FieldSet>
@@ -922,8 +1407,11 @@ function NumberField({
   onCommit: (value: number) => void
   onClear?: () => void
 }) {
+
+  const t = useEditorTranslate()
   const [text, setText] = useState(value === null ? '' : value.toFixed(2).replace(/\.?0+$/, ''))
   const [error, setError] = useState<string | null>(null)
+
   const commit = () => {
     if (text.trim() === '' && optional) {
       setError(null)
@@ -932,7 +1420,13 @@ function NumberField({
     }
     const n = Number(text)
     if (text.trim() === '' || !Number.isFinite(n) || (!allowNegative && n < 0)) {
-      setError(optional ? 'Enter a number of feet, like 4 or 4.5, or leave it blank for no limit.' : 'Enter a number of feet, like 4 or 4.5.')
+
+      setError(
+        optional
+          ? t('view.enterFeetOrBlank', 'Enter a number of feet, like 4 or 4.5, or leave it blank for no limit.', { ns: 'editor' })
+          : t('view.enterFeet', 'Enter a number of feet, like 4 or 4.5.', { ns: 'editor' }),
+      )
+
       return
     }
     setError(null)

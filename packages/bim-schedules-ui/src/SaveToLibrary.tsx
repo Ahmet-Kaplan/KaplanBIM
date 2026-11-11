@@ -4,7 +4,10 @@ import { Button, Spinner } from "@permitzip/bim-ui";
 import { Input, Textarea, NativeSelect, NativeSelectOption } from "./components/ui/fields";
 import { useEffect, useId, useState } from "react";
 import type { FormulaType, LibraryItemSummary, LibraryProviderPort, LibraryScope, OperandType, ScopeCapabilities } from "./ports";
+
 import { Dialog } from "./ui/overlays";
+import { useSchedulesTranslate } from "./i18n/translate";
+
 
 /** `PZ.GasDemandBtuh`: publisher prefix, a dot, a name (B's `CALCULATION_KEY_PATTERN`). */
 const CALCULATION_KEY_PATTERN = /^[A-Z][A-Za-z0-9]*(?:\.[A-Za-z][A-Za-z0-9_]*)+$/;
@@ -44,8 +47,11 @@ type ScopeRow = LibraryScope & { readonly caps: ScopeCapabilities };
  * reason, never hidden; refusals name the item and the fault.
  */
 export function SaveToLibraryDialog({ open, onOpenChange, provider, expression, result, appliesTo, defaultName = "", onSaved }: SaveToLibraryDialogProps) {
+
   const ids = useId();
+  const t = useSchedulesTranslate();
   const [scopes, setScopes] = useState<readonly ScopeRow[] | null>(null);
+
   const [loadError, setLoadError] = useState<string | null>(null);
   const [scope, setScope] = useState("");
   const [name, setName] = useState(defaultName);
@@ -79,17 +85,32 @@ export function SaveToLibraryDialog({ open, onOpenChange, provider, expression, 
         setScope(firstWritable?.id ?? "");
       } catch (err) {
         console.error("[SaveToLibraryDialog] loading libraries failed", err);
-        if (live) setLoadError("Couldn't load your libraries. Check your connection and try again.");
+
+        if (live) setLoadError(t("save.loadFailed", "Couldn't load your libraries. Check your connection and try again.", { ns: "schedules" }));
+
       }
     })();
     return () => {
       live = false;
     };
-  }, [open, provider]);
 
-  const keyProblem = key === "" ? "Give the calculation a name." : !CALCULATION_KEY_PATTERN.test(key) ? "Use a prefix, a dot and a name with no spaces, like PZ.GasDemandBtuh." : null;
+  }, [open, provider, t]);
+
+  const keyProblem =
+    key === ""
+      ? t("save.giveName", "Give the calculation a name.", { ns: "schedules" })
+      : !CALCULATION_KEY_PATTERN.test(key)
+        ? t("save.keyPattern", "Use a prefix, a dot and a name with no spaces, like PZ.GasDemandBtuh.", { ns: "schedules" })
+        : null;
   const writable = scopes?.filter((s) => s.caps.publish) ?? [];
-  const blocked = !provider.publish ? "This library can only be read." : writable.length === 0 ? (scopes?.find((s) => s.caps.reason)?.caps.reason ?? "You can't publish to any library here.") : name.trim() === "" ? "Give the calculation a name." : keyProblem;
+  const blocked = !provider.publish
+    ? t("save.readOnly", "This library can only be read.", { ns: "schedules" })
+    : writable.length === 0
+      ? (scopes?.find((s) => s.caps.reason)?.caps.reason ?? t("save.cannotPublishAny", "You can't publish to any library here.", { ns: "schedules" }))
+      : name.trim() === ""
+        ? t("save.giveName", "Give the calculation a name.", { ns: "schedules" })
+        : keyProblem;
+
 
   const publish = async () => {
     if (!provider.publish || blocked) return;
@@ -102,15 +123,30 @@ export function SaveToLibraryDialog({ open, onOpenChange, provider, expression, 
         0,
       );
       if (res.ok) {
-        const where = scopes?.find((s) => s.id === scope)?.name ?? "the library";
-        setOutcome({ ok: true, message: `Saved to ${where} as ${res.summary.key}, revision ${res.summary.revision}.` });
+
+        const where = scopes?.find((s) => s.id === scope)?.name ?? t("save.theLibrary", "the library", { ns: "schedules" });
+        setOutcome({
+          ok: true,
+          message: t("save.savedTo", "Saved to {{where}} as {{key}}, revision {{revision}}.", { ns: "schedules", where, key: res.summary.key, revision: res.summary.revision }),
+        });
+
         onSaved?.(res.summary);
       } else {
-        setOutcome({ ok: false, message: res.message, ...(res.problems ? { problems: res.problems.map((p) => (p.line ? `Line ${p.line}: ${p.message}` : p.message)) } : {}) });
+
+        setOutcome({
+          ok: false,
+          message: res.message,
+          ...(res.problems
+            ? { problems: res.problems.map((p) => (p.line ? t("save.lineN", "Line {{n}}: {{message}}", { ns: "schedules", n: p.line, message: p.message }) : p.message)) }
+            : {}),
+        });
+
       }
     } catch (err) {
       console.error("[SaveToLibraryDialog] publish failed", err);
-      setOutcome({ ok: false, message: "The library didn't answer, so nothing was saved. Try again." });
+
+      setOutcome({ ok: false, message: t("save.noAnswer", "The library didn't answer, so nothing was saved. Try again.", { ns: "schedules" }) });
+
     } finally {
       setBusy(false);
     }
@@ -120,15 +156,21 @@ export function SaveToLibraryDialog({ open, onOpenChange, provider, expression, 
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Save to firm library"
+
+      title={t("save.title", "Save to firm library", { ns: "schedules" })}
+
       footer={
         <>
           <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
-            {outcome?.ok ? "Done" : "Cancel"}
+
+{outcome?.ok ? t("save.done", "Done", { ns: "schedules" }) : t("save.cancel", "Cancel", { ns: "schedules" })}
+
           </Button>
           {!outcome?.ok ? (
             <Button variant="default" size="sm" disabled={busy || blocked !== null} aria-describedby={blocked ? `${ids}-blocked` : undefined} onClick={() => void publish()}>
-              {busy ? <Spinner /> : null} Publish
+
+{busy ? <Spinner /> : null} {t("save.publish", "Publish", { ns: "schedules" })}
+
             </Button>
           ) : null}
         </>
@@ -136,17 +178,24 @@ export function SaveToLibraryDialog({ open, onOpenChange, provider, expression, 
     >
       <div className="mutiny-sched-section">
         <p className="mutiny-sched-help">
-          Everyone with access to the library can use <code>{expression}</code> in their schedules. Schedules that use it keep their own copy until they choose to update.
+
+{t("save.helpBefore", "Everyone with access to the library can use", { ns: "schedules" })} <code>{expression}</code>{" "}
+          {t("save.helpAfter", "in their schedules. Schedules that use it keep their own copy until they choose to update.", { ns: "schedules" })}
+
         </p>
         {loadError ? <p className="mutiny-sched-error">{loadError}</p> : null}
         {scopes === null && !loadError ? (
           <p className="mutiny-sched-muted">
-            <Spinner /> Loading libraries…
+
+<Spinner /> {t("save.loading", "Loading libraries…", { ns: "schedules" })}
+
           </p>
         ) : null}
         {scopes ? (
           <div className="mutiny-sched-field">
-            <label htmlFor={`${ids}-scope`}>Library</label>
+
+<label htmlFor={`${ids}-scope`}>{t("save.library", "Library", { ns: "schedules" })}</label>
+
             <NativeSelect id={`${ids}-scope`} value={scope} onChange={(e) => setScope(e.target.value)}>
               {scopes.map((s) => (
                 <NativeSelectOption key={s.id} value={s.id} disabled={!s.caps.publish}>
@@ -158,12 +207,16 @@ export function SaveToLibraryDialog({ open, onOpenChange, provider, expression, 
           </div>
         ) : null}
         <div className="mutiny-sched-field">
-          <label htmlFor={`${ids}-name`}>Name</label>
+
+<label htmlFor={`${ids}-name`}>{t("save.name", "Name", { ns: "schedules" })}</label>
+
           <Input
             id={`${ids}-name`}
-           
+
             value={name}
-            placeholder="Gas demand (Btu/h)"
+
+            placeholder={t("save.namePlaceholder", "Gas demand (Btu/h)", { ns: "schedules" })}
+
             onChange={(e) => {
               setName(e.target.value);
               if (!keyTouched) setKey(suggestCalculationKey(e.target.value));
@@ -171,10 +224,12 @@ export function SaveToLibraryDialog({ open, onOpenChange, provider, expression, 
           />
         </div>
         <div className="mutiny-sched-field">
-          <label htmlFor={`${ids}-key`}>Formula name</label>
+
+<label htmlFor={`${ids}-key`}>{t("save.formulaName", "Formula name", { ns: "schedules" })}</label>
+
           <Input
             id={`${ids}-key`}
-           
+
             value={key}
             aria-invalid={keyProblem !== null && key !== ""}
             aria-describedby={`${ids}-key-help`}
@@ -184,11 +239,15 @@ export function SaveToLibraryDialog({ open, onOpenChange, provider, expression, 
             }}
           />
           <p id={`${ids}-key-help`} className={keyProblem && key !== "" ? "mutiny-sched-error" : "mutiny-sched-help"}>
-            {keyProblem && key !== "" ? keyProblem : "How formulas call it, e.g. PZ.GasDemandBtuh({own.mbh})."}
+
+{keyProblem && key !== "" ? keyProblem : t("save.formulaHelp", "How formulas call it, e.g. PZ.GasDemandBtuh({own.mbh}).", { ns: "schedules" })}
+
           </p>
         </div>
         <div className="mutiny-sched-field">
-          <label htmlFor={`${ids}-desc`}>Description (optional)</label>
+
+<label htmlFor={`${ids}-desc`}>{t("save.description", "Description (optional)", { ns: "schedules" })}</label>
+
           <Textarea id={`${ids}-desc`} rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
         </div>
         {blocked && scopes ? (

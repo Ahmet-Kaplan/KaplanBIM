@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Separator } from '../../ui/separator'
 import { Switch } from '../../ui/switch'
 import type { SubmitCommand } from '../views-sheets/types'
+import { useEditorTranslate } from '../i18n/translate'
 import { hintsCommand, PIPE_LABEL_CHOICES, PIPING_SYSTEM_PRESETS, pipingPresetOf, type PipingSystemPreset, movedCount } from './diagram-commands'
 
 interface Props {
@@ -37,6 +38,7 @@ export function PipingDiagramProperties({ model, view, selectedIds, canEdit, blo
   const nodes = diagramNodes(graph)
   const fixtures = nodes.filter((n) => n.role === 'terminal' && n.name !== 'OPEN END' && n.name !== 'CAP').length
   const systems = new Set(nodes.map((n) => n.service)).size
+  const t = useEditorTranslate()
   const set = (patch: Parameters<typeof hintsCommand>[1], label: string) => {
     const command = hintsCommand(view, patch)
     setError(command ? submit(command, label) : null)
@@ -49,7 +51,14 @@ export function PipingDiagramProperties({ model, view, selectedIds, canEdit, blo
     if (on) next.add(id)
     else next.delete(id)
     // Sizes always print; the rest in the order they read.
-    set({ pipeLabels: ['size', ...PIPE_LABEL_CHOICES.map((c) => c.id).filter((c) => next.has(c))] }, `${on ? 'show' : 'hide'} ${label.toLowerCase()} on ${view.name}`)
+
+    set(
+      { pipeLabels: ['size', ...PIPE_LABEL_CHOICES.map((c) => c.id).filter((c) => next.has(c))] },
+      on
+        ? t('diagram.showNamedOnView', 'show {{name}} on {{view}}', { ns: 'editor', name: label.toLowerCase(), view: view.name })
+        : t('diagram.hideNamedOnView', 'hide {{name}} on {{view}}', { ns: 'editor', name: label.toLowerCase(), view: view.name }),
+    )
+
   }
   const selectedId = selectedIds.length === 1 ? (selectedIds[0] ?? null) : null
   const station = selectedId ? nodes.find((n) => n.elementId === selectedId && (n.role === 'terminal' || n.role === 'device')) : undefined
@@ -58,25 +67,49 @@ export function PipingDiagramProperties({ model, view, selectedIds, canEdit, blo
   const disabledReason = canEdit ? undefined : blockedReason
 
   return (
-    <section className="flex flex-col gap-3" aria-label="Diagram" data-testid="diagram-properties">
+
+    <section
+      className="flex flex-col gap-3"
+      aria-label={t('diagram.properties', 'Diagram', { ns: 'editor' })}
+      data-testid="diagram-properties"
+    >
+
       <Separator />
       <div className="flex flex-col gap-1">
         <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{DIAGRAM_KIND_LABELS[def.kind]}</span>
         <p className="text-xs text-muted-foreground" data-testid="diagram-summary">
+
           {fixtures === 0
-            ? 'Drawn from the model: nothing to draw yet. Route pipe with Route and connect fixtures to it; the riser draws itself.'
-            : `Drawn from the model: ${fixtures} fixture${fixtures === 1 ? '' : 's'} on ${systems} system${systems === 1 ? '' : 's'}, redrawn whenever the model changes.`}{' '}
-          Click a pipe or fixture to select it in the model; whatever is selected in the model lights up here.
+            ? t(
+                'diagram.pipingNothing',
+                'Drawn from the model: nothing to draw yet. Route pipe with Route and connect fixtures to it; the riser draws itself.',
+                { ns: 'editor' },
+              )
+            : t('diagram.pipingSummary', 'Drawn from the model: {{fixtures}} fixtures on {{systems}} systems, redrawn whenever the model changes.', {
+                ns: 'editor',
+                fixtures,
+                systems,
+              })}{' '}
+          {t('diagram.pipingHow', 'Click a pipe or fixture to select it in the model; whatever is selected in the model lights up here.', { ns: 'editor' })}
+
         </p>
       </div>
 
       <Field>
-        <FieldLabel htmlFor="diagram-systems">Systems</FieldLabel>
+
+        <FieldLabel htmlFor="diagram-systems">{t('diagram.systems', 'Systems', { ns: 'editor' })}</FieldLabel>
+
         <Select
           value={preset}
           onValueChange={(v) => {
             const p = PIPING_SYSTEM_PRESETS.find((x) => x.id === (v as PipingSystemPreset))
-            if (p) set({ systemKinds: p.kinds ? [...p.kinds] : undefined }, `draw ${p.label.toLowerCase()} on ${view.name}`)
+
+            if (p)
+              set(
+                { systemKinds: p.kinds ? [...p.kinds] : undefined },
+                t('diagram.drawSystem', 'draw {{name}} on {{view}}', { ns: 'editor', name: p.label.toLowerCase(), view: view.name }),
+              )
+
           }}
           disabled={!canEdit}
         >
@@ -90,7 +123,13 @@ export function PipingDiagramProperties({ model, view, selectedIds, canEdit, blo
                   {p.label}
                 </SelectItem>
               ))}
-              {preset === 'custom' && <SelectItem value="custom">As set by an agent: {(hints.systemKinds ?? []).join(', ').replace(/_/g, ' ')}</SelectItem>}
+
+              {preset === 'custom' && (
+                <SelectItem value="custom">
+                  {t('diagram.asSetByAgent', 'As set by an agent: {{kinds}}', { ns: 'editor', kinds: (hints.systemKinds ?? []).join(', ').replace(/_/g, ' ') })}
+                </SelectItem>
+              )}
+
             </SelectGroup>
           </SelectContent>
         </Select>
@@ -105,30 +144,60 @@ export function PipingDiagramProperties({ model, view, selectedIds, canEdit, blo
 
       {station && selectedId && (
         <div className="flex flex-col gap-2 rounded-md border p-2" data-testid="diagram-selected">
-          <span className="text-xs font-medium">{station.name} on this diagram</span>
-          <Button variant="ghost" size="sm" className="self-start" disabled={!canEdit} title={disabledReason} onClick={() => set({ hidden: [...hidden, station.id] }, `leave ${station.name} off ${view.name}`)} data-testid="diagram-hide">
+
+          <span className="text-xs font-medium">
+            {t('diagram.namedOnThisDiagram', '{{name}} on this diagram', { ns: 'editor', name: station.name })}
+          </span>
+
+          <Button variant="ghost" size="sm" className="self-start" disabled={!canEdit} title={disabledReason}
+onClick={() =>
+              set(
+                { hidden: [...hidden, station.id] },
+                t('diagram.leaveOffWhat', 'leave {{name}} off {{view}}', { ns: 'editor', name: station.name, view: view.name }),
+              )
+            } data-testid="diagram-hide">
             <EyeOff data-icon="inline-start" />
-            Leave off this diagram
+            {t('diagram.leaveOff', 'Leave off this diagram', { ns: 'editor' })}
+
           </Button>
         </div>
       )}
 
       {hidden.length > 0 && (
         <Field>
-          <FieldLabel>Left off this diagram</FieldLabel>
+
+          <FieldLabel>{t('diagram.leftOff', 'Left off this diagram', { ns: 'editor' })}</FieldLabel>
+
           <div className="flex flex-wrap gap-1">
             {hidden.map((id) => (
-              <Button key={id} variant="outline" size="sm" disabled={!canEdit} onClick={() => set({ hidden: hidden.filter((h) => h !== id) }, `show ${id} on ${view.name} again`)}>
-                Show {resolveField(model.elements, id, 'name').text || id} again
+
+              <Button
+                key={id}
+                variant="outline"
+                size="sm"
+                disabled={!canEdit}
+                onClick={() =>
+                  set(
+                    { hidden: hidden.filter((h) => h !== id) },
+                    t('diagram.showAgainWhat', 'show {{name}} on {{view}} again', { ns: 'editor', name: id, view: view.name }),
+                  )
+                }
+              >
+                {t('diagram.showAgain', 'Show {{name}} again', { ns: 'editor', name: resolveField(model.elements, id, 'name').text || id })}
               </Button>
+
             ))}
           </div>
         </Field>
       )}
 
-      <Button variant="outline" size="sm" className="self-start" disabled={!canEdit || pins === 0} title={pins === 0 ? 'Nothing has been moved on this diagram' : disabledReason} onClick={() => set({ pins: undefined, textOffsets: undefined }, `reset positions on ${view.name}`)} data-testid="diagram-reset-pins">
+      <Button variant="outline" size="sm" className="self-start" disabled={!canEdit || pins === 0}
+title={pins === 0 ? t('diagram.nothingMoved', 'Nothing has been moved on this diagram', { ns: 'editor' }) : disabledReason} onClick={() => set({ pins: undefined, textOffsets: undefined }, t('diagram.resetWhat', 'reset positions on {{view}}', { ns: 'editor', view: view.name }))} data-testid="diagram-reset-pins">
         <RotateCcw data-icon="inline-start" />
-        Reset positions{pins > 0 ? ` (${pins} moved)` : ''}
+        {pins > 0
+          ? t('diagram.resetPositionsN', 'Reset positions ({{n}} moved)', { ns: 'editor', n: pins })
+          : t('diagram.resetPositions', 'Reset positions', { ns: 'editor' })}
+
       </Button>
       {error && <FieldDescription className="text-danger-600">{error}</FieldDescription>}
     </section>

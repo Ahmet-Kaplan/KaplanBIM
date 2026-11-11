@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { diagramSelectionIndex, evaluateDiagram, type DiagramNodeBox, type DiagramTextBox, type ModelState, type Vec2, type ViewElement } from '@permitzip/bim-kernel'
 import type { SubmitCommand } from '../views-sheets/types'
 import { pinCommand, textOffsetCommand } from './diagram-commands'
+import { useEditorTranslate } from '../i18n/translate'
 
 const PRIMARY = 'var(--mutiny-selection)'
 /** A press that travels less than this (paper mm) is a click. */
@@ -59,6 +60,7 @@ function rectOf(b: Pick<DiagramNodeBox, 'min' | 'max'>, toPaper: (p: Vec2) => Ve
  * well away. Esc cancels a drag.
  */
 export function DiagramLayer({ model, view, toPaper, toDrawing, paperOf, selectedIds, canEdit, blockedReason, submit, onSelect, hint }: Props) {
+  const t = useEditorTranslate()
   const evaluation = useMemo(() => evaluateDiagram(model.elements, view), [model.elements, view])
   const [drag, setDrag] = useState<Drag | null>(null)
   const [hover, setHover] = useState<number | null>(null)
@@ -71,12 +73,26 @@ export function DiagramLayer({ model, view, toPaper, toDrawing, paperOf, selecte
     setDrag(null)
     if (!moved || (d.pipe && !d.textKey)) {
       if (!d.id) {
-        hint(`Drag "${d.name}" to move it on this diagram.`)
+        hint(t('diagram.dragToMove', 'Drag “{{name}}” to move it on this diagram.', { ns: 'editor', name: d.name }))
         return
       }
       onSelect(d.id)
-      if (d.textKey) hint(`Selected what "${d.name}" describes. Drag the text to move just the text.`)
-      else hint(d.pipe ? `${d.name} selected in the model. Its size, slope and what it carries are on the right; drag its label to move just the label.` : `${d.name} selected. Its properties are on the right; drag it to move it and what it feeds, or drag its text to move just the text.`)
+      if (d.textKey)
+        hint(t('diagram.selectedTextOf', 'Selected what “{{name}}” describes. Drag the text to move just the text.', { ns: 'editor', name: d.name }))
+      else
+        hint(
+          d.pipe
+            ? t(
+                'diagram.selectedPipe',
+                '{{name}} selected in the model. Its size, slope and what it carries are on the right; drag its label to move just the label.',
+                { ns: 'editor', name: d.name },
+              )
+            : t(
+                'diagram.selectedEquipment',
+                '{{name}} selected. Its properties are on the right; drag it to move it and what it feeds, or drag its text to move just the text.',
+                { ns: 'editor', name: d.name },
+              ),
+        )
       return
     }
     if (!canEdit) {
@@ -88,16 +104,16 @@ export function DiagramLayer({ model, view, toPaper, toDrawing, paperOf, selecte
     if (d.textKey) {
       const command = textOffsetCommand(view, d.textKey, { x: b.x - a.x, y: b.y - a.y })
       if (!command) return
-      const refusal = submit(command, `move the text "${d.name}" on ${view.name}`)
+      const refusal = submit(command, t('diagram.moveTextWhat', 'move the text “{{name}}” on {{view}}', { ns: 'editor', name: d.name, view: view.name }))
       if (refusal) toast.error(refusal)
-      else hint(`Moved "${d.name}". It still reads the model; Reset positions in the view's properties puts it back.`)
+      else hint(t('diagram.movedText', 'Moved “{{name}}”. It still reads the model; Reset positions in the view’s properties puts it back.', { ns: 'editor', name: d.name }))
       return
     }
     const command = pinCommand(view, d.id, { x: b.x - a.x, y: b.y - a.y })
     if (!command) return
-    const refusal = submit(command, `move ${d.name} on ${view.name}`)
+    const refusal = submit(command, t('diagram.moveWhat', 'move {{name}} on {{view}}', { ns: 'editor', name: d.name, view: view.name }))
     if (refusal) toast.error(refusal)
-    else hint(`Moved ${d.name} on this diagram. Reset positions in the view's properties puts it back.`)
+    else hint(t('diagram.moved', 'Moved {{name}} on this diagram. Reset positions in the view’s properties puts it back.', { ns: 'editor', name: d.name }))
   }
 
   // While a press is held the window follows the pointer, so a drag that leaves the box keeps going.
@@ -115,7 +131,7 @@ export function DiagramLayer({ model, view, toPaper, toDrawing, paperOf, selecte
       if (e.key !== 'Escape') return
       e.stopPropagation()
       setDrag(null)
-      hint('Move cancelled; nothing changed.')
+      hint(t('diagram.moveCancelled', 'Move cancelled; nothing changed.', { ns: 'editor' }))
     }
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)

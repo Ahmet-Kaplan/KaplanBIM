@@ -2,6 +2,11 @@ import { flattenTree, type GridCell, type GridColumn, type GridEditIntent, type 
 import type { CellEdit, CellRef, CellValue, ColumnValues, EditingPresence, RowSet, RowSetColumn } from "./contracts";
 import { rowIndexOf } from "./apply-patch";
 import type { ScheduleUnits } from "./units";
+import { englishOnly, type Translate } from "./i18n/translate";
+import { scheduleFieldLabel } from "./i18n/words";
+
+/** The translator a grid with none given reads: the English at each call site, placeholders filled. */
+const ENGLISH = englishOnly;
 
 /**
  * Maps a `RowSet` onto the generic grid: formatting through the unit
@@ -35,6 +40,8 @@ export interface GridModelInput {
   readonly explanations: ReadonlyMap<string, string>;
   readonly widths: ReadonlyMap<string, number>;
   readonly onGoToSource?: (column: RowSetColumn, cell: CellRef) => void;
+  /** The language the grid is drawn in. Absent: the English at each call site, headings as the model wrote them. */
+  readonly t?: Translate;
 }
 
 export interface GridModel {
@@ -64,26 +71,30 @@ function defaultWidth(column: RowSetColumn): number {
 }
 
 /** Plain reason a locked column can't be typed in, when the engine didn't say. */
-export function lockedReasonFor(column: RowSetColumn): string {
+export function lockedReasonFor(column: RowSetColumn, t: Translate = ENGLISH): string {
   if (column.lockedReason) return column.lockedReason;
   switch (column.kind) {
     case "formula":
-      return column.source ? `Calculated by ${column.source.label}.` : "Calculated by a formula.";
+      return column.source
+        ? t("grid.calculatedBy", "Calculated by {{source}}.", { ns: "schedules", source: column.source.label })
+        : t("grid.calculatedByFormula", "Calculated by a formula.", { ns: "schedules" });
     case "aggregate":
-      return column.source ? `Totalled from ${column.source.label}.` : "Totalled from related items.";
+      return column.source
+        ? t("grid.totalledFrom", "Totalled from {{source}}.", { ns: "schedules", source: column.source.label })
+        : t("grid.totalledFromRelated", "Totalled from related items.", { ns: "schedules" });
     case "expand":
-      return `Open the ${column.expandLabel ?? column.heading} list to edit its rows.`;
+      return t("grid.openExpandList", "Open the {{column}} list to edit its rows.", { ns: "schedules", column: column.expandLabel ?? column.heading });
     default:
-      return "This value comes from the model and can't be typed here.";
+      return t("grid.fromModelLocked", "This value comes from the model and can't be typed here.", { ns: "schedules" });
   }
 }
 
-function sourceLabel(column: RowSetColumn): string {
+function sourceLabel(column: RowSetColumn, t: Translate = ENGLISH): string {
   const kind = column.source?.kind;
-  return kind === "formula" || kind === "calculation" ? "Go to formula" : "Go to source";
+  return kind === "formula" || kind === "calculation" ? t("grid.goToFormula", "Go to formula", { ns: "schedules" }) : t("grid.goToSource", "Go to source", { ns: "schedules" });
 }
 
-export function formatValue(col: ColumnValues | undefined, column: RowSetColumn, i: number, units: ScheduleUnits): string {
+export function formatValue(col: ColumnValues | undefined, column: RowSetColumn, i: number, units: ScheduleUnits, t: Translate = ENGLISH): string {
   if (!col) return "";
   if (col.type === "quantity") {
     const v = col.values[i] ?? NaN;
@@ -91,7 +102,8 @@ export function formatValue(col: ColumnValues | undefined, column: RowSetColumn,
   }
   if (col.type === "boolean") {
     const v = col.values[i] ?? -1;
-    return v === 1 ? "Yes" : v === 0 ? "No" : "";
+    // Yes / No are words, not values: a cell says them like any other caption.
+    return v === 1 ? t("grid.yes", "Yes", { ns: "schedules" }) : v === 0 ? t("grid.no", "No", { ns: "schedules" }) : "";
   }
   return col.values[i] ?? "";
 }
@@ -105,6 +117,7 @@ function unitSuffix(heading: string, label: string): { readonly unitLabel?: stri
 
 export function buildGridModel(input: GridModelInput): GridModel {
   const { rowSet, units, expanded, overlays, presence, explanations, widths, onGoToSource } = input;
+  const t = input.t ?? ENGLISH;
   const cols = rowSet.columns;
   const expandColumn = cols.find((c) => c.kind === "expand") ?? null;
   const expandChildren = expandColumn ? rowSet.children.get(expandColumn.id) : undefined;
@@ -114,13 +127,14 @@ export function buildGridModel(input: GridModelInput): GridModel {
 
   const columns: GridColumn[] = cols.map((c) => ({
     id: c.id,
-    heading: c.heading,
+    // The heading is the model's word for a field, drawn in the language on screen; a heading the field table has never heard of is drawn exactly as it arrived.
+    heading: scheduleFieldLabel(c.heading, t),
     width: widths.get(c.id) ?? c.width ?? defaultWidth(c),
     editor: editorFor(c),
     ...(c.choices ? { options: c.choices.map((v) => ({ value: v, label: v })) } : {}),
     align: c.valueType === "quantity" || c.kind === "expand" ? "end" : "start",
     ...(c.valueType === "quantity" && c.quantityKind ? unitSuffix(c.heading, units.heading(c.quantityKind, c.unit ? { unit: c.unit } : undefined)) : {}),
-    ...(c.writer === null ? { description: lockedReasonFor(c) } : c.writer.scope === "type" ? { description: "Changes every part of the row's type." } : {}),
+    ...(c.writer === null ? { description: lockedReasonFor(c, t) } : c.writer.scope === "type" ? { description: t("grid.changesWholeType", "Changes every part of the row's type.", { ns: "schedules" }) } : {}),
   }));
 
   const flat = flattenTree(rowSet.rowCount, (p) => {
@@ -164,9 +178,9 @@ export function buildGridModel(input: GridModelInput): GridModel {
       const explain = explanations.get(key);
       cell = {
         ...cell,
-        lockedReason: base.lockedReason ?? lockedReasonFor(column),
+        lockedReason: base.lockedReason ?? lockedReasonFor(column, t),
         ...(explain ? { explain } : {}),
-        ...(column.source && onGoToSource ? { sourceAction: { label: sourceLabel(column), run: () => onGoToSource(column, ref) } } : {}),
+        ...(column.source && onGoToSource ? { sourceAction: { label: sourceLabel(column, t), run: () => onGoToSource(column, ref) } } : {}),
       };
     }
     return cell;
@@ -176,8 +190,8 @@ export function buildGridModel(input: GridModelInput): GridModel {
   const firstColumn = cols.find((c) => c.kind !== "expand");
   const rowName = (p: number): string => {
     if (!firstColumn) return "";
-    const name = formatValue(rowSet.values.get(firstColumn.id), firstColumn, p, units);
-    return name ? ` for ${name}` : "";
+    const name = formatValue(rowSet.values.get(firstColumn.id), firstColumn, p, units, t);
+    return name ? t("grid.rowTitled", " for {{name}}", { ns: "schedules", name }) : "";
   };
 
   const rows: GridRows = {
@@ -193,7 +207,7 @@ export function buildGridModel(input: GridModelInput): GridModel {
           depth: 0,
           expandable: expandColumn !== null && n > 0,
           expanded: expanded.has(parentKey),
-          expandLabel: `${expandColumn?.expandLabel ?? expandColumn?.heading ?? "rows"} (${n})${rowName(p)}`,
+          expandLabel: `${scheduleFieldLabel(expandColumn?.expandLabel ?? expandColumn?.heading ?? t("grid.rows", "rows", { ns: "schedules" }), t)} (${n})${rowName(p)}`,
         };
       }
       const sub = childSet(p);
@@ -206,15 +220,15 @@ export function buildGridModel(input: GridModelInput): GridModel {
       const colIndex = colIndexById.get(columnId) ?? -1;
       const parentCol = cols[colIndex];
       const gridColumn = columns[colIndex];
-      if (!parentCol || !gridColumn) return { display: "", state: "locked", lockedReason: "No such column." };
+      if (!parentCol || !gridColumn) return { display: "", state: "locked", lockedReason: t("grid.noSuchColumn", "No such column.", { ns: "schedules" }) };
       const parentKey = rowSet.rowKeys[p] ?? `#${p}`;
       if (c < 0) {
         const ref: CellRef = { rowKey: parentKey, columnId };
         if (parentCol.kind === "expand") {
           const n = rowSet.children.get(parentCol.id)?.get(parentKey)?.rowCount ?? 0;
-          return decorate(ref, parentCol, { display: String(n), state: "locked", lockedReason: lockedReasonFor(parentCol) });
+          return decorate(ref, parentCol, { display: String(n), state: "locked", lockedReason: lockedReasonFor(parentCol, t) });
         }
-        const display = formatValue(rowSet.values.get(columnId), parentCol, p, units);
+        const display = formatValue(rowSet.values.get(columnId), parentCol, p, units, t);
         const hl = rowSet.highlights?.get(columnId)?.get(parentKey);
         const base: GridCell = { display, state: parentCol.writer ? "editable" : "locked", ...(hl ? { highlight: hl } : {}) };
         return decorate(ref, parentCol, base);
@@ -224,15 +238,29 @@ export function buildGridModel(input: GridModelInput): GridModel {
       const childCol = childAt[colIndex];
       const childKey = sub?.rowKeys[c] ?? `#${c}`;
       if (!sub || !childCol || !expandColumn) {
-        return { display: "", state: "locked", lockedReason: `${expandColumn?.expandLabel ?? "Sub-list"} rows have no value in this column.` };
+        return {
+          display: "",
+          state: "locked",
+          lockedReason: t("grid.subListNoValue", "{{column}} rows have no value in this column.", {
+            ns: "schedules",
+            column: scheduleFieldLabel(expandColumn?.expandLabel ?? t("grid.subList", "Sub-list", { ns: "schedules" }), t),
+          }),
+        };
       }
       const ref: CellRef = { rowKey: childKey, columnId: childCol.id, parent: { rowKey: parentKey, columnId: expandColumn.id } };
-      const display = formatValue(sub.values.get(childCol.id), childCol, c, units);
+      const display = formatValue(sub.values.get(childCol.id), childCol, c, units, t);
       const sameEditor = editorFor(childCol) === gridColumn.editor;
       const base: GridCell =
         childCol.writer && sameEditor
-          ? { display, state: "editable", label: childCol.heading }
-          : { display, state: "locked", label: childCol.heading, lockedReason: childCol.writer ? `Edit ${childCol.heading} from the item's own schedule.` : lockedReasonFor(childCol) };
+          ? { display, state: "editable", label: scheduleFieldLabel(childCol.heading, t) }
+          : {
+              display,
+              state: "locked",
+              label: scheduleFieldLabel(childCol.heading, t),
+              lockedReason: childCol.writer
+                ? t("grid.editFromOwnSchedule", "Edit {{column}} from the item's own schedule.", { ns: "schedules", column: scheduleFieldLabel(childCol.heading, t) })
+                : lockedReasonFor(childCol, t),
+            };
       return decorate(ref, childCol, base);
     },
   };
@@ -270,14 +298,14 @@ export interface BatchResult {
 }
 
 /** Turns a grid intent into typed cell edits: parses units, checks choices, and keeps skipped-cell reasons. */
-export function intentToEdits(intent: GridEditIntent, model: GridModel, units: ScheduleUnits): BatchResult {
+export function intentToEdits(intent: GridEditIntent, model: GridModel, units: ScheduleUnits, t: Translate = ENGLISH): BatchResult {
   const edits: CellEdit[] = [];
   const refused: { ref: CellRef; reason: string; text: string }[] = [];
   const texts = new Map<string, string>();
   for (const e of intent.edits) {
     const { ref, column } = model.resolve(e.rowKey, e.columnId);
     if (!column || !column.writer) {
-      refused.push({ ref, reason: column ? lockedReasonFor(column) : "That cell isn't in this schedule.", text: e.text });
+      refused.push({ ref, reason: column ? lockedReasonFor(column, t) : t("grid.cellNotInSchedule", "That cell isn't in this schedule.", { ns: "schedules" }), text: e.text });
       continue;
     }
     const text = e.text.trim();
@@ -291,17 +319,21 @@ export function intentToEdits(intent: GridEditIntent, model: GridModel, units: S
       }
       value = parsed.si;
     } else if (column.valueType === "boolean") {
-      const t = text.toLowerCase();
-      if (t === "true" || t === "yes" || t === "y" || t === "1") value = true;
-      else if (t === "false" || t === "no" || t === "n" || t === "0") value = false;
+      const word = text.toLowerCase();
+      if (word === "true" || word === "yes" || word === "y" || word === "1") value = true;
+      else if (word === "false" || word === "no" || word === "n" || word === "0") value = false;
       else {
-        refused.push({ ref, reason: `${column.heading} is Yes or No.`, text: e.text });
+        refused.push({ ref, reason: t("grid.isYesOrNo", "{{column}} is Yes or No.", { ns: "schedules", column: scheduleFieldLabel(column.heading, t) }), text: e.text });
         continue;
       }
     } else if (column.valueType === "choice" && column.choices) {
       const match = column.choices.find((c) => c.toLowerCase() === text.toLowerCase());
       if (!match) {
-        refused.push({ ref, reason: `Pick one of: ${column.choices.slice(0, 8).join(", ")}${column.choices.length > 8 ? ", …" : ""}.`, text: e.text });
+        refused.push({
+          ref,
+          reason: t("grid.pickOneOf", "Pick one of: {{choices}}.", { ns: "schedules", choices: `${column.choices.slice(0, 8).join(", ")}${column.choices.length > 8 ? ", …" : ""}` }),
+          text: e.text,
+        });
         continue;
       }
       value = match;
@@ -317,14 +349,15 @@ export function intentToEdits(intent: GridEditIntent, model: GridModel, units: S
 }
 
 /** CSV of the visible schedule (parents only), as printed values. */
-export function rowSetToCsv(rowSet: RowSet, units: ScheduleUnits): string {
+export function rowSetToCsv(rowSet: RowSet, units: ScheduleUnits, t: Translate = ENGLISH): string {
   const esc = (s: string) => (/[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
   const cols = rowSet.columns.filter((c) => c.kind !== "expand");
   const head = cols.map((c) => {
     const unit = c.valueType === "quantity" && c.quantityKind ? units.heading(c.quantityKind, c.unit ? { unit: c.unit } : undefined) : "";
-    return esc(unit ? `${c.heading} (${unit})` : c.heading);
+    const heading = scheduleFieldLabel(c.heading, t);
+    return esc(unit ? `${heading} (${unit})` : heading);
   });
   const lines = [head.join(",")];
-  for (let i = 0; i < rowSet.rowCount; i++) lines.push(cols.map((c) => esc(formatValue(rowSet.values.get(c.id), c, i, units))).join(","));
+  for (let i = 0; i < rowSet.rowCount; i++) lines.push(cols.map((c) => esc(formatValue(rowSet.values.get(c.id), c, i, units, t))).join(","));
   return lines.join("\n");
 }

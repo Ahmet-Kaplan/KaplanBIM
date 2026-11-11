@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { describeWorkingAngle, workingAngleFromEdge, type Command, type Vec2 } from '@permitzip/bim-kernel'
 import { Button } from '../../ui/button'
 import type { EdgeHit, EdgePicker } from './edge-pick'
+import { englishOnly, useEditorTranslate, type Translate } from '../i18n/translate'
 
 /** What the picked edge sets. */
 export type WorkingAngleTarget =
@@ -12,24 +13,37 @@ export type WorkingAngleTarget =
   | { readonly kind: 'crop'; readonly label: string }
 
 /** The command (or crop action) for an edge picked for a target. */
-export function workingAngleCommand(target: WorkingAngleTarget, from: Vec2, to: Vec2): { command: Command; label: string } | null {
+export function workingAngleCommand(target: WorkingAngleTarget, from: Vec2, to: Vec2, t: Translate = englishOnly): { command: Command; label: string } | null {
   switch (target.kind) {
     case 'model':
-      return { command: { type: 'set_working_angle', from, to }, label: 'align the working angle to an edge' }
+      return { command: { type: 'set_working_angle', from, to }, label: t('orientation.alignWorkingAngle', 'align the working angle to an edge', { ns: 'editor' }) }
     case 'view': {
       const deg = workingAngleFromEdge(from, to)
-      return deg === null ? null : { command: { type: 'set_view_properties', viewId: target.viewId, props: { workingAngleDeg: deg } }, label: `align the working angle of ${target.viewName} to an edge` }
+      return deg === null
+        ? null
+        : {
+            command: { type: 'set_view_properties', viewId: target.viewId, props: { workingAngleDeg: deg } },
+            label: t('orientation.alignWorkingAngleWhat', 'align the working angle of {{view}} to an edge', { ns: 'editor', view: target.viewName }),
+          }
     }
     case 'crop':
       return null
   }
 }
 
-const TARGET_WORDS: Readonly<Record<WorkingAngleTarget['kind'], string>> = {
-  model: 'Align axes to an edge',
-  view: 'Align this view’s axes to an edge',
-  crop: 'Align the crop box to an edge',
+
+/** What the picker is about to align, in the language on screen. */
+function targetWords(kind: WorkingAngleTarget['kind'], t: Translate): string {
+  switch (kind) {
+    case 'model':
+      return t('orientation.alignAxes', 'Align axes to an edge', { ns: 'editor' })
+    case 'view':
+      return t('orientation.alignViewAxes', 'Align this view’s axes to an edge', { ns: 'editor' })
+    case 'crop':
+      return t('orientation.alignCropBox', 'Align the crop box to an edge', { ns: 'editor' })
+  }
 }
+
 
 interface Props {
   readonly picker: EdgePicker
@@ -52,8 +66,11 @@ interface Props {
  * Cancel leaves without changing anything. The picked direction becomes the
  * working angle (model or view) or the crop box's turn; nothing moves.
  */
+
 export function WorkingAnglePick({ picker, target, toCanvas, canvasXY, onCommit, onCropEdge, onExit, onHint }: Props) {
+  const t = useEditorTranslate()
   const [start, setStart] = useState<Vec2 | null>(null)
+
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null)
   const [hoverEdge, setHoverEdge] = useState<EdgeHit | null>(null)
   const [preview, setPreview] = useState<number | null>(null)
@@ -61,14 +78,31 @@ export function WorkingAnglePick({ picker, target, toCanvas, canvasXY, onCommit,
 
   const commit = useCallback(
     (from: Vec2, to: Vec2, what: string) => {
-      const made = target.kind === 'crop' ? null : workingAngleCommand(target, from, to)
-      const refusal = target.kind === 'crop' ? onCropEdge(from, to) : made ? onCommit(made.command, made.label) : 'The two points are the same; pick a second point further along the edge.'
+      const made = target.kind === 'crop' ? null : workingAngleCommand(target, from, to, t)
+
+      const refusal =
+        target.kind === 'crop'
+          ? onCropEdge(from, to)
+          : made
+            ? onCommit(made.command, made.label)
+            : t('orientation.samePoints', 'The two points are the same; pick a second point further along the edge.', { ns: 'editor' })
+
       if (refusal) {
         onHint(refusal)
         return
       }
       const deg = workingAngleFromEdge(from, to)
-      onHint(deg === null ? 'Done.' : `Lined up with ${what}: ${describeWorkingAngle(deg).toLowerCase()}. Undo is in the message.`)
+
+      onHint(
+        deg === null
+          ? t('orientation.done', 'Done.', { ns: 'editor' })
+          : t('orientation.linedUp', 'Lined up with {{what}}: {{angle}}. Undo is in the message.', {
+              ns: 'editor',
+              what,
+              angle: describeWorkingAngle(deg).toLowerCase(),
+            }),
+      )
+
       onExit()
     },
     [target, onCommit, onCropEdge, onExit, onHint],
@@ -81,7 +115,9 @@ export function WorkingAnglePick({ picker, target, toCanvas, canvasXY, onCommit,
       if (start) {
         setStart(null)
         setPreview(null)
-        onHint('First point dropped. Click a wall, or two points along a building edge. Esc again leaves.')
+
+        onHint(t('orientation.firstPointDropped', 'First point dropped. Click a wall, or two points along a building edge. Esc again leaves.', { ns: 'editor' }))
+
         return
       }
       onExit()
@@ -134,18 +170,29 @@ export function WorkingAnglePick({ picker, target, toCanvas, canvasXY, onCommit,
         const edge = await picker.edgeAt(clientX, clientY)
         if (edge) return commit(edge.from, edge.to, edge.label)
         const p = await picker.pointAt(clientX, clientY)
-        if (!p) return onHint('That is off the work plane. Point at the building, or lower in the view.')
+
+        if (!p) return onHint(t('orientation.offWorkPlane', 'That is off the work plane. Point at the building, or lower in the view.', { ns: 'editor' }))
         setStart(p.at)
-        onHint(`First point${p.label ? ` on ${p.label}` : ''}. Now click a second point further along the same edge. Esc drops it.`)
+        onHint(
+          p.label
+            ? t('orientation.firstPointOn', 'First point on {{label}}. Now click a second point further along the same edge. Esc drops it.', { ns: 'editor', label: p.label })
+            : t('orientation.firstPoint', 'First point. Now click a second point further along the same edge. Esc drops it.', { ns: 'editor' }),
+        )
+
         return
       }
       const p = await picker.pointAt(clientX, clientY)
-      if (!p) return onHint('That is off the work plane. Point at the building, or lower in the view.')
-      if (workingAngleFromEdge(start, p.at) === null) return onHint('That is the same point. Click a second point further along the edge.')
-      commit(start, p.at, 'that edge')
+
+      if (!p) return onHint(t('orientation.offWorkPlane', 'That is off the work plane. Point at the building, or lower in the view.', { ns: 'editor' }))
+      if (workingAngleFromEdge(start, p.at) === null)
+        return onHint(t('orientation.samePoint', 'That is the same point. Click a second point further along the edge.', { ns: 'editor' }))
+      commit(start, p.at, t('orientation.thatEdge', 'that edge', { ns: 'editor' }))
+
     })().catch((err: unknown) => {
       console.error('[WorkingAnglePick] pick failed', err)
-      onHint('Picking that point failed. Try again, or type the angle in Coordinates.')
+
+      onHint(t('orientation.pickFailed', 'Picking that point failed. Try again, or type the angle in Coordinates.', { ns: 'editor' }))
+
     })
   }
 
@@ -162,18 +209,26 @@ export function WorkingAnglePick({ picker, target, toCanvas, canvasXY, onCommit,
       </svg>
       <div className="absolute inset-0 z-10 cursor-crosshair" data-testid="working-angle-pick" onPointerDown={onDown} onPointerMove={onMove} />
       <div role="status" className="absolute inset-x-3 top-3 z-20 mx-auto flex w-fit max-w-full flex-wrap items-center gap-x-3 gap-y-1 rounded-md border bg-background/95 py-1.5 pl-3 pr-1.5 shadow-sm" data-testid="working-angle-bar">
-        <span className="text-sm font-medium">{TARGET_WORDS[target.kind]}</span>
+
+        <span className="text-sm font-medium">{targetWords(target.kind, t)}</span>
         <span className="text-xs text-muted-foreground">
-          {start ? 'Click a second point along the same edge.' : hoverEdge ? `Click to line up with ${hoverEdge.label}.` : 'Click a wall, or two points along a building edge.'}
+          {start
+            ? t('orientation.clickSecondPoint', 'Click a second point along the same edge.', { ns: 'editor' })
+            : hoverEdge
+              ? t('orientation.clickToLineUp', 'Click to line up with {{label}}.', { ns: 'editor', label: hoverEdge.label })
+              : t('orientation.clickWall', 'Click a wall, or two points along a building edge.', { ns: 'editor' })}
         </span>
+
         {preview !== null && (
           <span className="text-xs tabular-nums text-info-700" data-testid="working-angle-preview">
             {describeWorkingAngle(preview)}
           </span>
         )}
+
         <Button size="sm" variant="outline" onClick={onExit} data-testid="working-angle-cancel">
-          Cancel (Esc)
+          {t('orientation.cancelEsc', 'Cancel (Esc)', { ns: 'editor' })}
         </Button>
+
       </div>
     </>
   )

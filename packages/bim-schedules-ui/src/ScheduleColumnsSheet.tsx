@@ -7,6 +7,8 @@ import { Checkbox, Input, NativeSelect, NativeSelectOption } from "./components/
 import type { ScheduleColumnDef, ScheduleColumnStep, ScheduleDefinitionV2 } from "./contracts";
 import type { CatalogField } from "./ports";
 import { Sheet } from "./ui/overlays";
+import { useSchedulesTranslate } from "./i18n/translate";
+import { scheduleFieldLabel } from "./i18n/words";
 
 export interface ScheduleColumnsSheetProps {
   readonly open: boolean;
@@ -44,13 +46,14 @@ function columnId(path: string, taken: readonly ScheduleColumnDef[]): string {
  */
 export function ScheduleColumnsSheet({ open, onOpenChange, definition, fields, onStep, onMore, blocked = null }: ScheduleColumnsSheetProps) {
   const ids = useId();
+  const t = useSchedulesTranslate();
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [adding, setAdding] = useState("");
   const [filterPath, setFilterPath] = useState("");
   const [filterValue, setFilterValue] = useState("");
   const columns = definition.columns;
-  const fieldLabel = (path: string | null) => (path ? (fields.find((f) => f.path === path)?.label ?? path) : null);
-  const label = (c: ScheduleColumnDef) => c.heading ?? fieldLabel(pathOf(c)) ?? c.id;
+  const fieldLabel = (path: string | null) => (path ? scheduleFieldLabel(fields.find((f) => f.path === path)?.label ?? path, t) : null);
+  const label = (c: ScheduleColumnDef) => (c.heading ? scheduleFieldLabel(c.heading, t) : (fieldLabel(pathOf(c)) ?? c.id));
   const shown = new Set(columns.map(pathOf).filter((p): p is string => p !== null));
   const addable = fields.filter((f) => !shown.has(f.path));
   const sortPath = definition.sort[0]?.path ?? null;
@@ -62,15 +65,20 @@ export function ScheduleColumnsSheet({ open, onOpenChange, definition, fields, o
       return false;
     }
     const refused = onStep(step, words);
-    setFeedback(refused ? { kind: "refused", text: `Not changed: ${refused}` } : { kind: "done", text: `${words}. Undo (Ctrl+Z) puts it back.` });
+    setFeedback(
+      refused
+        ? { kind: "refused", text: t("columns.notChanged", "Not changed: {{reason}}", { ns: "schedules", reason: refused }) }
+        : { kind: "done", text: t("columns.done", "{{words}}. Undo (Ctrl+Z) puts it back.", { ns: "schedules", words }) },
+    );
     return refused === null;
   };
 
   const totalWhy = (c: ScheduleColumnDef): string | null => {
-    if (c.kind === "expand" || (c.kind === "aggregate" && c.fn === "list")) return "This column lists items, so it has no total.";
+    if (c.kind === "expand" || (c.kind === "aggregate" && c.fn === "list"))
+      return t("columns.listsItemsNoTotal", "This column lists items, so it has no total.", { ns: "schedules" });
     const field = fields.find((f) => f.path === pathOf(c));
     if (field?.totalRefusedReason) return field.totalRefusedReason;
-    if (field && (field.valueType !== "quantity" || field.aggregation === "none")) return "Only numbers add up.";
+    if (field && (field.valueType !== "quantity" || field.aggregation === "none")) return t("columns.onlyNumbersAdd", "Only numbers add up.", { ns: "schedules" });
     return null;
   };
 
@@ -78,12 +86,12 @@ export function ScheduleColumnsSheet({ open, onOpenChange, definition, fields, o
     <Sheet
       open={open}
       onOpenChange={onOpenChange}
-      title={`Columns · ${definition.name}`}
-      description="Each change is saved as you make it, and Undo puts it back."
+      title={t("columns.title", "Columns · {{name}}", { ns: "schedules", name: definition.name })}
+      description={t("columns.description", "Each change is saved as you make it, and Undo puts it back.", { ns: "schedules" })}
       footer={
         onMore ? (
           <Button variant="outline" size="sm" onClick={onMore}>
-            What it lists, formulas and paper…
+            {t("columns.more", "What it lists, formulas and paper…", { ns: "schedules" })}
           </Button>
         ) : undefined
       }
@@ -91,10 +99,10 @@ export function ScheduleColumnsSheet({ open, onOpenChange, definition, fields, o
       <div className="mutiny-sched-columns" data-testid="schedule-columns-panel">
         {blocked && (
           <p className="mutiny-sched-muted" role="note">
-            Read only: {blocked}
+            {t("columns.readOnly", "Read only: {{reason}}", { ns: "schedules", reason: blocked })}
           </p>
         )}
-        <ol className="mutiny-sched-columns-list" aria-label="Columns, left to right">
+        <ol className="mutiny-sched-columns-list" aria-label={t("columns.list", "Columns, left to right", { ns: "schedules" })}>
           {columns.map((c, i) => {
             const path = pathOf(c);
             const why = totalWhy(c);
@@ -102,7 +110,7 @@ export function ScheduleColumnsSheet({ open, onOpenChange, definition, fields, o
               <li key={c.id} className="mutiny-sched-columns-row" data-testid={`schedule-column-${c.id}`}>
                 <Input
                   key={c.heading ?? ""}
-                  aria-label={`Heading of column ${i + 1}`}
+                  aria-label={t("columns.headingOfColumn", "Heading of column {{n}}", { ns: "schedules", n: i + 1 })}
                   defaultValue={c.heading ?? ""}
                   placeholder={fieldLabel(path) ?? c.id}
                   maxLength={60}
@@ -110,16 +118,33 @@ export function ScheduleColumnsSheet({ open, onOpenChange, definition, fields, o
                   onBlur={(e) => {
                     const heading = e.currentTarget.value.trim();
                     if (heading === (c.heading ?? "")) return;
-                    send({ op: "rename_column", columnId: c.id, heading: heading === "" ? null : heading }, heading === "" ? `${label(c)} uses its field name again` : `Renamed to ${heading}`);
+                    send(
+                      { op: "rename_column", columnId: c.id, heading: heading === "" ? null : heading },
+                      heading === ""
+                        ? t("columns.fieldNameAgain", "{{name}} uses its field name again", { ns: "schedules", name: label(c) })
+                        : t("columns.renamedTo", "Renamed to {{name}}", { ns: "schedules", name: heading }),
+                    );
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") e.currentTarget.blur();
                   }}
                 />
-                <Button variant="ghost" size="icon-sm" aria-label={`Move ${label(c)} left`} disabled={i === 0 || blocked !== null} onClick={() => send({ op: "move_column", columnId: c.id, to: i - 1 }, `Moved ${label(c)} left`)}>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t("columns.moveLeft", "Move {{name}} left", { ns: "schedules", name: label(c) })}
+                  disabled={i === 0 || blocked !== null}
+                  onClick={() => send({ op: "move_column", columnId: c.id, to: i - 1 }, t("columns.movedLeft", "Moved {{name}} left", { ns: "schedules", name: label(c) }))}
+                >
                   <ArrowUp aria-hidden />
                 </Button>
-                <Button variant="ghost" size="icon-sm" aria-label={`Move ${label(c)} right`} disabled={i === columns.length - 1 || blocked !== null} onClick={() => send({ op: "move_column", columnId: c.id, to: i + 1 }, `Moved ${label(c)} right`)}>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t("columns.moveRight", "Move {{name}} right", { ns: "schedules", name: label(c) })}
+                  disabled={i === columns.length - 1 || blocked !== null}
+                  onClick={() => send({ op: "move_column", columnId: c.id, to: i + 1 }, t("columns.movedRight", "Moved {{name}} right", { ns: "schedules", name: label(c) }))}
+                >
                   <ArrowDown aria-hidden />
                 </Button>
                 <Button
@@ -127,39 +152,71 @@ export function ScheduleColumnsSheet({ open, onOpenChange, definition, fields, o
                   aria-pressed={Boolean(path) && sortPath === path}
                   size="sm"
                   disabled={!path || blocked !== null}
-                  title={path ? "Sort the rows by this column; again to reverse" : "Sort by a formula from What it lists, formulas and paper"}
+                  title={
+                    path
+                      ? t("columns.sortHint", "Sort the rows by this column; again to reverse", { ns: "schedules" })
+                      : t("columns.sortHintFormula", "Sort by a formula from What it lists, formulas and paper", { ns: "schedules" })
+                  }
                   onClick={() => {
                     if (!path) return;
                     const desc = sortPath === path && definition.sort[0]?.direction === "asc";
-                    send({ op: "sort", sort: [{ path, direction: desc ? "desc" : "asc" }] }, `Sorted by ${label(c)}${desc ? ", Z to A" : ", A to Z"}`);
+                    send(
+                      { op: "sort", sort: [{ path, direction: desc ? "desc" : "asc" }] },
+                      desc
+                        ? t("columns.sortedZa", "Sorted by {{name}}, Z to A", { ns: "schedules", name: label(c) })
+                        : t("columns.sortedAz", "Sorted by {{name}}, A to Z", { ns: "schedules", name: label(c) }),
+                    );
                   }}
                 >
-                  Sort
+                  {t("columns.sort", "Sort", { ns: "schedules" })}
                 </Button>
                 <Button
                   variant={groupPath === path && path ? "outline" : "ghost"}
                   aria-pressed={Boolean(path) && groupPath === path}
                   size="sm"
                   disabled={!path || blocked !== null}
-                  title={path ? "Group the rows by this column; again to stop grouping" : "Only a field column groups rows"}
+                  title={
+                    path
+                      ? t("columns.groupHint", "Group the rows by this column; again to stop grouping", { ns: "schedules" })
+                      : t("columns.groupHintField", "Only a field column groups rows", { ns: "schedules" })
+                  }
                   onClick={() => {
                     if (!path) return;
                     const off = groupPath === path;
-                    send({ op: "group", groups: off ? [] : [{ path, header: true, footer: true, totals: true }] }, off ? "Not grouped" : `Grouped by ${label(c)}`);
+                    send(
+                      { op: "group", groups: off ? [] : [{ path, header: true, footer: true, totals: true }] },
+                      off ? t("columns.notGrouped", "Not grouped", { ns: "schedules" }) : t("columns.groupedBy", "Grouped by {{name}}", { ns: "schedules", name: label(c) }),
+                    );
                   }}
                 >
-                  Group
+                  {t("columns.group", "Group", { ns: "schedules" })}
                 </Button>
-                <label className="mutiny-sched-columns-check" title={why ?? "Add this column up in each group and at the bottom"}>
-                  <Checkbox checked={Boolean(c.total)} disabled={(why !== null && !c.total) || blocked !== null} onChange={(e) => send({ op: "totals", columnId: c.id, show: e.target.checked }, e.target.checked ? `${label(c)} totalled` : `${label(c)} not totalled`)} /> Total
+                <label className="mutiny-sched-columns-check" title={why ?? t("columns.totalHint", "Add this column up in each group and at the bottom", { ns: "schedules" })}>
+                  <Checkbox
+                    checked={Boolean(c.total)}
+                    disabled={(why !== null && !c.total) || blocked !== null}
+                    onChange={(e) =>
+                      send(
+                        { op: "totals", columnId: c.id, show: e.target.checked },
+                        e.target.checked
+                          ? t("columns.totalled", "{{name}} totalled", { ns: "schedules", name: label(c) })
+                          : t("columns.notTotalled", "{{name}} not totalled", { ns: "schedules", name: label(c) }),
+                      )
+                    }
+                  />{" "}
+                  {t("columns.total", "Total", { ns: "schedules" })}
                 </label>
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  aria-label={`Remove ${label(c)}`}
+                  aria-label={t("columns.remove", "Remove {{name}}", { ns: "schedules", name: label(c) })}
                   disabled={columns.length === 1 || blocked !== null}
-                  title={columns.length === 1 ? "A schedule keeps at least one column" : "Remove this column (Undo puts it back)"}
-                  onClick={() => send({ op: "remove_column", columnId: c.id }, `Removed ${label(c)}`)}
+                  title={
+                    columns.length === 1
+                      ? t("columns.removeHintOne", "A schedule keeps at least one column", { ns: "schedules" })
+                      : t("columns.removeHint", "Remove this column (Undo puts it back)", { ns: "schedules" })
+                  }
+                  onClick={() => send({ op: "remove_column", columnId: c.id }, t("columns.removed", "Removed {{name}}", { ns: "schedules", name: label(c) }))}
                 >
                   <Trash2 aria-hidden />
                 </Button>
@@ -168,56 +225,82 @@ export function ScheduleColumnsSheet({ open, onOpenChange, definition, fields, o
           })}
         </ol>
         <div className="mutiny-sched-columns-add">
-          <label htmlFor={`${ids}-add`}>Add a column</label>
+          <label htmlFor={`${ids}-add`}>{t("columns.addColumn", "Add a column", { ns: "schedules" })}</label>
           <NativeSelect id={`${ids}-add`} value={adding} onChange={(e) => setAdding(e.target.value)} disabled={blocked !== null || addable.length === 0}>
-            <NativeSelectOption value="">{addable.length === 0 ? "Every field is shown" : "Pick a field…"}</NativeSelectOption>
+            <NativeSelectOption value="">
+              {addable.length === 0 ? t("columns.everyFieldShown", "Every field is shown", { ns: "schedules" }) : t("columns.pickField", "Pick a field…", { ns: "schedules" })}
+            </NativeSelectOption>
             {addable.map((f) => (
               <NativeSelectOption key={f.path} value={f.path}>
-                {f.label}
+                {scheduleFieldLabel(f.label, t)}
               </NativeSelectOption>
             ))}
           </NativeSelect>
           <Button
             size="sm"
             disabled={!adding || blocked !== null}
-            title={adding ? undefined : "Pick a field first"}
+            title={adding ? undefined : t("columns.pickFieldFirst", "Pick a field first", { ns: "schedules" })}
             onClick={() => {
               const field = fields.find((f) => f.path === adding);
               if (!field) return;
-              if (send({ op: "add_column", column: { id: columnId(field.path, columns), kind: "field", path: field.path } }, `Added ${field.label}`)) setAdding("");
+              if (
+                send(
+                  { op: "add_column", column: { id: columnId(field.path, columns), kind: "field", path: field.path } },
+                  t("columns.added", "Added {{name}}", { ns: "schedules", name: scheduleFieldLabel(field.label, t) }),
+                )
+              )
+                setAdding("");
             }}
           >
-            Add
+            {t("columns.add", "Add", { ns: "schedules" })}
           </Button>
         </div>
         <div className="mutiny-sched-columns-filter">
-          <label htmlFor={`${ids}-filter`}>Show only rows where</label>
+          <label htmlFor={`${ids}-filter`}>{t("columns.showRowsWhere", "Show only rows where", { ns: "schedules" })}</label>
           <NativeSelect id={`${ids}-filter`} value={filterPath} onChange={(e) => setFilterPath(e.target.value)} disabled={blocked !== null}>
-            <NativeSelectOption value="">Pick a field…</NativeSelectOption>
+            <NativeSelectOption value="">{t("columns.pickField", "Pick a field…", { ns: "schedules" })}</NativeSelectOption>
             {fields.map((f) => (
               <NativeSelectOption key={f.path} value={f.path}>
-                {f.label}
+                {scheduleFieldLabel(f.label, t)}
               </NativeSelectOption>
             ))}
           </NativeSelect>
-          <Input aria-label="is" placeholder="is…" value={filterValue} maxLength={120} onChange={(e) => setFilterValue(e.target.value)} disabled={blocked !== null} />
+          <Input
+            aria-label={t("columns.is", "is", { ns: "schedules" })}
+            placeholder={t("columns.isPlaceholder", "is…", { ns: "schedules" })}
+            value={filterValue}
+            maxLength={120}
+            onChange={(e) => setFilterValue(e.target.value)}
+            disabled={blocked !== null}
+          />
           <Button
             size="sm"
             disabled={!filterPath || !filterValue.trim() || blocked !== null}
-            title={filterPath && filterValue.trim() ? undefined : "Pick a field and type a value"}
+            title={filterPath && filterValue.trim() ? undefined : t("columns.pickFieldAndValue", "Pick a field and type a value", { ns: "schedules" })}
             onClick={() => {
-              const words = `Showing only ${fieldLabel(filterPath)} is ${filterValue.trim()}`;
+              const words = t("columns.showingOnly", "Showing only {{field}} is {{value}}", { ns: "schedules", field: fieldLabel(filterPath) ?? "", value: filterValue.trim() });
               if (send({ op: "filter", filters: [...definition.filters, { path: filterPath, op: "equals", value: filterValue.trim() }] }, words)) setFilterValue("");
             }}
           >
-            Apply
+            {t("columns.apply", "Apply", { ns: "schedules" })}
           </Button>
           {definition.filters.length > 0 && (
-            <ul aria-label="Rows shown only where">
+            <ul aria-label={t("columns.rowsShownWhere", "Rows shown only where", { ns: "schedules" })}>
               {definition.filters.map((f, i) => (
                 <li key={`${f.path}-${i}`}>
-                  {fieldLabel(f.path)} {f.op === "equals" ? "is" : f.op.replace(/_/g, " ")} {f.value ?? ""}
-                  <Button variant="ghost" size="icon-sm" aria-label={`Stop showing only ${fieldLabel(f.path)} ${f.value ?? ""}`} disabled={blocked !== null} onClick={() => send({ op: "filter", filters: definition.filters.filter((_, k) => k !== i) }, `Showing every ${fieldLabel(f.path)} again`)}>
+                  {fieldLabel(f.path)} {f.op === "equals" ? t("columns.isOp", "is", { ns: "schedules" }) : f.op.replace(/_/g, " ")} {f.value ?? ""}
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t("columns.stopFiltering", "Stop showing only {{field}} {{value}}", { ns: "schedules", field: fieldLabel(f.path) ?? "", value: f.value ?? "" })}
+                    disabled={blocked !== null}
+                    onClick={() =>
+                      send(
+                        { op: "filter", filters: definition.filters.filter((_, k) => k !== i) },
+                        t("columns.showEveryAgain", "Showing every {{field}} again", { ns: "schedules", field: fieldLabel(f.path) ?? "" }),
+                      )
+                    }
+                  >
                     <Trash2 aria-hidden />
                   </Button>
                 </li>
@@ -226,7 +309,19 @@ export function ScheduleColumnsSheet({ open, onOpenChange, definition, fields, o
           )}
         </div>
         <label className="mutiny-sched-columns-check">
-          <Checkbox checked={definition.grandTotals} disabled={blocked !== null} onChange={(e) => send({ op: "totals", show: e.target.checked }, e.target.checked ? "Grand totals shown" : "Grand totals hidden")} /> Grand totals at the bottom
+          <Checkbox
+            checked={definition.grandTotals}
+            disabled={blocked !== null}
+            onChange={(e) =>
+              send(
+                { op: "totals", show: e.target.checked },
+                e.target.checked
+                  ? t("columns.grandTotalsShown", "Grand totals shown", { ns: "schedules" })
+                  : t("columns.grandTotalsHidden", "Grand totals hidden", { ns: "schedules" }),
+              )
+            }
+          />{" "}
+          {t("columns.grandTotals", "Grand totals at the bottom", { ns: "schedules" })}
         </label>
         {feedback && (
           <p className={feedback.kind === "refused" ? "mutiny-sched-error" : "mutiny-sched-muted"} role={feedback.kind === "refused" ? "alert" : "status"} data-testid="schedule-columns-feedback">

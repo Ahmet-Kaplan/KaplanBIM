@@ -35,20 +35,30 @@ export function TitleBlocksSection({ load: loadOverride, makeDefault: makeDefaul
       .then((list) => setState({ kind: 'ready', list }))
       .catch((err: unknown) => {
         console.error('[TitleBlocksSection] the title blocks failed to load', err)
-        setState({ kind: 'error', message: `Title blocks couldn't be read (${err instanceof Error ? err.message : 'unknown error'}).` })
+
+        setState({
+          kind: 'error',
+          message: t('titleBlock.readFailed', 'Title blocks couldn’t be read ({{reason}}).', {
+            ns: 'editor',
+            reason: err instanceof Error ? err.message : t('titleBlock.unknownError', 'unknown error', { ns: 'editor' }),
+          }),
+        })
       })
-  }, [load])
+  }, [load, t])
+
 
   useEffect(() => {
     fetchList()
   }, [fetchList])
 
-  if (state.kind === 'loading') return <SettingsLoading rows={3} label="Loading title blocks" />
+
+  if (state.kind === 'loading') return <SettingsLoading rows={3} label={t('titleBlock.loading', 'Loading title blocks', { ns: 'editor' })} />
   if (state.kind === 'error')
     return (
       <SettingsLoadError
-        title="Title blocks didn't load"
+        title={t('titleBlock.didNotLoad', 'Title blocks didn’t load', { ns: 'editor' })}
         message={state.message}
+
         onRetry={() => {
           setState({ kind: 'loading' })
           fetchList()
@@ -57,17 +67,29 @@ export function TitleBlocksSection({ load: loadOverride, makeDefault: makeDefaul
     )
 
   const { choices, canWrite } = state.list
-  const blocked = canWrite ? null : 'Making a title block the default needs MutinyBIM library publishing.'
+
+  const blocked = canWrite ? null : t('titleBlock.needPublishing', 'Making a title block the default needs MutinyBIM library publishing.', { ns: 'editor' })
+
 
   const choose = async (id: string, name: string) => {
     setSaving(id)
     try {
       await makeDefault(id)
-      toast.success(`${name} is now the title block new sheets start with`)
+
+      toast.success(t('titleBlock.nowDefault', '{{name}} is now the title block new sheets start with', { ns: 'editor', name }))
+
       fetchList()
     } catch (err) {
       console.error('[TitleBlocksSection] make default failed', err)
-      toast.error(`${name} couldn't be made the default: ${err instanceof Error ? err.message : 'unknown error'}`)
+
+      toast.error(
+        t('titleBlock.couldNotDefault', '{{name}} couldn’t be made the default: {{reason}}', {
+          ns: 'editor',
+          name,
+          reason: err instanceof Error ? err.message : t('titleBlock.unknownError', 'unknown error', { ns: 'editor' }),
+        }),
+      )
+
     } finally {
       setSaving(null)
     }
@@ -77,22 +99,34 @@ export function TitleBlocksSection({ load: loadOverride, makeDefault: makeDefaul
     <SettingsCard
       id="title-blocks"
       title={t('panel.titleBlocks', 'Title blocks', { ns: 'editor' })}
-      description="The title blocks sheets can use, with the paper each is drawn for. New sheets start with the default; a sheet keeps its own title block until you change it in Sheets › Title block."
+
+      description={t(
+        'titleBlock.description',
+        'The title blocks sheets can use, with the paper each is drawn for. New sheets start with the default; a sheet keeps its own title block until you change it in Sheets › Title block.',
+        { ns: 'editor' },
+      )}
+
     >
       {choices.length === 0 ? (
         <Empty>
           <EmptyHeader>
-            <EmptyTitle>No title blocks in the library</EmptyTitle>
-            <EmptyDescription>Sheets use the built-in MutinyBIM title block until the firm adds one.</EmptyDescription>
+
+            <EmptyTitle>{t('titleBlock.noneInLibrary', 'No title blocks in the library', { ns: 'editor' })}</EmptyTitle>
+            <EmptyDescription>
+              {t('titleBlock.noneInLibraryWhy', 'Sheets use the built-in MutinyBIM title block until the firm adds one.', { ns: 'editor' })}
+            </EmptyDescription>
+
           </EmptyHeader>
         </Empty>
       ) : (
         <Table aria-label={t('panel.titleBlocks', 'Title blocks', { ns: 'editor' })}>
           <TableHeader>
             <TableRow>
-              <TableHead>Title block</TableHead>
-              <TableHead>Paper</TableHead>
-              <TableHead className="text-right">Default</TableHead>
+
+              <TableHead>{t('titleBlock.titleBlock', 'Title block', { ns: 'editor' })}</TableHead>
+              <TableHead>{t('titleBlock.paper', 'Paper', { ns: 'editor' })}</TableHead>
+              <TableHead className="text-right">{t('titleBlock.default', 'Default', { ns: 'editor' })}</TableHead>
+
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -100,18 +134,29 @@ export function TitleBlocksSection({ load: loadOverride, makeDefault: makeDefaul
               const paper = c.row.definition.paperMm
               const button = (
                 <Button size="sm" variant="outline" disabled={Boolean(blocked) || saving !== null} onClick={() => void choose(c.id, c.name)}>
-                  {saving === c.id ? 'Saving…' : 'Make default'}
+
+                  {saving === c.id ? t('titleBlock.saving', 'Saving…', { ns: 'editor' }) : t('titleBlock.makeDefault', 'Make default', { ns: 'editor' })}
+
                 </Button>
               )
               return (
                 <TableRow key={c.id}>
                   <TableCell className="font-medium">{c.name}</TableCell>
                   <TableCell>
-                    {c.paperName} · {inches(paper.y)} × {inches(paper.x)} in, landscape
+
+                    {t('titleBlock.paperSize', '{{name}} · {{height}} × {{width}} in, landscape', {
+                      ns: 'editor',
+                      name: c.paperName,
+                      height: inches(paper.y),
+                      width: inches(paper.x),
+                    })}
+
                   </TableCell>
                   <TableCell className="text-right">
                     {c.isDefault ? (
-                      <Badge variant="secondary">Default</Badge>
+
+                      <Badge variant="secondary">{t('titleBlock.default', 'Default', { ns: 'editor' })}</Badge>
+
                     ) : blocked ? (
                       <Tooltip>
                         <TooltipTrigger asChild>

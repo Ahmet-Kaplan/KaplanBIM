@@ -20,7 +20,10 @@ import type { ModelSession } from '../model-session'
 import { KernelCellPlanner } from './schedule-planner'
 import { useSchedulePrefsFrom } from './use-schedule-prefs'
 import { isTakeoffSchedule, PriceWith } from './PriceWith'
+
 import { ShowMainBeside } from '../branches/ShowMainBeside'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
+
 import type { BranchChannel } from '../branches/useBranches'
 
 const PRESENCE_COLORS = ['#2563eb', '#db2777', '#16a34a', '#ea580c', '#7c3aed', '#0891b2', '#ca8a04', '#dc2626'] as const
@@ -60,8 +63,11 @@ interface Props {
  * Rows come from the model server for the whole building; a cell edit goes
  * through the kernel's field writer and saves as one undoable change.
  */
+
 export function ModelSchedulePane({ projectId, session, connected, view, actor, model, onShowInModel, onUndo, onRedo, submit, editBlocked, branchChannel = null, onOpenSheet }: Props) {
+  const t = useEditorTranslate()
   const client = connected ? session?.scheduleClient() ?? null : null
+
   const modelRef = useLatest(model)
   const undoRef = useLatest({ onUndo, onRedo })
   const [connection, setConnection] = useState<SyncScheduleConnection | null>(null)
@@ -96,12 +102,16 @@ export function ModelSchedulePane({ projectId, session, connected, view, actor, 
   if (!gridConnection) {
     return (
       <div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground" data-testid="model-schedule-connecting">
+
         <Spinner />
-        Connecting to the model server to load {view.name}…
+        {t('schedule.connecting', 'Connecting to the model server to load {{name}}…', { ns: 'editor', name: view.name })}
+
       </div>
     )
   }
-  if (!view.props?.schedule && !view.props?.scheduleV2) return <FormScheduleOpens view={view} model={model} onOpenSheet={onOpenSheet} />
+
+  if (!view.props?.schedule && !view.props?.scheduleV2) return <FormScheduleOpens view={view} model={model} onOpenSheet={onOpenSheet} t={t} />
+
   return (
     <div className="h-full overflow-auto p-3" data-testid="model-schedule-grid">
       {isTakeoffSchedule(definition) && <PriceWith projectId={projectId} model={model} />}
@@ -124,8 +134,10 @@ export function ModelSchedulePane({ projectId, session, connected, view, actor, 
         />
       ) : (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
+
           <Spinner />
-          Loading {view.name}…
+          {t('schedule.loading', 'Loading {{name}}…', { ns: 'editor', name: view.name })}
+
         </div>
       )}
       {builder && (
@@ -146,7 +158,9 @@ export function ModelSchedulePane({ projectId, session, connected, view, actor, 
             }
             const refused = steps ? sendSteps(steps, `change ${view.name}`) : submit({ type: 'set_view_properties', viewId: view.id, props: { scheduleV2: next } }, `change ${view.name}`)
             if (refused) {
-              toast.error(`${view.name} wasn't changed: ${refused}`)
+
+              toast.error(t('schedule.notChanged', '{{name}} wasn’t changed: {{reason}}', { ns: 'editor', name: view.name, reason: refused }))
+
               return
             }
             setBuilder(null)
@@ -196,22 +210,53 @@ function commandStep(step: ScheduleColumnStep): EditStep {
  * where it is drawn: its sheet. This says so and opens that sheet, or says
  * how to place it, instead of a dead end.
  */
-export function FormScheduleOpens({ view, model, onOpenSheet }: { readonly view: ViewElement; readonly model: ModelState | null; readonly onOpenSheet?: (sheetId: string) => void }) {
+
+export function FormScheduleOpens({
+  view,
+  model,
+  onOpenSheet,
+  t,
+}: {
+  readonly view: ViewElement
+  readonly model: ModelState | null
+  readonly onOpenSheet?: (sheetId: string) => void
+  /** The translator the pane passes down, so a form schedule's own words are keyed too. */
+  readonly t?: Translate
+}) {
+  const words = useEditorTranslate()
+  const tr = t ?? words
+
   const viewport = model ? documentIndex(model).viewportByView.get(view.id) : undefined
   const sheet = viewport && model ? documentIndex(model).sheets.find((s) => s.id === viewport.sheetId) : undefined
   return (
     <Empty data-testid="model-schedule-form-only">
       <EmptyHeader>
-        <EmptyTitle>{view.name} is laid out by its form</EmptyTitle>
+
+        <EmptyTitle>{tr('schedule.formOnlyTitle', '{{name}} is laid out by its form', { ns: 'editor', name: view.name })}</EmptyTitle>
+
         <EmptyDescription>
-          {sheet ? `It is drawn on ${sheet.number} · ${sheet.title}; open that sheet to read it and change it (its template and rules are in its properties).` : 'Put it on a sheet from its properties (Place on sheet), then open that sheet to read it.'}
+
+          {sheet
+            ? tr(
+                'schedule.formOnlyOnSheet',
+                'It is drawn on {{number}} · {{title}}; open that sheet to read it and change it (its template and rules are in its properties).',
+                { ns: 'editor', number: sheet.number, title: sheet.title },
+              )
+            : tr(
+                'schedule.formOnlyNotPlaced',
+                'Put it on a sheet from its properties (Place on sheet), then open that sheet to read it.',
+                { ns: 'editor' },
+              )}
+
         </EmptyDescription>
       </EmptyHeader>
       {sheet && onOpenSheet && (
         <EmptyContent>
           <Button onClick={() => onOpenSheet(sheet.id)} data-testid="model-schedule-open-sheet">
+
             <FileText data-icon="inline-start" />
-            Open {sheet.number}
+            {tr('schedule.openSheetNumber', 'Open {{number}}', { ns: 'editor', number: sheet.number })}
+
           </Button>
         </EmptyContent>
       )}

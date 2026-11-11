@@ -1,6 +1,9 @@
 import { equipmentListDefinition } from '@permitzip/bim-library'
 import { elementsOfKind, fieldProviderRegistry, takeoffScheduleDefinition, TAKEOFF_SCHEDULE_DESCRIPTION, TAKEOFF_SCHEDULE_NAME, type Command, type ModelState, type Registry, type ScheduleColumnDef, type ScheduleDefinitionV2 } from '@permitzip/bim-kernel'
+
 import { validateScheduleDefinition } from '@permitzip/bim-kernel/schedules'
+import { englishOnly, type Translate } from '../i18n/translate'
+
 
 /**
  * Built-in list schedules for "list first, draw second" (NEXT-BATCH §1, F4):
@@ -179,8 +182,57 @@ export function builtinListDefinition(model: ModelState, id: BuiltinListId): Sch
   return { ...def, columns: def.columns.filter((c) => c.id !== 'placement') }
 }
 
-export function builtinListBlocked(model: ModelState | null, id: BuiltinListId): string | null {
-  if (!model) return 'The model is still loading.'
+
+/** §5's words for the built-in lists, read at the places that show them rather than stored in the model. */
+export function builtinListLabel(id: BuiltinListId, t: Translate): string {
+  switch (id) {
+    case 'equipment_list':
+      return t('schedule.list.equipmentList', 'Equipment list', { ns: 'editor' })
+    case 'not_placed_yet':
+      return t('schedule.list.notPlacedYet', 'Not placed yet', { ns: 'editor' })
+    case 'loads':
+      return t('schedule.list.loads', 'Loads', { ns: 'editor' })
+    case 'space_loads':
+      return t('schedule.list.spaceLoads', 'Space loads', { ns: 'editor' })
+    case 'panel_loads':
+      return t('schedule.list.panelLoads', 'Panel loads', { ns: 'editor' })
+    case 'takeoff':
+      return t('schedule.list.takeoff', 'Takeoff', { ns: 'editor' })
+  }
+}
+
+export function builtinListDescription(id: BuiltinListId, t: Translate): string {
+  switch (id) {
+    case 'equipment_list':
+      return t('schedule.list.equipmentListWhy', 'Every piece of equipment and fixture, planned and placed, with its electrical, gas and water values', { ns: 'editor' })
+    case 'not_placed_yet':
+      return t(
+        'schedule.list.notPlacedYetWhy',
+        'Everything that exists but nobody has drawn yet: panels, rooftop units, kitchen items',
+        { ns: 'editor' },
+      )
+    case 'loads':
+      return t(
+        'schedule.list.loadsWhy',
+        'Every load row, fixture or point, typed or drawn: whether it is piped yet, and what it counts (fixture units, gas, power, air) with a totals row',
+        { ns: 'editor' },
+      )
+    case 'space_loads':
+      return t(
+        'schedule.list.spaceLoadsWhy',
+        'Every space with its estimate, the devices placed in it so far, and what it counts, per trade (power, water, drainage, gas, air); columns with nothing in them stay hidden',
+        { ns: 'editor' },
+      )
+    case 'panel_loads':
+      return t('schedule.list.panelLoadsWhy', 'Every panel with the estimates and devices that name it as their source, and what it counts', { ns: 'editor' })
+    case 'takeoff':
+      return t('schedule.list.takeoffWhy', TAKEOFF_SCHEDULE_DESCRIPTION, { ns: 'editor' })
+  }
+}
+
+export function builtinListBlocked(model: ModelState | null, id: BuiltinListId, t: Translate = englishOnly): string | null {
+  if (!model) return t('schedule.modelStillLoading', 'The model is still loading.', { ns: 'editor' })
+
   let problems: readonly { readonly message: string }[]
   try {
     // As the model server opens it: the built-in registry, else every field provider.
@@ -188,12 +240,20 @@ export function builtinListBlocked(model: ModelState | null, id: BuiltinListId):
     const builtin = problemsOf(model, def, id)
     problems = builtin.length === 0 ? builtin : problemsOf(model, def, id, builtinListRegistry())
   } catch (err) {
+
     console.error('[builtin-lists] checking a built-in list failed', { id, err })
-    return `${BUILTIN_LIST_LABELS[id]} can't be checked: ${err instanceof Error ? err.message : String(err)}`
+    return t('schedule.listCannotBeChecked', '{{name}} can’t be checked: {{reason}}', {
+      ns: 'editor',
+      name: builtinListLabel(id, t),
+      reason: err instanceof Error ? err.message : String(err),
+    })
+
   }
+
   const first = problems[0]
   if (!first) return null
-  return `${BUILTIN_LIST_LABELS[id]} can't be made yet: ${first.message}`
+  return t('schedule.listCannotBeMade', '{{name}} can’t be made yet: {{reason}}', { ns: 'editor', name: builtinListLabel(id, t), reason: first.message })
+
 }
 
 export function builtinListCommand(model: ModelState, viewId: string, name: string, id: BuiltinListId): Command {

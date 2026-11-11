@@ -7,7 +7,10 @@ import { Button } from '../../ui/button'
 import { Checkbox } from '../../ui/checkbox'
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '../../ui/field'
 import { Input } from '../../ui/input'
+
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
+
 
 const FT = 304.8
 
@@ -32,7 +35,23 @@ export interface Crop3dControls {
 
 type BoxField = 'width' | 'depth' | 'height' | 'bottom' | 'turn'
 
-const LABEL: Record<BoxField, string> = { width: 'Width, east–west (ft)', depth: 'Depth, north–south (ft)', height: 'Height (ft)', bottom: 'Bottom elevation (ft)', turn: 'Turn (degrees)' }
+
+/** The five numbers a 3D crop box has, in the language on screen. */
+function boxLabel(field: BoxField, t: Translate): string {
+  switch (field) {
+    case 'width':
+      return t('crop3d.width', 'Width, east–west (ft)', { ns: 'editor' })
+    case 'depth':
+      return t('crop3d.depth', 'Depth, north–south (ft)', { ns: 'editor' })
+    case 'height':
+      return t('crop3d.height', 'Height (ft)', { ns: 'editor' })
+    case 'bottom':
+      return t('crop3d.bottom', 'Bottom elevation (ft)', { ns: 'editor' })
+    case 'turn':
+      return t('crop3d.turn', 'Turn (degrees)', { ns: 'editor' })
+  }
+}
+
 
 /** A box with one of its numbers changed: sizes grow about the centre; the bottom moves the box up or down. */
 export function boxWith(box: CropBox3d, field: BoxField, value: number): CropBox3d {
@@ -67,30 +86,45 @@ function valueOf(box: CropBox3d, field: BoxField): number {
 }
 
 /** A 3D view's crop box: on/off, shown or not, its size in feet, its turn, reset, and saving the camera. */
+
 export function Crop3dFields({ controls, canEdit, disabledHint }: { controls: Crop3dControls; canEdit: boolean; disabledHint: string | undefined }) {
+  const t = useEditorTranslate()
   const [error, setError] = useState<string | null>(null)
+
   const { box, on, shown } = controls
   const fields: readonly BoxField[] = ['width', 'depth', 'height', 'bottom', 'turn']
   return (
     <FieldSet data-testid="crop-3d-properties">
-      <FieldLegend variant="label">3D crop box</FieldLegend>
+
+      <FieldLegend variant="label">{t('crop3d.title', '3D crop box', { ns: 'editor' })}</FieldLegend>
+
       <FieldGroup className="gap-2">
         <Field orientation="horizontal">
           <Checkbox id="vp-crop3d-on" checked={on} disabled={!canEdit} onCheckedChange={(v) => controls.set({ enabled: v === true })} />
           <FieldContent>
+
             <FieldLabel htmlFor="vp-crop3d-on" className="font-normal">
-              Crop to the box
+              {t('crop3d.cropToBox', 'Crop to the box', { ns: 'editor' })}
             </FieldLabel>
-            <FieldDescription className="text-xs">{on ? 'Only what is inside the box shows, live and on sheets.' : 'Showing everything.'}</FieldDescription>
+            <FieldDescription className="text-xs">
+              {on
+                ? t('crop3d.onlyInside', 'Only what is inside the box shows, live and on sheets.', { ns: 'editor' })
+                : t('crop3d.showingEverything', 'Showing everything.', { ns: 'editor' })}
+            </FieldDescription>
+
           </FieldContent>
         </Field>
         <Field orientation="horizontal">
           <Checkbox id="vp-crop3d-show" checked={shown} disabled={!canEdit} onCheckedChange={(v) => controls.set({ show: v === true })} />
           <FieldContent>
+
             <FieldLabel htmlFor="vp-crop3d-show" className="font-normal">
-              Show crop box
+              {t('crop3d.showBox', 'Show crop box', { ns: 'editor' })}
             </FieldLabel>
-            <FieldDescription className="text-xs">Its outline and six grips show while working. It never prints.</FieldDescription>
+            <FieldDescription className="text-xs">
+              {t('crop3d.showBoxWhy', 'Its outline and six grips show while working. It never prints.', { ns: 'editor' })}
+            </FieldDescription>
+
           </FieldContent>
         </Field>
         {box && (
@@ -99,16 +133,24 @@ export function Crop3dFields({ controls, canEdit, disabledHint }: { controls: Cr
               <BoxNumber
                 key={`${f}:${valueOf(box, f)}`}
                 id={`vp-crop3d-${f}`}
-                label={LABEL[f]}
+
+                label={boxLabel(f, t)}
+
                 value={valueOf(box, f)}
                 disabled={!canEdit}
                 allowNegative={f === 'bottom' || f === 'turn'}
-                onCommit={(n) => setError(controls.setBox(boxWith(box, f, n), `change the 3D crop box ${f}`))}
+
+                onCommit={(n) => setError(controls.setBox(boxWith(box, f, n), t('crop3d.change', 'change the 3D crop box {{field}}', { ns: 'editor', field: boxLabel(f, t).toLowerCase() })))}
+
               />
             ))}
           </div>
         )}
-        <FieldDescription className="text-xs">{disabledHint ?? 'Drag the grips on the box in the view (Shift moves both sides), or type its size and turn here.'}</FieldDescription>
+
+        <FieldDescription className="text-xs">
+          {disabledHint ?? t('crop3d.howToSize', 'Drag the grips on the box in the view (Shift moves both sides), or type its size and turn here.', { ns: 'editor' })}
+        </FieldDescription>
+
         <div className="flex flex-col gap-1" data-testid="crop-3d-align">
           <div className="grid grid-cols-2 gap-2">
             <Tooltip>
@@ -122,27 +164,48 @@ export function Crop3dFields({ controls, canEdit, disabledHint }: { controls: Cr
                     onClick={() => setError(controls.alignToWorkingAngle())}
                     data-testid="crop-3d-align-working"
                   >
+
                     <Axis3d data-icon="inline-start" />
-                    Align to working angle
+                    {t('crop3d.alignToWorkingAngle', 'Align to working angle', { ns: 'editor' })}
+
                   </Button>
                 </span>
               </TooltipTrigger>
-              <TooltipContent>{controls.alignBlocked ?? (box !== null && Math.abs(box.rotationDeg - controls.workingAngleDeg) < 1e-6 ? 'Already square to the working angle.' : 'Turn the box about its middle so it is square to the building. Its size stays.')}</TooltipContent>
+
+              <TooltipContent>
+                {controls.alignBlocked ??
+                  (box !== null && Math.abs(box.rotationDeg - controls.workingAngleDeg) < 1e-6
+                    ? t('crop3d.alreadySquare', 'Already square to the working angle.', { ns: 'editor' })
+                    : t('crop3d.turnAboutMiddle', 'Turn the box about its middle so it is square to the building. Its size stays.', { ns: 'editor' }))}
+              </TooltipContent>
+
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
                 <span>
                   <Button variant="outline" size="sm" className="w-full" disabled={controls.alignBlocked !== null} onClick={controls.alignToEdge} data-testid="crop-3d-align-edge">
+
                     <Ruler data-icon="inline-start" />
-                    Align to an edge…
+                    {t('crop3d.alignToEdge', 'Align to an edge…', { ns: 'editor' })}
+
                   </Button>
                 </span>
               </TooltipTrigger>
-              <TooltipContent>{controls.alignBlocked ?? 'Click a wall, or two points along a building edge, and the box turns square to it.'}</TooltipContent>
+
+              <TooltipContent>
+                {controls.alignBlocked ??
+                  t('crop3d.alignToEdgeWhy', 'Click a wall, or two points along a building edge, and the box turns square to it.', { ns: 'editor' })}
+              </TooltipContent>
+
             </Tooltip>
           </div>
           <FieldDescription className="text-xs" data-testid="crop-3d-working-angle">
-            Working angle here: {describeWorkingAngle(controls.workingAngleDeg).toLowerCase()}.
+
+            {t('crop3d.workingAngleHere', 'Working angle here: {{angle}}.', {
+              ns: 'editor',
+              angle: describeWorkingAngle(controls.workingAngleDeg).toLowerCase(),
+            })}
+
           </FieldDescription>
         </div>
         <div className="grid grid-cols-2 gap-2">
@@ -150,23 +213,33 @@ export function Crop3dFields({ controls, canEdit, disabledHint }: { controls: Cr
             <TooltipTrigger asChild>
               <span>
                 <Button variant="outline" size="sm" className="w-full" disabled={!canEdit} onClick={controls.reset} data-testid="crop-3d-reset">
+
                   <Expand data-icon="inline-start" />
-                  Reset crop
+                  {t('crop3d.resetCrop', 'Reset crop', { ns: 'editor' })}
+
                 </Button>
               </span>
             </TooltipTrigger>
-            <TooltipContent>{disabledHint ?? 'Put the box back around the whole model, linked models included'}</TooltipContent>
+
+            <TooltipContent>{disabledHint ?? t('crop3d.resetWhy', 'Put the box back around the whole model, linked models included', { ns: 'editor' })}</TooltipContent>
+
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <span>
                 <Button variant="outline" size="sm" className="w-full" disabled={!canEdit} onClick={() => setError(controls.useCamera())} data-testid="crop-3d-use-camera">
+
                   <Camera data-icon="inline-start" />
-                  Use this camera
+                  {t('crop3d.useThisCamera', 'Use this camera', { ns: 'editor' })}
+
                 </Button>
               </span>
             </TooltipTrigger>
-            <TooltipContent>{disabledHint ?? 'Save where you are looking from now: the view opens here, and prints from here on a sheet'}</TooltipContent>
+
+            <TooltipContent>
+              {disabledHint ?? t('crop3d.useCameraWhy', 'Save where you are looking from now: the view opens here, and prints from here on a sheet', { ns: 'editor' })}
+            </TooltipContent>
+
           </Tooltip>
         </div>
         {error && (
@@ -179,13 +252,22 @@ export function Crop3dFields({ controls, canEdit, disabledHint }: { controls: Cr
   )
 }
 
+
 function BoxNumber({ id, label, value, disabled, allowNegative, onCommit }: { id: string; label: string; value: number; disabled: boolean; allowNegative: boolean; onCommit: (value: number) => void }) {
+  const t = useEditorTranslate()
   const [text, setText] = useState(value.toFixed(2).replace(/\.?0+$/, ''))
+
   const [error, setError] = useState<string | null>(null)
   const commit = () => {
     const n = Number(text)
     if (text.trim() === '' || !Number.isFinite(n) || (!allowNegative && n <= 0)) {
-      setError(allowNegative ? 'Enter a number, like 10 or -2.5.' : 'Enter a size in feet above zero, like 12 or 12.5.')
+
+      setError(
+        allowNegative
+          ? t('crop3d.enterNumber', 'Enter a number, like 10 or -2.5.', { ns: 'editor' })
+          : t('crop3d.enterSize', 'Enter a size in feet above zero, like 12 or 12.5.', { ns: 'editor' }),
+      )
+
       return
     }
     setError(null)

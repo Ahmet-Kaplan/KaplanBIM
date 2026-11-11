@@ -9,4 +9,7 @@ export { ScheduleBuilder, emptyDefinition, type BuilderSectionId, type ScheduleB
 export { LibraryBrowser, type LibraryBrowserProps } from "./LibraryBrowser";
 export { SaveToLibraryDialog, suggestCalculationKey, type SaveToLibraryDialogProps } from "./SaveToLibrary";
 export { ConfirmDialog, Dialog, OverflowMenu, Sheet, type MenuItem } from "./ui/overlays";
-export { NewFieldForm, NEW_FIELD_UNITS, fieldNameOf, newFieldItem, type NewFieldFormProps, type NewFieldHolds } from "./NewFieldForm";
+export { NewFieldForm, newFieldUnits, fieldNameOf, newFieldItem, type NewFieldFormProps, type NewFieldHolds } from "./NewFieldForm";
+export { schedulesResources } from "./i18n/resources";
+export { SCHEDULES_NAMESPACE, englishOnly, useSchedulesTranslate, withValues, type Translate, type TranslateValues } from "./i18n/translate";
+export { ROLL_UP_RULES, rollUpLabel, scheduleFieldLabel, splitUnit, type RollUpRule } from "./i18n/words";

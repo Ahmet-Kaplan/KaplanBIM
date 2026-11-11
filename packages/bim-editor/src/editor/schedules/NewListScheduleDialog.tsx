@@ -14,7 +14,10 @@ import { Input } from '../../ui/input'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '../../ui/select'
 import { newId } from '../views-sheets/types'
 import { EQUIPMENT_LIST_CHOICE, scheduleChoiceLabel } from '../electrical/schedules/schedule-plan'
-import { BUILTIN_LIST_DESCRIPTIONS, BUILTIN_LIST_IDS, BUILTIN_LIST_LABELS, builtinListBlocked, builtinListDefinition, type BuiltinListId } from './builtin-lists'
+
+import { BUILTIN_LIST_IDS, builtinListBlocked, builtinListDefinition, builtinListDescription, builtinListLabel, type BuiltinListId } from './builtin-lists'
+import { useEditorTranslate } from '../i18n/translate'
+
 import { FIRST_PARTY_SCHEDULE_OFFERS } from '../contributions/first-party'
 import { nextSheetNumber, planScheduleCreate, sheetSpotOf, type FormScheduleReady, type NewScheduleFormSlot, type NewScheduleProps } from './new-schedule-plan'
 
@@ -177,14 +180,21 @@ export function NewScheduleWindow({ model, initialCategory, initialList, initial
   const sheetNumber = typedSheet.number ?? suggestedSheet.number
   const sheetName = typedSheet.name ?? suggestedSheet.name
   const ready = isForm && formReady && formReady.kind === formKindPicked ? formReady.ready : null
+
+  const t = useEditorTranslate()
   const name =
     typedName ??
+
     (pick.kind === 'builtin'
       ? uniqueName(model, EQUIPMENT_LIST_CHOICE.label)
       : pick.kind === 'list'
-        ? uniqueName(model, BUILTIN_LIST_LABELS[pick.list])
+
+        ? uniqueName(model, builtinListLabel(pick.list, t))
+
         : pick.kind === 'addon'
-          ? uniqueName(model, addonChoice?.name ?? 'Schedule')
+
+          ? uniqueName(model, addonChoice?.name ?? t('schedule.newWindow.scheduleFallback', 'Schedule', { ns: 'editor' }))
+
           : pick.kind === 'form'
             ? (ready?.suggestedName ?? uniqueName(model, scheduleChoiceLabel(pick.form)))
             : uniqueListScheduleName(model, category))
@@ -192,25 +202,36 @@ export function NewScheduleWindow({ model, initialCategory, initialList, initial
 
   const columns = pick.kind === 'builtin' ? builtinColumns.filter((k) => keys.has(k)) : fields.map((f) => f.key).filter((k) => keys.has(k))
   const columnChoices = pick.kind === 'builtin' ? [...builtinColumns.map((k) => ({ key: k, label: builtinHeadings[k] ?? fields.find((f) => f.key === k)?.label ?? k.toUpperCase() })), ...fields.filter((f) => !builtinColumns.includes(f.key))] : fields
+
   const pickWhy =
     name.trim() === ''
-      ? 'Give the schedule a name.'
+      ? t('schedule.newWindow.giveName', 'Give the schedule a name.', { ns: 'editor' })
       : pick.kind === 'list'
         ? listBlocked[pick.list]
         : pick.kind === 'addon'
           ? addonChoice
             ? addonBlocked
-            : "That add-on schedule isn't offered here any more. Pick another."
+            : t('schedule.newWindow.addonGone', "That add-on schedule isn't offered here any more. Pick another.", { ns: 'editor' })
           : pick.kind === 'form'
             ? !formSlot || !formSlot.kinds.includes(pick.form)
-              ? `${scheduleChoiceLabel(pick.form)} needs its add-on's tools, which are still loading. Try again in a moment.`
+              ? t('schedule.newWindow.addonToolsLoading', "{{name}} needs its add-on's tools, which are still loading. Try again in a moment.", {
+                  ns: 'editor',
+                  name: scheduleChoiceLabel(pick.form),
+                })
               : ready && !ready.ok
                 ? ready.reason
                 : null
             : columns.length === 0
-              ? 'Pick at least one column.'
+              ? t('schedule.newWindow.pickColumn', 'Pick at least one column.', { ns: 'editor' })
               : null
-  const why = pickWhy ?? (pick.kind === 'form' && !ready ? 'Getting the choices ready…' : sheetPick === NEW_SHEET && (!sheetNumber.trim() || !sheetName.trim()) ? 'Give the new sheet a number and a name.' : null)
+  const why =
+    pickWhy ??
+    (pick.kind === 'form' && !ready
+      ? t('schedule.newWindow.gettingChoices', 'Getting the choices ready…', { ns: 'editor' })
+      : sheetPick === NEW_SHEET && (!sheetNumber.trim() || !sheetName.trim())
+        ? t('schedule.newWindow.giveSheetNumber', 'Give the new sheet a number and a name.', { ns: 'editor' })
+        : null)
+
 
   const toggle = (key: string, on: boolean) => {
     const next = new Set(keys)
@@ -270,23 +291,37 @@ export function NewScheduleWindow({ model, initialCategory, initialList, initial
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg" data-testid="new-list-schedule-dialog">
         <form onSubmit={create} className="flex flex-col gap-4">
           <DialogHeader>
-            <DialogTitle>New schedule</DialogTitle>
-            <DialogDescription>It reads the model live; changes you type in a list go back into the model. Lists open as a spreadsheet; columns change one at a time from Columns. You can undo this.</DialogDescription>
+
+            <DialogTitle>{t('schedule.newWindow.title', 'New schedule', { ns: 'editor' })}</DialogTitle>
+            <DialogDescription>
+              {t(
+                'schedule.newWindow.description',
+                'It reads the model live; changes you type in a list go back into the model. Lists open as a spreadsheet; columns change one at a time from Columns. You can undo this.',
+                { ns: 'editor' },
+              )}
+            </DialogDescription>
+
           </DialogHeader>
           <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="bm-list-schedule-category">What it lists</FieldLabel>
+
+              <FieldLabel htmlFor="bm-list-schedule-category">{t('schedule.newWindow.whatItLists', 'What it lists', { ns: 'editor' })}</FieldLabel>
+
               <Select value={pickKey} onValueChange={choose}>
                 <SelectTrigger id="bm-list-schedule-category" data-testid="list-schedule-category">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    <SelectLabel>Lists for planning</SelectLabel>
+
+                    <SelectLabel>{t('schedule.newWindow.listsForPlanning', 'Lists for planning', { ns: 'editor' })}</SelectLabel>
+
                     {BUILTIN_LIST_IDS.map((l) => (
                       <SelectItem key={l} value={`list:${l}`} data-testid={`list-schedule-builtin-${l}`}>
-                        {BUILTIN_LIST_LABELS[l]}
-                        {listBlocked[l] ? ' (not available yet)' : ''}
+
+                        {builtinListLabel(l, t)}
+                        {listBlocked[l] ? ` ${t('schedule.newWindow.notAvailableYet', '(not available yet)', { ns: 'editor' })}` : ''}
+
                       </SelectItem>
                     ))}
                   </SelectGroup>
@@ -301,7 +336,9 @@ export function NewScheduleWindow({ model, initialCategory, initialList, initial
                       ))}
                       {g.forms.map((k) => (
                         <SelectItem key={`form:${k}`} value={`form:${k}`} data-testid={`list-schedule-form-${k}`}>
-                          {scheduleChoiceLabel(k)} (laid out on a sheet)
+
+                          {t('schedule.newWindow.formOnSheet', '{{name}} (laid out on a sheet)', { ns: 'editor', name: scheduleChoiceLabel(k) })}
+
                         </SelectItem>
                       ))}
                       {g.equipmentList && (
@@ -312,7 +349,9 @@ export function NewScheduleWindow({ model, initialCategory, initialList, initial
                     </SelectGroup>
                   ))}
                   <SelectGroup>
-                    <SelectLabel>Any items in the model</SelectLabel>
+
+                    <SelectLabel>{t('schedule.newWindow.anyItems', 'Any items in the model', { ns: 'editor' })}</SelectLabel>
+
                     {LIST_SCHEDULE_CATEGORIES.map((c) => (
                       <SelectItem key={c} value={`category:${c}`}>
                         {SCHEDULE_CATEGORY_LABELS[c]}
@@ -324,13 +363,18 @@ export function NewScheduleWindow({ model, initialCategory, initialList, initial
             </Field>
             {pick.kind === 'form' && formSlot?.kinds.includes(pick.form) && formSlot.renderFields({ model, kind: pick.form, onReady: onFormReady })}
             <Field>
-              <FieldLabel htmlFor="bm-list-schedule-name">Name</FieldLabel>
+
+              <FieldLabel htmlFor="bm-list-schedule-name">{t('schedule.newWindow.name', 'Name', { ns: 'editor' })}</FieldLabel>
+
               <Input id="bm-list-schedule-name" value={name} maxLength={120} onChange={(e) => setTypedName(e.target.value)} data-testid="list-schedule-name" />
             </Field>
             {pick.kind === 'addon' ? (
               <Field>
                 <FieldDescription data-testid="list-schedule-addon-description">
-                  {addonChoice?.kind === 'available' && addonChoice.description ? `${addonChoice.description}. ` : ''}Its columns come with the add-on; Columns in the schedule changes them later.
+
+                  {addonChoice?.kind === 'available' && addonChoice.description ? `${addonChoice.description}. ` : ''}
+                  {t('schedule.newWindow.addonColumns', 'Its columns come with the add-on; Columns in the schedule changes them later.', { ns: 'editor' })}
+
                 </FieldDescription>
                 {why && name.trim() !== '' && (
                   <FieldDescription className="text-warning-700" data-testid="list-schedule-addon-blocked">
@@ -341,7 +385,12 @@ export function NewScheduleWindow({ model, initialCategory, initialList, initial
             ) : pick.kind === 'list' ? (
               <Field>
                 <FieldDescription data-testid="list-schedule-builtin-description">
-                  {BUILTIN_LIST_DESCRIPTIONS[pick.list]}. Its columns are set; Columns in the schedule changes them later.
+
+                  {t('schedule.newWindow.listColumns', '{{description}}. Its columns are set; Columns in the schedule changes them later.', {
+                    ns: 'editor',
+                    description: builtinListDescription(pick.list, t),
+                  })}
+
                 </FieldDescription>
                 {listBlocked[pick.list] && (
                   <FieldDescription className="text-warning-700" data-testid="list-schedule-builtin-blocked">
@@ -351,8 +400,12 @@ export function NewScheduleWindow({ model, initialCategory, initialList, initial
               </Field>
             ) : pick.kind === 'form' ? null : (
               <FieldSet>
-                <FieldLegend variant="label">Columns</FieldLegend>
-                <FieldDescription>Start with these. Columns in the schedule changes them later, one at a time.</FieldDescription>
+
+                <FieldLegend variant="label">{t('schedule.newWindow.columns', 'Columns', { ns: 'editor' })}</FieldLegend>
+                <FieldDescription>
+                  {t('schedule.newWindow.startColumns', 'Start with these. Columns in the schedule changes them later, one at a time.', { ns: 'editor' })}
+                </FieldDescription>
+
                 <FieldGroup className="grid grid-cols-2 gap-2">
                   {columnChoices.map((f) => (
                     <Field key={f.key} orientation="horizontal">
@@ -368,15 +421,19 @@ export function NewScheduleWindow({ model, initialCategory, initialList, initial
               </FieldSet>
             )}
             <Field>
-              <FieldLabel htmlFor="bm-schedule-sheet">Place on sheet</FieldLabel>
+
+              <FieldLabel htmlFor="bm-schedule-sheet">{t('schedule.newWindow.placeOnSheet', 'Place on sheet', { ns: 'editor' })}</FieldLabel>
+
               <Select value={sheetPick} onValueChange={(value) => setSheetPicked({ pick: pickKey, value })}>
                 <SelectTrigger id="bm-schedule-sheet" data-testid="schedule-sheet-select">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    <SelectItem value={NO_SHEET}>Not on a sheet yet</SelectItem>
-                    <SelectItem value={NEW_SHEET}>New sheet…</SelectItem>
+
+                    <SelectItem value={NO_SHEET}>{t('schedule.newWindow.notOnSheet', 'Not on a sheet yet', { ns: 'editor' })}</SelectItem>
+                    <SelectItem value={NEW_SHEET}>{t('schedule.newWindow.newSheet', 'New sheet…', { ns: 'editor' })}</SelectItem>
+
                     {sheets.map((s) => (
                       <SelectItem key={s.id} value={s.id}>
                         {s.number} · {s.title}
@@ -385,16 +442,26 @@ export function NewScheduleWindow({ model, initialCategory, initialList, initial
                   </SelectGroup>
                 </SelectContent>
               </Select>
-              <FieldDescription>{sheetPick === NO_SHEET ? 'It opens as its own tab; place it on a sheet later from Views and sheets.' : 'It goes beside what is already on the sheet, and the sheet opens.'}</FieldDescription>
+
+              <FieldDescription>
+                {sheetPick === NO_SHEET
+                  ? t('schedule.newWindow.ownTab', 'It opens as its own tab; place it on a sheet later from Views and sheets.', { ns: 'editor' })
+                  : t('schedule.newWindow.besideOthers', 'It goes beside what is already on the sheet, and the sheet opens.', { ns: 'editor' })}
+              </FieldDescription>
+
             </Field>
             {sheetPick === NEW_SHEET && (
               <div className="grid grid-cols-3 gap-3">
                 <Field>
-                  <FieldLabel htmlFor="bm-schedule-sheet-number">Sheet number</FieldLabel>
+
+                  <FieldLabel htmlFor="bm-schedule-sheet-number">{t('schedule.newWindow.sheetNumber', 'Sheet number', { ns: 'editor' })}</FieldLabel>
+
                   <Input id="bm-schedule-sheet-number" value={sheetNumber} maxLength={40} onChange={(e) => setTypedSheet((t) => ({ ...t, number: e.target.value }))} data-testid="schedule-sheet-number" />
                 </Field>
                 <Field className="col-span-2">
-                  <FieldLabel htmlFor="bm-schedule-sheet-name">Sheet name</FieldLabel>
+
+                  <FieldLabel htmlFor="bm-schedule-sheet-name">{t('schedule.newWindow.sheetName', 'Sheet name', { ns: 'editor' })}</FieldLabel>
+
                   <Input id="bm-schedule-sheet-name" value={sheetName} maxLength={200} onChange={(e) => setTypedSheet((t) => ({ ...t, name: e.target.value }))} />
                 </Field>
               </div>
@@ -402,15 +469,25 @@ export function NewScheduleWindow({ model, initialCategory, initialList, initial
           </FieldGroup>
           {(refusal ?? (pick.kind === 'form' ? why : null)) && (
             <Alert variant="destructive" data-testid="list-schedule-refusal">
-              <AlertDescription>{refusal ? `The schedule wasn't made: ${refusal}` : why}</AlertDescription>
+
+              <AlertDescription>
+                {refusal ? t('schedule.newWindow.notMade', 'The schedule wasn’t made: {{reason}}', { ns: 'editor', reason: refusal }) : why}
+              </AlertDescription>
+
             </Alert>
           )}
           <DialogFooter>
+
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
+              {t('schedule.newWindow.cancel', 'Cancel', { ns: 'editor' })}
             </Button>
+
             <Button type="submit" disabled={why !== null} title={why ?? undefined} data-testid="list-schedule-create">
-              {sheetPick === NO_SHEET ? 'Create and open' : 'Create and open the sheet'}
+
+              {sheetPick === NO_SHEET
+                ? t('schedule.newWindow.createAndOpen', 'Create and open', { ns: 'editor' })
+                : t('schedule.newWindow.createAndOpenSheet', 'Create and open the sheet', { ns: 'editor' })}
+
             </Button>
           </DialogFooter>
         </form>
