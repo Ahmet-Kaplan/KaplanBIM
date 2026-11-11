@@ -100,10 +100,10 @@ const SCREEN_NOUNS: readonly (readonly [string, string])[] = [
  * never match a lookahead written as `kategori` — the text there is `egori`.
  */
 const STEM_NEIGHBOURS: Readonly<Record<string, readonly string[]>> = {
-  kat: ["egori", "man", "kı", "al", "ı"],
+  kat: ["egori", "man", "kı", "al"],
   oda: ["k"],
   faz: ["la"],
-  pano: ["ram"],
+  pano: ["rama"],
 };
 
 /**
@@ -158,9 +158,11 @@ function namesWord(text: string, word: string): boolean {
   const neighbours = ((STEM_NEIGHBOURS as Readonly<Record<string, readonly string[]>>)[word] ?? [])
     .slice()
     .sort((left, right) => right.length - left.length)
-    // Each tail is a whole word of its own, so it needs a right boundary: `fazla` is not
-    // `fazlar`, and without it the plural — the very thing the guard looks for — was excluded.
-    .map((tail) => `${tail.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}(?![\\p{L}])`)
+    // Each tail is a word of its own, so it takes the plural and then a right boundary:
+    // `fazla`/`fazlalar` are excluded, `fazlar` — the plural the guard exists for — is not;
+    // `odak`+`lar` and `panorama`+`lar` are covered too. (`kat`'s old `ı` tail silently
+    // dropped `katı`; it is gone, and a bare `katı` is over-reach the other way.)
+    .map((tail) => `${tail.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}(?:lar|ler)?(?![\\p{L}])`)
     .join("|");
   const notANeighbour = neighbours === "" ? "" : `(?!${neighbours})`;
   return new RegExp(String.raw`(?<![\p{L}])${escaped}${notANeighbour}`, "iu").test(text);
@@ -426,14 +428,16 @@ test("the cause rule fires on a sentence that asserts one cause over many", () =
   // because it named no screen — and it is still wrong, because "still used somewhere
   // else" is false for a lock, for a pinned sheet item and for a full panel. This is the
   // assertion the guard was missing.
-  const oldSentence =
-    "Bu hâlâ başka bir yerde kullanıldığı için işlem yapılmadı. Hiçbir şey değişmedi.";
-  expect(genericSentenceDefects("in_use", oldSentence, "That is still used somewhere else, so nothing was changed.", inUse)).not.toEqual([]);
+  // The *kind* is asserted, not merely "something was wrong": a future screen-noun defect on
+  // the same sentence must not be able to stand in for the cause defect.
+  const oldSentence = "Bu hâlâ başka bir yerde kullanıldığı için işlem yapılmadı. Hiçbir şey değişmedi.";
+  const oldDefects = genericSentenceDefects("in_use", oldSentence, "That is still used somewhere else, so nothing was changed.", inUse);
+  expect(oldDefects.filter((defect) => defect.includes('asserts the cause'))).toHaveLength(1);
+  expect(oldDefects.every((defect) => defect.includes('asserts the cause'))).toBe(true);
 
-  // A hypothetical single-cause sentence fails the same way.
-  expect(genericSentenceDefects("in_use", "Kilitli olduğu için yapılamadı.", "That couldn't be done because it is locked.", inUse)).not.toEqual(
-    [],
-  );
+  // A hypothetical single-cause sentence fails the same way, and for the same reason.
+  const singleCause = genericSentenceDefects("in_use", "Kilitli olduğu için yapılamadı.", "That couldn't be done because it is locked.", inUse);
+  expect(singleCause.filter((defect) => defect.includes('asserts the cause "kilit"'))).toHaveLength(1);
 
   // What ships offers the alternatives instead, and passes.
   expect(genericSentenceDefects("in_use", operatorMessage("in_use", TR), operatorMessage("in_use", EN), inUse)).toEqual([]);
@@ -447,7 +451,11 @@ test("the cause rule allows a cause every sentence agrees with", () => {
   expect(genericSentenceDefects("locked", operatorMessage("locked", TR), operatorMessage("locked", EN), locked)).toEqual([]);
   // The same sentence over a family with other causes is refused.
   const inUse = catalogue.templates.filter((row) => row.codes.includes("in_use"));
-  expect(genericSentenceDefects("in_use", "Kilitli olduğu için değiştirilemedi. Kilidi açıp tekrar deneyin.", "That is locked, so it couldn't be changed.", inUse)).not.toEqual([]);
+  expect(
+    genericSentenceDefects("in_use", "Kilitli olduğu için değiştirilemedi. Kilidi açıp tekrar deneyin.", "That is locked, so it couldn't be changed.", inUse).filter(
+      (defect) => defect.includes('asserts the cause "kilit"'),
+    ),
+  ).toHaveLength(1);
 });
 
 test("the stem matcher has an exception list, so `kat` is not `kategori`", () => {
@@ -458,6 +466,10 @@ test("the stem matcher has an exception list, so `kat` is not `kategori`", () =>
   expect(namesWord("Katman listesi", "kat")).toBe(false);
   expect(namesWord("Odak noktası", "oda")).toBe(false);
   expect(namesWord("Fazla değer", "faz")).toBe(false);
+  expect(namesWord("Odaklar listesi", "oda")).toBe(false);
+  expect(namesWord("Panorama", "pano")).toBe(false);
+  expect(namesWord("Panoramalar", "pano")).toBe(false);
+  expect(namesWord("Fazlar seçili", "faz")).toBe(true);
   // The real words still match.
   expect(namesWord("Kilitli bir grupta", "grup")).toBe(true);
   expect(namesWord("Üç kat seçili", "kat")).toBe(true);

@@ -523,12 +523,30 @@ cümlelerdir ve **gönderilen metindir** — sözlük gerçeğe uymak zorundadı
 >    sürebilir; aksi hâlde cümle **seçenek sunmak** zorundadır (`ya da` / `veya` /
 >    `or`).
 >
-> `in_use` bunun örneğidir: 19 cümlesi kilit, sabitlenmiş pafta öğesi, dolu pano,
-> varsayılan grup/faz, paylaşılan devre ve yük noktası hakkındadır — nedeni tek
+> `in_use` bunun örneğidir: **ölçülen 19** cümlesi kilit, varsayılan grup/faz, "en az
+> bir faz filtresi" kuralı, paylaşılan devre, yük noktası, paftaya yerleşmiş öğe,
+> yayılmış parçalar ve bir görünümün faz/filtre kullanımı hakkındadır — nedeni tek
 > değildir, çaresi de. Bu yüzden gönderilen cümle nedeni **seçenek olarak** sayar ve
 > **hiçbir çare adı vermez**: ekranın yapamayacağı bir adım önermek, yanlış nedeni
 > söylemekten daha kötüdür. Tek nedenli bir kod (`locked`) tek nedenini söyleyebilir,
 > çünkü bütün cümleleri aynı nedenledir.
+>
+> **Üçüncü yasak — uydurulmuş çare, yalnızca incelemede denetlenir.** Genel cümle,
+> ekranın yerine getiremeyeceği ya da yalnızca bazı aileler için doğru olan bir adım
+> önermez ("paftadan kaldırın", "grubun kilidini açın"). Nedeni tek olan bir kodda çare
+> de tektir ve yazılabilir (`locked`: "Kilidi açıp tekrar deneyin"); nedeni çok olan bir
+> kodda cümle çare **önermez**. Bunu ölçen bir test yoktur — `CAUSE_WORDS` yalnızca
+> nedeni olan bir cümlenin aileye uyup uymadığını ölçer; "bu adım doğru mu" sorusu
+> inceleyenin işidir.
+>
+> **Ölçüm sınırı.** "19" **ölçülen** sayıdır, cümlelerin tamamı değil:
+> `tools/i18n/extract-prose.mjs` şu iki şekli göremiyor — `fail(cümle, ids, kod)`
+> yardımcıları (`annotation/text-note-commands.ts`, `commands/views.ts`,
+> `commands/view3d.ts`) ve `${…}` içine yuvalanmış şablon dizeleri. Bu yüzden
+> sabitlenmiş pafta öğesi ve dolu pano aileleri `in_use` koduna ulaşır ama ölçülen
+> 19'un içinde **değildir**; gönderilen cümle onları **tasarım gereği** kapsar
+> ("sabitlenmiş" ve "başka bir yerde kullanımda" bu yüzden var). Aile listesine yeni bir
+> cümle eklerken önce bu boşluğu kapatın (rapor, erteleme listesi).
 >
 > **Bilinen sınır:** bu iki liste elle yazılmıştır; test, listede olmayan bir neden
 > kelimesini göremez. Bir koda yeni bir cümle ailesi eklenirse listeye o ailenin

@@ -23,6 +23,22 @@
 //     "Level 1"` — carries words that came from an interpolation, so the runtime
 //     text and the source template differ by whole words, and no `{0}` slot can
 //     stand in for them. Those stay English (see the report this tool prints).
+//
+// **Two blind spots, measured, not fixed here** (task 3.4 report, round 4):
+//
+//   1. `refuse(code, message, ids)` is read; the per-file helpers are not. The kernel's
+//      `fail(message, ids, code)` (166 call sites; `annotation/text-note-commands.ts`,
+//      `commands/views.ts`, `commands/view3d.ts`) puts the sentence *first* and the code
+//      last, so none of them is in the catalogue — including both pinned-sheet-item
+//      refusals and the "has no free N-pole space left" one.
+//   2. A template literal nested inside `${…}` ends the literal early: `` `${a} x ${b ? `c` : ""}` ``.
+//      Two `refuse("in_use", …)` sites are lost that way (`connections/commands.ts:253`,
+//      `catalog/commands.ts:145`).
+//
+// A prototype scan with both handled finds **26 `in_use` sites against the 19 measured**, and
+// **143 further templates, 89 of them matchable** — i.e. 89 sentences that would need Turkish
+// before the numbers could claim them. So the gap is a task of its own (report, deferral
+// list); until then the counts this tool prints are "measured", not "all".
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";

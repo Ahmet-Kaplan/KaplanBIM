@@ -46,13 +46,20 @@ const MESSAGES: Record<CommandError['code'], (t: Translate) => string> = {
   invalid_value: (t) => t('operator.invalid_value', "That value isn't valid. Check it and try again.", { ns: 'editor' }),
   already_exists: (t) =>
     t('operator.already_exists', 'That is already there or clashes with something else. Choose another.', { ns: 'editor' }),
-  // An OR over the causes, and no remedy. The nineteen sentences behind `in_use` are not
-  // one situation: a lock (`"{0}" is locked. Unlock it before deleting it.`), a pinned sheet
-  // item, a panel with no free pole space, the default group or phase, a view holding a
-  // phase or filter, a shared circuit, a load point already on an end. Naming any single
-  // cause would be false for the others — the round-2 wording ("still used somewhere else")
-  // was — and naming a remedy would be wrong for most of them, so this says *may be* and
-  // lists what is worth checking.
+  // An OR over the causes, and no remedy. The **19 measured** sentences behind `in_use` are
+  // not one situation: a lock (`"{0}" is locked. Unlock it before deleting it.`), the default
+  // group or the default phase, "a model needs at least one phase filter", a shared circuit,
+  // a load point already on an end, an element already on a sheet, spread parts, and a view
+  // that holds a phase or filter. Naming any single cause would be false for the others — the
+  // round-2 wording ("still used somewhere else") was — and naming a remedy would be wrong
+  // for most of them, so this says *may be* and lists what is worth checking.
+  //
+  // Two more families reach this code but are **not in the 19**: a pinned sheet item
+  // (`commands/views.ts:1515,1595`) and a panel with no free pole space
+  // (`connections/commands.ts:253`). The extractor cannot see them yet (`fail(…)` helper
+  // calls, and a template nested inside `${…}`), so they are covered *by design* — the
+  // sentence names pinning and use-elsewhere — but not measured. Blind spots listed in
+  // `tools/i18n/extract-prose.mjs`.
   in_use: (t) =>
     t('operator.in_use', "That couldn't be done. It may be locked, pinned or still in use somewhere else.", { ns: 'editor' }),
   stale_base: (t) =>
