@@ -1,6 +1,6 @@
 import type { ConnectionStatus, SaveState } from '@permitzip/bim-sync'
 import type { CommandError } from '@permitzip/bim-kernel'
-import { englishOnly, type Translate } from './i18n/translate'
+import { englishOnly, withValues, type Translate } from './i18n/translate'
 
 /** What a person sees when the model refuses an edit: what stopped it, in drawing terms, not element ids. */
 const MESSAGES: Record<CommandError['code'], string> = {
@@ -74,11 +74,16 @@ export function problemForDenied(reason: string): ConnectionProblem {
  *
  * Turkish has one form after a number (§8): both are `{{n}} düzenleme`, so the
  * pair of keys is not a plural rule but two English sentences, each keyed.
- * `editsPausedMessage` still passes no translator and reads English: it is a
- * pointer-edit operator message, Task 3.3's.
+ *
+ * `withValues` is not decoration: the default translator is `englishOnly`, which
+ * returns the English argument **verbatim** — `{{n}} edits` would reach the
+ * screen as those seven characters. `editsPausedMessage` takes that path (it has
+ * no translator), so without the fill an ordinary offline-with-queued-edits
+ * status line would print `Your {{n}} edits from before are queued`.
  */
 function edits(n: number, t: Translate = englishOnly): string {
-  return n === 1 ? t('status.editOne', '1 edit', { ns: 'editor' }) : t('status.editsMany', '{{n}} edits', { n, ns: 'editor' })
+  if (n === 1) return t('status.editOne', '1 edit', { ns: 'editor' })
+  return withValues(t('status.editsMany', '{{n}} edits', { n, ns: 'editor' }), { n })
 }
 
 /**
@@ -95,9 +100,9 @@ export function editsPausedMessage(queued: number, deviceOffline: boolean): stri
 export type BadgeTone = 'ok' | 'busy' | 'warn' | 'muted'
 
 function offlineLabel(pending: number, t: Translate): string {
-  return pending > 0
-    ? t('status.offlineEdits', 'Offline: {{edits}} kept on this computer', { edits: edits(pending, t), ns: 'editor' })
-    : t('status.offline', 'Offline: changes kept on this computer', { ns: 'editor' })
+  if (pending === 0) return t('status.offline', 'Offline: changes kept on this computer', { ns: 'editor' })
+  const count = edits(pending, t)
+  return withValues(t('status.offlineEdits', 'Offline: {{edits}} kept on this computer', { edits: count, ns: 'editor' }), { edits: count })
 }
 
 /**
@@ -107,16 +112,23 @@ function offlineLabel(pending: number, t: Translate): string {
  *
  * Every word it owns is `t('<key>', '<English>')` (§8's status vocabulary), so a
  * Turkish editor says `Bağlandı. Tüm değişiklikler kaydedildi` where an English
- * one says `Connected. All changes saved`. The title of a *known connection
- * problem* is the exception: it arrives on the `problem` this function is
- * handed, which `connectionProblem()` words (Task 3.3).
+ * one says `Connected. All changes saved`.
+ *
+ * `t` is **required**: `englishOnly` returns the English verbatim, so a default
+ * would let a future caller print `Offline: {{edits}}…`. A required parameter
+ * turns that omission into a compile error instead of a screen with braces on it.
+ *
+ * The words it can show that are still English belong to Task 3.3: the 18
+ * refusal codes, `editsPausedMessage`'s sentence, and the *title* of a known
+ * connection problem — that one arrives on `problem`, worded by
+ * `connectionProblem()`.
  */
 export function statusBadge(
   status: ConnectionStatus | 'read_only',
   save: SaveState,
   problem: ConnectionProblem | null,
-  editPaused: string | null = null,
-  t: Translate = englishOnly,
+  editPaused: string | null,
+  t: Translate,
 ): { label: string; tone: BadgeTone } {
   if (status === 'read_only') return { label: t('status.readOnly', 'View only — live editing not connected', { ns: 'editor' }), tone: 'muted' }
   if (problem?.kind === 'no_model') return { label: t('status.readOnlyNotSetUp', "View only — live editing isn't set up yet", { ns: 'editor' }), tone: 'muted' }
@@ -126,11 +138,10 @@ export function statusBadge(
   if (lostLine) {
     const pastGrace = problem?.kind === 'unreachable' || problem?.kind === 'device_offline'
     if (pastGrace) return { label: offlineLabel(save.pending, t), tone: 'warn' }
+    if (save.pending === 0) return { label: t('status.reconnecting', 'Reconnecting…', { ns: 'editor' }), tone: 'busy' }
+    const count = edits(save.pending, t)
     return {
-      label:
-        save.pending > 0
-          ? t('status.reconnectingKept', 'Reconnecting… {{edits}} kept on this computer', { edits: edits(save.pending, t), ns: 'editor' })
-          : t('status.reconnecting', 'Reconnecting…', { ns: 'editor' }),
+      label: withValues(t('status.reconnectingKept', 'Reconnecting… {{edits}} kept on this computer', { edits: count, ns: 'editor' }), { edits: count }),
       tone: 'busy',
     }
   }
@@ -140,7 +151,7 @@ export function statusBadge(
   if (problem) return { label: problem.title, tone: 'warn' }
   if (editPaused) return { label: t('status.reconnecting', 'Reconnecting…', { ns: 'editor' }), tone: 'busy' }
   if (status === 'degraded') return { label: save.message ?? t('status.notSavedRetrying', 'Not saved yet — retrying', { ns: 'editor' }), tone: 'warn' }
-  if (save.retrying > 0) return { label: t('status.notSavedRetryingCount', 'Not saved yet ({{n}}) — retrying', { n: save.retrying, ns: 'editor' }), tone: 'warn' }
+  if (save.retrying > 0) return { label: withValues(t('status.notSavedRetryingCount', 'Not saved yet ({{n}}) — retrying', { n: save.retrying, ns: 'editor' }), { n: save.retrying }), tone: 'warn' }
   if (save.pending > 0) return { label: t('status.saving', 'Saving…', { ns: 'editor' }), tone: 'busy' }
   if (status === 'catching_up') return { label: t('status.catchingUp', "Catching up with others' changes…", { ns: 'editor' }), tone: 'busy' }
   if (status !== 'live') return { label: t('status.connecting', 'Connecting…', { ns: 'editor' }), tone: 'busy' }

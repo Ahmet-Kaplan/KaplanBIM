@@ -8,6 +8,7 @@ import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTi
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '../ui/field'
 import { Input } from '../ui/input'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../ui/input-group'
+import { useEditorTranslate } from './i18n/translate'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { Separator } from '../ui/separator'
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert'
@@ -40,6 +41,7 @@ interface Props {
 
 /** Left panel while the Place part tool is on: pick a type (any discipline), a level and a height, then click in the view. */
 export function PartsPanel({ catalog, levels, selectedTypeId, onSelectType, levelId, onLevel, heightFt, onHeight, onAddLevel, onStop, onNewPart, onEditPart, onUseArchitectLevels, firmLibrary }: Props) {
+  const t = useEditorTranslate()
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('all')
   const categories = useMemo(() => {
@@ -52,7 +54,7 @@ export function PartsPanel({ catalog, levels, selectedTypeId, onSelectType, leve
   return (
     <div className="flex flex-col gap-3" data-testid="parts-panel">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-medium">Place a part</span>
+        <span className="text-sm font-medium">{t('panel.placeAPart', 'Place a part', { ns: 'editor' })}</span>
         <div className="flex items-center gap-1">
           {onNewPart && (
             <Button variant="outline" size="sm" onClick={onNewPart} data-testid="new-part">
@@ -60,7 +62,7 @@ export function PartsPanel({ catalog, levels, selectedTypeId, onSelectType, leve
               New part
             </Button>
           )}
-          <Button variant="ghost" size="icon-sm" aria-label="Stop placing" onClick={onStop}>
+          <Button variant="ghost" size="icon-sm" aria-label={t('panel.stopPlacing', 'Stop placing', { ns: 'editor' })} onClick={onStop}>
             <X />
           </Button>
         </div>

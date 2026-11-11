@@ -319,7 +319,7 @@ export function CoordinationPane({ projectId, modelId, model, acceptBlocked, onS
       {/* A short window (a phone, 488 x 640): the controls scroll away with the content and the list keeps room to show and scroll its findings. */}
       <CardContent className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-4" data-testid="coordination-body">
         {needs && (
-          <ToggleGroup type="single" variant="outline" size="sm" value={view} onValueChange={(v) => v && setView(v as PaneView)} aria-label="Show" className="max-w-full flex-wrap justify-start" data-testid="checklist-filters">
+          <ToggleGroup type="single" variant="outline" size="sm" value={view} onValueChange={(v) => v && setView(v as PaneView)} aria-label={t('panel.show', 'Show', { ns: 'editor' })} className="max-w-full flex-wrap justify-start" data-testid="checklist-filters">
             <ToggleGroupItem value="needs" data-testid="checklist-filter-needs">
               Needs {needs.count}
             </ToggleGroupItem>

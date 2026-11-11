@@ -81,8 +81,13 @@ export function useEditorLanguage(): string | undefined {
  * `{{name}}` filled from `values`, for text that reached us un-interpolated.
  * Anything we were not given a value for is left exactly as it is, so a broken
  * placeholder is still visible in review rather than silently emptied.
+ *
+ * Exported for the few places that take a `Translate` whose default is
+ * `englishOnly` (the status bar's `edits`): that default returns the English
+ * argument verbatim, `{{placeholders}}` and all, so it needs the same repair
+ * `useEditorTranslate()` gives the words it hands back.
  */
-function withValues(text: string, values: TranslateValues | undefined): string {
+export function withValues(text: string, values: TranslateValues | undefined): string {
   if (values === undefined || !text.includes("{{")) return text;
   return text.replace(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/gu, (placeholder: string, name: string) => {
     const value = name === "ns" ? undefined : values[name];

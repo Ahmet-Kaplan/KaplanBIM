@@ -291,6 +291,9 @@ Yukarıdaki listeler bağlayıcıydı ama eksikti: ribbon'un bazı sekme ve grup
 | Close {{name}} (Esc) | **{{name}} penceresini kapat (Esc)** | Pane kapatma düğmesi; ad **küçük harfe çevrilmez** (Türkçe İ/I sorunu). İngilizcede ad cümle içinde küçük harfe indirilir ("Close checklist (Esc)"), Türkçede inmez |
 | Close properties / Close Spaces / Close panel view | **Özellikler penceresini kapat** / **Mekanlar penceresini kapat** / **Pano görünümünü kapat** | Panellerin kendi kapatma düğmeleri; İngilizce metinleri ayrı ayrı korunur (birebir aynı kalsın diye tek anahtara indirilmedi) |
 | Close Not placed yet | **Henüz yerleştirilmedi penceresini kapat** | Kendi cümlesi olan kapatma düğmesi |
+| Show {{name}} / Collapse {{name}} / Collapse {{name}} to a strip / Resize {{name}} | **{{name}} panelini göster** / **{{name}} panelini daralt** / **{{name}} panelini şeride daralt** / **{{name}} panelini yeniden boyutlandır** | Yan panelin (Properties) kendi fiilleri. Panel adı **zaten çevrilmiş** gelir, bu yüzden fiiller de anahtarlanır: `Collapse Özellikler` yarısı Türkçe yarısı İngilizce bir düğme olurdu. İngilizcede ad olduğu gibi kalır (cümle içinde küçük harfe **inmez**): "Collapse Properties" |
+| Panel view: {{name}} | **Pano görünümü: {{name}}** | Canlı pano görünümünün bölge adı; panel adı model verisinden gelir |
+| Place a part / Stop placing | **Parça yerleştir** / **Yerleştirmeyi durdur** | §4'teki **Parçalar** bu panelin *adı*; bu ikisi panelin içindeki başlık ve durdurma düğmesidir |
 | Floor plan / Ceiling plan | **Kat planları** / **Tavan planları** | Görünümler ve paftalar listesinin başlıkları (tekil: *kat planı*, *tavan planı*) |
 | Section / 3D view / Detail view (liste başlıkları) | **Kesitler** / **3B görünümler** / **Detay görünümleri** | §9/Ç11 *Section* = kesit; §2.4 *View* = görünüm; tekil: *kesit*, *3B görünüm*, *detay görünümü* |
 | Connected. All changes saved | **Bağlandı. Tüm değişiklikler kaydedildi** | §8 durum sözlüğü |

@@ -200,7 +200,7 @@ export function PanelView({
     if (!refusal) setName('')
   }
   return (
-    <section className="flex max-h-full min-h-0 flex-col gap-2 p-3" aria-label={`Panel view: ${s.name}`} data-testid="panel-view" data-panel={s.name}>
+    <section className="flex max-h-full min-h-0 flex-col gap-2 p-3" aria-label={t('panel.panelViewNamed', 'Panel view: {{name}}', { name: s.name, ns: 'editor' })} data-testid="panel-view" data-panel={s.name}>
       <header className="flex flex-wrap items-center gap-2">
         <CircleDot className="size-4 text-muted-foreground" aria-hidden />
         <Select value={panelId} onValueChange={onPanel}>

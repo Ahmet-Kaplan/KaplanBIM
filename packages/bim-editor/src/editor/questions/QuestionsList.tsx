@@ -203,7 +203,7 @@ export function QuestionsList({ model, error, onRetry, projectName, canEdit, blo
           <MessageSquarePlus data-icon="inline-start" />
           Ask about selection
         </Button>
-        <ToggleGroup type="single" size="sm" variant="outline" value={filter} onValueChange={(v) => (v === 'open' || v === 'all') && setFilter(v)} aria-label="Show">
+        <ToggleGroup type="single" size="sm" variant="outline" value={filter} onValueChange={(v) => (v === 'open' || v === 'all') && setFilter(v)} aria-label={t('panel.show', 'Show', { ns: 'editor' })}>
           <ToggleGroupItem value="open" data-testid="questions-filter-open">
             Open
           </ToggleGroupItem>

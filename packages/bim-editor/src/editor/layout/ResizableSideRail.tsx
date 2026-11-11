@@ -7,6 +7,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip'
 import { cn } from '../../ui/cn'
 import { useLayoutPrefs } from './LayoutPrefsProvider'
 import { RailResizeHandle } from './RailResizeHandle'
+import { useEditorTranslate } from '../i18n/translate'
 
 /** Properties' saved layout (`bim_ui_layout_prefs.surface`). */
 export const PROPERTIES_SURFACE = 'properties'
@@ -20,7 +21,12 @@ interface Props {
   /** Which side of the screen the sidebar sits on; its drag edge is the inner one. */
   readonly side: 'left' | 'right'
   readonly surface: string
-  /** What it is called on its buttons ("Properties" → "Collapse Properties" / "Show Properties"). */
+  /**
+   * What it is called on its buttons ("Properties" → "Collapse Properties" /
+   * "Show Properties"). The title arrives **already translated**, so the verbs
+   * around it are keyed too: a bare `Collapse ${title}` would read
+   * "Collapse Özellikler" in a Turkish editor.
+   */
   readonly title: string
   readonly defaultWidthPx: number
   /** Position, background, border and shadow of the sidebar itself. */
@@ -40,6 +46,7 @@ interface Props {
  * through the layout prefs, never browser storage.
  */
 export function ResizableSideRail({ side, surface, title, defaultWidthPx, className, bodyClassName, onWidthChange, ref, children }: Props) {
+  const t = useEditorTranslate()
   const prefs = useLayoutPrefs()
   const [dragWidth, setDragWidth] = useState<number | null>(null)
   // A toggle made before the saved layout arrives wins over it.
@@ -64,11 +71,11 @@ export function ResizableSideRail({ side, surface, title, defaultWidthPx, classN
       <aside ref={ref} className={cn('flex flex-col items-center gap-2 py-2', className)} style={{ width: SIDE_RAIL_STRIP_PX }} aria-label={title} data-testid={`side-rail-${surface}`} data-collapsed="true">
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label={`Show ${title}`} onClick={() => setCollapsed(false)} data-testid={`side-rail-show-${surface}`}>
+            <Button variant="ghost" size="icon-sm" aria-label={t('panel.showRail', 'Show {{name}}', { name: title, ns: 'editor' })} onClick={() => setCollapsed(false)} data-testid={`side-rail-show-${surface}`}>
               <ShowIcon />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side={side === 'right' ? 'left' : 'right'}>Show {title}</TooltipContent>
+          <TooltipContent side={side === 'right' ? 'left' : 'right'}>{t('panel.showRail', 'Show {{name}}', { name: title, ns: 'editor' })}</TooltipContent>
         </Tooltip>
         <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase [writing-mode:vertical-rl]" aria-hidden>
           {title}
@@ -83,16 +90,16 @@ export function ResizableSideRail({ side, surface, title, defaultWidthPx, classN
         <div className={cn('-mb-2 flex shrink-0', side === 'right' ? 'justify-start' : 'justify-end')}>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon-sm" className="size-6" aria-label={`Collapse ${title}`} onClick={() => setCollapsed(true)} data-testid={`side-rail-collapse-${surface}`}>
+              <Button variant="ghost" size="icon-sm" className="size-6" aria-label={t('panel.collapseRail', 'Collapse {{name}}', { name: title, ns: 'editor' })} onClick={() => setCollapsed(true)} data-testid={`side-rail-collapse-${surface}`}>
                 <CollapseIcon />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="bottom">Collapse {title} to a strip</TooltipContent>
+            <TooltipContent side="bottom">{t('panel.collapseRailToStrip', 'Collapse {{name}} to a strip', { name: title, ns: 'editor' })}</TooltipContent>
           </Tooltip>
         </div>
         {children}
       </div>
-      <RailResizeHandle edge={side === 'right' ? 'left' : 'right'} ariaLabel={`Resize ${title}`} width={width} defaultWidth={defaultWidthPx} onPreview={setDragWidth} onCommit={(px) => prefs.setWidth(surface, px)} />
+      <RailResizeHandle edge={side === 'right' ? 'left' : 'right'} ariaLabel={t('panel.resizeRail', 'Resize {{name}}', { name: title, ns: 'editor' })} width={width} defaultWidth={defaultWidthPx} onPreview={setDragWidth} onCommit={(px) => prefs.setWidth(surface, px)} />
     </aside>
   )
 }

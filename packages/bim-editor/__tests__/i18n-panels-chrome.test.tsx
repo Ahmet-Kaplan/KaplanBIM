@@ -1,43 +1,56 @@
 /**
  * The dock panels and the status bar, in both languages.
  *
- * Every caption this test names is `t('<key>', '<English>', { ns: 'editor' })`
+ * Every caption this file names is `t('<key>', '<English>', { ns: 'editor' })`
  * at the place the panel draws it, with the Turkish in
  * `locales/tr/editor.json`. English is the source of truth: the call site holds
  * it, so a panel whose Turkish has not been written yet still reads correctly.
  *
- * Four things are held down here:
+ * What is *proven* here, and how (the earlier version of this file claimed more
+ * than it did — it read the locale file, so a component that went back to a bare
+ * literal still passed):
  *
- *   1. A real panel renders Turkish when the host gives the editor a Turkish
- *      translator (`Views and sheets`, and the view list's own group headings —
- *      the `Schedules` in the brief).
- *   2. The status bar's connection states render Turkish, one per state the
- *      badge can be in (saved, saving, offline, reconnecting, catching up,
- *      read-only, denied, degraded, retrying), not just the happy one.
- *   3. Every dock panel caption is Turkish in `tr` and unchanged in `en`,
- *      caption by caption. This is the guard that catches a title someone
- *      forgets to key: it names the whole list, so a panel that only exists
- *      behind a condition (a model that has not loaded, "not placed yet", the
- *      add-on settings card, the copies dialog) is still covered on paper even
- *      though no single render can reach it.
- *   4. What is NOT covered is written down below, so nobody reads this file as
- *      a promise the code does not make.
+ *   1. **The key is still in the source.** `sourceCaptions()` reads every
+ *      `.ts`/`.tsx` under `src/editor` (comments stripped) and pulls out each
+ *      `t('<key>', '<English>'` call. Every caption below must be in it, with
+ *      the English it has today; and every `panel.*`/`status.*` key in the source
+ *      must be in the table. That is the half that bites when someone reverts a
+ *      caption to a literal or adds a new one without translating it.
+ *   2. **The Turkish says the right thing.** `editorResources` ships only
+ *      `{ tr: … }`, so a translator's English side is the default the call site
+ *      passes — comparing it to itself would prove nothing. Instead the English
+ *      comes from the *source* (1) and the Turkish from the locale file, and the
+ *      two must differ.
+ *   3. **Real components render it.** `ViewsSheetsPanel` (both languages, the
+ *      title and the `Schedules` group), `ResizableSideRail` (the Properties rail:
+ *      a translated title must not be glued to an English verb — "Collapse
+ *      Özellikler" is the bug) and `PanelView`'s live branch (a `aria-label` with
+ *      the panel's name in it).
+ *   4. **The status bar, one state at a time**, through `statusBadge`, plus the
+ *      paused-edit sentence that takes the translator-less path — where a
+ *      `{{n}}` would otherwise reach the screen (see the `edits` tests).
  *
- * Contexts this file cannot render, and why (see the task report):
+ * Contexts this file cannot render, and why (the report says the same):
  *   - The surfaces that build these panels need a live model store, a socket and
  *     the whole editor host (Building Model, the coordination pane, the schedule
- *     pane). They are covered by caption 3 and by `npm run i18n:review`, which
- *     reads the `t('…')` call sites in the source rather than a render.
+ *     pane). They are covered by (1) and (2), not by a render.
  *   - A known connection problem's *title* is owned by `connectionProblem()`
  *     (Task 3.3, `operator-messages.ts`): the badge shows that title as it
  *     arrives, so it stays English until 3.3 translates that record.
  */
+import fs from "node:fs";
+import path from "node:path";
 import { render, screen } from "@testing-library/react";
 import type { SaveState } from "@permitzip/bim-sync";
-import { statusBadge } from "../src/editor/operator-messages";
+import { CONNECTED_LOAD_ONLY, ElectricalLoadEngine } from "@permitzip/bim-pack-electrical";
+import { editsPausedMessage, statusBadge } from "../src/editor/operator-messages";
+import { ResizableSideRail } from "../src/editor/layout/ResizableSideRail";
+import { PanelView } from "../src/editor/electrical/PanelView";
+import type { NecRules } from "../src/editor/electrical/use-nec-rules";
 import { ViewsSheetsPanel, viewGroups } from "../src/editor/views-sheets/ViewsSheetsPanel";
 import type { Translate } from "../src/editor/i18n/translate";
 import { TooltipProvider } from "../src/ui/tooltip";
+import { referenceDistribution } from "../../bim-kernel/__tests__/fixtures/electrical-building";
 import { translateFor, Wrap } from "./helpers/editor-i18n";
 
 const NOOP = (): void => {};
@@ -45,7 +58,7 @@ const NOOP = (): void => {};
 /** Edits standing. "Saved" means the server has everything; nothing is waiting. */
 const SAVED: SaveState = { pending: 0, retrying: 0, message: null };
 
-/** One Turkish string per caption the editor's panels and status bar show. */
+/** One caption the editor's panels and status bar show, as the glossary writes it. */
 interface Caption {
   readonly key: string;
   readonly english: string;
@@ -53,11 +66,12 @@ interface Caption {
 }
 
 /**
- * The dock panels' captions, as the glossary writes them (§4 "Yan/dock
- * panelleri", §8 "Durum/hata sözlüğü").
+ * The dock panels' captions (§4 "Yan/dock panelleri" + §4.2, `docs/i18n/glossary.md`).
  *
- * Namespaced by hand: `useEditorTranslate()` hides its `useT('editor')` from
- * `npm run i18n:review`, so every call site names the namespace itself.
+ * Namespaced by hand at the call sites: `useEditorTranslate()` hides its
+ * `useT('editor')` from `npm run i18n:review`, so every call site names the
+ * namespace itself. The keys here are read back out of the source by
+ * `sourceCaptions()`, so a rename cannot leave this table quietly right.
  */
 const PANEL_CAPTIONS: readonly Caption[] = [
   { key: "panel.properties", english: "Properties", turkish: "Özellikler" },
@@ -65,8 +79,14 @@ const PANEL_CAPTIONS: readonly Caption[] = [
   { key: "panel.railAria", english: "Views, sheets and model filters", turkish: "Görünümler, paftalar ve model filtreleri" },
   { key: "panel.show", english: "Show", turkish: "Göster" },
   { key: "panel.showIn", english: "Show in {{view}}", turkish: "{{view}} içinde göster" },
+  { key: "panel.showRail", english: "Show {{name}}", turkish: "{{name}} panelini göster" },
+  { key: "panel.collapseRail", english: "Collapse {{name}}", turkish: "{{name}} panelini daralt" },
+  { key: "panel.collapseRailToStrip", english: "Collapse {{name}} to a strip", turkish: "{{name}} panelini şeride daralt" },
+  { key: "panel.resizeRail", english: "Resize {{name}}", turkish: "{{name}} panelini yeniden boyutlandır" },
   { key: "panel.linkedModels", english: "Linked models", turkish: "Bağlı modeller" },
   { key: "panel.notPlacedYet", english: "Not placed yet", turkish: "Henüz yerleştirilmedi" },
+  { key: "panel.placeAPart", english: "Place a part", turkish: "Parça yerleştir" },
+  { key: "panel.stopPlacing", english: "Stop placing", turkish: "Yerleştirmeyi durdur" },
   { key: "panel.spaces", english: "Spaces", turkish: "Mekanlar" },
   { key: "panel.questions", english: "Questions", turkish: "Sorular" },
   { key: "panel.submittals", english: "Submittals", turkish: "Onay belgeleri" },
@@ -89,6 +109,7 @@ const PANEL_CAPTIONS: readonly Caption[] = [
   { key: "panel.revisionsOnSheet", english: "Revisions on {{number}}", turkish: "{{number}} paftasının revizyonları" },
   { key: "panel.notesLegend", english: "Notes legend", turkish: "Not açıklamaları" },
   { key: "panel.panelView", english: "Panel view", turkish: "Pano görünümü" },
+  { key: "panel.panelViewNamed", english: "Panel view: {{name}}", turkish: "Pano görünümü: {{name}}" },
   { key: "panel.priceBook", english: "Price book", turkish: "Fiyat kitabı" },
   { key: "panel.group.floorPlans", english: "Floor plans", turkish: "Kat planları" },
   { key: "panel.group.ceilingPlans", english: "Ceiling plans", turkish: "Tavan planları" },
@@ -99,7 +120,7 @@ const PANEL_CAPTIONS: readonly Caption[] = [
   { key: "panel.group.sheets", english: "Sheets", turkish: "Paftalar" },
 ] as const;
 
-/** The status bar's captions: the connection chip and the group/phase strip. */
+/** The status bar's captions: the connection chip and the group/phase strip (§8). */
 const STATUS_CAPTIONS: readonly Caption[] = [
   { key: "status.live", english: "Connected. All changes saved", turkish: "Bağlandı. Tüm değişiklikler kaydedildi" },
   { key: "status.readOnly", english: "View only — live editing not connected", turkish: "Yalnızca görüntüleme — canlı düzenleme bağlı değil" },
@@ -134,18 +155,160 @@ const STATUS_CAPTIONS: readonly Caption[] = [
   { key: "status.phaseTooltip", english: "New elements are created in this phase; Demolish removes them in it.", turkish: "Yeni elemanlar bu fazda oluşturulur; Yıkım onları bu fazda kaldırır." },
 ] as const;
 
-/** The words with `{{placeholders}}`, filled the way a call site fills them. */
-const VALUES: Readonly<Record<string, Record<string, string | number>>> = {
-  "panel.showIn": { view: "Level 1" },
-  "panel.closePane": { name: "Kontrol listesi" },
-  "panel.revisionsOnSheet": { number: "A-101" },
-  "status.reconnectingKept": { edits: "3 düzenleme" },
-  "status.offlineEdits": { edits: "3 düzenleme" },
-  "status.notSavedRetryingCount": { n: 2 },
-  "status.editsMany": { n: 3 },
-  "status.chipAria": { label: "Bağlandı. Tüm değişiklikler kaydedildi" },
-  "status.groupTooltip": { path: "Yönet › Gruplar ve fazlar" },
+/** A placeholder's value per language: an inserted name is a word of that language. */
+type Values = Readonly<Record<string, string | number>>;
+
+/**
+ * What each call site passes for its `{{placeholders}}`, per language.
+ *
+ * Per language because an inserted word is a word: the pane's close label reads
+ * `Close checklist (Esc)` in English (the pane's name lower-cased in a sentence)
+ * and `Kontrol listesi penceresini kapat (Esc)` in Turkish, and the rail's verbs
+ * take `Properties` / `Özellikler`.
+ */
+const VALUES: Readonly<Record<string, { readonly tr?: Values; readonly en?: Values }>> = {
+  "panel.showIn": { tr: { view: "Level 1" }, en: { view: "Level 1" } },
+  "panel.closePane": { tr: { name: "Kontrol listesi" }, en: { name: "checklist" } },
+  "panel.revisionsOnSheet": { tr: { number: "A-101" }, en: { number: "A-101" } },
+  "panel.showRail": { tr: { name: "Özellikler" }, en: { name: "Properties" } },
+  "panel.collapseRail": { tr: { name: "Özellikler" }, en: { name: "Properties" } },
+  "panel.collapseRailToStrip": { tr: { name: "Özellikler" }, en: { name: "Properties" } },
+  "panel.resizeRail": { tr: { name: "Özellikler" }, en: { name: "Properties" } },
+  "panel.panelViewNamed": { tr: { name: "L1" }, en: { name: "L1" } },
+  "status.reconnectingKept": { tr: { edits: "3 düzenleme" }, en: { edits: "3 edits" } },
+  "status.offlineEdits": { tr: { edits: "3 düzenleme" }, en: { edits: "3 edits" } },
+  "status.notSavedRetryingCount": { tr: { n: 2 }, en: { n: 2 } },
+  "status.editsMany": { tr: { n: 3 }, en: { n: 3 } },
+  "status.chipAria": { tr: { label: "Bağlandı. Tüm değişiklikler kaydedildi" }, en: { label: "Connected. All changes saved" } },
+  // The path the app passes is `MANAGE_PATH` in `organization/labels.ts` — a fixed
+  // English breadcrumb, the same string in both languages until Stage 4 keys it.
+  "status.groupTooltip": { tr: { path: "Manage › Groups & phases" }, en: { path: "Manage › Groups & phases" } },
 };
+
+const TR: Translate = translateFor("tr");
+const EN: Translate = translateFor("en");
+
+// ---------------------------------------------------------------------------
+// The source, read the way `npm run i18n:review` reads it
+// ---------------------------------------------------------------------------
+
+const EDITOR_SRC = path.join(__dirname, "..", "src", "editor");
+
+/** `t('<key>', '<English>'` — the shape every caption is written in. */
+const CAPTION_CALL = /\bt\('([A-Za-z][\w.]*)',\s*(['"])((?:\\.|(?!\2)[^\\])*)\2/g;
+
+/** One caption as the source writes it: the English the call site holds, and how many call sites hold it. */
+interface SourceCaption {
+  readonly english: string;
+  readonly sites: number;
+}
+
+/** Every keyed caption in the editor's source: key → what the call sites say. */
+function sourceCaptions(): ReadonlyMap<string, SourceCaption> {
+  const found = new Map<string, SourceCaption>();
+  for (const file of sourceFiles(EDITOR_SRC)) {
+    for (const match of stripComments(fs.readFileSync(file, "utf8")).matchAll(CAPTION_CALL)) {
+      const [, key, , english] = match;
+      if (key === undefined || english === undefined) continue;
+      const seen = found.get(key);
+      found.set(key, { english, sites: (seen?.sites ?? 0) + 1 });
+    }
+  }
+  return found;
+}
+
+/**
+ * How many call sites each shared caption has today.
+ *
+ * A key is often written in more than one place (a region's name in its
+ * `aria-label` *and* in its visible heading and its close button), so "the key is
+ * still in the source" alone would stay green while one of them went back to a
+ * literal. This table is that check. A new site of an existing caption means a
+ * deliberate bump here — which is the point: the number must not fall silently.
+ */
+const SITES: Readonly<Record<string, number>> = {
+  "panel.addOns": 2,
+  "panel.changeOrders": 2,
+  "panel.copies": 2,
+  "panel.linkedModels": 3,
+  "panel.notPlacedYet": 2,
+  "panel.properties": 2,
+  "panel.questions": 4,
+  "panel.show": 3,
+  "panel.showRail": 2,
+  "panel.spaces": 4,
+  "panel.submittals": 3,
+  "panel.titleBlocks": 2,
+  "panel.versions": 2,
+  "panel.viewsAndSheets": 3,
+  "status.reconnecting": 2,
+};
+
+function sourceFiles(dir: string): string[] {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) return sourceFiles(full);
+    return /\.tsx?$/u.test(entry.name) ? [full] : [];
+  });
+}
+
+/**
+ * Drops `//` and `/* … *\/` comments, keeping string literals intact — the same
+ * reason `tools/i18n/review-bundle.mjs` does: this very file, and the components'
+ * docstrings, quote `t('…')` examples in prose. Without this a comment would
+ * count as a call site and the scan would go green over a reverted caption.
+ */
+function stripComments(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//gu, "").replace(/^\s*\/\/.*$/gmu, "");
+}
+
+/** `"{{n}} edits"` with `{ n: 3 }` → `"3 edits"`. The panel never shows a placeholder. */
+function fill(template: string, values: Values | undefined): string {
+  if (values === undefined) return template;
+  return template.replace(/\{\{(\w+)\}\}/gu, (_, name: string) => String(values[name]));
+}
+
+/**
+ * The guard that actually bites: the caption must still be a `t('<key>', …)`
+ * call in the component, with the English it has today. A component that reverts
+ * to `title="Properties"` fails here even though `tr/editor.json` still has the
+ * key — which is exactly the hole the first version of this file had.
+ */
+test("every panel and status caption is still keyed in the source, with its English", () => {
+  const source = sourceCaptions();
+  for (const caption of [...PANEL_CAPTIONS, ...STATUS_CAPTIONS]) {
+    expect({ key: caption.key, english: source.get(caption.key)?.english }).toEqual({ key: caption.key, english: caption.english });
+  }
+});
+
+test("a caption is still keyed at every place it is written", () => {
+  const source = sourceCaptions();
+  for (const caption of [...PANEL_CAPTIONS, ...STATUS_CAPTIONS]) {
+    expect({ key: caption.key, sites: source.get(caption.key)?.sites }).toEqual({ key: caption.key, sites: SITES[caption.key] ?? 1 });
+  }
+});
+
+test("no panel or status caption in the source is missing from this file", () => {
+  const listed = new Set([...PANEL_CAPTIONS, ...STATUS_CAPTIONS].map((c) => c.key));
+  const inSource = [...sourceCaptions().keys()].filter((key) => key.startsWith("panel.") || key.startsWith("status."));
+  expect(inSource.filter((key) => !listed.has(key))).toEqual([]);
+});
+
+test("no dock panel or status bar caption stays English in tr", () => {
+  for (const caption of [...PANEL_CAPTIONS, ...STATUS_CAPTIONS]) {
+    const values = VALUES[caption.key];
+    const turkish = TR(caption.key, caption.english, { ...values?.tr, ns: "editor" });
+    const english = EN(caption.key, caption.english, { ...values?.en, ns: "editor" });
+    // Filled the way a call site fills it: a `{{placeholder}}` left as a word shows here too.
+    expect({ key: caption.key, text: turkish }).toEqual({ key: caption.key, text: fill(caption.turkish, values?.tr) });
+    expect({ key: caption.key, text: english }).toEqual({ key: caption.key, text: fill(caption.english, values?.en) });
+    expect(turkish).not.toBe(english);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Rendered panels
+// ---------------------------------------------------------------------------
 
 const PANEL_PROPS = {
   model: null,
@@ -187,6 +350,95 @@ test("dock panel titles are unchanged in English", () => {
 });
 
 /**
+ * The rail's own verbs around a translated title.
+ *
+ * `ResizableSideRail` is handed the Properties panel's *translated* title, so a
+ * bare `` `Collapse ${title}` `` reads "Collapse Özellikler" — half a sentence in
+ * each language, on the button, its tooltip, the collapsed strip and the resize
+ * handle. This is the render that catches it.
+ */
+function Rail({ language }: { readonly language: "tr" | "en" }) {
+  return (
+    <Wrap language={language}>
+      <TooltipProvider>
+        <ResizableSideRail side="right" surface="properties" title={language === "tr" ? "Özellikler" : "Properties"} defaultWidthPx={320}>
+          <span>body</span>
+        </ResizableSideRail>
+      </TooltipProvider>
+    </Wrap>
+  );
+}
+
+test("the Properties rail says its verbs in the same language as its title (tr)", () => {
+  const { container } = render(<Rail language="tr" />);
+  expect(screen.getByLabelText("Özellikler panelini daralt")).toBeTruthy();
+  expect(screen.getByLabelText("Özellikler panelini yeniden boyutlandır")).toBeTruthy();
+  // No English verb left glued to the Turkish name.
+  expect(container.textContent).not.toMatch(/Collapse|Show|Resize/u);
+});
+
+test("the Properties rail is unchanged in English", () => {
+  const { container } = render(<Rail language="en" />);
+  expect(screen.getByLabelText("Collapse Properties")).toBeTruthy();
+  expect(screen.getByLabelText("Resize Properties")).toBeTruthy();
+  expect(container.textContent).not.toMatch(/daralt|boyutlandır/u);
+});
+
+/**
+ * The panel view's own region name, in its *live* branch — the one behind a real
+ * panel. The empty/error branch ("That panel is gone") was keyed from the start;
+ * this one needed a model with a panelboard in it, which is why the reference
+ * building is borrowed from the electrical pack's fixtures.
+ */
+function panelView(language: "tr" | "en") {
+  const building = referenceDistribution();
+  const nec: NecRules = {
+    engine: new ElectricalLoadEngine(CONNECTED_LOAD_ONLY),
+    necEdition: null,
+    label: "",
+    source: "none",
+    picked: null,
+    edition: null,
+    pick: NOOP,
+    problem: null,
+  };
+  return (
+    <Wrap language={language}>
+      <TooltipProvider>
+        <PanelView
+          model={building.head}
+          panelId="l1"
+          canEdit={false}
+          editBlocked={null}
+          submit={() => null}
+          onPanel={NOOP}
+          onClose={NOOP}
+          onEditCircuit={NOOP}
+          onFeed={NOOP}
+          report={new ElectricalLoadEngine(CONNECTED_LOAD_ONLY).report(building.head, "l1")}
+          nec={nec}
+        />
+      </TooltipProvider>
+    </Wrap>
+  );
+}
+
+test("the live panel view names itself in Turkish", () => {
+  render(panelView("tr"));
+  expect(screen.getByLabelText("Pano görünümü: L1")).toBeTruthy();
+  expect(screen.queryByLabelText("Panel view: L1")).toBeNull();
+});
+
+test("the live panel view is unchanged in English", () => {
+  render(panelView("en"));
+  expect(screen.getByLabelText("Panel view: L1")).toBeTruthy();
+});
+
+// ---------------------------------------------------------------------------
+// The status bar
+// ---------------------------------------------------------------------------
+
+/**
  * The badge states, one per shape `statusBadge` can take. The right-hand texts
  * are what a person must see; a state missing here is a state nobody checked.
  */
@@ -208,15 +460,6 @@ const BADGE_STATES: readonly { readonly why: string; readonly label: () => strin
   { why: "connecting", label: () => statusBadge("connecting", SAVED, null, null, TR).label },
 ];
 
-/** `"{{n}} edits"` with `{ n: 3 }` → `"3 edits"`. The panel never shows a placeholder. */
-function fill(template: string, values: Readonly<Record<string, string | number>> | undefined): string {
-  if (values === undefined) return template;
-  return template.replace(/\{\{(\w+)\}\}/g, (_, name: string) => String(values[name]));
-}
-
-const TR: Translate = translateFor("tr");
-const EN: Translate = translateFor("en");
-
 test("status bar connection states are Turkish", () => {
   expect(statusBadge("live", SAVED, null, null, TR).label).toBe("Bağlandı. Tüm değişiklikler kaydedildi");
   const labels = BADGE_STATES.map((s) => s.label());
@@ -226,31 +469,43 @@ test("status bar connection states are Turkish", () => {
   expect(labels).toContain("Kaydediliyor…");
   expect(labels).toContain("Bağlantı kontrol ediliyor…");
   expect(labels).toContain("Başkalarının değişiklikleri alınıyor…");
+  // Not one of them shows a raw placeholder.
+  for (const label of labels) expect(label).not.toMatch(/\{\{/u);
 });
 
 test("status bar connection states are unchanged in English", () => {
-  expect(statusBadge("live", SAVED, null, null).label).toBe("Connected. All changes saved");
   expect(statusBadge("live", SAVED, null, null, EN).label).toBe("Connected. All changes saved");
   expect(statusBadge("offline", { pending: 2, retrying: 0, message: null }, { kind: "device_offline", title: "This computer is offline", message: "m", retryable: true }, null, EN).label).toBe("Offline: 2 edits kept on this computer");
+  expect(statusBadge("live", { pending: 2, retrying: 0, message: null }, null, null, EN).label).toBe("Saving…");
   expect(statusBadge("live", { pending: 0, retrying: 1, message: null }, null, null, EN).label).toBe("Not saved yet (1) — retrying");
 });
 
 /**
- * The language-leak guard: every caption the panels and the status bar show, in
- * both languages, in one place. A caption that falls back to its English in `tr`
- * is the bug this stage exists to catch, and a caption whose English moved is a
- * change to a screen nobody asked to change.
+ * `editsPausedMessage` takes no translator — it is the reason Move/Place/Route are
+ * off, produced by the model session and shown verbatim in the chip's popover and
+ * at the tool. With `englishOnly` under it, `{{n}}` was reaching the screen. Both
+ * of its paths (`editPausedReason()` and the `refusePaused()` hint) are held here.
  */
-test("no dock panel or status bar caption stays English in tr", () => {
-  for (const caption of [...PANEL_CAPTIONS, ...STATUS_CAPTIONS]) {
-    const values = VALUES[caption.key];
-    const withNs = values === undefined ? { ns: "editor" } : { ...values, ns: "editor" };
-    // Filled the way a call site fills it: `{{placeholders}}` are the strings the
-    // panel puts in, so a placeholder left as a word would show here too.
-    const turkish = TR(caption.key, caption.english, withNs);
-    expect({ key: caption.key, text: turkish }).toEqual({ key: caption.key, text: fill(caption.turkish, values) });
-    const english = EN(caption.key, caption.english, withNs);
-    expect({ key: caption.key, text: english }).toEqual({ key: caption.key, text: fill(caption.english, values) });
-    expect(english).not.toBe(turkish);
+test("the paused-edit sentence never prints a placeholder", () => {
+  for (const queued of [0, 1, 2, 3, 11]) {
+    for (const deviceOffline of [false, true]) {
+      const words = editsPausedMessage(queued, deviceOffline);
+      expect({ queued, deviceOffline, words }).toEqual({ queued, deviceOffline, words: expect.not.stringMatching(/\{\{/u) });
+    }
   }
+  // The two shapes a person actually reads.
+  expect(editsPausedMessage(3, false)).toContain("Your 3 edits from before are queued and will be sent.");
+  expect(editsPausedMessage(1, true)).toContain("Your 1 edit from before is queued and will be sent.");
+  expect(editsPausedMessage(0, true)).toBe("This computer is offline. Move, Place, Route and Split are off until it's back, so nothing is drawn on an out-of-date model.");
+});
+
+/**
+ * The status bar's own placeholder path with the translator it is given in the
+ * app (`englishOnly` is never passed by the surface, but `Translate` types allow
+ * it, and this is what a bad caller would see).
+ */
+test("statusBadge with the editor's English translator still fills its counts", () => {
+  const label = statusBadge("offline", { pending: 7, retrying: 0, message: null }, { kind: "unreachable", title: "x", message: "y", retryable: true }, null, EN).label;
+  expect(label).toBe("Offline: 7 edits kept on this computer");
+  expect(label).not.toMatch(/\{\{/u);
 });
