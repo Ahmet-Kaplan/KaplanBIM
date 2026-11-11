@@ -585,15 +585,40 @@ ayarlar, parça listesi, IFC içe/dışa aktarma) çevrilirken bunlar gerekti. Y
 | Data-use agreement | **veri kullanım anlaşması** | |
 | Country of origin: unit symbols | `kVA`, `CFM`, `fpm`, `in. w.c.`, `A`, `V`, `Pa`, `ft`, `Btu/h` **çevrilmez** | §7 — bu turda yalnız `bal.`/`vent.` sütun başlıklarında görünür |
 
-> **Bu turda kapanmayan ağaçlar.** `electrical/` (265 site kaldı), `plumbing/`
-> (402), `spaces/` (427), `questions/` (213), `equipment-list/` (110), `library/`
-> (68) ve `coordination/` (58) **henüz tamamlanmadı**; bu yüzden Ç7 (*pano* /
-> *panel*), Ç8'in elektrik tarafı, Ç12 (*armatür* / *yük birimi*), Ç20 (*Sahip* /
-> *İşveren*) ve `kVA` sütunlarının bir kısmı hâlâ İngilizcedir ve negatif-alan
-> koruması o ağaçları **taramasın** diye `NOT_YET_GUARDED` listesinde
-> adlandırılmıştır (`packages/bim-editor/__tests__/i18n-negative-space.test.ts`).
+> **Bu turda kapanmayan ağaçlar.** `plumbing/` (402 site), `spaces/` (427),
+> `questions/` (213), `equipment-list/` (110), `library/` (68) ve `coordination/`
+> (58) **henüz tamamlanmadı**; bu yüzden Ç12'nin sıhhi tesisat yarısı (*yük
+> birimi*, WSFU/DFU sütunları), Ç8'in tesisat tarafı ve Ç20 (*Sahip* / *İşveren*)
+> hâlâ İngilizcedir ve negatif-alan koruması o ağaçları **taramasın** diye
+> `NOT_YET_GUARDED` listesinde adlandırılmıştır
+> (`packages/bim-editor/__tests__/i18n-negative-space.test.ts`).
 > Sahibi: Aşama 4'ün kalan turları; gerekçe ve sayılar görev raporundadır
-> (`.superpowers/sdd/2026-11-10-bilingual-ui/task-4.3-4.4-report.md`).
+> (`.superpowers/sdd/2026-11-10-bilingual-ui/trees-electrical-spaces-plumbing-report.md`).
+>
+> **`electrical/` kapandı (2026-11-10, üçüncü tur).** Ağacın tamamı anahtarlı:
+> 265 site sıfıra indi, yarım kalan turun bıraktığı **97** ulaşılamaz anahtar
+> (`electrical.aBus`, `electrical.aServiceLayout`,
+> `electrical.yourFirmAposSConventionTheFirstRuleThatMatch` gibi cümle
+> artıklarından otomatik türetilmiş adlar) silindi ve ağaç
+> `NOT_YET_GUARDED`'dan çıktı. Ç7 (*pano* / *panel*), Ç8'in elektrik yarısı
+> (*branşman devresi*) ve Ç12 (*armatür*) artık `i18n-mep.test.tsx` içinde
+> ölçülür. Aşağıdaki elektrik satırları bu turda kesinleşti:
+>
+> | EN | TR | Not |
+> |----|----|-----|
+> | Branch circuit | **branşman devresi** | §9/Ç8; sürüm dalı *dal* kalır |
+> | Home run | **ana hat** | |
+> | Slot / Position (panel) | **pozisyon** | |
+> | Bus / Bus amps | **bara** / **bara amperi** | `A` çevrilmez (§7) |
+> | Density (receptacles) | **sıklık** | Kod asgarisi değil, kişinin seçimi |
+> | Designator | **tanımlayıcı** | |
+> | Room template / Rule | **oda şablonu** / **kural** | |
+> | Dedicated space | **ayrılmış boşluk** | *alan* DEĞİL (§2.3) |
+> | Panel schedule / Panel view | **pano çizelgesi** / **pano görünümü** | §2.4 |
+> | Toggle group: New work / Existing | **Yeni iş / Var olan** | §8 durum sözlüğü |
+> | Undo labels | emir kipi, tek satır | §0.5/§0.7 |
+
+
 >
 > **Aşama 4 · Task 4.3 elektrik sözcükleri (2026-11-10, ikinci tur).** Elektrik
 > panolarının çevrilen kısmı için karara bağlananlar:
