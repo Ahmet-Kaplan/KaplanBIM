@@ -206,7 +206,7 @@ function ConnectionTypesTab({ model, canEdit, editBlocked, submit, selectedDevic
         <TextField id="ct-load" label={t('electrical.loadVA', 'Load (VA)', { ns: 'editor' })} value={form.loadVa} onChange={(v) => set({ loadVa: v })} />
         <TextField id="ct-voltage" label="Voltage (V)" value={form.voltage} onChange={(v) => set({ voltage: v })} />
         <Choice id="ct-poles" label="Poles" value={form.poles} options={[{ value: '1', label: t('electrical.electricaltypesdialog', '1 pole', { ns: 'editor' }) }, { value: '2', label: t('electrical.electricaltypesdialog_195', '2 poles', { ns: 'editor' }) }, { value: '3', label: t('electrical.electricaltypesdialog_195', '3-phase', { ns: 'editor' }) }]} onChange={(v) => set({ poles: v })} />
-        <Choice id="ct-class" label={t('electrical.loadClass', 'Load class', { ns: 'editor' })} value={form.loadClass} options={ELECTRICAL_LOAD_CLASSES.map((c) => ({ value: c, label: loadClassLabel(c) }))} onChange={(v) => set({ loadClass: v })} />
+        <Choice id="ct-class" label={t('electrical.loadClassHeading', 'Load class', { ns: 'editor' })} value={form.loadClass} options={ELECTRICAL_LOAD_CLASSES.map((c) => ({ value: c, label: loadClassLabel(c) }))} onChange={(v) => set({ loadClass: v })} />
         <TextField id="ct-hp" label="Motor (hp)" value={form.motorHp} hint="For a motor with no VA: from the code's tables" onChange={(v) => set({ motorHp: v })} />
         <Field orientation="horizontal" className="col-span-2 items-center">
           <Checkbox id="ct-continuous" checked={form.continuous} onCheckedChange={(v) => set({ continuous: v === true })} aria-label={t('electrical.continuousLoad', 'Continuous load', { ns: 'editor' })} />

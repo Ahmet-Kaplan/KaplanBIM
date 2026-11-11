@@ -160,7 +160,7 @@ export function ServiceLayoutDialog({
               <Input id="bm-svc-amps" inputMode="numeric" value={amps} onChange={(e) => setAmps(e.target.value)} data-testid="service-layout-amps" />
             </Field>
             <Field className="min-w-48 flex-1">
-              <FieldLabel htmlFor="bm-svc-system">{t('electrical.system', 'System', { ns: 'editor' })}</FieldLabel>
+              <FieldLabel htmlFor="bm-svc-system">{t('electrical.systemHeading', 'System', { ns: 'editor' })}</FieldLabel>
               <Select value={system} onValueChange={(v) => isSystem(v) && setSystem(v)}>
                 <SelectTrigger id="bm-svc-system" data-testid="service-layout-system">
                   <SelectValue />

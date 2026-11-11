@@ -54,7 +54,7 @@ export function ElectricalProperties({
           <ItemGroup className="gap-1">
             <Item size="sm">
               <ItemContent>
-                <ItemDescription className="text-xs">{t('electrical.system', 'System', { ns: 'editor' })}</ItemDescription>
+                <ItemDescription className="text-xs">{t('electrical.systemHeading', 'System', { ns: 'editor' })}</ItemDescription>
                 <ItemTitle className="text-xs font-normal">{s.system}</ItemTitle>
               </ItemContent>
             </Item>
