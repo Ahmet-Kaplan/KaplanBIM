@@ -265,6 +265,13 @@ const SITES: Readonly<Record<string, number>> = {
   "run.notLive": 4,
   "run.connected": 2,
   "run.height": 2,
+  // The group properties say the same feet example, the same `Move` and the same
+  // three size fields as the run forms: one caption, two surfaces.
+  "run.needFeet": 2,
+  "run.move": 2,
+  "run.diameterIn": 2,
+  "run.widthIn": 2,
+  "run.heightIn": 2,
 };
 
 const fill = (template: string, values: Readonly<Record<string, string | number>> | undefined): string =>

@@ -62,6 +62,20 @@ const CAPTIONS: readonly Caption[] = [
   { key: 'linkModel.nameInModel', english: 'Name in the model', turkish: 'Modeldeki adı' },
   { key: 'linkModel.cancel', english: 'Cancel', turkish: 'İptal' },
   { key: 'linkModel.uploadAndLink', english: 'Upload and link', turkish: 'Yükle ve bağla' },
+  // §2.8: the trunk a branch leaves is an ana hat; §2.1 a piece is an eleman; §9/Ç9 a
+  // run is a hat, and the scope word a click widens to is a düz parça.
+  { key: 'group.scopeRun', english: 'Run', turkish: 'Hat' },
+  { key: 'group.scopeStretch', english: 'Stretch', turkish: 'Düz parça' },
+  { key: 'group.scopeBox', english: 'Box selection', turkish: 'Kutu seçimi' },
+  { key: 'group.scopeElement', english: 'Selection', turkish: 'Seçim' },
+  { key: 'group.straightPieces', english: 'Straight pieces', turkish: 'Düz parçalar' },
+  { key: 'group.fittings', english: 'Fittings', turkish: 'Bağlantı parçaları' },
+  { key: 'group.parts', english: 'Parts', turkish: 'Parçalar' },
+  { key: 'group.moveAllOfIt', english: 'Move all of it', turkish: 'Hepsini taşı' },
+  { key: 'group.eastFt', english: 'East (ft)', turkish: 'Doğu (ft)' },
+  { key: 'group.pipeSizeIn', english: 'Pipe size (in)', turkish: 'Boru boyutu (in)' },
+  { key: 'group.ductShape', english: 'Duct shape', turkish: 'Kanal biçimi' },
+  { key: 'group.flatOval', english: 'Flat oval', turkish: 'Yassı oval' },
 ]
 
 /**
@@ -79,7 +93,7 @@ const SITES: Readonly<Record<string, number>> = {
 }
 
 /** The prefixes this file owns. A key under one of them must have Turkish. */
-const PREFIXES = ['linkedElement.', 'linkModel.'] as const
+const PREFIXES = ['linkedElement.', 'linkModel.', 'group.'] as const
 
 /** `"{{n}} edits"` with `{ n: 3 }` → `"3 edits"`. The panel never shows a placeholder. */
 function fill(template: string, values: Readonly<Record<string, string | number>> | undefined): string {
@@ -185,6 +199,18 @@ test('§9/Ç9: a run is a hat, never çalıştır', () => {
     expect(TR(key, '', { ns: 'editor' })).not.toContain('çalıştır')
   }
   expect(TR('run.routeLike', 'Route another like this', { ns: 'editor' })).toBe('Buna benzer bir hat daha çiz')
+  // The group properties name a run's scope the same way, and a straight piece the
+  // same way the plumbing tree does.
+  expect(TR('group.scopeRun', 'Run', { ns: 'editor' })).toBe('Hat')
+  expect(TR('group.scopeStretch', 'Stretch', { ns: 'editor' })).toBe('Düz parça')
+  expect(TR('group.scopeStretch', 'Stretch', { ns: 'editor' })).not.toContain('çalıştır')
+})
+
+test('§2.8/Ç17: a duct is a kanal and a pipe a boru, never swapped', () => {
+  expect(TR('group.ductShape', 'Duct shape', { ns: 'editor' })).toBe('Kanal biçimi')
+  expect(TR('group.pipeSizeIn', 'Pipe size (in)', { ns: 'editor' })).toBe('Boru boyutu (in)')
+  // §7: the unit symbols travel unchanged.
+  expect(TR('group.espValue', '{{esp}} in. w.c.', { ns: 'editor', esp: '0.25' })).toBe('0.25 in. w.c.')
 })
 
 test('§0.7: sentences speak to a person in the formal plural, buttons stay singular', () => {
