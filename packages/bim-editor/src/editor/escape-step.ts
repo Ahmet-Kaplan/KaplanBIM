@@ -7,6 +7,8 @@
  * Choose Select in the ribbon"; in 3D a focused Route field swallowed it.
  */
 
+import { englishOnly, type Translate } from './i18n/translate'
+
 /** Tools, as the person names what they are doing. */
 const DOING: Readonly<Record<string, string>> = {
   route: 'routing',
@@ -14,12 +16,37 @@ const DOING: Readonly<Record<string, string>> = {
   move: 'moving',
   split: 'splitting',
   measure: 'measuring',
-  box: 'box selecting',
+  box: 'box_selecting',
 }
 
 /** "routing", "placing"… for a model or drawing tool; a generic word for one this list doesn't name. */
-export function doingWord(tool: string): string {
-  return DOING[tool] ?? 'using this tool'
+export function doingWord(tool: string, t: Translate = englishOnly): string {
+  const word = DOING[tool]
+  return word === undefined ? t('surface.usingThisTool', 'using this tool', { ns: 'editor' }) : doingWordKeyed(word, t)
+}
+
+/**
+ * The English the `DOING` table already holds, said in the language on screen.
+ * The table stays the source of truth for which word a tool gets — a tool this
+ * list doesn't name reads "using this tool" in either language.
+ */
+function doingWordKeyed(word: string, t: Translate): string {
+  switch (word) {
+    case 'routing':
+      return t('surface.doingRouting', 'routing', { ns: 'editor' })
+    case 'placing':
+      return t('surface.doingPlacing', 'placing', { ns: 'editor' })
+    case 'moving':
+      return t('surface.doingMoving', 'moving', { ns: 'editor' })
+    case 'splitting':
+      return t('surface.doingSplitting', 'splitting', { ns: 'editor' })
+    case 'measuring':
+      return t('surface.doingMeasuring', 'measuring', { ns: 'editor' })
+    case 'box_selecting':
+      return t('surface.doingBoxSelecting', 'box selecting', { ns: 'editor' })
+    default:
+      return word
+  }
 }
 
 /** Menus, lists and dialogs answer their own Esc (they close); a field inside one is never ours to leave. */
@@ -42,8 +69,8 @@ export function escapeLeavesField(e: { readonly key: string; readonly target: Ev
 }
 
 /** What the hint says after Esc left a field. */
-export function leftFieldHint(tool: string): string {
-  return `Left the field. Esc again stops ${doingWord(tool)}.`
+export function leftFieldHint(tool: string, t: Translate = englishOnly): string {
+  return t('surface.leftFieldHint', 'Left the field. Esc again stops {{doing}}.', { ns: 'editor', doing: doingWord(tool, t) })
 }
 
 export type DrawingEscapeStep = 'cancel-drag' | 'cancel-route' | 'stop-tool' | null
@@ -61,6 +88,6 @@ export function drawingEscapeStep(state: { readonly tool: string; readonly dragg
 }
 
 /** What the hint says when Esc stopped a tool. */
-export function stoppedToolHint(tool: string): string {
-  return `Stopped ${doingWord(tool)}. Pick a tool in the ribbon to start again.`
+export function stoppedToolHint(tool: string, t: Translate = englishOnly): string {
+  return t('surface.stoppedToolHint', 'Stopped {{doing}}. Pick a tool in the ribbon to start again.', { ns: 'editor', doing: doingWord(tool, t) })
 }

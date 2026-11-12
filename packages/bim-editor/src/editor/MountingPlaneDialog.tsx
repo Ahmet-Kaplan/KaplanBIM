@@ -9,6 +9,7 @@ import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet 
 import { Input } from '../ui/input'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { MM_PER_FT } from './placement'
+import { useEditorTranslate } from './i18n/translate'
 
 const ftText = (mm: number) => String(Math.round((mm / MM_PER_FT) * 100) / 100)
 
@@ -43,6 +44,7 @@ export function MountingPlaneDialog({
   const [height, setHeight] = useState('9')
   const [corners, setCorners] = useState({ x1: ftText(startRect.corner1.x), y1: ftText(startRect.corner1.y), x2: ftText(startRect.corner2.x), y2: ftText(startRect.corner2.y) })
   const [error, setError] = useState<string | null>(null)
+  const t = useEditorTranslate()
   const pickLevel = (id: string) => {
     setLevelId(id)
     const r = rectFor(id)
@@ -51,9 +53,9 @@ export function MountingPlaneDialog({
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
     const nums = [height, corners.x1, corners.y1, corners.x2, corners.y2].map(Number)
-    if (!levelId) return setError('Add a level first: a mounting plane sits on a level.')
-    if (name.trim() === '') return setError('Give the plane a name, for example "Open office 9\'-0"".')
-    if (nums.some((n) => !Number.isFinite(n))) return setError('Height and corners are numbers of feet.')
+    if (!levelId) return setError(t('plane.addLevelFirst', 'Add a level first: a mounting plane sits on a level.', { ns: 'editor' }))
+    if (name.trim() === '') return setError(t('plane.giveName', `Give the plane a name, for example "Open office 9'-0"".`, { ns: 'editor' }))
+    if (nums.some((n) => !Number.isFinite(n))) return setError(t('plane.numbersOfFeet', 'Height and corners are numbers of feet.', { ns: 'editor' }))
     const [h, x1, y1, x2, y2] = nums.map((n) => n * MM_PER_FT)
     const refused = onAdd(levelId, name.trim(), h ?? 0, { x: x1 ?? 0, y: y1 ?? 0 }, { x: x2 ?? 0, y: y2 ?? 0 })
     if (refused) setError(refused)
@@ -69,16 +71,22 @@ export function MountingPlaneDialog({
       <DialogContent data-testid="mounting-plane-dialog">
         <form onSubmit={submit} className="flex flex-col gap-4">
           <DialogHeader>
-            <DialogTitle>Add a mounting plane</DialogTitle>
-            <DialogDescription>A flat surface at a height above a level, to place diffusers and grilles on where there is no ceiling. Parts placed on it move with it.</DialogDescription>
+            <DialogTitle>{t('plane.addTitle', 'Add a mounting plane', { ns: 'editor' })}</DialogTitle>
+            <DialogDescription>
+              {t(
+                'plane.addLede',
+                'A flat surface at a height above a level, to place diffusers and grilles on where there is no ceiling. Parts placed on it move with it.',
+                { ns: 'editor' },
+              )}
+            </DialogDescription>
           </DialogHeader>
           <FieldGroup className="gap-3">
             <FieldGroup className="grid grid-cols-2 gap-2">
               <Field>
-                <FieldLabel htmlFor="bm-plane-level">Level</FieldLabel>
+                <FieldLabel htmlFor="bm-plane-level">{t('route.level', 'Level', { ns: 'editor' })}</FieldLabel>
                 <Select value={levelId || undefined} onValueChange={pickLevel}>
                   <SelectTrigger id="bm-plane-level" size="sm">
-                    <SelectValue placeholder="Choose a level" />
+                    <SelectValue placeholder={t('plane.chooseLevel', 'Choose a level', { ns: 'editor' })} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
@@ -92,22 +100,24 @@ export function MountingPlaneDialog({
                 </Select>
               </Field>
               <Field>
-                <FieldLabel htmlFor="bm-plane-height">Height above the level (ft)</FieldLabel>
+                <FieldLabel htmlFor="bm-plane-height">{t('plane.heightAboveLevel', 'Height above the level (ft)', { ns: 'editor' })}</FieldLabel>
                 <Input id="bm-plane-height" inputMode="decimal" value={height} onChange={(e) => setHeight(e.target.value)} data-testid="mounting-plane-height" />
               </Field>
             </FieldGroup>
             <Field>
-              <FieldLabel htmlFor="bm-plane-name">Name</FieldLabel>
+              <FieldLabel htmlFor="bm-plane-name">{t('plane.name', 'Name', { ns: 'editor' })}</FieldLabel>
               <Input id="bm-plane-name" value={name} onChange={(e) => setName(e.target.value)} data-testid="mounting-plane-name" />
             </Field>
             <FieldSet>
-              <FieldLegend variant="label">Covers (plan corners, ft)</FieldLegend>
-              <FieldDescription>Starts around the work on this level, 5 ft out. Change it to the room the devices go in.</FieldDescription>
+              <FieldLegend variant="label">{t('plane.covers', 'Covers (plan corners, ft)', { ns: 'editor' })}</FieldLegend>
+              <FieldDescription>
+                {t('plane.coversLede', 'Starts around the work on this level, 5 ft out. Change it to the room the devices go in.', { ns: 'editor' })}
+              </FieldDescription>
               <FieldGroup className="grid grid-cols-4 gap-2">
-                {corner('x1', 'West x')}
-                {corner('y1', 'South y')}
-                {corner('x2', 'East x')}
-                {corner('y2', 'North y')}
+                {corner('x1', t('plane.westX', 'West x', { ns: 'editor' }))}
+                {corner('y1', t('plane.southY', 'South y', { ns: 'editor' }))}
+                {corner('x2', t('plane.eastX', 'East x', { ns: 'editor' }))}
+                {corner('y2', t('plane.northY', 'North y', { ns: 'editor' }))}
               </FieldGroup>
             </FieldSet>
           </FieldGroup>
@@ -118,11 +128,11 @@ export function MountingPlaneDialog({
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onCancel}>
-              Cancel
+              {t('plane.cancel', 'Cancel', { ns: 'editor' })}
             </Button>
             <Button type="submit" data-testid="mounting-plane-add">
               <SquareDashed data-icon="inline-start" />
-              Add plane
+              {t('plane.addPlane', 'Add plane', { ns: 'editor' })}
             </Button>
           </DialogFooter>
         </form>
@@ -147,6 +157,7 @@ export function MountingPlaneProperties({
   readonly onSave: (change: { name?: string; heightMm?: number }) => string | null
   readonly onDelete: () => void
 }) {
+  const t = useEditorTranslate()
   const [name, setName] = useState(plane.name)
   const [height, setHeight] = useState(ftText(plane.heightMm))
   const [error, setError] = useState<string | null>(null)
@@ -154,7 +165,7 @@ export function MountingPlaneProperties({
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
     const ft = Number(height)
-    if (!Number.isFinite(ft)) return setError('Height is a number of feet.')
+    if (!Number.isFinite(ft)) return setError(t('plane.heightIsFeet', 'Height is a number of feet.', { ns: 'editor' }))
     const change = { ...(name !== plane.name ? { name: name.trim() } : {}), ...(height !== ftText(plane.heightMm) ? { heightMm: ft * MM_PER_FT } : {}) }
     setError(onSave(change))
   }
@@ -163,18 +174,31 @@ export function MountingPlaneProperties({
       <div className="flex flex-col gap-0.5">
         <span className="text-sm font-medium">{plane.name}</span>
         <span className="text-xs text-muted-foreground">
-          Mounting plane · {levelName} · {partsOnIt === 1 ? '1 part on it' : `${partsOnIt} parts on it`}
+           {t('plane.subtitle', 'Mounting plane · {{level}} · {{parts}}', {
+             ns: 'editor',
+             level: levelName,
+             parts:
+               partsOnIt === 1
+                 ? t('plane.onePartOnIt', '1 part on it', { ns: 'editor', count: partsOnIt })
+                 : t('plane.partsOnIt', '{{count}} parts on it', { ns: 'editor', count: partsOnIt }),
+           })}
         </span>
       </div>
       <FieldGroup className="gap-2">
         <Field>
-          <FieldLabel htmlFor="bm-plane-edit-name">Name</FieldLabel>
+          <FieldLabel htmlFor="bm-plane-edit-name">{t('plane.name', 'Name', { ns: 'editor' })}</FieldLabel>
           <Input id="bm-plane-edit-name" value={name} onChange={(e) => setName(e.target.value)} disabled={!canEdit} />
         </Field>
         <Field>
-          <FieldLabel htmlFor="bm-plane-edit-height">Height above {levelName} (ft)</FieldLabel>
+          <FieldLabel htmlFor="bm-plane-edit-height">{t('plane.heightAboveNamed', 'Height above {{level}} (ft)', { ns: 'editor', level: levelName })}</FieldLabel>
           <Input id="bm-plane-edit-height" inputMode="decimal" value={height} onChange={(e) => setHeight(e.target.value)} disabled={!canEdit} data-testid="mounting-plane-edit-height" />
-          {partsOnIt > 0 && <FieldDescription>Changing the height moves the {partsOnIt === 1 ? 'part' : 'parts'} on it; connected duct follows.</FieldDescription>}
+          {partsOnIt > 0 && (
+            <FieldDescription>
+              {partsOnIt === 1
+                ? t('plane.heightMovesOnePart', 'Changing the height moves the part on it; connected duct follows.', { ns: 'editor', count: partsOnIt })
+                : t('plane.heightMovesParts', 'Changing the height moves the {{count}} parts on it; connected duct follows.', { ns: 'editor', count: partsOnIt })}
+            </FieldDescription>
+          )}
         </Field>
       </FieldGroup>
       {error && (
@@ -183,11 +207,11 @@ export function MountingPlaneProperties({
         </FieldDescription>
       )}
       <Button type="submit" size="sm" disabled={!canEdit || !dirty}>
-        Save changes
+        {t('plane.saveChanges', 'Save changes', { ns: 'editor' })}
       </Button>
       <Button type="button" variant="outline" size="sm" className="text-danger-600" onClick={onDelete} disabled={!canEdit}>
         <Trash2 data-icon="inline-start" />
-        Delete…
+        {t('plane.deleteEllipsis', 'Delete…', { ns: 'editor' })}
       </Button>
     </form>
   )

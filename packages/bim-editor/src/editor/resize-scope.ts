@@ -1,4 +1,5 @@
 import type { Command, FittingChoice, ModelState, RunSize } from '@permitzip/bim-kernel'
+import { englishOnly, type Translate } from './i18n/translate'
 
 /**
  * What Resize changes is what is selected: one piece, a stretch, a run, a
@@ -12,9 +13,17 @@ export type ResizeRequest = { readonly ok: true; readonly command: Extract<Comma
 
 const MAX_PIECES = 500
 
-export function resizeRequestFor(view: Pick<ModelState, 'elements'>, ids: readonly string[], size: RunSize, idPrefix: string, transition?: FittingChoice): ResizeRequest {
+export function resizeRequestFor(
+  view: Pick<ModelState, 'elements'>,
+  ids: readonly string[],
+  size: RunSize,
+  idPrefix: string,
+  transition?: FittingChoice,
+  t: Translate = englishOnly,
+): ResizeRequest {
   const segmentIds = ids.filter((id) => view.elements[id]?.kind === 'run_segment')
-  if (segmentIds.length === 0) return { ok: false, reason: 'There is no routed duct or pipe in this selection to resize.' }
-  if (segmentIds.length > MAX_PIECES) return { ok: false, reason: `That is ${segmentIds.length} pieces; resize at most ${MAX_PIECES} at once.` }
+  if (segmentIds.length === 0) return { ok: false, reason: t('surface.nothingToResize', 'There is no routed duct or pipe in this selection to resize.', { ns: 'editor' }) }
+  if (segmentIds.length > MAX_PIECES)
+    return { ok: false, reason: t('surface.tooManyToResize', 'That is {{count}} pieces; resize at most {{max}} at once.', { ns: 'editor', count: segmentIds.length, max: MAX_PIECES }) }
   return { ok: true, command: { type: 'resize_stretch', idPrefix, segmentIds, size, ...(transition ? { transition } : {}) } }
 }

@@ -23,6 +23,8 @@ import { PartProperties, type SaveLabel } from './PartProperties'
 import { PartSpaceProperties } from './PartSpaceProperties'
 import { PipeLoadRow } from './schedules/PipeLoadRow'
 import { useInspectorModel } from './state/use-inspector-model'
+import { englishOnly, useEditorTranslate, type Translate } from './i18n/translate'
+import { elementKindWords } from './placement'
 
 const ClassificationSection = dynamic(() => import('./construction/ClassificationSection').then((m) => m.ClassificationSection), { ssr: false })
 const WhySection = dynamic(() => import('./graph/WhySection').then((m) => m.WhySection), { ssr: false })
@@ -32,34 +34,53 @@ const RunProperties = dynamic(() => import('./RunProperties').then((m) => m.RunP
 // Reads the firm library only when a placed part is selected.
 const PartUpdateReview = dynamic(() => import('./part-editor/PartUpdateReview').then((m) => m.PartUpdateReview), { ssr: false })
 
-const INSPECTOR_BLOCKED = "Live editing isn't connected, so changes can't be saved"
+/** The reason a control is off: the same sentence the session says, translated where it is drawn. */
+const inspectorBlocked = (t: Translate): string => t('session.notConnectedSaved', "Live editing isn't connected, so changes can't be saved", { ns: 'editor' })
 
 const MM_PER_INCH = 25.4
 
 /** The kind's headline value with the label and unit its add-on gives it; `prefix` for a root kind's total. */
-function headlineRow(el: BimElement, prefix = ''): [string, string] {
+function headlineRow(el: BimElement, prefix = '', t: Translate = englishOnly): [string, string] {
   const h = headlineKindValue(el)
-  const label = h ? h.spec.label : 'Value'
+  const label = h ? h.spec.label : t('selection.value', 'Value', { ns: 'editor' })
   return [prefix ? `${prefix}${label.toLowerCase()}` : label, h ? `${Math.round(h.value)} ${h.spec.unit}` : '—']
 }
 
-function describe(el: BimElement): { title: string; rows: [string, string][] } {
+function describe(el: BimElement, t: Translate = englishOnly): { title: string; rows: [string, string][] } {
+  const element = [t('selection.elementRow', 'Element', { ns: 'editor' }), el.id] as [string, string]
   switch (el.kind) {
     case 'duct_segment': {
-      const size = el.profile.shape === 'rect' ? `${Math.round(el.profile.width / MM_PER_INCH)}" × ${Math.round(el.profile.height / MM_PER_INCH)}"` : `${Math.round(el.profile.diameter / MM_PER_INCH)}" round`
+      const size =
+        el.profile.shape === 'rect'
+          ? `${Math.round(el.profile.width / MM_PER_INCH)}" × ${Math.round(el.profile.height / MM_PER_INCH)}"`
+          : `${Math.round(el.profile.diameter / MM_PER_INCH)}" round`
       const length = Math.hypot(el.end.x - el.start.x, el.end.y - el.start.y) / 304.8
-      return { title: 'Supply duct', rows: [['Size', size], ['Length', `${length.toFixed(1)} ft`], headlineRow(el), ['Element', el.id]] }
+      return {
+        title: t('selection.supplyDuct', 'Supply duct', { ns: 'editor' }),
+        rows: [
+          [t('selection.size', 'Size', { ns: 'editor' }), size],
+          [t('selection.length', 'Length', { ns: 'editor' }), `${length.toFixed(1)} ft`],
+          headlineRow(el, '', t),
+          element,
+        ],
+      }
     }
     case 'tap':
-      return { title: 'Branch takeoff', rows: [['Position on trunk', `${(el.s / 304.8).toFixed(1)} ft from start`], ['Element', el.id]] }
+      return {
+        title: t('selection.branchTakeoff', 'Branch takeoff', { ns: 'editor' }),
+        rows: [[t('selection.positionOnTrunk', 'Position on trunk', { ns: 'editor' }), `${(el.s / 304.8).toFixed(1)} ft from start`], element],
+      }
     case 'elbow':
-      return { title: 'Elbow', rows: [['Element', el.id]] }
+      return { title: t('selection.elbow', 'Elbow', { ns: 'editor' }), rows: [element] }
     case 'terminal':
-      return { title: `Diffuser ${el.mark}`, rows: [['Type', el.typeName], headlineRow(el), ['Element', el.id]] }
+      return {
+        title: t('selection.diffuserMark', 'Diffuser {{mark}}', { ns: 'editor', mark: el.mark }),
+        rows: [[t('selection.type', 'Type', { ns: 'editor' }), el.typeName], headlineRow(el, '', t), element],
+      }
     case 'equipment':
-      return { title: `${el.mark} — ${el.typeName}`, rows: [headlineRow(el, 'Total '), ['Element', el.id]] }
+      return { title: `${el.mark} — ${el.typeName}`, rows: [headlineRow(el, t('selection.totalPrefix', 'Total ', { ns: 'editor' }), t), element] }
     default:
-      return { title: el.kind, rows: [['Element', el.id]] }
+      return { title: elementKindWords(el.kind, t), rows: [element] }
   }
 }
 
@@ -100,6 +121,7 @@ export function SelectionPanel({
   onEditDefinition: (definition: PartTypeDefinition) => void
   onRouteLike: (el: RunSegment | RunFitting) => void
 }) {
+  const t = useEditorTranslate()
   const view = useInspectorModel(viewStore)
   if (selection.kind === 'reference') {
     return (
@@ -119,7 +141,7 @@ export function SelectionPanel({
         <>
           <RunProperties key={`${el.id}:${el.version}`} element={el} model={view} canEdit={canEdit} onResize={(id, size) => session.resizeGroup([id], size)} onDelete={onDelete} onCommand={(c) => session.submitCommand(c)} actorName={session.actorName()} onRouteLike={() => onRouteLike(el)} projectId={projectId} />
           <PipeLoadRow key={`pipe-load-row:${el.id}:${el.version}`} model={view} element={el} canEdit={canEdit} onCommand={(c) => session.submitCommand(c)} />
-          <WhySection model={view} elementId={el.id} canEdit={canEdit} blockedReason={INSPECTOR_BLOCKED} actorName={session.actorName()} submit={(c) => session.submitCommand(c)} />
+          <WhySection model={view} elementId={el.id} canEdit={canEdit} blockedReason={inspectorBlocked(t)} actorName={session.actorName()} submit={(c) => session.submitCommand(c)} />
         </>
       )
   }
@@ -129,7 +151,7 @@ export function SelectionPanel({
       <MountingPlaneProperties
         key={`${el.id}:${el.version}`}
         plane={el}
-        levelName={level?.kind === 'level' ? level.name : 'No level'}
+        levelName={level?.kind === 'level' ? level.name : t('selection.noLevel', 'No level', { ns: 'editor' })}
         partsOnIt={session.partsOnPlane(el.id)}
         canEdit={canEdit}
         onSave={(change) => session.setMountingPlane(el.id, change)}
@@ -154,7 +176,7 @@ export function SelectionPanel({
         part={el}
         type={definition}
         typeId={el.typeId}
-        levelName={level?.kind === 'level' ? level.name : 'No level'}
+        levelName={level?.kind === 'level' ? level.name : t('selection.noLevel', 'No level', { ns: 'editor' })}
         canEdit={canEdit}
         saving={saveLabel}
         saveMessage={saveMessage}
@@ -174,12 +196,12 @@ export function SelectionPanel({
                   modelTypes={[{ typeId: el.typeId, definition }]}
                   placedCopies={{ [el.typeId]: session.partsOfType(el.typeId) }}
                   canEdit={canEdit}
-                  editBlockedReason={INSPECTOR_BLOCKED}
+                  editBlockedReason={inspectorBlocked(t)}
                   onApply={async (command) => session.submitCommand(command, command.label)}
                 />
               )}
               <PartSpaceProperties projectId={projectId} model={view} part={el} type={definition} canEdit={canEdit} onCommand={(c) => session.submitCommand(c)} />
-              <WhySection model={view} elementId={el.id} canEdit={canEdit} blockedReason={INSPECTOR_BLOCKED} actorName={session.actorName()} submit={(c) => session.submitCommand(c)} />
+              <WhySection model={view} elementId={el.id} canEdit={canEdit} blockedReason={inspectorBlocked(t)} actorName={session.actorName()} submit={(c) => session.submitCommand(c)} />
             </>
           ) : undefined
         }
@@ -202,7 +224,7 @@ export function SelectionPanel({
       />
     )
   }
-  const info = describe(selection.element)
+  const info = describe(selection.element, t)
   return (
     <>
       <span className="text-sm font-medium">{info.title}</span>
@@ -222,13 +244,17 @@ export function SelectionPanel({
           model={view}
           elementId={el.id}
           canEdit={canEdit}
-          blockedReason={INSPECTOR_BLOCKED}
+          blockedReason={inspectorBlocked(t)}
           submit={(c) => session.submitCommand(c)}
         />
       )}
-      {view && session && <WhySection model={view} elementId={el.id} canEdit={canEdit} blockedReason={INSPECTOR_BLOCKED} actorName={session.actorName()} submit={(c) => session.submitCommand(c)} />}
+      {view && session && <WhySection model={view} elementId={el.id} canEdit={canEdit} blockedReason={inspectorBlocked(t)} actorName={session.actorName()} submit={(c) => session.submitCommand(c)} />}
       {view && el.kind === 'space' ? <SpaceBoundaryProperties model={view} spaceId={el.id} onSelectElement={session ? (id) => void session.selectElement(id).catch((err: unknown) => console.error('[SelectionPanel] selecting a wall of the space failed', { id, err })) : undefined} /> : null}
-      {selection.element.kind === 'tap' && <p className="text-xs text-muted-foreground">Drag it in the view to slide the branch along the trunk.</p>}
+      {selection.element.kind === 'tap' && (
+        <p className="text-xs text-muted-foreground">
+          {t('selection.dragTapToSlide', 'Drag it in the view to slide the branch along the trunk.', { ns: 'editor' })}
+        </p>
+      )}
       {selection.element.kind === 'duct_segment' && selection.element.profile.shape === 'rect' && (
         <ResizeForm key={selection.element.id + selection.element.version} element={selection.element} onResize={onResize} canEdit={canEdit} />
       )}
@@ -245,6 +271,7 @@ function ResizeForm({
   onResize: (segmentId: string, widthMm: number, heightMm: number) => string | null
   canEdit: boolean
 }) {
+  const t = useEditorTranslate()
   const profile = element.profile.shape === 'rect' ? element.profile : null
   const [width, setWidth] = useState(profile ? String(Math.round(profile.width / MM_PER_INCH)) : '')
   const [height, setHeight] = useState(profile ? String(Math.round(profile.height / MM_PER_INCH)) : '')
@@ -254,7 +281,7 @@ function ResizeForm({
     const w = Number(width)
     const h = Number(height)
     if (!(w > 0 && h > 0)) {
-      setError('Enter a width and height in inches.')
+      setError(t('selection.enterWidthHeight', 'Enter a width and height in inches.', { ns: 'editor' }))
       return
     }
     const refusal = onResize(element.id, w * MM_PER_INCH, h * MM_PER_INCH)
@@ -265,11 +292,11 @@ function ResizeForm({
       <Separator />
       <FieldGroup className="grid grid-cols-2 gap-2">
         <Field>
-          <FieldLabel htmlFor="bm-w">Width (in)</FieldLabel>
+          <FieldLabel htmlFor="bm-w">{t('route.widthIn', 'Width (in)', { ns: 'editor' })}</FieldLabel>
           <Input id="bm-w" inputMode="numeric" value={width} onChange={(e) => setWidth(e.target.value)} disabled={!canEdit} />
         </Field>
         <Field>
-          <FieldLabel htmlFor="bm-h">Height (in)</FieldLabel>
+          <FieldLabel htmlFor="bm-h">{t('route.heightIn', 'Height (in)', { ns: 'editor' })}</FieldLabel>
           <Input id="bm-h" inputMode="numeric" value={height} onChange={(e) => setHeight(e.target.value)} disabled={!canEdit} />
         </Field>
       </FieldGroup>
@@ -278,11 +305,11 @@ function ResizeForm({
         <TooltipTrigger asChild>
           <span>
             <Button type="submit" size="sm" disabled={!canEdit} className="w-full">
-              Resize run
+              {t('selection.resizeRun', 'Resize run', { ns: 'editor' })}
             </Button>
           </span>
         </TooltipTrigger>
-        {!canEdit && <TooltipContent>Live editing isn&apos;t connected, so changes can&apos;t be saved</TooltipContent>}
+        {!canEdit && <TooltipContent>{t('session.notConnectedSaved', "Live editing isn't connected, so changes can't be saved", { ns: 'editor' })}</TooltipContent>}
       </Tooltip>
     </form>
   )

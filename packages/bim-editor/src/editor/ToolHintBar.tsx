@@ -4,6 +4,7 @@ import { ChevronDown, ChevronUp, TriangleAlert } from 'lucide-react'
 import { Fragment, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import { Button } from '../ui/button'
 import { cn } from '../ui/cn'
+import { useEditorTranslate } from './i18n/translate'
 
 export type ToolHintTone = 'info' | 'warning'
 
@@ -43,6 +44,7 @@ export function ToolHintBar({
   /** Where it sits beside a side rail the person resized (its right edge). */
   style?: CSSProperties
 }) {
+  const t = useEditorTranslate()
   const textRef = useRef<HTMLSpanElement>(null)
   const [expanded, setExpanded] = useState(false)
   const [truncated, setTruncated] = useState(false)
@@ -70,7 +72,7 @@ export function ToolHintBar({
             variant="ghost"
             size="icon-xs"
             className="pointer-events-auto -my-0.5 shrink-0 self-start text-current"
-            aria-label={expanded ? 'Show less of the hint' : 'Show the full hint'}
+            aria-label={expanded ? t('hint.showLess', 'Show less of the hint', { ns: 'editor' }) : t('hint.showFull', 'Show the full hint', { ns: 'editor' })}
             aria-expanded={expanded}
             title={expanded ? undefined : text}
             onClick={() => setExpanded((v) => !v)}

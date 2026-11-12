@@ -16,6 +16,7 @@ import type { RevitElementParameters, RevitParametersResponse, UnplacedElementsR
 import type { MutinyLanguage } from '@permitzip/bim-ui'
 import { connectionProblem, editsPausedMessage, problemForDenied, refusalWords, type ConnectionProblem } from './operator-messages'
 import { englishOnly, withValues, type Translate } from './i18n/translate'
+import { unavailableIn } from './i18n/unavailable'
 import { ALIGN_SNAP_MM, GRID_MM, MM_PER_FT, MM_PER_IN, POINT_SNAP_MM, defaultHeightMm, describeElement, feetInches, newElementId, partLabel, snapHint, snapPoint, snapTargets, type SnapTarget } from './placement'
 import { linkedSnapNear } from './linked-reference/linked-reference-store'
 import { isStarterLevelRace, starterLevelCommand } from './levels/starter-level'
@@ -671,13 +672,7 @@ export class ModelSession {
    * into a Turkish screen. Same English, character for character.
    */
   private referencesUnavailable(): string {
-    const where = this.capabilities?.hostName ?? this.t('session.thisApp', 'this app', { ns: 'editor' })
-    const connectHint = this.capabilities?.connectHint
-    const next =
-      connectHint === undefined || connectHint === null
-        ? this.t('session.unavailableNextPlain', ' Open this model in an app that has it set up.', { ns: 'editor' })
-        : this.t('session.unavailableNextHint', ' Connect it in {{where}}, or open this model where it is set up.', { ns: 'editor', where: connectHint })
-    return `${this.t('session.referencesUnavailable', "Linked models: not available here, because {{where}} doesn't provide it.", { ns: 'editor', where })}${next}`
+    return unavailableIn(this.t('session.linkedModelsService', 'Linked models', { ns: 'editor' }), this.capabilities, this.t)
   }
 
   /** A new language was picked while the model is open: the next refusal comes out in it. */

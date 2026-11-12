@@ -10,25 +10,32 @@ import {
   type SitePoint,
   elementValues,
 } from '@permitzip/bim-kernel'
+import { englishOnly, type Translate } from './i18n/translate'
+import { elementKindWords } from './placement'
 import type { SnapCandidate } from '@permitzip/bim-viewer-3d'
 
 /** Move the origin marker only, or move the building on the site. Worded the same everywhere the choice appears. */
 export type OriginMoveMode = 'move_point' | 'relocate_project'
 
-export const MOVE_MODE_LABEL: Readonly<Record<OriginMoveMode, string>> = {
-  move_point: 'Move the origin marker only',
-  relocate_project: 'Move the building on the site',
-}
-
-export const MOVE_MODE_HELP: Readonly<Record<OriginMoveMode, string>> = {
-  move_point: 'Coordinates of everything else stay the same.',
-  relocate_project: 'Site coordinates of everything change; geometry stays put.',
+/** The two choices in the language on screen: the label a person picks and the line under it. */
+export function moveModeWords(mode: OriginMoveMode, t: Translate): { readonly label: string; readonly help: string } {
+  return mode === 'move_point'
+    ? {
+        label: t('coordinates.movePointOnly', 'Move the origin marker only', { ns: 'editor' }),
+        help: t('coordinates.movePointOnlyWhy', 'Coordinates of everything else stay the same.', { ns: 'editor' }),
+      }
+    : {
+        label: t('coordinates.relocateProject', 'Move the building on the site', { ns: 'editor' }),
+        help: t('coordinates.relocateProjectWhy', 'Site coordinates of everything change; geometry stays put.', { ns: 'editor' }),
+      }
 }
 
 /** The undo / toast wording for a committed move ("Move the origin marker (project origin)"). */
-export function moveOriginLabel(which: OriginPoint, mode: OriginMoveMode): string {
-  const point = which === 'survey_point' ? 'site point' : 'project origin'
-  return mode === 'move_point' ? `move the origin marker (${point})` : `move the building on the site (${point})`
+export function moveOriginLabel(which: OriginPoint, mode: OriginMoveMode, t: Translate = englishOnly): string {
+  const point = which === 'survey_point' ? t('coordinates.sitePointWord', 'site point', { ns: 'editor' }) : t('coordinates.projectOriginWord', 'project origin', { ns: 'editor' })
+  return mode === 'move_point'
+    ? t('coordinates.undoMoveMarker', 'move the origin marker ({{point}})', { ns: 'editor', point })
+    : t('coordinates.undoRelocateProject', 'move the building on the site ({{point}})', { ns: 'editor', point })
 }
 
 /** The point Reset and Move act on: the marker's point, or the project base point when the marker shows the fixed internal origin. */
@@ -58,7 +65,7 @@ export function originLabel(site: SiteFrame, which: OriginPoint, at: SitePoint =
 }
 
 /** Where a dragged origin may snap: the other origin points, parts and equipment, and run ends. Kernel plan mm. */
-export function originSnapCandidates(model: ModelState, site: SiteFrame, dragging: OriginPoint): SnapCandidate[] {
+export function originSnapCandidates(model: ModelState, site: SiteFrame, dragging: OriginPoint, t: Translate = englishOnly): SnapCandidate[] {
   const out: SnapCandidate[] = []
   for (const which of ['internal_origin', 'project_base_point', 'survey_point'] as const) {
     if (which === dragging) continue
@@ -74,11 +81,17 @@ export function originSnapCandidates(model: ModelState, site: SiteFrame, draggin
         out.push({ x: el.position.x, y: el.position.y, label: el.mark })
         break
       case 'run_segment':
-        out.push({ x: el.start.x, y: el.start.y, label: 'run end' }, { x: el.end.x, y: el.end.y, label: 'run end' })
+        out.push(
+          { x: el.start.x, y: el.start.y, label: t('coordinates.runEnd', 'run end', { ns: 'editor' }) },
+          { x: el.end.x, y: el.end.y, label: t('coordinates.runEnd', 'run end', { ns: 'editor' }) },
+        )
         break
       case 'wall':
       case 'grid':
-        out.push({ x: el.start.x, y: el.start.y, label: el.kind }, { x: el.end.x, y: el.end.y, label: el.kind })
+        out.push(
+          { x: el.start.x, y: el.start.y, label: elementKindWords(el.kind, t) },
+          { x: el.end.x, y: el.end.y, label: elementKindWords(el.kind, t) },
+        )
         break
       default:
         break

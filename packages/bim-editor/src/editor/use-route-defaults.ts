@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RouteDefaultDomain, RouteDefaults, RouteDefaultsRead } from '../contracts/building-model/route-defaults'
 import type { EditorDataAnswer, EditorDataHost } from '@permitzip/bim-editor-host'
 import { useOptionalEditorHost } from '@permitzip/bim-editor/host'
-import { unavailableWords } from '@permitzip/bim-editor/host/unavailable'
+import { useEditorTranslate, type Translate } from './i18n/translate'
+import { unavailableIn } from './i18n/unavailable'
 
 export type RouteDefaultsState =
   | { readonly status: 'loading' }
@@ -21,23 +22,20 @@ function isReads(v: unknown): v is { defaults: RouteDefaultsRead[] } {
   return typeof v === 'object' && v !== null && 'defaults' in v && Array.isArray(v.defaults)
 }
 
-async function errorText(res: EditorDataAnswer): Promise<string> {
+async function errorText(res: EditorDataAnswer, t: Translate): Promise<string> {
   const body: unknown = await res.json().catch((err: unknown) => {
     console.error('[useRouteDefaults] error body unreadable', err)
     return null
   })
-  return typeof body === 'object' && body !== null && 'error' in body && typeof body.error === 'string' ? body.error : `The server answered ${res.status}`
+  return typeof body === 'object' && body !== null && 'error' in body && typeof body.error === 'string'
+    ? body.error
+    : t('route.serverAnswered', 'The server answered {{status}}', { ns: 'editor', status: res.status })
 }
 
-/**
- * A person's saved Route defaults on this project (from the database, so they
- * follow the person to any tab or machine). `onLoaded` runs once with what
- * applies, so the Route panel opens on them.
- */
-const SAVED_DEFAULTS = 'Saved route defaults'
-
 export function useRouteDefaultsFrom(port: EditorDataHost['routeDefaults'], projectId: string, onLoaded: (rows: readonly RouteDefaultsRead[]) => void): RouteDefaultsApi {
+  const t = useEditorTranslate()
   const capabilities = useOptionalEditorHost()?.capabilities ?? null
+  const unavailable = (): string => unavailableIn(t('route.savedDefaults', 'Saved route defaults', { ns: 'editor' }), capabilities, t)
   const [state, setState] = useState<RouteDefaultsState>({ status: 'loading' })
   const loaded = useRef(onLoaded)
   loaded.current = onLoaded
@@ -47,9 +45,9 @@ export function useRouteDefaultsFrom(port: EditorDataHost['routeDefaults'], proj
     port
       .read({ projectId })
       .then(async (res) => {
-        if (!res.ok) throw new Error(await errorText(res))
+        if (!res.ok) throw new Error(await errorText(res, t))
         const body: unknown = await res.json()
-        if (!isReads(body)) throw new Error('The saved route defaults came back in a shape this page does not read')
+        if (!isReads(body)) throw new Error(t('route.unreadableShape', 'The saved route defaults came back in a shape this page does not read', { ns: 'editor' }))
         if (!live) return
         setState({ status: 'ready', rows: body.defaults })
         loaded.current(body.defaults)
@@ -65,12 +63,12 @@ export function useRouteDefaultsFrom(port: EditorDataHost['routeDefaults'], proj
 
   const save = useCallback(
     async (domain: RouteDefaultDomain, scope: 'project' | 'all', settings: RouteDefaults | null): Promise<string | null> => {
-      if (!port) return unavailableWords(SAVED_DEFAULTS, capabilities)
+      if (!port) return unavailable()
       try {
         const res = await port.save({ projectId, domain, scope, settings })
-        if (!res.ok) return await errorText(res)
+        if (!res.ok) return await errorText(res, t)
         const body: unknown = await res.json()
-        if (!isReads(body)) return 'Saved, but the answer came back in a shape this page does not read; reload to see it'
+        if (!isReads(body)) return t('route.savedUnreadableShape', 'Saved, but the answer came back in a shape this page does not read; reload to see it', { ns: 'editor' })
         setState({ status: 'ready', rows: body.defaults })
         return null
       } catch (err) {
@@ -80,5 +78,5 @@ export function useRouteDefaultsFrom(port: EditorDataHost['routeDefaults'], proj
     },
     [port, capabilities, projectId],
   )
-  return { state: port ? state : { status: 'error', message: unavailableWords(SAVED_DEFAULTS, capabilities) }, save }
+  return { state: port ? state : { status: 'error', message: unavailable() }, save }
 }

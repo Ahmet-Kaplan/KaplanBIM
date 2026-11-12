@@ -91,6 +91,11 @@ const CAPTIONS: readonly Caption[] = [
  * of them went back to a literal.
  */
 const SITES: Readonly<Record<string, number>> = {
+  // RoutePanel names the same materials in its Material picker (2026-11-10: the route panel round).
+  "plumbing.materialWord.castIron": 2,
+  "plumbing.materialWord.blackSteel": 2,
+  "plumbing.materialWord.galvanized": 2,
+  "plumbing.materialWord.pe": 2,
   // Plumbing: every caption the plumbing tree writes more than once (its own
   // glossary guards are in `i18n-plumbing.test.tsx`).
   "plumbing.autoSize": 2,

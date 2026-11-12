@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import type { BimElement, PartInstance, RunFitting, RunSegment } from '@permitzip/bim-kernel'
+import { englishOnly, type Translate } from './i18n/translate'
 
 /**
  * Create similar (review video V1 1:37: "a similar CS command for any time I select
@@ -23,8 +24,12 @@ export type SimilarStart =
   | { readonly kind: 'place'; readonly part: PartInstance }
   | { readonly kind: 'refused'; readonly reason: string }
 
-export function similarStartFor(el: BimElement | null): SimilarStart {
-  if (!el) return { kind: 'refused', reason: 'Select a pipe, duct or part first, then press C S to start another like it.' }
+export function similarStartFor(el: BimElement | null, t: Translate = englishOnly): SimilarStart {
+  if (!el)
+    return {
+      kind: 'refused',
+      reason: t('surface.similarSelectFirst', 'Select a pipe, duct or part first, then press C S to start another like it.', { ns: 'editor' }),
+    }
   switch (el.kind) {
     case 'run_segment':
     case 'run_fitting':
@@ -32,7 +37,10 @@ export function similarStartFor(el: BimElement | null): SimilarStart {
     case 'part':
       return { kind: 'place', part: el }
     default:
-      return { kind: 'refused', reason: 'Create similar works on pipe, duct, fittings and parts. Select one of those.' }
+      return {
+        kind: 'refused',
+        reason: t('surface.similarKindsOnly', 'Create similar works on pipe, duct, fittings and parts. Select one of those.', { ns: 'editor' }),
+      }
   }
 }
 

@@ -245,6 +245,9 @@ const EN: Translate = translateFor("en");
  */
 const SITES: Readonly<Record<string, number>> = {
   "panel.addOns": 2,
+  // The inspector and the panel both draw the level fallback; the origin overlay names a run end twice.
+  "selection.noLevel": 2,
+  "coordinates.runEnd": 2,
   // The new-view menu writes the four diagram kinds; the surface names one in the undo label.
   "panel.new.oneLine": 2,
   "panel.new.electricalRiser": 2,

@@ -1,6 +1,7 @@
 import type { ModelState, PartTypeDefinition, ViewType } from '@permitzip/bim-kernel'
 import { defaultHeightMm, type DrawingPlacementSpec } from './placement'
 import { placeSurfaceFor, type PlaceSurface } from './planned/place-surface'
+import { englishOnly, type Translate } from './i18n/translate'
 
 /**
  * Place from "Not placed yet" in the view the person is on (U2, B9): the live
@@ -29,13 +30,20 @@ export type PlaceSurfaceNow = PlaceSurface & { readonly on: 'live' | 'drawing' |
 const takesParts = (viewType: ViewType) => viewType === 'floor_plan' || viewType === 'ceiling_plan' || viewType === 'section'
 
 /** Whether a part from the list can be placed where the person is, and if not, why. Never asks to switch view by itself. */
-export function placeSurfaceNow(s: OpenSurfaceState): PlaceSurfaceNow {
+export function placeSurfaceNow(s: OpenSurfaceState, t: Translate = englishOnly): PlaceSurfaceNow {
   if (s.openKind === 'sheet') {
-    const label = s.sheetLabel ?? 'this sheet'
+    const label = s.sheetLabel ?? t('place.thisSheet', 'this sheet', { ns: 'editor' })
     if (s.sheetView && takesParts(s.sheetView.viewType)) return { canPlace: true, label: `${s.sheetView.name} on ${label}`, reason: null, on: 'drawing' }
     return { ...placeSurfaceFor({ kind: 'sheet', label }), on: null }
   }
-  if (s.openKind === 'model' || !s.view) return { ...placeSurfaceFor({ kind: 'live', label: s.modelMode === 'plan' ? 'the plan' : 'the 3D model' }), on: 'live' }
+  if (s.openKind === 'model' || !s.view)
+    return {
+      ...placeSurfaceFor({
+        kind: 'live',
+        label: s.modelMode === 'plan' ? t('place.thePlan', 'the plan', { ns: 'editor' }) : t('place.theThreeDModel', 'the 3D model', { ns: 'editor' }),
+      }),
+      on: 'live',
+    }
   const { name, viewType } = s.view
   if (viewType === 'schedule' || viewType === 'detail' || (viewType === 'three_d' && s.showDrawing)) return { ...placeSurfaceFor({ kind: 'other', label: name }), on: null }
   if (s.showDrawing) return { canPlace: true, label: name, reason: null, on: 'drawing' }
@@ -102,15 +110,22 @@ export interface PlannedPlacing {
  * happens where you are), else the level the plan named, else the level the
  * model tools are on.
  */
-export function plannedPlacingFor(model: ModelState, partId: string, viewLevelId: string | null, fallbackLevelId: string | null): PlannedPlacing | string {
+export function plannedPlacingFor(
+  model: ModelState,
+  partId: string,
+  viewLevelId: string | null,
+  fallbackLevelId: string | null,
+  t: Translate = englishOnly,
+): PlannedPlacing | string {
   const part = model.elements[partId]
-  if (part?.kind !== 'part') return 'That part is no longer in the model.'
-  if (part.planned === undefined) return `${part.mark.trim() || 'That part'} is already placed.`
+  if (part?.kind !== 'part') return t('session.partNoLongerInModel', 'That part is no longer in the model.', { ns: 'editor' })
+  const name = part.mark.trim() || t('session.thatPart', 'That part', { ns: 'editor' })
+  if (part.planned === undefined) return t('place.alreadyPlaced', '{{name}} is already placed.', { ns: 'editor', name })
   const type = model.elements[part.typeId]
-  if (type?.kind !== 'part_type') return `${part.mark.trim() || 'That part'} has no part type in this model, so there is nothing to draw.`
+  if (type?.kind !== 'part_type') return t('session.partHasNoType', '{{name}} has no part type in this model, so there is nothing to draw.', { ns: 'editor', name })
   const isLevel = (id: string | null | undefined): id is string => !!id && model.elements[id]?.kind === 'level'
   const levelId = [viewLevelId, part.planned.levelHint ?? null, fallbackLevelId].find(isLevel)
-  if (!levelId) return 'This model has no levels yet; add a level before placing parts.'
+  if (!levelId) return t('placement.noLevelsYet', 'This model has no levels yet; add a level before placing parts.', { ns: 'editor' })
   return {
     partId: part.id,
     label: part.mark.trim() || type.definition.typeName,
@@ -136,11 +151,17 @@ export function armPlanned(session: PlannedPlacementSession, p: PlannedPlacing):
 }
 
 /** A click in the live view: aim at the pointer, place, and say whether the part landed (the session disarms itself once it has). */
-export function clickPlanned(session: PlannedPlacementSession, p: PlannedPlacing, clientX: number, clientY: number): { readonly placed: boolean; readonly refused: string | null; readonly hint: string | null } {
+export function clickPlanned(
+  session: PlannedPlacementSession,
+  p: PlannedPlacing,
+  clientX: number,
+  clientY: number,
+  t: Translate = englishOnly,
+): { readonly placed: boolean; readonly refused: string | null; readonly hint: string | null } {
   const hint = session.previewPlacement(clientX, clientY)
   const refused = session.commitPlacement()
   if (refused) return { placed: false, refused, hint: refused }
-  if (session.plannedPlacement() === null) return { placed: true, refused: null, hint: `Placed ${p.label}.` }
+  if (session.plannedPlacement() === null) return { placed: true, refused: null, hint: t('place.placedWords', 'Placed {{name}}.', { ns: 'editor', name: p.label }) }
   return { placed: false, refused: null, hint }
 }
 

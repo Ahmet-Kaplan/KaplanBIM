@@ -10,6 +10,7 @@
  */
 import type { PartCategory, PartHost } from '@permitzip/bim-kernel'
 import type { SurfaceHit } from '@permitzip/bim-viewer-3d'
+import { englishOnly, type Translate } from './i18n/translate'
 import { feetInches } from './placement'
 
 export interface LevelRef {
@@ -57,18 +58,37 @@ export interface SurfacePlacement {
  * sits on it (plus the typed height); against a wall or under a soffit it
  * goes under the pointer at the typed height above the level it is over.
  */
-export function placementOnSurface(hit: SurfaceHit, levels: readonly LevelRef[], heightMm: number, fallbackLevelId: string | null): SurfacePlacement | null {
+export function placementOnSurface(
+  hit: SurfaceHit,
+  levels: readonly LevelRef[],
+  heightMm: number,
+  fallbackLevelId: string | null,
+  t: Translate = englishOnly,
+): SurfacePlacement | null {
   const facing = surfaceFacing(hit)
   const level = facing === 'up' ? levelBelow(levels, hit.point.z) : (levels.find((l) => l.id === fallbackLevelId) ?? levelBelow(levels, hit.point.z))
   if (!level) return null
   const position = { x: hit.point.x, y: hit.point.y }
   if (facing !== 'up') {
-    return { levelId: level.id, position, offsetMm: heightMm, where: `Under the pointer, ${feetInches(heightMm)} above ${level.name}` }
+    return {
+      levelId: level.id,
+      position,
+      offsetMm: heightMm,
+      where: t('surface.underPointerAbove', 'Under the pointer, {{height}} above {{level}}', { ns: 'editor', height: feetInches(heightMm), level: level.name }),
+    }
   }
   const surfaceAbove = hit.point.z - level.elevationMm
   const offsetMm = surfaceAbove + heightMm
-  const on = Math.abs(surfaceAbove) <= ON_LEVEL_MM ? `On ${level.name}` : `On the surface ${feetInches(surfaceAbove)} above ${level.name}`
-  return { levelId: level.id, position, offsetMm, where: heightMm === 0 ? on : `${on}, raised ${feetInches(heightMm)}` }
+  const on =
+    Math.abs(surfaceAbove) <= ON_LEVEL_MM
+      ? t('surface.onLevel', 'On {{level}}', { ns: 'editor', level: level.name })
+      : t('surface.onSurfaceAbove', 'On the surface {{height}} above {{level}}', { ns: 'editor', height: feetInches(surfaceAbove), level: level.name })
+  return {
+    levelId: level.id,
+    position,
+    offsetMm,
+    where: heightMm === 0 ? on : t('surface.onRaised', '{{where}}, raised {{height}}', { ns: 'editor', where: on, height: feetInches(heightMm) }),
+  }
 }
 
 /** A typed Place height up to this, on a floor or roof, is a curb or rail; higher, the part is held up by something else. */
@@ -117,6 +137,7 @@ export function routeStartOnSurface(
   levelElevationMm: number,
   typedCenterMm: number,
   half: { readonly depthMm: number; readonly widthMm: number },
+  t: Translate = englishOnly,
 ): RouteStart {
   const facing = surfaceFacing(hit)
   const p = hit.point
@@ -125,19 +146,22 @@ export function routeStartOnSurface(
   let where: string
   if (facing === 'down') {
     center = p.z - half.depthMm
-    where = 'Under the surface'
+    where = t('surface.underTheSurface', 'Under the surface', { ns: 'editor' })
   } else if (facing === 'up') {
     const typed = levelElevationMm + typedCenterMm
     const resting = p.z + half.depthMm
     center = Math.max(typed, resting)
-    where = resting > typed ? 'Resting on the surface' : 'At the typed height over the surface'
+    where =
+      resting > typed
+        ? t('surface.restingOnSurface', 'Resting on the surface', { ns: 'editor' })
+        : t('surface.atTypedHeightOverSurface', 'At the typed height over the surface', { ns: 'editor' })
   } else {
     const n = hit.normal
     const len = n ? Math.hypot(n.x, n.y) : 0
     if (n && len > 0) point = { x: p.x + (n.x / len) * half.widthMm, y: p.y + (n.y / len) * half.widthMm }
     center = p.z
-    where = 'Along the wall'
+    where = t('surface.alongTheWall', 'Along the wall', { ns: 'editor' })
   }
   const elevationMm = center - levelElevationMm
-  return { point, elevationMm, where: `${where}, centre ${feetInches(elevationMm)} above the level` }
+  return { point, elevationMm, where: t('surface.centreAboveLevel', '{{where}}, centre {{height}} above the level', { ns: 'editor', where, height: feetInches(elevationMm) }) }
 }

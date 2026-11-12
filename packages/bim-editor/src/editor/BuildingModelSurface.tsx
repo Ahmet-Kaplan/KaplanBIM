@@ -2610,7 +2610,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
     (kind: 'duct' | 'pipe') => {
       if (routeChoices.kind !== kind) {
         const existing = systems.find((sys) => sys.domain === kind)
-        chooseRoute({ ...routeChoices, kind, system: existing ? existing.id : `new:${systemKindsFor(kind)[0]?.kind ?? 'other'}` })
+        chooseRoute({ ...routeChoices, kind, system: existing ? existing.id : `new:${systemKindsFor(kind)[0] ?? 'other'}` })
       }
       chooseTool('route')
     },

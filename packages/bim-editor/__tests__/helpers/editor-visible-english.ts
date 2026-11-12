@@ -556,8 +556,10 @@ export function visibleEnglish(
         if (to === -1) continue;
         const body = source.slice(tagEnd + 1, to);
         if (!/[A-Za-z]{2,}/u.test(body)) continue;
-        // Code that happens to sit between a tag and the next one is not a caption.
-        if (/\breturn\b|\bconst\b|use[A-Z]|=>|&&|\|\|/u.test(body)) continue;
+        // Code that happens to sit between a tag and the next one is not a caption. A generic
+        // type argument is the usual culprit: `Omit<Props, 'model'>` has a `>` in it, so the
+        // words after it read as a child until the next `<`.
+        if (/\breturn\b|\bconst\b|use[A-Z]|=>|&&|\|\||\b(?:export|import|interface|declare)\b/u.test(body)) continue;
         // A `;` or a `=` inside prose ("Rename this sheet; it keeps its history") is a
         // sentence, not code — only an assignment or an arrow is code.
         if (/(?<![=!<>])=(?!=)/u.test(body)) continue;

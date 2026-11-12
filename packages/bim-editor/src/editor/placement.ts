@@ -219,7 +219,7 @@ export function describeElement(model: ModelState, el: BimElement, t: Translate 
  * segment" is a word a person reads in a delete confirmation. Anything with no
  * entry is an element, which is what §2.1 calls every model object anyway.
  */
-function elementKindWords(kind: string, t: Translate): string {
+export function elementKindWords(kind: string, t: Translate): string {
   switch (kind) {
     case 'duct_segment':
       return t('placement.kindDuctSegment', 'duct segment', { ns: 'editor' })

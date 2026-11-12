@@ -2,6 +2,7 @@ import { defaultPipeSpec, slopeInPerFt, type RunFitting, type RunSegment, type R
 import { MM_PER_FT, MM_PER_IN } from './placement'
 import type { RouteChoices } from './RoutePanel'
 import { slopeChoiceOf } from './route-slope'
+import { englishOnly, type Translate } from './i18n/translate'
 
 const inches = (mm: number) => String(Math.round((mm / MM_PER_IN) * 1000) / 1000)
 const feet = (mm: number) => String(Math.round((mm / MM_PER_FT) * 10000) / 10000)
@@ -16,10 +17,10 @@ function sizeOf(el: RunSegment | RunFitting): RunSize | null {
  * shape and size, insulation, height and (a sloped pipe) slope, keeping everything else the person
  * had chosen. A string is why it can't (a conduit run, or no size to copy).
  */
-export function routeChoicesLike(el: RunSegment | RunFitting, current: RouteChoices): RouteChoices | string {
+export function routeChoicesLike(el: RunSegment | RunFitting, current: RouteChoices, t: Translate = englishOnly): RouteChoices | string {
   const size = sizeOf(el)
-  if (!size) return 'This piece has no size to copy.'
-  if (el.domain === 'conduit') return "Conduit routing isn't available yet; duct and pipe are."
+  if (!size) return t('surface.noSizeToCopy', 'This piece has no size to copy.', { ns: 'editor' })
+  if (el.domain === 'conduit') return t('surface.conduitNotYet', "Conduit routing isn't available yet; duct and pipe are.", { ns: 'editor' })
   const z = el.kind === 'run_segment' ? Math.min(el.start.z, el.end.z) : el.position.z
   const base: RouteChoices = { ...current, kind: el.domain, system: el.systemId, elevationFt: feet(z), elbowFamily: '', takeoffFamily: '' }
   switch (size.shape) {

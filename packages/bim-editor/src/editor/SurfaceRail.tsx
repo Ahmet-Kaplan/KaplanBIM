@@ -130,10 +130,10 @@ export const SurfaceRail = memo<(props: SurfaceRailProps) => ReactNode>(function
         {prefs.status === 'error' && (
           <Alert data-testid="rail-layout-load-error">
             <AlertDescription className="text-xs">
-              Showing the default layout: {prefs.loadError}.{' '}
-              <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={prefs.retryLoad}>
-                Try again
-              </Button>
+               {t('rail.defaultLayout', 'Showing the default layout: {{reason}}.', { ns: 'editor', reason: prefs.loadError ?? '' })}{' '}
+               <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={prefs.retryLoad}>
+                 {t('rail.tryAgain', 'Try again', { ns: 'editor' })}
+               </Button>
             </AlertDescription>
           </Alert>
         )}
@@ -180,7 +180,7 @@ export const SurfaceRail = memo<(props: SurfaceRailProps) => ReactNode>(function
           title={openView ? t('panel.showIn', 'Show in {{view}}', { view: openView.name, ns: 'editor' }) : t('panel.show', 'Show', { ns: 'editor' })}
         >
           <Field>
-            <FieldLabel htmlFor="bm-level">Level (3D model)</FieldLabel>
+            <FieldLabel htmlFor="bm-level">{t('rail.levelInThreeDModel', 'Level (3D model)', { ns: 'editor' })}</FieldLabel>
             <Select value={props.level} onValueChange={props.onLevel} disabled={props.referenceLevels.length === 0}>
               <SelectTrigger id="bm-level" size="sm">
                 <SelectValue placeholder={t('empty.allLevels', 'All levels', { ns: 'editor' })} />
@@ -198,11 +198,11 @@ export const SurfaceRail = memo<(props: SurfaceRailProps) => ReactNode>(function
             </Select>
           </Field>
           <FieldSet>
-            <FieldLegend variant="label">Groups and phases</FieldLegend>
+            <FieldLegend variant="label">{t('rail.groupsAndPhases', 'Groups and phases', { ns: 'editor' })}</FieldLegend>
             {organization && (
               <GroupVisibilityList
                 model={organization}
-                scope={openView ? openView.name : 'the 3D model'}
+                scope={openView ? openView.name : t('surface.theThreeDModel', 'the 3D model', { ns: 'editor' })}
                 visibility={(id) => displayContext.groupDisplay?.[id] ?? organizationOf(organization).groupById.get(id)?.entry.defaultVisibility ?? 'show'}
                 blockedReason={openView && !canEdit ? blockedReason : null}
                 onChange={(id, visibility) => props.onGroupVisibility(id, visibility)}
@@ -264,7 +264,14 @@ export const SurfaceRail = memo<(props: SurfaceRailProps) => ReactNode>(function
           />
         </LayoutSection>
       </div>
-      <RailResizeHandle edge="right" ariaLabel="Resize the left sidebar" width={width} defaultWidth={RAIL_DEFAULT_WIDTH_PX} onPreview={setDragWidth} onCommit={(px) => prefs.setWidth(RAIL_SURFACE, px)} />
+      <RailResizeHandle
+        edge="right"
+        ariaLabel={t('rail.resizeSidebar', 'Resize the left sidebar', { ns: 'editor' })}
+        width={width}
+        defaultWidth={RAIL_DEFAULT_WIDTH_PX}
+        onPreview={setDragWidth}
+        onCommit={(px) => prefs.setWidth(RAIL_SURFACE, px)}
+      />
     </aside>
   )
 }, stablePropsEqual)
@@ -279,10 +286,13 @@ function ToolPanel({ children }: { children: ReactNode }) {
 }
 
 function UnplacedNote({ state }: { state: UnplacedState | undefined }) {
+  const t = useEditorTranslate()
   if (state?.status === 'ready' && state.count > 0) {
     return (
       <FieldDescription className="text-xs">
-        {state.count} device{state.count === 1 ? '' : 's'} with no 3D shape shown as symbols
+        {state.count === 1
+          ? t('rail.oneUnplacedDevice', '1 device with no 3D shape shown as symbols', { ns: 'editor', count: state.count })
+          : t('rail.unplacedDevices', '{{count}} devices with no 3D shape shown as symbols', { ns: 'editor', count: state.count })}
       </FieldDescription>
     )
   }

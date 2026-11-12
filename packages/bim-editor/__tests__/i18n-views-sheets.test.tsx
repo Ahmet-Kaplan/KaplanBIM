@@ -207,6 +207,9 @@ const SITES: Readonly<Record<string, number>> = {
   "section.cancel": 2,
   "section.dragThisEnd": 2,
   "selection.spreadTags": 3,
+  // The inspector's level fallback (both place and plane rows) and the origin overlay's run end.
+  "selection.noLevel": 2,
+  "coordinates.runEnd": 2,
   "set.checking": 3,
   "sheetDialog.cancel": 4,
   "sheetDialog.createAndOpen": 2,

@@ -1,4 +1,5 @@
 import { ROUTING_PLUS_EVERY_RUN_FEATURE, ROUTING_TAP_FACES_FEATURE, ROUTING_TAP_OFFSET_FEATURE, isPitchedOrLevel, type BimElement, type RunFitting, type RunPoint, type RunSegment } from '@permitzip/bim-kernel'
+import { englishOnly, type Translate } from './i18n/translate'
 
 type Elements = Readonly<Record<string, BimElement>>
 
@@ -54,7 +55,7 @@ function fallsAway(seg: RunSegment, port: string): boolean {
  * drain that turns down, the "+" runs the drop on up through the corner and
  * the level drain joins it with the system's branch fitting into a stack.
  */
-export function teeHandleSides(elements: Elements, el: BimElement, kernel: TeeHandleKernel, serverFeatures: readonly string[] = []): TeeHandleSide[] {
+export function teeHandleSides(elements: Elements, el: BimElement, kernel: TeeHandleKernel, serverFeatures: readonly string[] = [], t: Translate = englishOnly): TeeHandleSide[] {
   if (el.kind !== 'run_fitting' || el.fittingType !== 'elbow' || el.host || el.ports.length !== 2) return []
   // The leg that runs on has to be a straight piece; the other may meet a fitting (a transition) or a part, which the branch is routed to.
   if (!el.ports.every((p) => p.link && elements[p.link.elementId])) return []
@@ -75,13 +76,33 @@ export function teeHandleSides(elements: Elements, el: BimElement, kernel: TeeHa
       if (stack && level && fallsAway(level.seg, level.end)) {
         if (!serverFeatures.includes(ROUTING_TAP_FACES_FEATURE)) return []
         const drainName = kernel.runLabel(elements, level.seg)
-        return [{ port: level.port.id, direction: level.port.direction, face: 'top', label: `Continue the ${drainName} from the base of the stack: it runs on back through the corner (route on from there) and the stack drops into its top` }]
+        return [
+          {
+            port: level.port.id,
+            direction: level.port.direction,
+            face: 'top',
+            label: t(
+              'plus.baseOfStack',
+              'Continue the {{name}} from the base of the stack: it runs on back through the corner (route on from there) and the stack drops into its top',
+              { ns: 'editor', name: drainName },
+            ),
+          },
+        ]
       }
       // A drain that turns down (into a drop or stack): the drop runs on up through the corner and the level leg, which drains into the corner, joins it.
       const drop = legs.find((l) => l && isPlumb(l.port.direction) && l.port.direction.z < 0)
       if (!drop || !level || fallsAway(level.seg, level.end)) return []
       const name = kernel.runLabel(elements, drop.seg)
-      return [{ port: drop.port.id, direction: drop.port.direction, label: `Add a branch here: the ${name} runs on up through the corner (a stack above) and the level drain joins it` }]
+      return [
+        {
+          port: drop.port.id,
+          direction: drop.port.direction,
+          label: t('plus.branchThroughCornerUp', 'Add a branch here: the {{name}} runs on up through the corner (a stack above) and the level drain joins it', {
+            ns: 'editor',
+            name,
+          }),
+        },
+      ]
     }
     const out: TeeHandleSide[] = []
     // A round riser runs on through the corner and the level leg joins its side, on every kind of run.
@@ -89,7 +110,15 @@ export function teeHandleSides(elements: Elements, el: BimElement, kernel: TeeHa
     const flat = el.ports.find((p) => levelOrPitched(p.direction))
     if (everyRun && riser && flat && !hasFlatSides(riser.seg.size)) {
       const name = kernel.runLabel(elements, riser.seg)
-      out.push({ port: riser.port.id, direction: riser.port.direction, label: `Add a tee here: the ${name} runs on ${riser.port.direction.z > 0 ? 'down' : 'up'} through the corner and the level leg joins its side` })
+      out.push({
+        port: riser.port.id,
+        direction: riser.port.direction,
+        label: t('plus.teeThroughCorner', 'Add a tee here: the {{name}} runs on {{direction}} through the corner and the level leg joins its side', {
+          ns: 'editor',
+          name,
+          direction: riser.port.direction.z > 0 ? t('plus.downward', 'down', { ns: 'editor' }) : t('plus.upward', 'up', { ns: 'editor' }),
+        }),
+      })
     }
     if (!serverFeatures.includes(ROUTING_TAP_FACES_FEATURE)) return out
     const level = legs.find((l) => l && isLevel(l.port.direction))
@@ -97,7 +126,20 @@ export function teeHandleSides(elements: Elements, el: BimElement, kernel: TeeHa
     if (!level || !other) return out
     const face: BranchFace = other.direction.z > 0 ? 'top' : 'bottom'
     const name = kernel.runLabel(elements, level.seg)
-    return [...out, { port: level.port.id, direction: level.port.direction, face, label: `Add a tap here: the ${name} runs on through the corner and the ${face === 'top' ? 'rising' : 'dropping'} leg joins its ${face}` }]
+    return [
+      ...out,
+      {
+        port: level.port.id,
+        direction: level.port.direction,
+        face,
+        label: t('plus.tapThroughCorner', 'Add a tap here: the {{name}} runs on through the corner and the {{direction}} leg joins its {{face}}', {
+          ns: 'editor',
+          name,
+          direction: face === 'top' ? t('session.risingLeg', 'rising', { ns: 'editor' }) : t('session.droppingLeg', 'dropping', { ns: 'editor' }),
+          face: faceWord(face, t),
+        }),
+      },
+    ]
   }
   const out: TeeHandleSide[] = []
   for (const leg of legs) {
@@ -107,7 +149,9 @@ export function teeHandleSides(elements: Elements, el: BimElement, kernel: TeeHa
     out.push({
       port: leg.port.id,
       direction: leg.port.direction,
-      label: drain ? `Add a wye here: the ${name} runs on through the corner and the other leg drains into it` : `Add a tee here: the ${name} runs on through the corner`,
+      label: drain
+        ? t('plus.wyeThroughCorner', 'Add a wye here: the {{name}} runs on through the corner and the other leg drains into it', { ns: 'editor', name })
+        : t('plus.teeThroughCornerPlain', 'Add a tee here: the {{name}} runs on through the corner', { ns: 'editor', name }),
     })
   }
   return out
@@ -135,7 +179,7 @@ export interface PlusSpot {
  * and, on an elbow, one on each side a leg could run on through the corner.
  * The 3D view and the printed drawings draw the same list.
  */
-export function plusSpots(elements: Elements, el: BimElement, kernel: PlusSpotKernel, serverFeatures: readonly string[] = []): PlusSpot[] {
+export function plusSpots(elements: Elements, el: BimElement, kernel: PlusSpotKernel, serverFeatures: readonly string[] = [], t: Translate = englishOnly): PlusSpot[] {
   if (el.kind !== 'run_segment' && el.kind !== 'run_fitting') return []
   const label = kernel.runLabel(elements, el)
   const out: PlusSpot[] = []
@@ -143,14 +187,32 @@ export function plusSpots(elements: Elements, el: BimElement, kernel: PlusSpotKe
   for (const port of open) {
     const info = kernel.portInfo(elements, { elementId: el.id, port })
     if (!info) continue
-    const turn = el.kind === 'run_segment' && serverFeatures.includes(ROUTING_PLUS_EVERY_RUN_FEATURE) ? '; click to one side for an elbow right at the end' : ''
-    out.push({ kind: 'continue', elementId: el.id, port, label: `Continue the ${label} from this end${turn}`, at: info.position, toward: info.direction })
+    const turn =
+      el.kind === 'run_segment' && serverFeatures.includes(ROUTING_PLUS_EVERY_RUN_FEATURE)
+        ? t('plus.turnAtEnd', '; click to one side for an elbow right at the end', { ns: 'editor' })
+        : ''
+    out.push({
+      kind: 'continue',
+      elementId: el.id,
+      port,
+      label: t('plus.continueFromEnd', 'Continue the {{name}} from this end{{turn}}', { ns: 'editor', name: label, turn }),
+      at: info.position,
+      toward: info.direction,
+    })
   }
   if (el.kind === 'run_fitting') {
-    for (const t of teeHandleSides(elements, el, kernel, serverFeatures)) {
+    for (const side of teeHandleSides(elements, el, kernel, serverFeatures, t)) {
       // A riser that runs on through the corner: the "+" sits where it will continue (above a drop).
-      const plumb = Math.hypot(t.direction.x, t.direction.y) < 1e-6
-      out.push({ kind: 'tee', elementId: el.id, port: t.port, label: t.label, at: el.position, toward: plumb ? { x: 0, y: 0, z: -Math.sign(t.direction.z) } : { x: -t.direction.x, y: -t.direction.y, z: 0 }, ...(t.face ? { face: t.face } : {}) })
+      const plumb = Math.hypot(side.direction.x, side.direction.y) < 1e-6
+      out.push({
+        kind: 'tee',
+        elementId: el.id,
+        port: side.port,
+        label: side.label,
+        at: el.position,
+        toward: plumb ? { x: 0, y: 0, z: -Math.sign(side.direction.z) } : { x: -side.direction.x, y: -side.direction.y, z: 0 },
+        ...(side.face ? { face: side.face } : {}),
+      })
     }
   }
   return out
@@ -167,15 +229,22 @@ export interface FaceHandleSide {
   readonly label: string
 }
 
-const FACE_WORD: Readonly<Record<BranchFace, string>> = { top: 'top', bottom: 'bottom' }
+/** A face's own word, in the language on screen. */
+function faceWord(face: BranchFace, t: Translate): string {
+  return face === 'top' ? t('session.faceTop', 'top', { ns: 'editor' }) : t('session.faceBottom', 'bottom', { ns: 'editor' })
+}
 
 /** A level straight run's top and bottom "+" (a vertical or sloped piece has none). */
-export function faceHandleSides(elements: Elements, el: BimElement, kernel: Pick<TeeHandleKernel, 'runLabel'>): FaceHandleSide[] {
+export function faceHandleSides(elements: Elements, el: BimElement, kernel: Pick<TeeHandleKernel, 'runLabel'>, t: Translate = englishOnly): FaceHandleSide[] {
   if (el.kind !== 'run_segment' || Math.abs(el.start.z - el.end.z) > 1) return []
   const length = Math.hypot(el.end.x - el.start.x, el.end.y - el.start.y)
   if (length < 1) return []
   const name = kernel.runLabel(elements, el)
-  return BRANCH_FACES.map((face) => ({ face, s: Math.round((length / 2) * 1000) / 1000, label: `Add a branch off the ${FACE_WORD[face]} of the ${name}` }))
+  return BRANCH_FACES.map((face) => ({
+    face,
+    s: Math.round((length / 2) * 1000) / 1000,
+    label: t('plus.branchOffFace', 'Add a branch off the {{face}} of the {{name}}', { ns: 'editor', face: faceWord(face, t), name }),
+  }))
 }
 
 export interface SlopedSideHandle {
@@ -196,7 +265,7 @@ export interface SlopedSideHandle {
  * and pitches the branch towards it. Level runs have their top and bottom "+"
  * and a tap on hover instead; a riser has none.
  */
-export function slopedSideHandles(elements: Elements, el: BimElement, kernel: Pick<TeeHandleKernel, 'runLabel'>): SlopedSideHandle[] {
+export function slopedSideHandles(elements: Elements, el: BimElement, kernel: Pick<TeeHandleKernel, 'runLabel'>, t: Translate = englishOnly): SlopedSideHandle[] {
   if (el.kind !== 'run_segment' || el.domain !== 'pipe' || Math.abs(el.start.z - el.end.z) <= 1 || !isPitchedOrLevel(el)) return []
   const ax = el.end.x - el.start.x
   const ay = el.end.y - el.start.y
@@ -206,7 +275,16 @@ export function slopedSideHandles(elements: Elements, el: BimElement, kernel: Pi
   const at = { x: el.start.x + ax / 2, y: el.start.y + ay / 2, z: (el.start.z + el.end.z) / 2 }
   const left = { x: -ay / length, y: ax / length }
   const name = kernel.runLabel(elements, el)
-  return ([1, -1] as const).map((side) => ({ side, s, at, left, label: `Add a branch off this side of the ${name}: it joins with the system's branch fitting and falls toward the ${name}` }))
+  return ([1, -1] as const).map((side) => ({
+    side,
+    s,
+    at,
+    left,
+    label: t('plus.branchOffSide', "Add a branch off this side of the {{name}}: it joins with the system's branch fitting and falls toward the {{name}}", {
+      ns: 'editor',
+      name,
+    }),
+  }))
 }
 
 /** The other face, for Tab in plan (where top and bottom are drawn on top of each other). */
@@ -215,8 +293,10 @@ export function nextBranchFace(face: BranchFace): BranchFace {
 }
 
 /** What the plan "+" says on hover: which face it would branch from, and how to switch. */
-export function planFaceHint(face: BranchFace): string {
-  return face === 'top' ? 'Top face — Tab for bottom' : 'Bottom face — Tab for top'
+export function planFaceHint(face: BranchFace, t: Translate = englishOnly): string {
+  return face === 'top'
+    ? t('plus.planTopFace', 'Top face — Tab for bottom', { ns: 'editor' })
+    : t('plus.planBottomFace', 'Bottom face — Tab for top', { ns: 'editor' })
 }
 
 /**

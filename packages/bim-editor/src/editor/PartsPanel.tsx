@@ -59,7 +59,7 @@ export function PartsPanel({ catalog, levels, selectedTypeId, onSelectType, leve
           {onNewPart && (
             <Button variant="outline" size="sm" onClick={onNewPart} data-testid="new-part">
               <Plus data-icon="inline-start" />
-              New part
+              {t('parts.newPart', 'New part', { ns: 'editor' })}
             </Button>
           )}
           <Button variant="ghost" size="icon-sm" aria-label={t('panel.stopPlacing', 'Stop placing', { ns: 'editor' })} onClick={onStop}>
@@ -72,10 +72,10 @@ export function PartsPanel({ catalog, levels, selectedTypeId, onSelectType, leve
       ) : (
         <FieldGroup className="grid grid-cols-2 gap-2">
           <Field>
-            <FieldLabel htmlFor="bm-place-level">Level</FieldLabel>
+            <FieldLabel htmlFor="bm-place-level">{t('route.level', 'Level', { ns: 'editor' })}</FieldLabel>
             <Select value={levelId ?? undefined} onValueChange={onLevel}>
               <SelectTrigger id="bm-place-level" size="sm">
-                <SelectValue placeholder="Choose" />
+                <SelectValue placeholder={t('route.choose', 'Choose', { ns: 'editor' })} />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
@@ -89,7 +89,7 @@ export function PartsPanel({ catalog, levels, selectedTypeId, onSelectType, leve
             </Select>
           </Field>
           <Field>
-            <FieldLabel htmlFor="bm-place-height">Height (ft)</FieldLabel>
+            <FieldLabel htmlFor="bm-place-height">{t('route.heightFt', 'Height (ft)', { ns: 'editor' })}</FieldLabel>
             <Input id="bm-place-height" inputMode="decimal" value={heightFt} onChange={(e) => onHeight(e.target.value)} />
           </Field>
         </FieldGroup>
@@ -99,15 +99,20 @@ export function PartsPanel({ catalog, levels, selectedTypeId, onSelectType, leve
         <InputGroupAddon>
           <Search />
         </InputGroupAddon>
-        <InputGroupInput placeholder="Search parts" aria-label="Search parts" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <InputGroupInput
+          placeholder={t('parts.searchParts', 'Search parts', { ns: 'editor' })}
+          aria-label={t('parts.searchParts', 'Search parts', { ns: 'editor' })}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
       </InputGroup>
       <Select value={category} onValueChange={setCategory}>
-        <SelectTrigger size="sm" aria-label="Category">
+        <SelectTrigger size="sm" aria-label={t('parts.category', 'Category', { ns: 'editor' })}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>
-            <SelectItem value="all">All categories</SelectItem>
+            <SelectItem value="all">{t('parts.allCategories', 'All categories', { ns: 'editor' })}</SelectItem>
             {categories.map(([key, label]) => (
               <SelectItem key={key} value={key}>
                 {label}
@@ -118,16 +123,16 @@ export function PartsPanel({ catalog, levels, selectedTypeId, onSelectType, leve
       </Select>
       {firmLibrary?.status.state === 'loading' && (
         <p className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Spinner /> Loading the firm library…
+          <Spinner /> {t('parts.loadingFirmLibrary', 'Loading the firm library…', { ns: 'editor' })}
         </p>
       )}
       {firmLibrary?.status.state === 'failed' && (
         <Alert variant="destructive" data-testid="firm-library-failed">
-          <AlertTitle>The firm library didn’t load</AlertTitle>
+          <AlertTitle>{t('parts.firmLibraryFailed', 'The firm library didn’t load', { ns: 'editor' })}</AlertTitle>
           <AlertDescription className="flex flex-col items-start gap-2">
-            {firmLibrary.status.message}. Project and starter parts are still here.
+            {t('parts.firmLibraryStillHere', '{{reason}}. Project and starter parts are still here.', { ns: 'editor', reason: firmLibrary.status.message })}
             <Button size="sm" variant="outline" onClick={firmLibrary.retry}>
-              Try again
+              {t('parts.tryAgain', 'Try again', { ns: 'editor' })}
             </Button>
           </AlertDescription>
         </Alert>
@@ -150,6 +155,7 @@ export function AddLevel({
   what?: string
   idPrefix?: string
 }) {
+  const t = useEditorTranslate()
   const [name, setName] = useState('Level 1')
   const [elevation, setElevation] = useState('0')
   const [error, setError] = useState<string | null>(null)
@@ -157,7 +163,7 @@ export function AddLevel({
     e.preventDefault()
     const ft = Number(elevation)
     if (name.trim() === '' || !Number.isFinite(ft)) {
-      setError('Give the level a name and a floor elevation in feet.')
+      setError(t('parts.giveLevelName', 'Give the level a name and a floor elevation in feet.', { ns: 'editor' }))
       return
     }
     setError(onAddLevel(name.trim(), ft * MM_PER_FT))
@@ -168,24 +174,26 @@ export function AddLevel({
         <EmptyMedia variant="icon">
           <Layers />
         </EmptyMedia>
-        <EmptyTitle>Add a level first</EmptyTitle>
-        <EmptyDescription>{what} sit on a level. This model has none yet, so clicks in the view can&apos;t add anything.</EmptyDescription>
+        <EmptyTitle>{t('parts.addLevelFirst', 'Add a level first', { ns: 'editor' })}</EmptyTitle>
+        <EmptyDescription>
+          {t('parts.addLevelLede', "{{what}} sit on a level. This model has none yet, so clicks in the view can't add anything.", { ns: 'editor', what })}
+        </EmptyDescription>
       </EmptyHeader>
       <EmptyContent>
         {onUseArchitectLevels && (
           <Button type="button" variant="outline" size="sm" className="w-full" onClick={onUseArchitectLevels} data-testid={`${idPrefix}-use-architect-levels`}>
             <Building2 data-icon="inline-start" />
-            Use the architect&apos;s levels
+            {t('parts.useArchitectLevels', "Use the architect's levels", { ns: 'editor' })}
           </Button>
         )}
         <form onSubmit={submit} className="flex w-full flex-col gap-2">
           <FieldGroup className="grid grid-cols-2 gap-2">
             <Field>
-              <FieldLabel htmlFor={`${idPrefix}-name`}>Name</FieldLabel>
+              <FieldLabel htmlFor={`${idPrefix}-name`}>{t('plane.name', 'Name', { ns: 'editor' })}</FieldLabel>
               <Input id={`${idPrefix}-name`} value={name} onChange={(e) => setName(e.target.value)} />
             </Field>
             <Field>
-              <FieldLabel htmlFor={`${idPrefix}-elev`}>Floor (ft)</FieldLabel>
+              <FieldLabel htmlFor={`${idPrefix}-elev`}>{t('parts.floorFt', 'Floor (ft)', { ns: 'editor' })}</FieldLabel>
               <Input id={`${idPrefix}-elev`} inputMode="decimal" value={elevation} onChange={(e) => setElevation(e.target.value)} />
             </Field>
           </FieldGroup>
@@ -196,7 +204,7 @@ export function AddLevel({
           )}
           <Button type="submit" size="sm" data-testid={`${idPrefix}-add`}>
             <Plus data-icon="inline-start" />
-            Add level
+            {t('parts.addLevel', 'Add level', { ns: 'editor' })}
           </Button>
         </form>
       </EmptyContent>
