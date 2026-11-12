@@ -5,6 +5,7 @@ import { definitionTypes, PART_CATEGORY_LABELS, partTypeDefinitionSchema, type P
 import type { EditorDataAnswer, EditorDataHost, EditorHostCapabilities } from '@permitzip/bim-editor-host'
 import { useEditorHost } from '@permitzip/bim-editor/host'
 import { unavailableWords } from '@permitzip/bim-editor/host/unavailable'
+import { englishOnly, useEditorTranslate, type Translate } from '../i18n/translate'
 import type { CatalogEntry } from '../model-session'
 
 /**
@@ -15,8 +16,6 @@ import type { CatalogEntry } from '../model-session'
  * (status "none"), everything else that goes wrong is shown with a retry.
  */
 
-const FIRM_PART_LIBRARY = 'The firm part library'
-
 export type FirmLibraryStatus = { state: 'idle' | 'loading' | 'ready' | 'none' } | { state: 'failed'; message: string }
 
 interface Loaded {
@@ -24,11 +23,11 @@ interface Loaded {
   readonly definitions: readonly PartTypeDefinition[]
 }
 
-function parseLibrary(body: unknown): Loaded {
-  if (typeof body !== 'object' || body === null) throw new Error('The firm library answered with nothing')
+function parseLibrary(body: unknown, t: Translate): Loaded {
+  if (typeof body !== 'object' || body === null) throw new Error(t('partEditor.firmLibrary.answeredWithNothing', 'The firm library answered with nothing', { ns: 'editor' }))
   const canWrite = Reflect.get(body, 'canWrite') === true
   const parts: unknown = Reflect.get(body, 'parts')
-  if (!Array.isArray(parts)) throw new Error('The firm library answered without its parts')
+  if (!Array.isArray(parts)) throw new Error(t('partEditor.firmLibrary.answeredWithoutParts', 'The firm library answered without its parts', { ns: 'editor' }))
   const definitions: PartTypeDefinition[] = []
   for (const p of parts) {
     const parsed = partTypeDefinitionSchema.safeParse(typeof p === 'object' && p !== null ? Reflect.get(p, 'definition') : null)
@@ -49,10 +48,11 @@ async function errorText(res: EditorDataAnswer): Promise<string> {
 
 export function useFirmPartLibrary(wanted: boolean) {
   const host = useEditorHost()
-  return useFirmPartLibraryFrom(host.data.firmLibrary, wanted, host.capabilities)
+  const t = useEditorTranslate()
+  return useFirmPartLibraryFrom(host.data.firmLibrary, wanted, host.capabilities, t)
 }
 
-export function useFirmPartLibraryFrom(port: EditorDataHost['firmLibrary'], wanted: boolean, capabilities?: EditorHostCapabilities | null) {
+export function useFirmPartLibraryFrom(port: EditorDataHost['firmLibrary'], wanted: boolean, capabilities?: EditorHostCapabilities | null, t: Translate = englishOnly) {
   const [status, setStatus] = useState<FirmLibraryStatus>({ state: 'idle' })
   const [loaded, setLoaded] = useState<Loaded | null>(null)
 
@@ -72,13 +72,13 @@ export function useFirmPartLibraryFrom(port: EditorDataHost['firmLibrary'], want
         return
       }
       if (!res.ok) throw new Error(await errorText(res))
-      setLoaded(parseLibrary(await res.json()))
+      setLoaded(parseLibrary(await res.json(), t))
       setStatus({ state: 'ready' })
     } catch (err) {
       console.error('[firm-library] load failed', err)
-      setStatus({ state: 'failed', message: err instanceof Error ? err.message : 'the library did not load' })
+      setStatus({ state: 'failed', message: err instanceof Error ? err.message : t('partEditor.firmLibrary.didNotLoad', 'the library did not load', { ns: 'editor' }) })
     }
-  }, [port])
+  }, [port, t])
   const load = useCallback(async () => {
     setStatus({ state: 'loading' })
     await fetchLibrary()
@@ -106,13 +106,17 @@ export function useFirmPartLibraryFrom(port: EditorDataHost['firmLibrary'], want
 
   const save = useCallback(
     async (definition: PartTypeDefinition): Promise<string | null> => {
-      if (!port) return `Not saved to the firm library: ${unavailableWords(FIRM_PART_LIBRARY, capabilities)}`
+      if (!port)
+        return t('partEditor.firmLibrary.notSaved', 'Not saved to the firm library: {{reason}}', {
+          ns: 'editor',
+          reason: unavailableWords(t('partEditor.firmLibrary.subject', 'The firm part library', { ns: 'editor' }), capabilities),
+        })
       const res = await port.importPartType({ definition })
-      if (!res.ok) return `Not saved to the firm library: ${await errorText(res)}`
+      if (!res.ok) return t('partEditor.firmLibrary.notSaved', 'Not saved to the firm library: {{reason}}', { ns: 'editor', reason: await errorText(res) })
       await load()
       return null
     },
-    [port, capabilities, load],
+    [port, capabilities, load, t],
   )
 
   // Wanted but not answered yet reads as loading.

@@ -18,6 +18,7 @@ import {
   type Sketch,
   type SketchConstraint,
 } from '@permitzip/bim-kernel'
+import { englishOnly, type Translate } from '../i18n/translate'
 
 /**
  * The part editor's working copy and the edits its tools make. Pure: every
@@ -38,16 +39,25 @@ export interface Draft {
 
 const EMPTY_MODEL = (id: string): PartModel => ({ id, referencePlanes: [], sketches: [], features: [], planDisplay: 'both', types: [] })
 
-/** A new part: three size parameters, their planes, nothing drawn yet. */
-export function blankDraft(groupName = 'New part', category: PartCategory = 'mechanical_equipment'): Draft {
-  const id = modelIdFor(groupName)
-  const definition = partDefinition(groupName, {
-    typeName: 'Standard',
+/**
+ * A new part: three size parameters, their planes, nothing drawn yet.
+ *
+ * The words it starts with — its name, its one size, the three parameters and
+ * the five planes — are written in the language the person is working in, so a
+ * part authored in Turkish is Turkish from its first save. `t` defaults to
+ * `englishOnly`, which writes exactly the words this function always wrote.
+ */
+export function blankDraft(groupName: string | undefined, category: PartCategory = 'mechanical_equipment', t: Translate = englishOnly): Draft {
+  const name0 = groupName ?? t('partEditor.newPart', 'New part', { ns: 'editor' })
+  const sizeName = t('partEditor.standardSize', 'Standard', { ns: 'editor' })
+  const id = modelIdFor(name0)
+  const definition = partDefinition(name0, {
+    typeName: sizeName,
     category,
     typeParams: [
-      { name: 'length', label: 'Length', kind: 'length', unit: 'mm', min: 1 },
-      { name: 'width', label: 'Width', kind: 'length', unit: 'mm', min: 1 },
-      { name: 'height', label: 'Height', kind: 'length', unit: 'mm', min: 1 },
+      { name: 'length', label: t('partEditor.param.labelLength', 'Length', { ns: 'editor' }), kind: 'length', unit: 'mm', min: 1 },
+      { name: 'width', label: t('partEditor.param.labelWidth', 'Width', { ns: 'editor' }), kind: 'length', unit: 'mm', min: 1 },
+      { name: 'height', label: t('partEditor.param.labelHeight', 'Height', { ns: 'editor' }), kind: 'length', unit: 'mm', min: 1 },
     ],
     typeValues: { length: 36 * MM_PER_IN, width: 24 * MM_PER_IN, height: 24 * MM_PER_IN },
     instanceParams: [],
@@ -60,16 +70,35 @@ export function blankDraft(groupName = 'New part', category: PartCategory = 'mec
       ...EMPTY_MODEL(id),
       planDisplay: 'model',
       referencePlanes: [
-        { id: 'front', name: 'Front', axis: 'x', offset: { param: 'length', scale: 0.5 } },
-        { id: 'back', name: 'Back', axis: 'x', offset: { param: 'length', scale: -0.5 } },
-        { id: 'left', name: 'Left', axis: 'y', offset: { param: 'width', scale: 0.5 } },
-        { id: 'right', name: 'Right', axis: 'y', offset: { param: 'width', scale: -0.5 } },
-        { id: 'top', name: 'Top', axis: 'z', offset: { param: 'height' } },
+        { id: 'front', name: planeName('front', t), axis: 'x', offset: { param: 'length', scale: 0.5 } },
+        { id: 'back', name: planeName('back', t), axis: 'x', offset: { param: 'length', scale: -0.5 } },
+        { id: 'left', name: planeName('left', t), axis: 'y', offset: { param: 'width', scale: 0.5 } },
+        { id: 'right', name: planeName('right', t), axis: 'y', offset: { param: 'width', scale: -0.5 } },
+        { id: 'top', name: planeName('top', t), axis: 'z', offset: { param: 'height' } },
       ],
-      types: [{ name: 'Standard', values: { length: 36 * MM_PER_IN, width: 24 * MM_PER_IN, height: 24 * MM_PER_IN } }],
+      types: [{ name: sizeName, values: { length: 36 * MM_PER_IN, width: 24 * MM_PER_IN, height: 24 * MM_PER_IN } }],
     },
   })
-  return { groupName, definition, typeName: 'Standard' }
+  return { groupName: name0, definition, typeName: sizeName }
+}
+
+/**
+ * The five planes a new part starts with, by their own name (§2.3: a
+ * **referans düzlemi**; a face is a **yüz** and is keyed separately).
+ */
+function planeName(plane: 'front' | 'back' | 'left' | 'right' | 'top', t: Translate): string {
+  switch (plane) {
+    case 'front':
+      return t('partEditor.plane.front', 'Front', { ns: 'editor' })
+    case 'back':
+      return t('partEditor.plane.back', 'Back', { ns: 'editor' })
+    case 'left':
+      return t('partEditor.plane.left', 'Left', { ns: 'editor' })
+    case 'right':
+      return t('partEditor.plane.right', 'Right', { ns: 'editor' })
+    case 'top':
+      return t('partEditor.plane.top', 'Top', { ns: 'editor' })
+  }
 }
 
 /**
@@ -274,17 +303,23 @@ export function addAxisLine(d: Draft, sketchId: string, a: { u: number; v: numbe
   return { draft, id: lineId }
 }
 
-export function addExtrude(d: Draft, sketch: string, operation: PartFeature['operation'], start: Dim, end: Dim): { draft: Draft; id: string } {
+export function addExtrude(d: Draft, sketch: string, operation: PartFeature['operation'], start: Dim, end: Dim, t: Translate = englishOnly): { draft: Draft; id: string } {
   const m = model(d)
   const id = freshId('extrude', modelIds(m))
-  const name = `${operation === 'cut' ? 'Void' : 'Extrusion'} ${m.features.length + 1}`
+  const name =
+    operation === 'cut'
+      ? t('partEditor.feature.voidNumbered', 'Void {{n}}', { ns: 'editor', n: m.features.length + 1 })
+      : t('partEditor.feature.extrusionNumbered', 'Extrusion {{n}}', { ns: 'editor', n: m.features.length + 1 })
   return { draft: withModel(d, { ...m, features: [...m.features, { kind: 'extrude', id, name, operation, sketch, start, end }] }), id }
 }
 
-export function addRevolve(d: Draft, sketch: string, axis: string, operation: PartFeature['operation']): { draft: Draft; id: string } {
+export function addRevolve(d: Draft, sketch: string, axis: string, operation: PartFeature['operation'], t: Translate = englishOnly): { draft: Draft; id: string } {
   const m = model(d)
   const id = freshId('revolve', modelIds(m))
-  const name = `${operation === 'cut' ? 'Void revolve' : 'Revolve'} ${m.features.length + 1}`
+  const name =
+    operation === 'cut'
+      ? t('partEditor.feature.voidRevolveNumbered', 'Void revolve {{n}}', { ns: 'editor', n: m.features.length + 1 })
+      : t('partEditor.feature.revolveNumbered', 'Revolve {{n}}', { ns: 'editor', n: m.features.length + 1 })
   return { draft: withModel(d, { ...m, features: [...m.features, { kind: 'revolve', id, name, operation, sketch, axis, startAngle: 0, endAngle: 360 }] }), id }
 }
 
@@ -384,14 +419,14 @@ const BOX_SIDES = { minU: 'back', maxU: 'front', minV: 'right', maxV: 'left' } a
  * that don't exist yet are added, bound to Length and Width when those
  * parameters exist. One named operation the person picked; nothing guessed.
  */
-export function addStarterBox(d: Draft): { draft: Draft; sketchId: string; featureId: string } {
+export function addStarterBox(d: Draft, t: Translate = englishOnly): { draft: Draft; sketchId: string; featureId: string } {
   const has = (n: string) => d.definition.typeParams.some((p) => p.name === n && p.kind === 'length')
   let next = d
   const sides: ReadonlyArray<{ id: string; name: string; axis: PlaneAxis; offset: Dim }> = [
-    { id: 'front', name: 'Front', axis: 'x', offset: has('length') ? { param: 'length', scale: 0.5 } : 18 * MM_PER_IN },
-    { id: 'back', name: 'Back', axis: 'x', offset: has('length') ? { param: 'length', scale: -0.5 } : -18 * MM_PER_IN },
-    { id: 'left', name: 'Left', axis: 'y', offset: has('width') ? { param: 'width', scale: 0.5 } : 12 * MM_PER_IN },
-    { id: 'right', name: 'Right', axis: 'y', offset: has('width') ? { param: 'width', scale: -0.5 } : -12 * MM_PER_IN },
+    { id: 'front', name: planeName('front', t), axis: 'x', offset: has('length') ? { param: 'length', scale: 0.5 } : 18 * MM_PER_IN },
+    { id: 'back', name: planeName('back', t), axis: 'x', offset: has('length') ? { param: 'length', scale: -0.5 } : -18 * MM_PER_IN },
+    { id: 'left', name: planeName('left', t), axis: 'y', offset: has('width') ? { param: 'width', scale: 0.5 } : 12 * MM_PER_IN },
+    { id: 'right', name: planeName('right', t), axis: 'y', offset: has('width') ? { param: 'width', scale: -0.5 } : -12 * MM_PER_IN },
   ]
   for (const s of sides) {
     const m = model(next)
@@ -404,7 +439,7 @@ export function addStarterBox(d: Draft): { draft: Draft; sketchId: string; featu
   const p = (k: string) => `${sketchId}_${k}`
   const sketch: Sketch = {
     id: sketchId,
-    name: 'Box outline on Base',
+    name: t('partEditor.sketch.boxOutline', 'Box outline on Base', { ns: 'editor' }),
     plane: 'base',
     points: [
       { id: p('a'), u: at(BOX_SIDES.minU), v: at(BOX_SIDES.minV) },
@@ -421,9 +456,9 @@ export function addStarterBox(d: Draft): { draft: Draft; sketchId: string; featu
     ],
   }
   next = withModel(next, { ...m, sketches: [...m.sketches, sketch] })
-  const ex = addExtrude(next, sketchId, 'join', 0, has('height') ? { param: 'height' } : 24 * MM_PER_IN)
+  const ex = addExtrude(next, sketchId, 'join', 0, has('height') ? { param: 'height' } : 24 * MM_PER_IN, t)
   const featureId = ex.id
-  return { draft: updateFeature(ex.draft, featureId, (f) => ({ ...f, name: 'Box' })), sketchId, featureId }
+  return { draft: updateFeature(ex.draft, featureId, (f) => ({ ...f, name: t('partEditor.feature.box', 'Box', { ns: 'editor' }) })), sketchId, featureId }
 }
 
 // ---------------------------------------------------------------- reference planes in 3D
@@ -487,7 +522,7 @@ function binding(offset: Dim): Binding {
 const near = (a: number, b: number) => Math.abs(a - b) < 1e-6
 
 /** The dimensions a flat view draws for the planes square to `sketchAxis`'s view. */
-export function planeDimensions(d: Draft, sketchAxis: PlaneAxis): PlaneDim[] {
+export function planeDimensions(d: Draft, sketchAxis: PlaneAxis, t: Translate = englishOnly): PlaneDim[] {
   const m = model(d)
   const byId = new Map(m.referencePlanes.map((p) => [p.id, p]))
   const lines = planeLines(d, sketchAxis).filter((l) => byId.has(l.id))
@@ -514,7 +549,7 @@ export function planeDimensions(d: Draft, sketchAxis: PlaneAxis): PlaneDim[] {
       out.push({
         id: `${lo.id}~${hi.id}`,
         planes: [lo.id, hi.id],
-        names: `${lo.name} to ${hi.name}`,
+        names: t('partEditor.dim.between', '{{from}} to {{to}}', { ns: 'editor', from: lo.name, to: hi.name }),
         coordinate: line.coordinate,
         from: lo.value,
         to: hi.value,
@@ -527,7 +562,7 @@ export function planeDimensions(d: Draft, sketchAxis: PlaneAxis): PlaneDim[] {
     out.push({
       id: line.id,
       planes: [line.id],
-      names: `${originName(plane.axis)} to ${line.name}`,
+      names: t('partEditor.dim.names', '{{origin}} to {{plane}}', { ns: 'editor', origin: originName(plane.axis, t), plane: line.name }),
       coordinate: line.coordinate,
       from: 0,
       to: line.value,
@@ -538,11 +573,17 @@ export function planeDimensions(d: Draft, sketchAxis: PlaneAxis): PlaneDim[] {
   return out
 }
 
-function originName(axis: PlaneAxis): string {
-  return BUILTIN_PLANES_BY_AXIS[axis]
+/** What the dimension measures from: the part's own centre line on x and y, its base on z. */
+function originName(axis: PlaneAxis, t: Translate): string {
+  switch (axis) {
+    case 'x':
+      return t('partEditor.plane.centreLeftRight', 'Centre (left/right)', { ns: 'editor' })
+    case 'y':
+      return t('partEditor.plane.centreFrontBack', 'Centre (front/back)', { ns: 'editor' })
+    case 'z':
+      return t('partEditor.plane.base', 'Base', { ns: 'editor' })
+  }
 }
-
-const BUILTIN_PLANES_BY_AXIS: Readonly<Record<PlaneAxis, string>> = { x: 'Centre (left/right)', y: 'Centre (front/back)', z: 'Base' }
 
 /** What a dimension measures, in millimetres. */
 export function dimLength(dim: PlaneDim): number {

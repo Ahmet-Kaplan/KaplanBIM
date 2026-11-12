@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { PartViewLinework, PlaneAxis, ResolvedSketch } from '@permitzip/bim-kernel'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
 import { MM_PER_IN, dimLength, type PlaneDim, type PlaneLine } from './draft'
 import { FlatViewNavigator } from '../input/flat-view-nav'
 import { panBy, zoomAt, type FlatViewState } from './zoom'
@@ -19,6 +20,18 @@ export type FlatView = 'plan' | 'front' | 'side'
 
 /** Which plane axis a view looks along: sketches on planes square to it lie face-on. */
 export const VIEW_AXIS: Readonly<Record<FlatView, PlaneAxis>> = { plan: 'z', front: 'x', side: 'y' }
+
+/** What the picture is, read out: "plan view of the part" (§2.4 *View* = **görünüm**). */
+function viewOfThePart(view: FlatView, t: Translate): string {
+  switch (view) {
+    case 'plan':
+      return t('partEditor.canvas.planView', 'plan view of the part', { ns: 'editor' })
+    case 'front':
+      return t('partEditor.canvas.frontView', 'front view of the part', { ns: 'editor' })
+    case 'side':
+      return t('partEditor.canvas.sideView', 'side view of the part', { ns: 'editor' })
+  }
+}
 export const AXIS_VIEW: Readonly<Record<PlaneAxis, FlatView>> = { z: 'plan', x: 'front', y: 'side' }
 
 export interface UV {
@@ -52,6 +65,7 @@ const inches = (mm: number) => `${Math.round((mm / MM_PER_IN) * 100) / 100}"`
 const FIT: FlatViewState = { zoom: 1, center: null }
 
 export function PartCanvas({ view, linework, planes, dims, paramLabels, selectedDim, onDim, sketches, activeSketchId, tool, fitKey, onRectangle, onCircle, onPolyline, onAxis }: Props) {
+  const t = useEditorTranslate()
   const svgRef = useRef<SVGSVGElement>(null)
   const [nav, setNav] = useState<FlatViewState>(FIT)
   const [lastFit, setLastFit] = useState(fitKey)
@@ -203,7 +217,7 @@ export function PartCanvas({ view, linework, planes, dims, paramLabels, selected
         onPointerUp={onUp}
         onDoubleClick={() => !drawing && setNav(FIT)}
         role="img"
-        aria-label={`${view} view of the part`}
+        aria-label={viewOfThePart(view, t)}
       >
         {linework?.faces.map((f, i) => (
           <polygon key={`f${i}`} points={f.poly.map((q) => `${X(q.u)},${Y(q.v)}`).join(' ')} className="fill-muted" opacity={0.55 + 0.35 * f.light} />
@@ -262,11 +276,19 @@ export function PartCanvas({ view, linework, planes, dims, paramLabels, selected
       {drawing && hover && (
         <div className="pointer-events-none absolute bottom-2 left-2 rounded bg-background/90 px-2 py-1 text-xs text-muted-foreground">
           {`${Math.round((hover.u / 25.4) * 10) / 10}", ${Math.round((hover.v / 25.4) * 10) / 10}"`}
-          {tool === 'polyline' ? ' · click the first point to close' : ' · corners near a dashed reference plane lock to it'}
+          {tool === 'polyline'
+            ? t('partEditor.canvas.closeHint', ' · click the first point to close', { ns: 'editor' })
+            : t('partEditor.canvas.lockHint', ' · corners near a dashed reference plane lock to it', { ns: 'editor' })}
         </div>
       )}
       {!drawing && dims.length > 0 && (
-        <div className="pointer-events-none absolute bottom-2 left-2 rounded bg-background/90 px-2 py-1 text-xs text-muted-foreground">Click a dimension to change it or link it to a parameter · scroll to zoom at the pointer · drag to pan · double-click to fit</div>
+        <div className="pointer-events-none absolute bottom-2 left-2 rounded bg-background/90 px-2 py-1 text-xs text-muted-foreground">
+          {t(
+            'partEditor.canvas.hints',
+            'Click a dimension to change it or link it to a parameter · scroll to zoom at the pointer · drag to pan · double-click to fit',
+            { ns: 'editor' },
+          )}
+        </div>
       )}
     </div>
   )
@@ -282,6 +304,7 @@ function svgPoint(svg: SVGSVGElement | null, e: { clientX: number; clientY: numb
 
 /** A dimension line with its text; the whole mark is one click target. */
 function DimMark({ dim, text, a, b, ext, stroke, selected, onPick }: { dim: PlaneDim; text: string; a: UV; b: UV; ext: { coordinate: 'u' | 'v'; base: number }; stroke: number; selected: boolean; onPick: (id: string) => void }) {
+  const t = useEditorTranslate()
   const cls = selected ? 'stroke-accent-600' : dim.param ? 'stroke-primary' : 'stroke-muted-foreground'
   const fill = selected ? 'fill-accent-700' : dim.param ? 'fill-primary' : 'fill-muted-foreground'
   const tick = 5 * stroke
@@ -303,7 +326,7 @@ function DimMark({ dim, text, a, b, ext, stroke, selected, onPick }: { dim: Plan
       data-dim-param={dim.param ?? ''}
       role="button"
       tabIndex={0}
-      aria-label={`Dimension ${dim.names}: ${text}`}
+      aria-label={t('partEditor.canvas.dimensionAria', 'Dimension {{names}}: {{value}}', { ns: 'editor', names: dim.names, value: text })}
       className="cursor-pointer outline-none"
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => {

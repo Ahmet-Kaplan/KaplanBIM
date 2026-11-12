@@ -39,6 +39,9 @@ import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, Tabl
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs'
 import { ToggleGroup, ToggleGroupItem } from '../../ui/toggle-group'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip'
+import { domainLabelOf } from '../i18n/domain'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
+import { peId } from './field-id'
 import { ElectricalConnectorFields } from './ElectricalConnectorFields'
 import { ConnectorReport } from './ConnectorReport'
 import { ClearancesPanel } from './ClearancesPanel'
@@ -117,6 +120,113 @@ interface Props {
 const DIM_PREFIX = 'dim:'
 
 type Panel = 'create' | 'parameters' | 'connectors' | 'clearances' | 'test'
+
+/**
+ * A part category in the language being drawn (§2.2 *category* = **kategori**).
+ *
+ * The kernel's own names (`PART_CATEGORY_LABELS`) are data an add-on and a firm
+ * row both read, so they are translated where they are drawn rather than
+ * spliced raw into the editor's Turkish frame: an unknown category still shows
+ * the kernel's word.
+ */
+function partCategoryLabel(category: string, t: Translate): string {
+  switch (category) {
+    case 'mechanical_equipment':
+      return t('partEditor.category.mechanicalEquipment', 'Mechanical equipment', { ns: 'editor' })
+    case 'air_terminal':
+      return t('partEditor.category.airTerminals', 'Air terminals', { ns: 'editor' })
+    case 'duct_accessory':
+      return t('partEditor.category.ductAccessories', 'Duct accessories', { ns: 'editor' })
+    case 'pipe_accessory':
+      return t('partEditor.category.pipeAccessories', 'Pipe accessories', { ns: 'editor' })
+    case 'plumbing_fixture':
+      return t('partEditor.category.plumbingFixtures', 'Plumbing fixtures', { ns: 'editor' })
+    case 'electrical_equipment':
+      return t('partEditor.category.electricalEquipment', 'Electrical equipment', { ns: 'editor' })
+    case 'electrical_device':
+      return t('partEditor.category.electricalDevices', 'Electrical devices', { ns: 'editor' })
+    case 'lighting_fixture':
+      return t('partEditor.category.lightingFixtures', 'Lighting fixtures', { ns: 'editor' })
+    case 'generic':
+      return t('partEditor.category.generic', 'Generic models', { ns: 'editor' })
+    default:
+      return PART_CATEGORY_LABELS[category as PartCategory] ?? category
+  }
+}
+
+/** One of the four views, as its tab says it (§2.4 *View* = **görünüm**). */
+function viewTitle(view: EditorView, t: Translate): string {
+  switch (view) {
+    case 'plan':
+      return t('partEditor.view.plan', 'Plan', { ns: 'editor' })
+    case 'front':
+      return t('partEditor.view.front', 'Front', { ns: 'editor' })
+    case 'side':
+      return t('partEditor.view.side', 'Side', { ns: 'editor' })
+    case '3d':
+      return t('partEditor.view.threeD', '3D', { ns: 'editor' })
+  }
+}
+
+/** The badge over the views while a sketch is open: which plane, and which view it is being drawn in. */
+function drawingOn(view: EditorView, plane: string, t: Translate): string {
+  switch (view) {
+    case 'plan':
+      return t('partEditor.drawingOnPlan', 'Drawing on {{plane}} (plan view)', { ns: 'editor', plane })
+    case 'front':
+      return t('partEditor.drawingOnFront', 'Drawing on {{plane}} (front view)', { ns: 'editor', plane })
+    case 'side':
+      return t('partEditor.drawingOnSide', 'Drawing on {{plane}} (side view)', { ns: 'editor', plane })
+    case '3d':
+      return t('partEditor.drawingOnPlan', 'Drawing on {{plane}} (plan view)', { ns: 'editor', plane })
+  }
+}
+
+/**
+ * A connector's domain as the row reads it (duct / pipe / electrical).
+ *
+ * These are stored registry ids, so the word comes from the domain map rather
+ * than from a table here: `locales/tr/domain.json` already answers them, and an
+ * id nobody has translated still shows its own English (§2.8).
+ */
+function domainWord(domain: string, t: Translate): string {
+  return domainLabelOf(t)(domain)
+}
+
+/** A connector's system kind: the machine id's own words, drawn in the host's language (§5). */
+function systemWord(kind: string, t: Translate): string {
+  return domainLabelOf(t)(kind.replace(/_/g, ' '))
+}
+
+/** The three position fields of a connector: forward, left, up. */
+function axisWord(axis: 'x' | 'y' | 'z', t: Translate): string {
+  switch (axis) {
+    case 'x':
+      return t('partEditor.axis.forward', 'Forward', { ns: 'editor' })
+    case 'y':
+      return t('partEditor.axis.left', 'Left', { ns: 'editor' })
+    case 'z':
+      return t('partEditor.axis.up', 'Up', { ns: 'editor' })
+  }
+}
+
+/** Which face of the part a connector goes on, capitalised the way the picker lists it. */
+function faceTitle(face: Face, t: Translate): string {
+  switch (face) {
+    case 'top':
+      return t('partEditor.faceTitle.top', 'Top', { ns: 'editor' })
+    case 'bottom':
+      return t('partEditor.faceTitle.bottom', 'Bottom', { ns: 'editor' })
+    case 'front':
+      return t('partEditor.faceTitle.front', 'Front', { ns: 'editor' })
+    case 'back':
+      return t('partEditor.faceTitle.back', 'Back', { ns: 'editor' })
+    case 'left':
+      return t('partEditor.faceTitle.left', 'Left', { ns: 'editor' })
+    case 'right':
+      return t('partEditor.faceTitle.right', 'Right', { ns: 'editor' })
+  }
+}
 type EngineState = { status: 'loading' } | { status: 'ready' } | { status: 'failed'; message: string }
 
 /**
@@ -126,7 +236,8 @@ type EngineState = { status: 'loading' } | { status: 'ready' } | { status: 'fail
  * tab that flexes every size. Save writes every size to the project library.
  */
 export default function PartEditorWindow({ initial, canEdit, onSave, firmLibrary, onClose, placesAt = null, newCategory }: Props) {
-  const [draft, setDraft] = useState<Draft>(() => (initial ? draftFromDefinition(initial) : blankDraft(undefined, newCategory)))
+  const t = useEditorTranslate()
+  const [draft, setDraft] = useState<Draft>(() => (initial ? draftFromDefinition(initial) : blankDraft(undefined, newCategory, t)))
   const [past, setPast] = useState<Draft[]>([])
   const [future, setFuture] = useState<Draft[]>([])
   const [saved, setSaved] = useState<Draft | null>(initial ? draft : null)
@@ -217,7 +328,7 @@ export default function PartEditorWindow({ initial, canEdit, onSave, firmLibrary
   const activePlane = activeSketchRow ? planes.find((p) => p.id === activeSketchRow.plane) : undefined
   const flatView: FlatView = view === '3d' ? 'plan' : view
   const viewPlanes = planeLines(draft, VIEW_AXIS[flatView])
-  const viewDims = planeDimensions(draft, VIEW_AXIS[flatView])
+  const viewDims = planeDimensions(draft, VIEW_AXIS[flatView], t)
   const selectedDim = selected?.startsWith(DIM_PREFIX) ? selected.slice(DIM_PREFIX.length) : null
   const viewSketches = resolved
     ? [...resolved.sketches.values()].filter((rs) => planes.find((p) => p.id === rs.sketch.plane)?.axis === VIEW_AXIS[flatView])
@@ -227,7 +338,7 @@ export default function PartEditorWindow({ initial, canEdit, onSave, firmLibrary
   const startSketch = (planeId: string) => {
     const plane = planes.find((p) => p.id === planeId)
     if (!plane) return
-    const r = addSketch(current.current, planeId, `Sketch on ${plane.name}`)
+    const r = addSketch(current.current, planeId, t('partEditor.sketch.onPlane', 'Sketch on {{plane}}', { ns: 'editor', plane: plane.name }))
     edit(r.draft)
     setActiveSketch(r.id)
     setSelected(r.id)
@@ -236,7 +347,7 @@ export default function PartEditorWindow({ initial, canEdit, onSave, firmLibrary
   }
 
   const startBox = () => {
-    const r = addStarterBox(current.current)
+    const r = addStarterBox(current.current, t)
     edit(r.draft)
     setSelected(r.featureId)
     setActiveSketch(null)
@@ -253,27 +364,47 @@ export default function PartEditorWindow({ initial, canEdit, onSave, firmLibrary
       return 0
     }
   }, [draft])
-  const reportNote = connectorProblems === 0 ? '' : ` ${connectorProblems === 1 ? '1 connector problem goes' : `${connectorProblems} connector problems go`} with it (Connectors › Check connectors).`
+  const reportNote =
+    connectorProblems === 0
+      ? ''
+      : ` ${
+          connectorProblems === 1
+            ? t('partEditor.reportNoteOne', '1 connector problem goes with it (Connectors › Check connectors).', { ns: 'editor' })
+            : t('partEditor.reportNoteMany', '{{n}} connector problems go with it (Connectors › Check connectors).', { ns: 'editor', n: connectorProblems })
+        }`
   const sizeCount = Math.max(1, model?.types.length ?? 1)
-  const sizesText = `${sizeCount} size${sizeCount === 1 ? '' : 's'}`
+  const sizesText =
+    sizeCount === 1
+      ? t('partEditor.sizes.one', '1 size', { ns: 'editor' })
+      : t('partEditor.sizes.many', '{{n}} sizes', { ns: 'editor', n: sizeCount })
   const save = () => {
     const issue = allIssues[0]
     if (issue) {
-      setSaveMessage({ ok: false, text: `Not saved: ${issue.message}` })
+      setSaveMessage({ ok: false, text: t('partEditor.save.notSaved', 'Not saved: {{reason}}', { ns: 'editor', reason: issue.message }) })
       return
     }
     const refused = onSave(draftDefinition(draft))
     if (refused) setSaveMessage({ ok: false, text: refused })
     else {
       setSaved(draft)
-      setSaveMessage({ ok: true, text: placesAt ? `Saved to the project library (${sizesText}) and placed at ${placesAt}. Undo removes both.${reportNote}` : `Saved to the project library (${sizesText}). Placed parts update.${reportNote}` })
+      setSaveMessage({
+        ok: true,
+        text: placesAt
+          ? t('partEditor.save.savedPlaced', 'Saved to the project library ({{sizes}}) and placed at {{at}}. Undo removes both.{{note}}', {
+              ns: 'editor',
+              sizes: sizesText,
+              at: placesAt,
+              note: reportNote,
+            })
+          : t('partEditor.save.saved', 'Saved to the project library ({{sizes}}). Placed parts update.{{note}}', { ns: 'editor', sizes: sizesText, note: reportNote }),
+      })
     }
   }
   const [publishing, setPublishing] = useState(false)
   const openPublish = () => {
     const issue = allIssues[0]
     if (issue) {
-      setSaveMessage({ ok: false, text: `Not published: ${issue.message}` })
+      setSaveMessage({ ok: false, text: t('partEditor.save.notPublished', 'Not published: {{reason}}', { ns: 'editor', reason: issue.message }) })
       return
     }
     setSaveMessage(null)
@@ -281,10 +412,25 @@ export default function PartEditorWindow({ initial, canEdit, onSave, firmLibrary
   }
   const requestClose = () => (dirty && canEdit ? setConfirmClose(true) : onClose())
 
-  const saveBlocked = !canEdit ? 'You can view this part but not change the project library' : allIssues[0] ? `Fix first: ${allIssues[0].message}` : !dirty ? 'No unsaved changes' : null
-  const firmBlocked = !firmLibrary ? null : !firmLibrary.canWrite ? (firmLibrary.reason ?? 'You can’t add parts to the firm library') : allIssues[0] ? `Fix first: ${allIssues[0].message}` : publishing ? 'Publishing…' : null
+  const fixFirst = (reason: string) => t('partEditor.fixFirst', 'Fix first: {{reason}}', { ns: 'editor', reason })
+  const saveBlocked = !canEdit
+    ? t('partEditor.save.noLibraryRights', 'You can view this part but not change the project library', { ns: 'editor' })
+    : allIssues[0]
+      ? fixFirst(allIssues[0].message)
+      : !dirty
+        ? t('partEditor.save.noChanges', 'No unsaved changes', { ns: 'editor' })
+        : null
+  const firmBlocked = !firmLibrary
+    ? null
+    : !firmLibrary.canWrite
+      ? (firmLibrary.reason ?? t('partEditor.save.firmNoRights', 'You can’t add parts to the firm library', { ns: 'editor' }))
+      : allIssues[0]
+        ? fixFirst(allIssues[0].message)
+        : publishing
+          ? t('partEditor.save.publishing', 'Publishing…', { ns: 'editor' })
+          : null
   const noFeatures = (model?.features.length ?? 0) === 0
-  const drawBlocked = activeSketch ? null : 'Choose Sketch on plane first'
+  const drawBlocked = activeSketch ? null : t('partEditor.sketch.chooseFirst', 'Choose Sketch on plane first', { ns: 'editor' })
   const sketchesWithProfile = model?.sketches.filter((s) => s.entities.some((e) => e.kind !== 'line' || !e.construction)) ?? []
 
   return (
@@ -295,15 +441,17 @@ export default function PartEditorWindow({ initial, canEdit, onSave, firmLibrary
           setTool('select')
         }
       }}>
-        <DialogTitle className="sr-only">Part editor</DialogTitle>
-        <DialogDescription className="sr-only">Draw, size and connect a part, then save it to the project library.</DialogDescription>
+        <DialogTitle className="sr-only">{t('partEditor.title', 'Part editor', { ns: 'editor' })}</DialogTitle>
+        <DialogDescription className="sr-only">
+          {t('partEditor.titleWhy', 'Draw, size and connect a part, then save it to the project library.', { ns: 'editor' })}
+        </DialogDescription>
         <header className="flex flex-wrap items-end gap-3 border-b p-3 pr-12">
           <Field className="w-64">
-            <FieldLabel htmlFor="pe-name">Part name</FieldLabel>
+            <FieldLabel htmlFor="pe-name">{t('partEditor.partName', 'Part name', { ns: 'editor' })}</FieldLabel>
             <Input id="pe-name" value={draft.groupName} disabled={!canEdit} onChange={(e) => edit((d) => ({ ...d, groupName: e.target.value }))} />
           </Field>
           <Field className="w-56">
-            <FieldLabel htmlFor="pe-category">Category</FieldLabel>
+            <FieldLabel htmlFor="pe-category">{t('partEditor.categoryLabel', 'Category', { ns: 'editor' })}</FieldLabel>
             <Select value={draft.definition.category} onValueChange={(v) => edit((d) => ({ ...d, definition: { ...d.definition, category: v as PartCategory } }))} disabled={!canEdit}>
               <SelectTrigger id="pe-category" size="sm">
                 <SelectValue />
@@ -312,7 +460,7 @@ export default function PartEditorWindow({ initial, canEdit, onSave, firmLibrary
                 <SelectGroup>
                   {PART_CATEGORIES.map((c) => (
                     <SelectItem key={c} value={c}>
-                      {PART_CATEGORY_LABELS[c]}
+                      {partCategoryLabel(c, t)}
                     </SelectItem>
                   ))}
                 </SelectGroup>
@@ -320,7 +468,7 @@ export default function PartEditorWindow({ initial, canEdit, onSave, firmLibrary
             </Select>
           </Field>
           <Field className="w-48">
-            <FieldLabel htmlFor="pe-size">Size shown</FieldLabel>
+            <FieldLabel htmlFor="pe-size">{t('partEditor.sizeShown', 'Size shown', { ns: 'editor' })}</FieldLabel>
             <Select value={draft.typeName} onValueChange={(v) => show({ ...current.current, typeName: v })}>
               <SelectTrigger id="pe-size" size="sm" data-testid="pe-size">
                 <SelectValue />
@@ -337,10 +485,10 @@ export default function PartEditorWindow({ initial, canEdit, onSave, firmLibrary
             </Select>
           </Field>
           <div className="ml-auto flex items-center gap-2">
-            <Button variant="ghost" size="icon-sm" aria-label="Undo" disabled={past.length === 0} onClick={undo}>
+            <Button variant="ghost" size="icon-sm" aria-label={t('partEditor.undo', 'Undo', { ns: 'editor' })} disabled={past.length === 0} onClick={undo}>
               <Undo2 />
             </Button>
-            <Button variant="ghost" size="icon-sm" aria-label="Redo" disabled={future.length === 0} onClick={redo}>
+            <Button variant="ghost" size="icon-sm" aria-label={t('partEditor.redo', 'Redo', { ns: 'editor' })} disabled={future.length === 0} onClick={redo}>
               <Redo2 />
             </Button>
             <Tooltip>
@@ -348,7 +496,7 @@ export default function PartEditorWindow({ initial, canEdit, onSave, firmLibrary
                 <span>
                   <Button onClick={save} disabled={saveBlocked !== null} data-testid="pe-save">
                     <Save data-icon="inline-start" />
-                    Save to project library
+                    {t('partEditor.saveToLibrary', 'Save to project library', { ns: 'editor' })}
                   </Button>
                 </span>
               </TooltipTrigger>
@@ -360,21 +508,27 @@ export default function PartEditorWindow({ initial, canEdit, onSave, firmLibrary
                   <span>
                     <Button variant="outline" onClick={openPublish} disabled={firmBlocked !== null} data-testid="pe-save-firm">
                       <Library data-icon="inline-start" />
-                      Publish…
+                      {t('partEditor.publishButton', 'Publish…', { ns: 'editor' })}
                     </Button>
                   </span>
                 </TooltipTrigger>
-                <TooltipContent>{firmBlocked ?? 'Publish a new revision to the firm library: every project can place it, and placed copies are offered the update'}</TooltipContent>
+                <TooltipContent>
+                  {firmBlocked ??
+                    t('partEditor.publishWhy', 'Publish a new revision to the firm library: every project can place it, and placed copies are offered the update', { ns: 'editor' })}
+                </TooltipContent>
               </Tooltip>
             )}
             <Button variant="outline" onClick={requestClose}>
               <X data-icon="inline-start" />
-              Close
+              {t('partEditor.close', 'Close', { ns: 'editor' })}
             </Button>
           </div>
           {placesAt && (
             <p className="basis-full text-sm text-muted-foreground" data-testid="pe-places-at">
-              Model in place: Save adds this part to the project and places it at {placesAt}. Publish… also makes it a reusable part in the firm library.
+              {t('partEditor.inPlace.lede', 'Model in place: Save adds this part to the project and places it at {{at}}. Publish… also makes it a reusable part in the firm library.', {
+                ns: 'editor',
+                at: placesAt,
+              })}
             </p>
           )}
         </header>
@@ -383,7 +537,7 @@ export default function PartEditorWindow({ initial, canEdit, onSave, firmLibrary
             open
             onOpenChange={setPublishing}
             definition={draftDefinition(draft)}
-            partName={draft.groupName || 'this part'}
+            partName={draft.groupName || t('partEditor.thisPart', 'this part', { ns: 'editor' })}
             sizesText={sizesText}
             alsoSaveForPlacePart={firmLibrary.save}
             onDone={(m) => setSaveMessage({ ok: m.ok, text: `${m.text}${m.ok ? reportNote : ''}` })}
@@ -392,23 +546,39 @@ export default function PartEditorWindow({ initial, canEdit, onSave, firmLibrary
 
         <Tabs value={panel} onValueChange={(v) => setPanel(v as Panel)} className="gap-0 border-b px-3 pt-2">
           <TabsList>
-            <TabsTrigger value="create">Create</TabsTrigger>
-            <TabsTrigger value="parameters">Parameters</TabsTrigger>
-            <TabsTrigger value="connectors">Connectors</TabsTrigger>
-            <TabsTrigger value="clearances">Clearances</TabsTrigger>
-            <TabsTrigger value="test">Test sizes</TabsTrigger>
+            <TabsTrigger value="create">{t('partEditor.tab.create', 'Create', { ns: 'editor' })}</TabsTrigger>
+            <TabsTrigger value="parameters">{t('partEditor.tab.parameters', 'Parameters', { ns: 'editor' })}</TabsTrigger>
+            <TabsTrigger value="connectors">{t('partEditor.connectors', 'Connectors', { ns: 'editor' })}</TabsTrigger>
+            <TabsTrigger value="clearances">{t('partEditor.zone.title', 'Clearances', { ns: 'editor' })}</TabsTrigger>
+            <TabsTrigger value="test">{t('partEditor.testSizes', 'Test sizes', { ns: 'editor' })}</TabsTrigger>
           </TabsList>
           <TabsContent value="create" className="flex flex-wrap items-center gap-2 py-2">
-            <Button size="sm" variant="outline" disabled={!canEdit || !noFeatures} title={noFeatures ? 'A box on the Base plane, locked to Front, Back, Left and Right, as tall as Height' : 'Only for a part with nothing drawn yet'} onClick={startBox} data-testid="pe-start-box">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!canEdit || !noFeatures}
+              title={
+                noFeatures
+                  ? t('partEditor.start.boxWhy', 'A box on the Base plane, locked to Front, Back, Left and Right, as tall as Height', { ns: 'editor' })
+                  : t('partEditor.start.boxOnly', 'Only for a part with nothing drawn yet', { ns: 'editor' })
+              }
+              onClick={startBox}
+              data-testid="pe-start-box"
+            >
               <Box data-icon="inline-start" />
-              Start with a box
+              {t('partEditor.start.box', 'Start with a box', { ns: 'editor' })}
             </Button>
             <NewPlane params={params} disabled={!canEdit} onAdd={(name, axis, offset) => edit((d) => addReferencePlane(d, name, axis, offset).draft)} />
             <Separator orientation="vertical" className="h-6" />
             <Select value="" onValueChange={startSketch} disabled={!canEdit}>
-              <SelectTrigger size="sm" className="w-48" aria-label="Sketch on plane" data-testid="pe-sketch-on">
+              <SelectTrigger
+                size="sm"
+                className="w-48"
+                aria-label={t('partEditor.sketch.onPlaneAria', 'Sketch on plane', { ns: 'editor' })}
+                data-testid="pe-sketch-on"
+              >
                 <PenLine data-icon="inline-start" />
-                <SelectValue placeholder="Sketch on plane…" />
+                <SelectValue placeholder={t('partEditor.sketch.onPlanePlaceholder', 'Sketch on plane…', { ns: 'editor' })} />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
@@ -420,30 +590,54 @@ export default function PartEditorWindow({ initial, canEdit, onSave, firmLibrary
                 </SelectGroup>
               </SelectContent>
             </Select>
-            <ToggleGroup type="single" variant="outline" size="sm" value={tool} onValueChange={(v) => v && setTool(v as DrawTool)} disabled={!!drawBlocked || !canEdit} aria-label="Drawing tool">
-              <ToggleGroupItem value="rectangle" aria-label="Rectangle" title={drawBlocked ?? 'Rectangle: drag; corners near a reference plane lock to it'} data-testid="pe-tool-rectangle">
+            <ToggleGroup
+              type="single"
+              variant="outline"
+              size="sm"
+              value={tool}
+              onValueChange={(v) => v && setTool(v as DrawTool)}
+              disabled={!!drawBlocked || !canEdit}
+              aria-label={t('partEditor.tool.aria', 'Drawing tool', { ns: 'editor' })}
+            >
+              <ToggleGroupItem
+                value="rectangle"
+                aria-label={t('partEditor.tool.rectangle', 'Rectangle', { ns: 'editor' })}
+                title={drawBlocked ?? t('partEditor.tool.rectangleWhy', 'Rectangle: drag; corners near a reference plane lock to it', { ns: 'editor' })}
+                data-testid="pe-tool-rectangle"
+              >
                 <Square />
               </ToggleGroupItem>
-              <ToggleGroupItem value="circle" aria-label="Circle" title={drawBlocked ?? 'Circle: drag from the centre'}>
+              <ToggleGroupItem value="circle" aria-label={t('partEditor.tool.circle', 'Circle', { ns: 'editor' })} title={drawBlocked ?? t('partEditor.tool.circleWhy', 'Circle: drag from the centre', { ns: 'editor' })}>
                 <Circle />
               </ToggleGroupItem>
-              <ToggleGroupItem value="polyline" aria-label="Polyline" title={drawBlocked ?? 'Polyline: click points, click the first to close'}>
+              <ToggleGroupItem
+                value="polyline"
+                aria-label={t('partEditor.tool.polyline', 'Polyline', { ns: 'editor' })}
+                title={drawBlocked ?? t('partEditor.tool.polylineWhy', 'Polyline: click points, click the first to close', { ns: 'editor' })}
+              >
                 <Spline />
               </ToggleGroupItem>
-              <ToggleGroupItem value="axis" aria-label="Axis line" title={drawBlocked ?? 'Axis line for a revolve'}>
+              <ToggleGroupItem value="axis" aria-label={t('partEditor.tool.axisLine', 'Axis line', { ns: 'editor' })} title={drawBlocked ?? t('partEditor.tool.axisLineWhy', 'Axis line for a revolve', { ns: 'editor' })}>
                 <Slash />
               </ToggleGroupItem>
             </ToggleGroup>
             <Separator orientation="vertical" className="h-6" />
-            <ToggleGroup type="single" variant="outline" size="sm" value={operation} onValueChange={(v) => v && setOperation(v as 'join' | 'cut')} aria-label="Solid or void">
-              <ToggleGroupItem value="join">Solid</ToggleGroupItem>
-              <ToggleGroupItem value="cut">Void</ToggleGroupItem>
+            <ToggleGroup
+              type="single"
+              variant="outline"
+              size="sm"
+              value={operation}
+              onValueChange={(v) => v && setOperation(v as 'join' | 'cut')}
+              aria-label={t('partEditor.solidOrVoid', 'Solid or void', { ns: 'editor' })}
+            >
+              <ToggleGroupItem value="join">{t('partEditor.solid', 'Solid', { ns: 'editor' })}</ToggleGroupItem>
+              <ToggleGroupItem value="cut">{t('partEditor.void', 'Void', { ns: 'editor' })}</ToggleGroupItem>
             </ToggleGroup>
             <Button
               size="sm"
               variant="outline"
               disabled={!canEdit || !activeSketchRow}
-              title={activeSketchRow ? undefined : 'Draw a closed shape in a sketch first'}
+              title={activeSketchRow ? undefined : t('partEditor.extrude.needsShape', 'Draw a closed shape in a sketch first', { ns: 'editor' })}
               data-testid="pe-extrude"
               onClick={() => {
                 if (!activeSketchRow) return
@@ -456,13 +650,13 @@ export default function PartEditorWindow({ initial, canEdit, onSave, firmLibrary
               }}
             >
               <Box data-icon="inline-start" />
-              Extrude
+              {t('partEditor.extrudeButton', 'Extrude', { ns: 'editor' })}
             </Button>
             <Button
               size="sm"
               variant="outline"
               disabled={!canEdit || !activeSketchRow?.entities.some((e) => e.kind === 'line' && e.construction)}
-              title="Draw an axis line in the sketch first"
+              title={t('partEditor.revolve.needsAxis', 'Draw an axis line in the sketch first', { ns: 'editor' })}
               onClick={() => {
                 const axis = activeSketchRow?.entities.find((e) => e.kind === 'line' && e.construction)
                 if (!activeSketchRow || !axis) return
@@ -475,26 +669,37 @@ export default function PartEditorWindow({ initial, canEdit, onSave, firmLibrary
               }}
             >
               <RotateCw data-icon="inline-start" />
-              Revolve
+              {t('partEditor.revolveButton', 'Revolve', { ns: 'editor' })}
             </Button>
           </TabsContent>
           <TabsContent value="parameters" className="py-2 text-xs text-muted-foreground">
-            A parameter is a size or value you can change per size row: Length, Width, Height, a curb height, the airflow. The table on the right has one row per size. Click a dimension in Plan, Front or Side to link it to a parameter; then changing the parameter moves those planes and everything locked to them.
+            {t(
+              'partEditor.tab.parametersLede',
+              'A parameter is a size or value you can change per size row: Length, Width, Height, a curb height, the airflow. The table on the right has one row per size. Click a dimension in Plan, Front or Side to link it to a parameter; then changing the parameter moves those planes and everything locked to them.',
+              { ns: 'editor' },
+            )}
           </TabsContent>
           <TabsContent value="connectors" className="py-2 text-xs text-muted-foreground">
-            Add duct, pipe and power connections on a face of the part; their positions and sizes can follow parameters.
+            {t('partEditor.tab.connectorsLede', 'Add duct, pipe and power connections on a face of the part; their positions and sizes can follow parameters.', { ns: 'editor' })}
           </TabsContent>
           <TabsContent value="clearances" className="py-2 text-xs text-muted-foreground">
-            Space every placed part of this type keeps clear: service access, combustibles, economizer access, working space. Drawn dashed in plans, never solid; coordination flags anything inside one.
+            {t(
+              'partEditor.tab.clearancesLede',
+              'Space every placed part of this type keeps clear: service access, combustibles, economizer access, working space. Drawn dashed in plans, never solid; coordination flags anything inside one.',
+              { ns: 'editor' },
+            )}
           </TabsContent>
           <TabsContent value="test" className="py-2 text-xs text-muted-foreground">
-            Every size is built and checked. Pick one to see it in the views.
+            {t('partEditor.tab.testLede', 'Every size is built and checked. Pick one to see it in the views.', { ns: 'editor' })}
           </TabsContent>
         </Tabs>
 
         <div className="flex min-h-0 flex-1">
-          <aside className="flex w-60 shrink-0 flex-col gap-2 overflow-y-auto border-r p-3" aria-label="Part contents">
-            <span className="text-xs font-medium text-muted-foreground">Features</span>
+          <aside
+            className="flex w-60 shrink-0 flex-col gap-2 overflow-y-auto border-r p-3"
+            aria-label={t('partEditor.partContents', 'Part contents', { ns: 'editor' })}
+          >
+            <span className="text-xs font-medium text-muted-foreground">{t('partEditor.featuresTitle', 'Features', { ns: 'editor' })}</span>
             <ItemGroup className="gap-1">
               {model?.features.map((f) => (
                 <Item key={f.id} size="sm" variant={selected === f.id ? 'outline' : 'default'} asChild>
@@ -502,16 +707,30 @@ export default function PartEditorWindow({ initial, canEdit, onSave, firmLibrary
                     <ItemContent>
                       <ItemTitle className="text-xs">{f.name}</ItemTitle>
                       <ItemDescription className="text-xs">
-                        {f.kind === 'extrude' ? 'Extrusion' : 'Revolve'} · {f.operation === 'join' ? 'solid' : f.operation === 'cut' ? 'void' : 'intersect'} · from {model.sketches.find((s) => s.id === f.sketch)?.name ?? f.sketch}. Click to change or delete.
+                        {t('partEditor.feature.row', '{{kind}} · {{operation}} · from {{sketch}}. Click to change or delete.', {
+                          ns: 'editor',
+                          kind: f.kind === 'extrude' ? t('partEditor.feature.extrusion', 'Extrusion', { ns: 'editor' }) : t('partEditor.feature.revolve', 'Revolve', { ns: 'editor' }),
+                          operation:
+                            f.operation === 'join'
+                              ? t('partEditor.op.solid', 'solid', { ns: 'editor' })
+                              : f.operation === 'cut'
+                                ? t('partEditor.op.void', 'void', { ns: 'editor' })
+                                : t('partEditor.op.intersect', 'intersect', { ns: 'editor' }),
+                          sketch: model.sketches.find((s) => s.id === f.sketch)?.name ?? f.sketch,
+                        })}
                       </ItemDescription>
                     </ItemContent>
                   </Button>
                 </Item>
               ))}
             </ItemGroup>
-            {noFeatures && <p className="text-xs text-muted-foreground">Nothing yet. Start with a box, or choose Sketch on plane, draw a closed shape, then Extrude.</p>}
+            {noFeatures && (
+              <p className="text-xs text-muted-foreground">
+                {t('partEditor.features.empty', 'Nothing yet. Start with a box, or choose Sketch on plane, draw a closed shape, then Extrude.', { ns: 'editor' })}
+              </p>
+            )}
             <Separator />
-            <span className="text-xs font-medium text-muted-foreground">Sketches</span>
+            <span className="text-xs font-medium text-muted-foreground">{t('partEditor.sketches', 'Sketches', { ns: 'editor' })}</span>
             <ItemGroup className="gap-1">
               {model?.sketches.map((s) => (
                 <Item key={s.id} size="sm" variant={activeSketch === s.id ? 'outline' : 'default'} asChild>
@@ -527,14 +746,14 @@ export default function PartEditorWindow({ initial, canEdit, onSave, firmLibrary
                   >
                     <ItemContent>
                       <ItemTitle className="text-xs">{s.name}</ItemTitle>
-                      <ItemDescription className="text-xs">{sketchState(resolved, s.id)}</ItemDescription>
+                      <ItemDescription className="text-xs">{sketchState(resolved, s.id, t)}</ItemDescription>
                     </ItemContent>
                   </Button>
                 </Item>
               ))}
             </ItemGroup>
             <Separator />
-            <span className="text-xs font-medium text-muted-foreground">Reference planes</span>
+            <span className="text-xs font-medium text-muted-foreground">{t('partEditor.referencePlanes', 'Reference planes', { ns: 'editor' })}</span>
             <ItemGroup className="gap-1">
               {planes.map((p) => (
                 <Item key={p.id} size="sm" variant={selected === p.id ? 'outline' : 'default'} asChild>
@@ -550,31 +769,52 @@ export default function PartEditorWindow({ initial, canEdit, onSave, firmLibrary
 
           <main className="flex min-w-0 flex-1 flex-col">
             <div className="flex items-center gap-2 border-b px-3 py-1.5">
-              <ToggleGroup type="single" size="sm" value={view} onValueChange={(v) => v && setView(v as EditorView)} aria-label="View">
-                <ToggleGroupItem value="plan" data-testid="pe-view-plan">Plan</ToggleGroupItem>
-                <ToggleGroupItem value="front" data-testid="pe-view-front">Front</ToggleGroupItem>
-                <ToggleGroupItem value="side" data-testid="pe-view-side">Side</ToggleGroupItem>
-                <ToggleGroupItem value="3d" data-testid="pe-view-3d">3D</ToggleGroupItem>
+              <ToggleGroup
+                type="single"
+                size="sm"
+                value={view}
+                onValueChange={(v) => v && setView(v as EditorView)}
+                aria-label={t('partEditor.view.aria', 'View', { ns: 'editor' })}
+              >
+                <ToggleGroupItem value="plan" data-testid="pe-view-plan">
+                  {viewTitle('plan', t)}
+                </ToggleGroupItem>
+                <ToggleGroupItem value="front" data-testid="pe-view-front">
+                  {viewTitle('front', t)}
+                </ToggleGroupItem>
+                <ToggleGroupItem value="side" data-testid="pe-view-side">
+                  {viewTitle('side', t)}
+                </ToggleGroupItem>
+                <ToggleGroupItem value="3d" data-testid="pe-view-3d">
+                  {viewTitle('3d', t)}
+                </ToggleGroupItem>
               </ToggleGroup>
               {activeSketchRow && (
                 <Badge variant="outline" className="ml-2">
-                  Drawing on {activePlane?.name ?? activeSketchRow.plane} ({AXIS_VIEW[activePlane?.axis ?? 'z']} view)
+                  {drawingOn(AXIS_VIEW[activePlane?.axis ?? 'z'], activePlane?.name ?? activeSketchRow.plane, t)}
                 </Badge>
               )}
               {activeSketchRow && (
-                <Button size="sm" variant="ghost" onClick={() => { setActiveSketch(null); setTool('select') }}>
-                  Finish sketch
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setActiveSketch(null)
+                    setTool('select')
+                  }}
+                >
+                  {t('partEditor.sketch.finish', 'Finish sketch', { ns: 'editor' })}
                 </Button>
               )}
               <Button size="sm" variant="ghost" className="ml-auto" onClick={() => setFitKey((k) => k + 1)} data-testid="pe-fit">
                 <Maximize data-icon="inline-start" />
-                Fit
+                {t('partEditor.fit', 'Fit', { ns: 'editor' })}
               </Button>
             </div>
             <div className="relative min-h-0 flex-1 bg-muted/30">
               {engine.status === 'loading' && (
                 <div className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                  <Spinner /> Loading the geometry engine…
+                  <Spinner /> {t('partEditor.engine.loading', 'Loading the geometry engine…', { ns: 'editor' })}
                 </div>
               )}
               {engine.status === 'failed' && (
@@ -583,8 +823,10 @@ export default function PartEditorWindow({ initial, canEdit, onSave, firmLibrary
                     <EmptyMedia variant="icon">
                       <Layers />
                     </EmptyMedia>
-                    <EmptyTitle>The geometry engine didn&apos;t load</EmptyTitle>
-                    <EmptyDescription>{engine.message}. Reload the page to try again; your unsaved part is lost on reload.</EmptyDescription>
+                    <EmptyTitle>{t('partEditor.engine.failed', "The geometry engine didn't load", { ns: 'editor' })}</EmptyTitle>
+                    <EmptyDescription>
+                      {t('partEditor.engine.failedWhy', '{{message}}. Reload the page to try again; your unsaved part is lost on reload.', { ns: 'editor', message: engine.message })}
+                    </EmptyDescription>
                   </EmptyHeader>
                 </Empty>
               )}
@@ -614,19 +856,23 @@ export default function PartEditorWindow({ initial, canEdit, onSave, firmLibrary
               {engine.status === 'ready' && view === '3d' && noFeatures && (
                 <Item variant="outline" className="absolute top-3 left-3 max-w-md flex-col items-start gap-2 bg-background/95 shadow-sm" data-testid="pe-start-card">
                   <ItemContent>
-                    <ItemTitle>An empty part</ItemTitle>
+                    <ItemTitle>{t('partEditor.start.emptyTitle', 'An empty part', { ns: 'editor' })}</ItemTitle>
                     <ItemDescription className="line-clamp-none">
-                      The dashed sheets are its reference planes: Front, Back, Left, Right and Top sit on the Length, Width and Height parameters; Base is where it is inserted. Start with a box between them, or sketch your own shape on any plane.
+                      {t(
+                        'partEditor.start.emptyWhy',
+                        'The dashed sheets are its reference planes: Front, Back, Left, Right and Top sit on the Length, Width and Height parameters; Base is where it is inserted. Start with a box between them, or sketch your own shape on any plane.',
+                        { ns: 'editor' },
+                      )}
                     </ItemDescription>
                   </ItemContent>
                   <ItemActions>
                     <Button size="sm" onClick={startBox} disabled={!canEdit} data-testid="pe-start-box-card">
                       <Box data-icon="inline-start" />
-                      Start with a box
+                      {t('partEditor.start.box', 'Start with a box', { ns: 'editor' })}
                     </Button>
                     <Button size="sm" variant="outline" disabled={!canEdit} onClick={() => startSketch('base')}>
                       <PenLine data-icon="inline-start" />
-                      Sketch on Base
+                      {t('partEditor.start.sketchOnBase', 'Sketch on Base', { ns: 'editor' })}
                     </Button>
                   </ItemActions>
                 </Item>
@@ -637,27 +883,38 @@ export default function PartEditorWindow({ initial, canEdit, onSave, firmLibrary
                     <EmptyMedia variant="icon">
                       <Box />
                     </EmptyMedia>
-                    <EmptyTitle>This size can’t be built yet</EmptyTitle>
-                    <EmptyDescription>{geometry.error ?? sizeIssues[0]?.message ?? 'Fix the problem shown below, or pick another size.'}</EmptyDescription>
+                    <EmptyTitle>{t('partEditor.build.cannot', 'This size can’t be built yet', { ns: 'editor' })}</EmptyTitle>
+                    <EmptyDescription>
+                      {geometry.error ?? sizeIssues[0]?.message ?? t('partEditor.build.fixOrPick', 'Fix the problem shown below, or pick another size.', { ns: 'editor' })}
+                    </EmptyDescription>
                   </EmptyHeader>
                 </Empty>
               )}
             </div>
             <footer className="flex flex-wrap items-center gap-3 border-t px-3 py-1.5 text-xs" role="status" data-testid="pe-status">
               {sizeIssues.length > 0 ? (
-                <span className="text-danger-600">{sizeIssues.length} problem{sizeIssues.length === 1 ? '' : 's'} in {draft.typeName}: {sizeIssues[0]?.message}</span>
+                <span className="text-danger-600">
+                  {sizeIssues.length === 1
+                    ? t('partEditor.status.oneProblem', '1 problem in {{size}}: {{reason}}', { ns: 'editor', size: draft.typeName, reason: sizeIssues[0]?.message ?? '' })
+                    : t('partEditor.status.manyProblems', '{{n}} problems in {{size}}: {{reason}}', { ns: 'editor', n: sizeIssues.length, size: draft.typeName, reason: sizeIssues[0]?.message ?? '' })}
+                </span>
               ) : allIssues.length > 0 ? (
-                <span className="text-warning-700">Another size has a problem: {allIssues[0]?.message}</span>
+                <span className="text-warning-700">
+                  {t('partEditor.status.anotherSize', 'Another size has a problem: {{reason}}', { ns: 'editor', reason: allIssues[0]?.message ?? '' })}
+                </span>
               ) : (
-                <span className="text-success-700">Every size builds</span>
+                <span className="text-success-700">{t('partEditor.status.allBuild', 'Every size builds', { ns: 'editor' })}</span>
               )}
               {resolved?.notes[0] && <span className="text-muted-foreground">{resolved.notes[0]}</span>}
               {saveMessage && <span className={saveMessage.ok ? 'text-success-700' : 'text-danger-600'} role={saveMessage.ok ? undefined : 'alert'}>{saveMessage.text}</span>}
-              {!saveMessage && dirty && canEdit && <span className="text-muted-foreground">Unsaved changes</span>}
+              {!saveMessage && dirty && canEdit && <span className="text-muted-foreground">{t('partEditor.status.unsaved', 'Unsaved changes', { ns: 'editor' })}</span>}
             </footer>
           </main>
 
-          <aside className="flex w-80 shrink-0 flex-col gap-3 overflow-y-auto border-l p-3" aria-label="Properties">
+          <aside
+            className="flex w-80 shrink-0 flex-col gap-3 overflow-y-auto border-l p-3"
+            aria-label={t('partEditor.properties', 'Properties', { ns: 'editor' })}
+          >
             {panel === 'create' && selectedDim !== null && (
               <DimensionProperties key={`${selectedDim}-${draft.typeName}`} dim={viewDims.find((d) => d.id === selectedDim) ?? null} draft={draft} canEdit={canEdit} edit={edit} onGone={() => setSelected(null)} />
             )}
@@ -672,12 +929,14 @@ export default function PartEditorWindow({ initial, canEdit, onSave, firmLibrary
         <AlertDialog open={confirmClose} onOpenChange={setConfirmClose}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Close without saving?</AlertDialogTitle>
-              <AlertDialogDescription>Your changes to {draft.groupName} aren’t in the project library yet. Closing throws them away.</AlertDialogDescription>
+              <AlertDialogTitle>{t('partEditor.closeAsk', 'Close without saving?', { ns: 'editor' })}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t('partEditor.closeAskWhy', 'Your changes to {{name}} aren’t in the project library yet. Closing throws them away.', { ns: 'editor', name: draft.groupName })}
+              </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Keep editing</AlertDialogCancel>
-              <AlertDialogAction onClick={onClose}>Close and discard</AlertDialogAction>
+              <AlertDialogCancel>{t('partEditor.keepEditing', 'Keep editing', { ns: 'editor' })}</AlertDialogCancel>
+              <AlertDialogAction onClick={onClose}>{t('partEditor.closeAndDiscard', 'Close and discard', { ns: 'editor' })}</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
@@ -686,15 +945,18 @@ export default function PartEditorWindow({ initial, canEdit, onSave, firmLibrary
   )
 }
 
-function sketchState(resolved: ResolvedPartModel | null, id: string): string {
+function sketchState(resolved: ResolvedPartModel | null, id: string, t: Translate): string {
   const rs = resolved?.sketches.get(id)
-  if (!rs) return 'Has a problem'
-  if (rs.sketch.entities.length === 0) return 'Empty: draw a shape'
-  if (rs.solution.status === 'failed') return 'Constraints disagree'
-  return rs.solution.freeDirections === 0 ? 'Fully defined' : `${rs.solution.freeDirections} directions free`
+  if (!rs) return t('partEditor.sketch.state.problem', 'Has a problem', { ns: 'editor' })
+  if (rs.sketch.entities.length === 0) return t('partEditor.sketch.state.empty', 'Empty: draw a shape', { ns: 'editor' })
+  if (rs.solution.status === 'failed') return t('partEditor.sketch.state.disagree', 'Constraints disagree', { ns: 'editor' })
+  return rs.solution.freeDirections === 0
+    ? t('partEditor.sketch.state.defined', 'Fully defined', { ns: 'editor' })
+    : t('partEditor.sketch.state.free', '{{n}} directions free', { ns: 'editor', n: rs.solution.freeDirections })
 }
 
 function NewPlane({ params, disabled, onAdd }: { params: readonly ParamDef[]; disabled: boolean; onAdd: (name: string, axis: 'x' | 'y' | 'z', offset: Dim) => void }) {
+  const t = useEditorTranslate()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const [axis, setAxis] = useState<'x' | 'y' | 'z'>('z')
@@ -703,38 +965,47 @@ function NewPlane({ params, disabled, onAdd }: { params: readonly ParamDef[]; di
     return (
       <Button size="sm" variant="outline" disabled={disabled} onClick={() => setOpen(true)} data-testid="pe-new-plane">
         <Plus data-icon="inline-start" />
-        Reference plane
+        {t('partEditor.plane.new', 'Reference plane', { ns: 'editor' })}
       </Button>
     )
   return (
     <div className="flex items-end gap-2 rounded-md border p-2">
       <Field className="w-36">
-        <FieldLabel htmlFor="pe-plane-name">Name</FieldLabel>
-        <Input id="pe-plane-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Curb top" />
+        <FieldLabel htmlFor="pe-plane-name">{t('partEditor.name', 'Name', { ns: 'editor' })}</FieldLabel>
+        <Input id="pe-plane-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t('partEditor.plane.namePlaceholder', 'e.g. Curb top', { ns: 'editor' })} />
       </Field>
       <Field className="w-36">
-        <FieldLabel htmlFor="pe-plane-axis">Square to</FieldLabel>
+        <FieldLabel htmlFor="pe-plane-axis">{t('partEditor.plane.squareTo', 'Square to', { ns: 'editor' })}</FieldLabel>
         <Select value={axis} onValueChange={(v) => setAxis(v as 'x' | 'y' | 'z')}>
           <SelectTrigger id="pe-plane-axis" size="sm">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
-              <SelectItem value="x">Front–back (x)</SelectItem>
-              <SelectItem value="y">Left–right (y)</SelectItem>
-              <SelectItem value="z">Up (a level, z)</SelectItem>
+              <SelectItem value="x">{t('partEditor.plane.axisX', 'Front–back (x)', { ns: 'editor' })}</SelectItem>
+              <SelectItem value="y">{t('partEditor.plane.axisY', 'Left–right (y)', { ns: 'editor' })}</SelectItem>
+              <SelectItem value="z">{t('partEditor.plane.axisZ', 'Up (a level, z)', { ns: 'editor' })}</SelectItem>
             </SelectGroup>
           </SelectContent>
         </Select>
       </Field>
       <div className="w-48">
-        <DimField id="pe-plane-offset" label="Offset" value={offset} params={params} onChange={setOffset} />
+        <DimField id="pe-plane-offset" label={t('partEditor.plane.offset', 'Offset', { ns: 'editor' })} value={offset} params={params} onChange={setOffset} />
       </div>
-      <Button size="sm" disabled={name.trim() === ''} title={name.trim() === '' ? 'Give the plane a name' : undefined} onClick={() => { onAdd(name.trim(), axis, offset); setOpen(false); setName('') }}>
-        Add
+      <Button
+        size="sm"
+        disabled={name.trim() === ''}
+        title={name.trim() === '' ? t('partEditor.plane.nameIt', 'Give the plane a name', { ns: 'editor' }) : undefined}
+        onClick={() => {
+          onAdd(name.trim(), axis, offset)
+          setOpen(false)
+          setName('')
+        }}
+      >
+        {t('partEditor.add', 'Add', { ns: 'editor' })}
       </Button>
       <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
-        Cancel
+        {t('partEditor.cancel', 'Cancel', { ns: 'editor' })}
       </Button>
     </div>
   )
@@ -747,6 +1018,7 @@ interface PanelProps {
 }
 
 function FeatureProperties({ draft, selected, params, canEdit, edit, onRemoved, sketchesWithProfile }: PanelProps & { selected: string | null; params: readonly ParamDef[]; onRemoved: () => void; sketchesWithProfile: readonly string[] }) {
+  const t = useEditorTranslate()
   const model = editorModel(draft.definition)
   const feature = model?.features.find((f) => f.id === selected)
   const plane = model?.referencePlanes.find((p) => p.id === selected)
@@ -756,39 +1028,69 @@ function FeatureProperties({ draft, selected, params, canEdit, edit, onRemoved, 
       <FieldGroup className="gap-3">
         <span className="text-sm font-medium">{feature.name}</span>
         <Field>
-          <FieldLabel htmlFor="pe-f-name">Name</FieldLabel>
+          <FieldLabel htmlFor="pe-f-name">{t('partEditor.name', 'Name', { ns: 'editor' })}</FieldLabel>
           <Input id="pe-f-name" value={feature.name} disabled={!canEdit} onChange={(e) => edit((d) => updateFeature(d, feature.id, (f) => ({ ...f, name: e.target.value || f.name })))} />
         </Field>
         <Field>
-          <FieldLabel>Makes</FieldLabel>
+          <FieldLabel>{t('partEditor.feature.makes', 'Makes', { ns: 'editor' })}</FieldLabel>
           <ToggleGroup type="single" variant="outline" size="sm" value={feature.operation} onValueChange={(v) => v && edit((d) => updateFeature(d, feature.id, (f) => ({ ...f, operation: v as typeof f.operation })))} disabled={!canEdit}>
-            <ToggleGroupItem value="join">Solid</ToggleGroupItem>
-            <ToggleGroupItem value="cut">Void</ToggleGroupItem>
-            <ToggleGroupItem value="intersect">Overlap only</ToggleGroupItem>
+            <ToggleGroupItem value="join">{t('partEditor.solid', 'Solid', { ns: 'editor' })}</ToggleGroupItem>
+            <ToggleGroupItem value="cut">{t('partEditor.void', 'Void', { ns: 'editor' })}</ToggleGroupItem>
+            <ToggleGroupItem value="intersect">{t('partEditor.feature.overlapOnly', 'Overlap only', { ns: 'editor' })}</ToggleGroupItem>
           </ToggleGroup>
         </Field>
         {feature.kind === 'extrude' ? (
           <>
-            <DimField id="pe-f-start" label="Starts at (along the sketch's normal)" value={feature.start} params={params} disabled={!canEdit} onChange={(dim) => edit((d) => updateFeature(d, feature.id, (f) => (f.kind === 'extrude' ? { ...f, start: dim } : f)))} />
-            <DimField id="pe-f-end" label="Ends at" value={feature.end} params={params} disabled={!canEdit} onChange={(dim) => edit((d) => updateFeature(d, feature.id, (f) => (f.kind === 'extrude' ? { ...f, end: dim } : f)))} />
+            <DimField
+              id="pe-f-start"
+              label={t('partEditor.feature.startsAt', "Starts at (along the sketch's normal)", { ns: 'editor' })}
+              value={feature.start}
+              params={params}
+              disabled={!canEdit}
+              onChange={(dim) => edit((d) => updateFeature(d, feature.id, (f) => (f.kind === 'extrude' ? { ...f, start: dim } : f)))}
+            />
+            <DimField
+              id="pe-f-end"
+              label={t('partEditor.feature.endsAt', 'Ends at', { ns: 'editor' })}
+              value={feature.end}
+              params={params}
+              disabled={!canEdit}
+              onChange={(dim) => edit((d) => updateFeature(d, feature.id, (f) => (f.kind === 'extrude' ? { ...f, end: dim } : f)))}
+            />
           </>
         ) : (
           <>
-            <DimField id="pe-f-a0" label="From angle" unit="deg" value={feature.startAngle} params={params} disabled={!canEdit} onChange={(dim) => edit((d) => updateFeature(d, feature.id, (f) => (f.kind === 'revolve' ? { ...f, startAngle: dim } : f)))} />
-            <DimField id="pe-f-a1" label="To angle" unit="deg" value={feature.endAngle} params={params} disabled={!canEdit} onChange={(dim) => edit((d) => updateFeature(d, feature.id, (f) => (f.kind === 'revolve' ? { ...f, endAngle: dim } : f)))} />
+            <DimField
+              id="pe-f-a0"
+              label={t('partEditor.feature.fromAngle', 'From angle', { ns: 'editor' })}
+              unit="deg"
+              value={feature.startAngle}
+              params={params}
+              disabled={!canEdit}
+              onChange={(dim) => edit((d) => updateFeature(d, feature.id, (f) => (f.kind === 'revolve' ? { ...f, startAngle: dim } : f)))}
+            />
+            <DimField
+              id="pe-f-a1"
+              label={t('partEditor.feature.toAngle', 'To angle', { ns: 'editor' })}
+              unit="deg"
+              value={feature.endAngle}
+              params={params}
+              disabled={!canEdit}
+              onChange={(dim) => edit((d) => updateFeature(d, feature.id, (f) => (f.kind === 'revolve' ? { ...f, endAngle: dim } : f)))}
+            />
           </>
         )}
         <Field>
-          <FieldLabel>Shows at detail</FieldLabel>
+          <FieldLabel>{t('partEditor.feature.showsAtDetail', 'Shows at detail', { ns: 'editor' })}</FieldLabel>
           <ToggleGroup type="multiple" variant="outline" size="sm" value={feature.visibility ?? ['coarse', 'medium', 'fine']} onValueChange={(v) => v.length > 0 && edit((d) => updateFeature(d, feature.id, (f) => ({ ...f, visibility: v.length === 3 ? undefined : (v as Array<'coarse' | 'medium' | 'fine'>) })))} disabled={!canEdit}>
-            <ToggleGroupItem value="coarse">Coarse</ToggleGroupItem>
-            <ToggleGroupItem value="medium">Medium</ToggleGroupItem>
-            <ToggleGroupItem value="fine">Fine</ToggleGroupItem>
+            <ToggleGroupItem value="coarse">{t('partEditor.feature.coarse', 'Coarse', { ns: 'editor' })}</ToggleGroupItem>
+            <ToggleGroupItem value="medium">{t('partEditor.feature.medium', 'Medium', { ns: 'editor' })}</ToggleGroupItem>
+            <ToggleGroupItem value="fine">{t('partEditor.feature.fine', 'Fine', { ns: 'editor' })}</ToggleGroupItem>
           </ToggleGroup>
         </Field>
         <Button variant="outline" size="sm" disabled={!canEdit} onClick={() => { edit((d) => removeFeature(d, feature.id)); onRemoved() }}>
           <Trash2 data-icon="inline-start" />
-          Delete feature
+          {t('partEditor.feature.delete', 'Delete feature', { ns: 'editor' })}
         </Button>
       </FieldGroup>
     )
@@ -797,8 +1099,21 @@ function FeatureProperties({ draft, selected, params, canEdit, edit, onRemoved, 
     return (
       <FieldGroup className="gap-3">
         <span className="text-sm font-medium">{plane.name}</span>
-        <DimField id="pe-p-offset" label="Offset from the insertion point" value={plane.offset} params={params} disabled={!canEdit} onChange={(dim) => edit((d) => updateReferencePlane(d, plane.id, { offset: dim }))} />
-        <FieldDescription>Sketch corners locked to this plane follow it when the offset or its parameter changes.</FieldDescription>
+        <DimField
+          id="pe-p-offset"
+          label={t('partEditor.plane.offsetFromInsertion', 'Offset from the insertion point', { ns: 'editor' })}
+          value={plane.offset}
+          params={params}
+          disabled={!canEdit}
+          onChange={(dim) => edit((d) => updateReferencePlane(d, plane.id, { offset: dim }))}
+        />
+        <FieldDescription>
+          {t(
+            'partEditor.plane.offsetWhy',
+            'Sketch corners locked to this plane follow it when the offset or its parameter changes.',
+            { ns: 'editor' },
+          )}
+        </FieldDescription>
       </FieldGroup>
     )
   }
@@ -806,10 +1121,25 @@ function FeatureProperties({ draft, selected, params, canEdit, edit, onRemoved, 
     return (
       <FieldGroup className="gap-3">
         <span className="text-sm font-medium">{sketch.name}</span>
-        <FieldDescription>{sketch.entities.length} shape{sketch.entities.length === 1 ? '' : 's'}, {sketch.constraints.length} constraint{sketch.constraints.length === 1 ? '' : 's'}. {sketchesWithProfile.includes(sketch.id) ? 'Extrude or Revolve it from the Create tab.' : 'Draw a closed shape.'}</FieldDescription>
+        <FieldDescription>
+          {t('partEditor.sketch.counts', '{{shapes}}, {{constraints}}. {{then}}', {
+            ns: 'editor',
+            shapes:
+              sketch.entities.length === 1
+                ? t('partEditor.sketch.oneShape', '1 shape', { ns: 'editor' })
+                : t('partEditor.sketch.manyShapes', '{{n}} shapes', { ns: 'editor', n: sketch.entities.length }),
+            constraints:
+              sketch.constraints.length === 1
+                ? t('partEditor.sketch.oneConstraint', '1 constraint', { ns: 'editor' })
+                : t('partEditor.sketch.manyConstraints', '{{n}} constraints', { ns: 'editor', n: sketch.constraints.length }),
+            then: sketchesWithProfile.includes(sketch.id)
+              ? t('partEditor.sketch.extrudeIt', 'Extrude or Revolve it from the Create tab.', { ns: 'editor' })
+              : t('partEditor.sketch.drawClosed', 'Draw a closed shape.', { ns: 'editor' }),
+          })}
+        </FieldDescription>
         <Button variant="outline" size="sm" disabled={!canEdit} onClick={() => { edit((d) => removeSketch(d, sketch.id)); onRemoved() }}>
           <Trash2 data-icon="inline-start" />
-          Delete sketch and its features
+          {t('partEditor.sketch.delete', 'Delete sketch and its features', { ns: 'editor' })}
         </Button>
       </FieldGroup>
     )
@@ -820,8 +1150,8 @@ function FeatureProperties({ draft, selected, params, canEdit, edit, onRemoved, 
         <EmptyMedia variant="icon">
           <Eye />
         </EmptyMedia>
-        <EmptyTitle>Nothing selected</EmptyTitle>
-        <EmptyDescription>Pick a feature, sketch or reference plane on the left to change it.</EmptyDescription>
+        <EmptyTitle>{t('partEditor.nothingSelected', 'Nothing selected', { ns: 'editor' })}</EmptyTitle>
+        <EmptyDescription>{t('partEditor.pickToChange', 'Pick a feature, sketch or reference plane on the left to change it.', { ns: 'editor' })}</EmptyDescription>
       </EmptyHeader>
     </Empty>
   )
@@ -836,6 +1166,7 @@ const NEW_PARAM = '__new__'
  * for every size. A link is only what the person picks here.
  */
 function DimensionProperties({ dim, draft, canEdit, edit, onGone }: PanelProps & { dim: PlaneDim | null; onGone: () => void }) {
+  const t = useEditorTranslate()
   const lengthParams = draft.definition.typeParams.filter((p) => p.kind === 'length' && !p.formula)
   const inches = dim ? Math.round((dimLength(dim) / MM_PER_IN) * 1000) / 1000 : 0
   const [text, setText] = useState(String(inches))
@@ -854,11 +1185,11 @@ function DimensionProperties({ dim, draft, canEdit, edit, onGone }: PanelProps &
           <EmptyMedia variant="icon">
             <Ruler />
           </EmptyMedia>
-          <EmptyTitle>That dimension isn’t in this view</EmptyTitle>
-          <EmptyDescription>Its planes changed or you switched views. Click a dimension in this view.</EmptyDescription>
+          <EmptyTitle>{t('partEditor.dim.notInView', 'That dimension isn’t in this view', { ns: 'editor' })}</EmptyTitle>
+          <EmptyDescription>{t('partEditor.dim.notInViewWhy', 'Its planes changed or you switched views. Click a dimension in this view.', { ns: 'editor' })}</EmptyDescription>
         </EmptyHeader>
         <Button size="sm" variant="outline" onClick={onGone}>
-          Done
+          {t('partEditor.done', 'Done', { ns: 'editor' })}
         </Button>
       </Empty>
     )
@@ -867,7 +1198,7 @@ function DimensionProperties({ dim, draft, canEdit, edit, onGone }: PanelProps &
   const commitLength = () => {
     const n = Number(text)
     if (!Number.isFinite(n) || n <= 0) {
-      setError('Give a length in inches greater than zero')
+      setError(t('partEditor.dim.giveLength', 'Give a length in inches greater than zero', { ns: 'editor' }))
       return
     }
     setError(null)
@@ -886,8 +1217,9 @@ function DimensionProperties({ dim, draft, canEdit, edit, onGone }: PanelProps &
   }
   const createAndLink = () => {
     const key = paramKey(newName)
-    if (!key) return setError('Start with a letter; letters, digits and spaces only')
-    if ([...draft.definition.typeParams, ...draft.definition.instanceParams].some((p) => p.name === key)) return setError(`There is already a parameter ${key}; pick it from the list`)
+    if (!key) return setError(t('partEditor.parameter.startsWithLetter', 'Start with a letter; letters, digits and spaces only', { ns: 'editor' }))
+    if ([...draft.definition.typeParams, ...draft.definition.instanceParams].some((p) => p.name === key))
+      return setError(t('partEditor.dim.alreadyParameter', 'There is already a parameter {{key}}; pick it from the list', { ns: 'editor', key }))
     const length = Math.round(dimLength(dim) * 1000) / 1000
     edit((d) => bindDimension(addParameter(d, { name: key, label: newName.trim(), kind: 'length', unit: 'mm', min: 0 }, length), dim, key))
     setCreating(false)
@@ -895,16 +1227,23 @@ function DimensionProperties({ dim, draft, canEdit, edit, onGone }: PanelProps &
   }
   return (
     <FieldGroup className="gap-3" data-testid="pe-dim-properties">
-      <span className="text-sm font-medium">Dimension: {dim.names}</span>
+      <span className="text-sm font-medium">{t('partEditor.dim.title', 'Dimension: {{names}}', { ns: 'editor', names: dim.names })}</span>
       <FieldDescription>
         {dim.formula
-          ? `A formula places this plane (${dim.formula}). Change the formula on the plane itself.`
+          ? t('partEditor.dim.formulaWhy', 'A formula places this plane ({{formula}}). Change the formula on the plane itself.', { ns: 'editor', formula: dim.formula })
           : label
-            ? `Follows ${label}. Changing the length here changes ${label} for ${draft.typeName}; the planes and everything locked to them move.`
-            : 'A fixed distance. Link it to a parameter to make it change per size.'}
+            ? t(
+                'partEditor.dim.follows',
+                'Follows {{label}}. Changing the length here changes {{label}} for {{size}}; the planes and everything locked to them move.',
+                { ns: 'editor', label, size: draft.typeName },
+              )
+            : t('partEditor.dim.fixedDistance', 'A fixed distance. Link it to a parameter to make it change per size.', { ns: 'editor' })}
       </FieldDescription>
       <Field data-invalid={error ? true : undefined}>
-        <FieldLabel htmlFor="pe-dim-length">Length (inches){label ? ` · ${label} for ${draft.typeName}` : ''}</FieldLabel>
+        <FieldLabel htmlFor="pe-dim-length">
+          {t('partEditor.dim.lengthInches', 'Length (inches)', { ns: 'editor' })}
+          {label ? t('partEditor.dim.lengthFor', ' · {{label}} for {{size}}', { ns: 'editor', label, size: draft.typeName }) : ''}
+        </FieldLabel>
         <Input
           id="pe-dim-length"
           value={text}
@@ -918,33 +1257,46 @@ function DimensionProperties({ dim, draft, canEdit, edit, onGone }: PanelProps &
         />
       </Field>
       <Field>
-        <FieldLabel htmlFor="pe-dim-param">Linked to parameter</FieldLabel>
+        <FieldLabel htmlFor="pe-dim-param">{t('partEditor.dim.linkedTo', 'Linked to parameter', { ns: 'editor' })}</FieldLabel>
         <Select value={creating ? NEW_PARAM : (dim.param ?? NO_PARAM)} onValueChange={link} disabled={!canEdit || dim.formula !== null}>
           <SelectTrigger id="pe-dim-param" size="sm" data-testid="pe-dim-param">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
-              <SelectItem value={NO_PARAM}>Nothing (a fixed distance)</SelectItem>
+              <SelectItem value={NO_PARAM}>{t('partEditor.dim.nothingFixed', 'Nothing (a fixed distance)', { ns: 'editor' })}</SelectItem>
               {lengthParams.map((p) => (
                 <SelectItem key={p.name} value={p.name}>
                   {p.label}
                 </SelectItem>
               ))}
-              <SelectItem value={NEW_PARAM}>New parameter…</SelectItem>
+              <SelectItem value={NEW_PARAM}>{t('partEditor.dim.newParameter', 'New parameter…', { ns: 'editor' })}</SelectItem>
             </SelectGroup>
           </SelectContent>
         </Select>
-        <FieldDescription>A parameter is a size you can change per size row (Parameters tab). Linking makes this distance follow it.</FieldDescription>
+        <FieldDescription>
+          {t('partEditor.dim.parameterWhy', 'A parameter is a size you can change per size row (Parameters tab). Linking makes this distance follow it.', { ns: 'editor' })}
+        </FieldDescription>
       </Field>
       {creating && (
         <div className="flex items-end gap-2">
           <Field className="flex-1">
-            <FieldLabel htmlFor="pe-dim-new-param">New parameter name</FieldLabel>
-            <Input id="pe-dim-new-param" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Curb height" />
+            <FieldLabel htmlFor="pe-dim-new-param">{t('partEditor.dim.newParameterName', 'New parameter name', { ns: 'editor' })}</FieldLabel>
+            <Input
+              id="pe-dim-new-param"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder={t('partEditor.parameter.namePlaceholder', 'e.g. Curb height', { ns: 'editor' })}
+            />
           </Field>
-          <Button size="sm" disabled={newName.trim() === ''} title={newName.trim() === '' ? 'Name the parameter' : undefined} onClick={createAndLink} data-testid="pe-dim-new-param-add">
-            Add and link
+          <Button
+            size="sm"
+            disabled={newName.trim() === ''}
+            title={newName.trim() === '' ? t('partEditor.parameter.nameIt', 'Name the parameter', { ns: 'editor' }) : undefined}
+            onClick={createAndLink}
+            data-testid="pe-dim-new-param-add"
+          >
+            {t('partEditor.dim.addAndLink', 'Add and link', { ns: 'editor' })}
           </Button>
         </div>
       )}
@@ -958,6 +1310,7 @@ function DimensionProperties({ dim, draft, canEdit, edit, onGone }: PanelProps &
 }
 
 function ParametersPanel({ draft, canEdit, edit, setShown }: PanelProps & { setShown: (name: string) => void }) {
+  const t = useEditorTranslate()
   const model = editorModel(draft.definition)
   const rows = model?.types ?? []
   const [name, setName] = useState('')
@@ -967,8 +1320,9 @@ function ParametersPanel({ draft, canEdit, edit, setShown }: PanelProps & { setS
   const params = draft.definition.typeParams
   const add = () => {
     const key = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
-    if (!/^[a-z][a-z0-9_]{0,47}$/.test(key)) return setError('Start with a letter; letters, digits and spaces only')
-    if ([...params, ...draft.definition.instanceParams].some((p) => p.name === key)) return setError(`There is already a parameter ${key}`)
+    if (!/^[a-z][a-z0-9_]{0,47}$/.test(key)) return setError(t('partEditor.parameter.startsWithLetter', 'Start with a letter; letters, digits and spaces only', { ns: 'editor' }))
+    if ([...params, ...draft.definition.instanceParams].some((p) => p.name === key))
+      return setError(t('partEditor.parameter.alreadyExists', 'There is already a parameter {{key}}', { ns: 'editor', key }))
     const n = Number(value)
     const v = kind === 'text' || kind === 'material' ? value : kind === 'boolean' ? value === 'yes' : Number.isFinite(n) ? (kind === 'length' ? n * MM_PER_IN : n) : undefined
     edit((d) => addParameter(d, { name: key, label: name.trim(), kind, ...(kind === 'length' ? { unit: 'mm' as const } : {}) }, v))
@@ -983,14 +1337,19 @@ function ParametersPanel({ draft, canEdit, edit, setShown }: PanelProps & { setS
   }
   return (
     <FieldGroup className="gap-3">
-      <span className="text-sm font-medium">Parameters and sizes</span>
+      <span className="text-sm font-medium">{t('partEditor.parameters.andSizes', 'Parameters and sizes', { ns: 'editor' })}</span>
       <Table>
-        <TableCaption className="sr-only">Values of every parameter for every size (lengths in inches)</TableCaption>
+        <TableCaption className="sr-only">
+          {t('partEditor.parameters.valuesCaption', 'Values of every parameter for every size (lengths in inches)', { ns: 'editor' })}
+        </TableCaption>
         <TableHeader>
           <TableRow>
-            <TableHead>Size</TableHead>
+            <TableHead>{t('partEditor.parameters.size', 'Size', { ns: 'editor' })}</TableHead>
             {params.map((p) => (
-              <TableHead key={p.name}>{p.label}{p.kind === 'length' ? ' (in)' : ''}</TableHead>
+              <TableHead key={p.name}>
+                {p.label}
+                {p.kind === 'length' ? t('partEditor.parameters.inches', ' (in)', { ns: 'editor' }) : ''}
+              </TableHead>
             ))}
           </TableRow>
         </TableHeader>
@@ -998,7 +1357,13 @@ function ParametersPanel({ draft, canEdit, edit, setShown }: PanelProps & { setS
           {rows.map((row) => (
             <TableRow key={row.name}>
               <TableCell>
-                <Input aria-label={`Size name ${row.name}`} className="h-7 w-24" defaultValue={row.name} disabled={!canEdit} onBlur={(e) => e.target.value.trim() && e.target.value !== row.name && edit((d) => renameType(d, row.name, e.target.value.trim()))} />
+                <Input
+                  aria-label={t('partEditor.parameters.sizeName', 'Size name {{name}}', { ns: 'editor', name: row.name })}
+                  className="h-7 w-24"
+                  defaultValue={row.name}
+                  disabled={!canEdit}
+                  onBlur={(e) => e.target.value.trim() && e.target.value !== row.name && edit((d) => renameType(d, row.name, e.target.value.trim()))}
+                />
               </TableCell>
               {params.map((p) => (
                 <TableCell key={p.name}>
@@ -1006,7 +1371,7 @@ function ParametersPanel({ draft, canEdit, edit, setShown }: PanelProps & { setS
                     <span className="text-xs text-muted-foreground" title={p.formula}>= {p.formula}</span>
                   ) : (
                     <Input
-                      aria-label={`${p.label} for ${row.name}`}
+                      aria-label={t('partEditor.parameters.forSize', '{{label}} for {{size}}', { ns: 'editor', label: p.label, size: row.name })}
                       data-testid={`pe-cell-${row.name}-${p.name}`}
                       className="h-7 w-20"
                       defaultValue={cell(row, p)}
@@ -1036,47 +1401,61 @@ function ParametersPanel({ draft, canEdit, edit, setShown }: PanelProps & { setS
           edit((d) => addType(d, `Size ${n}`, base))
         }}>
           <Plus data-icon="inline-start" />
-          Add size (copy of {draft.typeName})
+          {t('partEditor.parameters.addSize', 'Add size (copy of {{name}})', { ns: 'editor', name: draft.typeName })}
         </Button>
-        <Button size="sm" variant="ghost" disabled={!canEdit || rows.length <= 1} title={rows.length <= 1 ? 'A part keeps at least one size' : undefined} onClick={() => edit((d) => removeType(d, d.typeName))}>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={!canEdit || rows.length <= 1}
+          title={rows.length <= 1 ? t('partEditor.parameters.keepOne', 'A part keeps at least one size', { ns: 'editor' }) : undefined}
+          onClick={() => edit((d) => removeType(d, d.typeName))}
+        >
           <Trash2 data-icon="inline-start" />
-          Remove {draft.typeName}
+          {t('partEditor.parameters.removeSize', 'Remove {{name}}', { ns: 'editor', name: draft.typeName })}
         </Button>
       </div>
       <Separator />
-      <span className="text-xs font-medium">Add a parameter</span>
+      <span className="text-xs font-medium">{t('partEditor.parameter.addA', 'Add a parameter', { ns: 'editor' })}</span>
       <FieldGroup className="grid grid-cols-2 gap-2">
         <Field>
-          <FieldLabel htmlFor="pe-param-name">Name</FieldLabel>
-          <Input id="pe-param-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Curb height" />
+          <FieldLabel htmlFor="pe-param-name">{t('partEditor.name', 'Name', { ns: 'editor' })}</FieldLabel>
+          <Input
+            id="pe-param-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={t('partEditor.parameter.namePlaceholder', 'e.g. Curb height', { ns: 'editor' })}
+          />
         </Field>
         <Field>
-          <FieldLabel htmlFor="pe-param-kind">Kind</FieldLabel>
+          <FieldLabel htmlFor="pe-param-kind">{t('partEditor.parameter.kind', 'Kind', { ns: 'editor' })}</FieldLabel>
           <Select value={kind} onValueChange={(v) => setKind(v as ParamDef['kind'])}>
             <SelectTrigger id="pe-param-kind" size="sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectItem value="length">Length</SelectItem>
-                <SelectItem value="angle">Angle</SelectItem>
-                <SelectItem value="number">Number</SelectItem>
-                <SelectItem value="boolean">Yes / no</SelectItem>
-                <SelectItem value="text">Text</SelectItem>
-                <SelectItem value="material">Material</SelectItem>
+                <SelectItem value="length">{t('partEditor.parameter.kindLength', 'Length', { ns: 'editor' })}</SelectItem>
+                <SelectItem value="angle">{t('partEditor.parameter.kindAngle', 'Angle', { ns: 'editor' })}</SelectItem>
+                <SelectItem value="number">{t('partEditor.parameter.kindNumber', 'Number', { ns: 'editor' })}</SelectItem>
+                <SelectItem value="boolean">{t('partEditor.parameter.kindBoolean', 'Yes / no', { ns: 'editor' })}</SelectItem>
+                <SelectItem value="text">{t('partEditor.parameter.kindText', 'Text', { ns: 'editor' })}</SelectItem>
+                <SelectItem value="material">{t('partEditor.parameter.kindMaterial', 'Material', { ns: 'editor' })}</SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>
         </Field>
         <Field className="col-span-2">
-          <FieldLabel htmlFor="pe-param-value">Value for every size{kind === 'length' ? ' (inches)' : ''}</FieldLabel>
+          <FieldLabel htmlFor="pe-param-value">
+            {t('partEditor.parameter.value', 'Value for every size', { ns: 'editor' })}
+            {kind === 'length' ? t('partEditor.parameter.inches', ' (inches)', { ns: 'editor' }) : ''}
+          </FieldLabel>
           <Input id="pe-param-value" value={value} onChange={(e) => setValue(e.target.value)} />
           {error && <FieldDescription className="text-danger-600" role="alert">{error}</FieldDescription>}
         </Field>
       </FieldGroup>
       <Button size="sm" disabled={!canEdit || name.trim() === ''} onClick={add}>
         <Plus data-icon="inline-start" />
-        Add parameter
+        {t('partEditor.parameter.add', 'Add parameter', { ns: 'editor' })}
       </Button>
     </FieldGroup>
   )
@@ -1086,6 +1465,7 @@ function ParametersPanel({ draft, canEdit, edit, setShown }: PanelProps & { setS
 const NO_END_TYPE = '__none__'
 
 function ConnectorsPanel({ draft, params, canEdit, edit }: PanelProps & { params: readonly ParamDef[] }) {
+  const t = useEditorTranslate()
   const [domain, setDomain] = useState<'duct' | 'pipe' | 'electrical'>('duct')
   const [face, setFace] = useState<Face>('bottom')
   const [system, setSystem] = useState<SystemKind>('supply_air')
@@ -1114,16 +1494,29 @@ function ConnectorsPanel({ draft, params, canEdit, edit }: PanelProps & { params
   return (
     <FieldGroup className="gap-3">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-medium">Connectors</span>
-        <Button size="sm" variant="outline" disabled={draft.definition.connectors.length === 0} title={draft.definition.connectors.length === 0 ? 'Add a connector first' : undefined} onClick={() => setChecking(true)} data-testid="pe-check-connectors">
+        <span className="text-sm font-medium">{t('partEditor.connectors', 'Connectors', { ns: 'editor' })}</span>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={draft.definition.connectors.length === 0}
+          title={draft.definition.connectors.length === 0 ? t('partEditor.connector.addFirst', 'Add a connector first', { ns: 'editor' }) : undefined}
+          onClick={() => setChecking(true)}
+          data-testid="pe-check-connectors"
+        >
           <ListChecks data-icon="inline-start" />
-          Check connectors
+          {t('partEditor.connector.check', 'Check connectors', { ns: 'editor' })}
         </Button>
       </div>
       <Dialog open={checking} onOpenChange={setChecking}>
         <DialogContent>
-          <DialogTitle>Check connectors</DialogTitle>
-          <DialogDescription>Size, direction, system and end type of every connector on {draft.definition.typeName}, before you save it.</DialogDescription>
+          <DialogTitle>{t('partEditor.connector.check', 'Check connectors', { ns: 'editor' })}</DialogTitle>
+          <DialogDescription>
+            {t(
+              'partEditor.connector.checkWhy',
+              'Size, direction, system and end type of every connector on {{name}}, before you save it.',
+              { ns: 'editor', name: draft.definition.typeName },
+            )}
+          </DialogDescription>
           {report ? <ConnectorReport report={report} /> : null}
         </DialogContent>
       </Dialog>
@@ -1133,43 +1526,86 @@ function ConnectorsPanel({ draft, params, canEdit, edit }: PanelProps & { params
             <div className="flex items-center gap-2">
               <ItemContent>
                 <ItemTitle className="text-xs">{c.label}</ItemTitle>
-                <ItemDescription className="text-xs">{c.domain} · {c.systemKind.replace(/_/g, ' ')}</ItemDescription>
+                <ItemDescription className="text-xs">
+                  {domainWord(c.domain, t)} · {systemWord(c.systemKind, t)}
+                </ItemDescription>
               </ItemContent>
               <ItemActions>
-                <Button variant="ghost" size="icon-sm" aria-label={`Remove ${c.label}`} disabled={!canEdit} onClick={() => edit((d) => removeConnector(d, c.id))}>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t('partEditor.removeAria', 'Remove {{name}}', { ns: 'editor', name: c.label })}
+                  disabled={!canEdit}
+                  onClick={() => edit((d) => removeConnector(d, c.id))}
+                >
                   <Trash2 />
                 </Button>
               </ItemActions>
             </div>
             <div className="grid grid-cols-3 gap-1">
               {(['x', 'y', 'z'] as const).map((axis, i) => (
-                <DimField key={axis} id={`pe-c-${c.id}-${axis}`} label={['Forward', 'Left', 'Up'][i] ?? axis} value={c.position[i] ?? 0} params={params} disabled={!canEdit} onChange={(dim) => edit((d) => updateConnector(d, c.id, { position: [i === 0 ? dim : c.position[0], i === 1 ? dim : c.position[1], i === 2 ? dim : c.position[2]] }))} />
+                <DimField
+                  key={axis}
+                  id={peId('c', c.id, axis)}
+                  label={axisWord(axis, t)}
+                  value={c.position[i] ?? 0}
+                  params={params}
+                  disabled={!canEdit}
+                  onChange={(dim) => edit((d) => updateConnector(d, c.id, { position: [i === 0 ? dim : c.position[0], i === 1 ? dim : c.position[1], i === 2 ? dim : c.position[2]] }))}
+                />
               ))}
             </div>
             {c.shape === 'rect' && (
               <div className="grid grid-cols-2 gap-1">
-                <DimField id={`pe-c-${c.id}-w`} label="Width" value={c.width ?? 0} params={params} disabled={!canEdit} onChange={(dim) => edit((d) => updateConnector(d, c.id, { width: dim }))} />
-                <DimField id={`pe-c-${c.id}-h`} label="Height" value={c.height ?? 0} params={params} disabled={!canEdit} onChange={(dim) => edit((d) => updateConnector(d, c.id, { height: dim }))} />
+                <DimField
+                  id={peId('c', c.id, 'w')}
+                  label={t('partEditor.connector.width', 'Width', { ns: 'editor' })}
+                  value={c.width ?? 0}
+                  params={params}
+                  disabled={!canEdit}
+                  onChange={(dim) => edit((d) => updateConnector(d, c.id, { width: dim }))}
+                />
+                <DimField
+                  id={peId('c', c.id, 'h')}
+                  label={t('partEditor.connector.height', 'Height', { ns: 'editor' })}
+                  value={c.height ?? 0}
+                  params={params}
+                  disabled={!canEdit}
+                  onChange={(dim) => edit((d) => updateConnector(d, c.id, { height: dim }))}
+                />
               </div>
             )}
-            {c.shape === 'round' && <DimField id={`pe-c-${c.id}-d`} label="Diameter" value={c.diameter ?? 0} params={params} disabled={!canEdit} onChange={(dim) => edit((d) => updateConnector(d, c.id, { diameter: dim }))} />}
+            {c.shape === 'round' && (
+              <DimField
+                id={peId('c', c.id, 'd')}
+                label={t('partEditor.connector.diameter', 'Diameter', { ns: 'editor' })}
+                value={c.diameter ?? 0}
+                params={params}
+                disabled={!canEdit}
+                onChange={(dim) => edit((d) => updateConnector(d, c.id, { diameter: dim }))}
+              />
+            )}
             {c.domain === 'electrical' && <ElectricalConnectorFields connector={c} params={params} disabled={!canEdit} onChange={(patch) => edit((d) => updateConnector(d, c.id, patch))} />}
             {(endTypes.declaresDomain(c.domain) || c.endType !== undefined) && (
               <Field>
-                <FieldLabel htmlFor={`pe-c-${c.id}-end`}>End type</FieldLabel>
+                <FieldLabel htmlFor={peId('c', c.id, 'end')}>{t('partEditor.connector.endType', 'End type', { ns: 'editor' })}</FieldLabel>
                 <Select value={c.endType ?? NO_END_TYPE} disabled={!canEdit} onValueChange={(v) => edit((d) => setConnectorEndType(d, c.id, v === NO_END_TYPE ? null : v))}>
-                  <SelectTrigger id={`pe-c-${c.id}-end`} size="sm" data-testid={`pe-c-${c.id}-end`}>
+                  <SelectTrigger id={peId('c', c.id, 'end')} size="sm" data-testid={peId('c', c.id, 'end')}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
-                      <SelectItem value={NO_END_TYPE}>Not set</SelectItem>
+                      <SelectItem value={NO_END_TYPE}>{t('partEditor.connector.notSet', 'Not set', { ns: 'editor' })}</SelectItem>
                       {endTypes.forDomain(c.domain).map((row) => (
                         <SelectItem key={row.id} value={row.id}>
                           {row.label}
                         </SelectItem>
                       ))}
-                      {c.endType !== undefined && !endTypes.row(c.endType) ? <SelectItem value={c.endType}>{c.endType} (no add-on here declares it)</SelectItem> : null}
+                      {c.endType !== undefined && !endTypes.row(c.endType) ? (
+                        <SelectItem value={c.endType}>
+                          {t('partEditor.connector.undeclaredEndType', '{{id}} (no add-on here declares it)', { ns: 'editor', id: c.endType })}
+                        </SelectItem>
+                      ) : null}
                     </SelectGroup>
                   </SelectContent>
                 </Select>
@@ -1178,26 +1614,30 @@ function ConnectorsPanel({ draft, params, canEdit, edit }: PanelProps & { params
           </Item>
         ))}
       </ItemGroup>
-      {draft.definition.connectors.length === 0 && <p className="text-xs text-muted-foreground">No connections yet. Ducts, pipes and power route to these.</p>}
+      {draft.definition.connectors.length === 0 && (
+        <p className="text-xs text-muted-foreground">
+          {t('partEditor.connector.empty', 'No connections yet. Ducts, pipes and power route to these.', { ns: 'editor' })}
+        </p>
+      )}
       <Separator />
       <FieldGroup className="grid grid-cols-2 gap-2">
         <Field>
-          <FieldLabel htmlFor="pe-c-domain">Kind</FieldLabel>
+          <FieldLabel htmlFor="pe-c-domain">{t('partEditor.connector.kind', 'Kind', { ns: 'editor' })}</FieldLabel>
           <Select value={domain} onValueChange={(v) => setDomain(v as typeof domain)}>
             <SelectTrigger id="pe-c-domain" size="sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectItem value="duct">Duct</SelectItem>
-                <SelectItem value="pipe">Pipe</SelectItem>
-                <SelectItem value="electrical">Power</SelectItem>
+                <SelectItem value="duct">{t('partEditor.domain.duct', 'Duct', { ns: 'editor' })}</SelectItem>
+                <SelectItem value="pipe">{t('partEditor.domain.pipe', 'Pipe', { ns: 'editor' })}</SelectItem>
+                <SelectItem value="electrical">{t('partEditor.domain.power', 'Power', { ns: 'editor' })}</SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>
         </Field>
         <Field>
-          <FieldLabel htmlFor="pe-c-face">On face</FieldLabel>
+          <FieldLabel htmlFor="pe-c-face">{t('partEditor.connector.onFace', 'On face', { ns: 'editor' })}</FieldLabel>
           <Select value={face} onValueChange={(v) => setFace(v as Face)}>
             <SelectTrigger id="pe-c-face" size="sm">
               <SelectValue />
@@ -1206,7 +1646,7 @@ function ConnectorsPanel({ draft, params, canEdit, edit }: PanelProps & { params
               <SelectGroup>
                 {(['top', 'bottom', 'front', 'back', 'left', 'right'] as const).map((f) => (
                   <SelectItem key={f} value={f}>
-                    {f[0]?.toUpperCase()}{f.slice(1)}
+                    {faceTitle(f, t)}
                   </SelectItem>
                 ))}
               </SelectGroup>
@@ -1215,7 +1655,7 @@ function ConnectorsPanel({ draft, params, canEdit, edit }: PanelProps & { params
         </Field>
         {domain !== 'electrical' && (
           <Field className="col-span-2">
-            <FieldLabel htmlFor="pe-c-system">System</FieldLabel>
+            <FieldLabel htmlFor="pe-c-system">{t('partEditor.connector.system', 'System', { ns: 'editor' })}</FieldLabel>
             <Select value={system} onValueChange={(v) => setSystem(v as SystemKind)}>
               <SelectTrigger id="pe-c-system" size="sm">
                 <SelectValue />
@@ -1224,7 +1664,7 @@ function ConnectorsPanel({ draft, params, canEdit, edit }: PanelProps & { params
                 <SelectGroup>
                   {SYSTEM_KINDS.filter((k) => k !== 'power' && k !== 'lighting' && k !== 'data' && k !== 'fire_alarm').map((k) => (
                     <SelectItem key={k} value={k}>
-                      {k.replace(/_/g, ' ')}
+                      {systemWord(k, t)}
                     </SelectItem>
                   ))}
                 </SelectGroup>
@@ -1235,13 +1675,14 @@ function ConnectorsPanel({ draft, params, canEdit, edit }: PanelProps & { params
       </FieldGroup>
       <Button size="sm" disabled={!canEdit} onClick={add} data-testid="pe-add-connector">
         <Cable data-icon="inline-start" />
-        Add connector
+        {t('partEditor.connector.add', 'Add connector', { ns: 'editor' })}
       </Button>
     </FieldGroup>
   )
 }
 
 function TestPanel({ draft, engineReady, onShow }: { draft: Draft; engineReady: boolean; onShow: (name: string) => void }) {
+  const t = useEditorTranslate()
   const results = useMemo(
     () =>
       (draft.definition.model?.types ?? []).map((row) => {
@@ -1269,7 +1710,7 @@ function TestPanel({ draft, engineReady, onShow }: { draft: Draft; engineReady: 
   )
   return (
     <FieldGroup className="gap-3">
-      <span className="text-sm font-medium">Test sizes</span>
+      <span className="text-sm font-medium">{t('partEditor.testSizes', 'Test sizes', { ns: 'editor' })}</span>
       <ItemGroup className="gap-1">
         {results.map((r) => (
           <Item key={r.name} size="sm" variant={r.name === draft.typeName ? 'outline' : 'default'} asChild>
@@ -1279,7 +1720,9 @@ function TestPanel({ draft, engineReady, onShow }: { draft: Draft; engineReady: 
                   <FlaskConical data-icon="inline-start" />
                   {r.name}
                 </ItemTitle>
-                <ItemDescription className={r.problem ? 'text-xs text-danger-600' : 'text-xs'}>{r.problem ?? `Builds · ${r.size} in · ${r.triangles} triangles`}</ItemDescription>
+                <ItemDescription className={r.problem ? 'text-xs text-danger-600' : 'text-xs'}>
+                  {r.problem ?? t('partEditor.test.builds', 'Builds · {{size}} in · {{n}} triangles', { ns: 'editor', size: r.size, n: r.triangles })}
+                </ItemDescription>
               </ItemContent>
             </Button>
           </Item>

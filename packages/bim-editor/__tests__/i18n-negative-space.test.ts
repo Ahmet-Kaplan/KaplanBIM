@@ -100,6 +100,11 @@ const OWNED_DIRS = [
   // disciplines field, the contributor fields, the identity dialog and the
   // before/after preview. Its undo labels are composed here too.
   "linked-display",
+  // Outside stage 4 — the part editor: the window a person draws a part in (its
+  // planes, sketches, extrudes and revolves, parameters and sizes, connectors,
+  // clearance zones and test tab), the 2D and 3D canvases, the publish dialog and
+  // the placed part's update review (285 findings, 14 files).
+  "part-editor",
   // Outside stage 4 — the linked models as reference geometry: the snap and
   // dimension points that follow a linked wall by its GlobalId, the copies kept in
   // step with the link for loads, and the words a tool says when there is nothing
@@ -150,7 +155,6 @@ const OUTSIDE_STAGE_4 = [
   "graphics",
   "inspector",
   "loads-policy",
-  "part-editor",
   "planned",
   "responsibilities",
   "schedules",

@@ -117,6 +117,10 @@ const NOT_CAPTIONS = new Set([
   "Promise",
   // `window.open(…, '_blank', 'noopener,noreferrer')`: a browser feature list.
   "noopener,noreferrer",
+  // `preserveAspectRatio="xMidYMid meet"`: the SVG keyword pair that means "fit the
+  // whole drawing in", not words. It reads as prose to `looksLikeProse` (two
+  // tokens, ends in a letter) and can never be keyed: the browser parses it.
+  "xMidYMid meet",
   // The model server's wording for "this project has no live model yet"
   // (`NO_SUCH_MODEL` in `@permitzip/bim-sync`). Compared against a denial, never
   // shown: the person reads `connection.no_model.*` instead. Translating it would

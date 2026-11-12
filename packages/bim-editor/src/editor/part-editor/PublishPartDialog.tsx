@@ -9,6 +9,7 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, Di
 import { Spinner } from '../../ui/spinner'
 import { drawnPartItemId } from '../../contracts/bim/firm-part-versions'
 import { useEditorHost } from '@permitzip/bim-editor/host'
+import { useEditorTranslate } from '../i18n/translate'
 import { fetchLibraryPartTypesFrom, publishPartTypeFrom } from './part-type-library'
 
 type Stage =
@@ -36,6 +37,7 @@ interface Props {
  * use them. Esc or Cancel leaves everything as it was.
  */
 export function PublishPartDialog({ open, onOpenChange, definition, partName, sizesText, alsoSaveForPlacePart, onDone }: Props) {
+  const t = useEditorTranslate()
   const library = useEditorHost().data.firmLibrary
   const [stage, setStage] = useState<Stage>({ kind: 'checking' })
   const modelId = definition.model?.id ?? null
@@ -43,7 +45,7 @@ export function PublishPartDialog({ open, onOpenChange, definition, partName, si
   useEffect(() => {
     if (!open) return
     let live = true
-    fetchLibraryPartTypesFrom(library)
+    fetchLibraryPartTypesFrom(library, t)
       .then(({ partTypes }) => {
         if (!live) return
         const found = modelId ? partTypes.find((p) => p.id === drawnPartItemId(modelId)) : undefined
@@ -51,29 +53,59 @@ export function PublishPartDialog({ open, onOpenChange, definition, partName, si
       })
       .catch((err: unknown) => {
         console.error('[part-editor] reading the firm library before publish failed', err)
-        if (live) setStage({ kind: 'failed', message: `The firm library didn't answer: ${err instanceof Error ? err.message : 'the connection dropped'}. Close and try again.`, current: null })
+        if (live)
+          setStage({
+            kind: 'failed',
+            message: t('partEditor.publish.noAnswer', "The firm library didn't answer: {{reason}}. Close and try again.", {
+              ns: 'editor',
+              reason: err instanceof Error ? err.message : t('partEditor.library.connectionDropped', 'the connection dropped', { ns: 'editor' }),
+            }),
+            current: null,
+          })
       })
     return () => {
       live = false
     }
-  }, [library, open, modelId])
+  }, [library, open, modelId, t])
 
   const current = stage.kind === 'checking' ? null : stage.current
   const publish = async () => {
     setStage({ kind: 'saving', current })
     try {
-      const answer = await publishPartTypeFrom(library, definition)
+      const answer = await publishPartTypeFrom(library, definition, t)
       if (!answer.ok) {
-        setStage({ kind: 'failed', message: `Not published: ${answer.message}`, current })
+        setStage({ kind: 'failed', message: t('partEditor.save.notPublished', 'Not published: {{reason}}', { ns: 'editor', reason: answer.message }), current })
         return
       }
       const placeRefused = alsoSaveForPlacePart ? await alsoSaveForPlacePart(definition) : null
-      const text = answer.upToDate ? `${partName} is already revision ${answer.revision} in the firm library; nothing changed.` : `Published ${partName} as revision ${answer.revision} in the firm library (${sizesText}).`
-      onDone(placeRefused ? { ok: false, text: `${text} Place part's list wasn't updated: ${placeRefused}` } : { ok: true, text })
+      const text = answer.upToDate
+        ? t('partEditor.publish.alreadyCurrent', '{{name}} is already revision {{revision}} in the firm library; nothing changed.', {
+            ns: 'editor',
+            name: partName,
+            revision: answer.revision,
+          })
+        : t('partEditor.publish.published', 'Published {{name}} as revision {{revision}} in the firm library ({{sizes}}).', {
+            ns: 'editor',
+            name: partName,
+            revision: answer.revision,
+            sizes: sizesText,
+          })
+      onDone(
+        placeRefused
+          ? { ok: false, text: t('partEditor.publish.placeListStale', "{{text}} Place part's list wasn't updated: {{reason}}", { ns: 'editor', text, reason: placeRefused }) }
+          : { ok: true, text },
+      )
       onOpenChange(false)
     } catch (err) {
       console.error('[part-editor] publish failed', err)
-      setStage({ kind: 'failed', message: `Not published: ${err instanceof Error ? err.message : 'the connection dropped'}. Nothing changed; try again.`, current })
+      setStage({
+        kind: 'failed',
+        message: t('partEditor.publish.notPublishedRetry', 'Not published: {{reason}}. Nothing changed; try again.', {
+          ns: 'editor',
+          reason: err instanceof Error ? err.message : t('partEditor.library.connectionDropped', 'the connection dropped', { ns: 'editor' }),
+        }),
+        current,
+      })
     }
   }
 
@@ -82,26 +114,36 @@ export function PublishPartDialog({ open, onOpenChange, definition, partName, si
     <Dialog open={open} onOpenChange={(o) => stage.kind !== 'saving' && onOpenChange(o)}>
       <DialogContent data-testid="pe-publish-dialog">
         <DialogHeader>
-          <DialogTitle>Publish {partName}</DialogTitle>
+          <DialogTitle>{t('partEditor.publish.title', 'Publish {{name}}', { ns: 'editor', name: partName })}</DialogTitle>
           <DialogDescription>
-            {stage.kind === 'checking' ? 'Checking the firm library…' : current === null ? `New in the firm library: revision 1 (${sizesText}).` : `Revision ${current} is in the firm library. This publishes revision ${next} (${sizesText}); projects with copies of revision ${current} are offered the update and choose for themselves.`}
+            {stage.kind === 'checking'
+              ? t('partEditor.publish.checking', 'Checking the firm library…', { ns: 'editor' })
+              : current === null
+                ? t('partEditor.publish.firstRevision', 'New in the firm library: revision 1 ({{sizes}}).', { ns: 'editor', sizes: sizesText })
+                : t(
+                    'partEditor.publish.nextRevision',
+                    'Revision {{current}} is in the firm library. This publishes revision {{next}} ({{sizes}}); projects with copies of revision {{current}} are offered the update and choose for themselves.',
+                    { ns: 'editor', current, next, sizes: sizesText },
+                  )}
           </DialogDescription>
         </DialogHeader>
         {stage.kind === 'failed' && (
           <Alert variant="destructive">
-            <AlertTitle>Not published</AlertTitle>
+            <AlertTitle>{t('partEditor.publish.notPublished', 'Not published', { ns: 'editor' })}</AlertTitle>
             <AlertDescription>{stage.message}</AlertDescription>
           </Alert>
         )}
         <DialogFooter>
           <DialogClose asChild>
             <Button variant="outline" disabled={stage.kind === 'saving'}>
-              Cancel
+              {t('partEditor.cancel', 'Cancel', { ns: 'editor' })}
             </Button>
           </DialogClose>
           <Button onClick={() => void publish()} disabled={stage.kind === 'checking' || stage.kind === 'saving'} data-testid="pe-publish-confirm">
             {stage.kind === 'saving' ? <Spinner data-icon="inline-start" /> : <Library data-icon="inline-start" />}
-            {stage.kind === 'saving' ? 'Saving…' : `Publish revision ${next}`}
+            {stage.kind === 'saving'
+              ? t('partEditor.publish.saving', 'Saving…', { ns: 'editor' })
+              : t('partEditor.publish.publishRevision', 'Publish revision {{n}}', { ns: 'editor', n: next })}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -4176,14 +4176,14 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
           onSave={(definition) => {
             const spot = partEditor.spot
             if (!spot) return sessionRef.current?.savePartDefinition(definition) ?? t('session.notConnected', "Live editing isn't connected.", { ns: 'editor' })
-            const command = modelInPlaceCommand(definition, spot, newId('part'))
+            const command = modelInPlaceCommand(definition, spot, newId('part'), t)
             if (typeof command === 'string') return command
             const refused = sessionRef.current?.submitCommand(command, command.type === 'batch_edits' ? command.label : undefined) ?? t('session.notConnected', "Live editing isn't connected.", { ns: 'editor' })
             // Placed once: later saves in this window only update the type.
             if (!refused) setPartEditor({ definition, spot: null })
             return refused
           }}
-          placesAt={partEditor.spot ? inPlaceWords(partEditor.spot) : null}
+          placesAt={partEditor.spot ? inPlaceWords(partEditor.spot, t) : null}
           {...(partEditor.spot ? { newCategory: 'generic' as const } : {})}
           firmLibrary={
             firmLibrary.status.state === 'ready'

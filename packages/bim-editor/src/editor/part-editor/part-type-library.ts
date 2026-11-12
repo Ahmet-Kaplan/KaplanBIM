@@ -2,6 +2,7 @@ import { partTypeDefinitionSchema } from '@permitzip/bim-kernel'
 import type { EditorDataAnswer, EditorDataHost } from '@permitzip/bim-editor-host'
 import { unavailableWords } from '@permitzip/bim-editor/host/unavailable'
 import type { LibraryPartTypeEntry } from '../../contracts/bim/firm-part-versions'
+import { englishOnly, type Translate } from '../i18n/translate'
 
 /**
  * The browser's side of the firm library's part types
@@ -39,15 +40,24 @@ export class LibraryReadError extends Error {
 }
 
 type LibraryPort = EditorDataHost['firmLibrary']
-const PART_TYPES = "The firm library's part types"
 
-export async function fetchLibraryPartTypesFrom(port: LibraryPort): Promise<{ readonly canPublish: boolean; readonly partTypes: LibraryPartTypeEntry[] }> {
+export async function fetchLibraryPartTypesFrom(
+  port: LibraryPort,
+  t: Translate = englishOnly,
+): Promise<{ readonly canPublish: boolean; readonly partTypes: LibraryPartTypeEntry[] }> {
   // 404: there is no firm library here to read, said like any refused read.
-  if (!port) throw new LibraryReadError(unavailableWords(PART_TYPES), 404)
+  if (!port) throw new LibraryReadError(unavailableWords(t('partEditor.library.partTypesSubject', "The firm library's part types", { ns: 'editor' })), 404)
   const res = await port.partTypes()
   const body = await bodyOf(res, 'list')
-  if (!res.ok) throw new LibraryReadError(isRecord(body) && typeof body.error === 'string' ? body.error : `The firm library answered HTTP ${res.status}`, res.status)
-  if (!isRecord(body) || !Array.isArray(body.partTypes)) throw new Error('The firm library answered without its part types')
+  if (!res.ok)
+    throw new LibraryReadError(
+      isRecord(body) && typeof body.error === 'string'
+        ? body.error
+        : t('partEditor.library.answeredHttp', 'The firm library answered HTTP {{status}}', { ns: 'editor', status: res.status }),
+      res.status,
+    )
+  if (!isRecord(body) || !Array.isArray(body.partTypes))
+    throw new Error(t('partEditor.library.answeredWithoutPartTypes', 'The firm library answered without its part types', { ns: 'editor' }))
   const partTypes: LibraryPartTypeEntry[] = []
   for (const p of body.partTypes) {
     if (isEntry(p)) partTypes.push(p)
@@ -56,12 +66,12 @@ export async function fetchLibraryPartTypesFrom(port: LibraryPort): Promise<{ re
   return { canPublish: body.canPublish === true, partTypes }
 }
 
-export async function publishPartTypeFrom(port: LibraryPort, definition: unknown): Promise<PublishAnswer> {
-  if (!port) return { ok: false, message: unavailableWords('Publishing to the firm library') }
+export async function publishPartTypeFrom(port: LibraryPort, definition: unknown, t: Translate = englishOnly): Promise<PublishAnswer> {
+  if (!port) return { ok: false, message: unavailableWords(t('partEditor.library.publishingSubject', 'Publishing to the firm library', { ns: 'editor' })) }
   const res = await port.publishPartType({ definition })
   const body = await bodyOf(res, 'publish')
   if (isRecord(body) && body.status === 'saved' && isRecord(body.summary) && typeof body.summary.revision === 'number') return { ok: true, revision: body.summary.revision, upToDate: false }
   if (isRecord(body) && body.status === 'up_to_date' && typeof body.revision === 'number') return { ok: true, revision: body.revision, upToDate: true }
-  const message = isRecord(body) && typeof body.message === 'string' ? body.message : isRecord(body) && typeof body.error === 'string' ? body.error : `the firm library answered HTTP ${res.status}`
+  const message = isRecord(body) && typeof body.message === 'string' ? body.message : isRecord(body) && typeof body.error === 'string' ? body.error : t('partEditor.library.answeredHttpLower', 'the firm library answered HTTP {{status}}', { ns: 'editor', status: res.status })
   return { ok: false, message }
 }

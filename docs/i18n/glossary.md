@@ -990,6 +990,74 @@ karara bağlı olanlar tekrar yazılmadı (`Grup`, `Faz`, `Faz filtresi`, `Filtr
 > çevrildi: uyarı başlığı artık `org.typicalCap.overTitle` ve `status.count` /
 > `status.cap` ile kurulur, çekirdeğin İngilizce cümlesi gösterilmez.
 
+### 5.15 Aşama 4 dışı: parça düzenleyici, denetçi ve tasarım limitleri (2026-11-10)
+
+`packages/bim-editor/src/editor` altında Aşama 4'ün adlandırmadığı üç ağaç —
+`part-editor` (parça düzenleyici), `inspector` (Özellikler panelinin parametre
+denetçisi) ve `design-limits` (Tasarım limitleri) — çevrilirken bunlar gerekti.
+Yukarıda **zaten** karara bağlı olanlar tekrar yazılmadı (`Parça`, `Tip`,
+`Kategori`, `Referans düzlemi`, `Eskiz`, `Katı`, `Boşluk`, `Bağlantı noktası`,
+`Ölçü`, `Görünüm`, `Detay seviyesi`, `Açıklık`, `Servis erişimi`, `Çalışma
+boşluğu`, `Yüz`, `Sürüm`, `Revizyon`, `İşveren`, `Pafta`, `Çizelge`, `Mekan`,
+`Alan`, `Bölge`, `İşaret`, `Sınıflandırma`).
+
+| EN | TR | Not |
+|----|----|-----|
+| Part editor | **parça düzenleyici** | §2.1: *editor* = **düzenleyici**, *editör* değil; *part* = **parça** |
+| Parameters / Sizes / Size row | **parametreler / boyutlar / boyut satırı** | Bir parçanın her boyutu bir satırdır; §8 sayıdan sonra çoğul eki yok (*3 boyut*) |
+| Feature (a sketch's extrude or revolve) | **nitelik** | ⚠️ **özellik** DEĞİL: *Özellikler* = Properties panelidir (§4), aynı ekranda dururlar. Tek kavram tek terim: CAD niteliği **nitelik** |
+| Extrude / Revolve | **ekstrüzyon / döndürme** | Fiil olarak da aynı ad kullanılır (*Ekstrüzyon* düğmesi); Revit TR *ekstrüde/döndür* fiilini kullanır ama düğme bir eylem adıdır |
+| Solid / Void (a feature's operation) | **katı / boşluk** | §2.3; *Make solid/void* = *Ne yapar: Katı / Boşluk*, üçüncüsü **Yalnızca kesişim** |
+| Sketch on plane / Finish sketch | **Düzlem üzerinde eskiz / Eskizi bitir** | §2.3 *sketch* = **eskiz**; cümle değil komut, tekil |
+| Reference plane: Front / Back / Left / Right / Top / Base | **Ön / Arka / Sol / Sağ / Üst / Taban** | Bir parçanın kendi düzlemleri; yüz adları ayrı ve küçük harflidir (*ön, arka, …*) |
+| Centre (left/right) / Centre (front/back) | **Merkez (sol/sağ) / Merkez (ön/arka)** | Ölçünün başladığı orijin düzlemi |
+| Square to (a new plane's axis) | **Dik olduğu eksen** | §2.3 *Axis* = **eksen**; *Up (a level, z)* = **Yukarı (yatay düzlem, z)** — buradaki *level* **kat** değil, yatay düzlem |
+| Offset (a plane's distance) / Slide | **kaydırma / kaydırma** | §5.12 *Slide* = **kaydırma**; ikisi de aynı sözcük, tek kavram |
+| Ribbon-side nouns: Overlap only | **Yalnızca kesişim** | Bir niteliğin katı olmayan üçüncü işlemi |
+| Detail level: Coarse / Medium / Fine | **Kaba / Orta / İnce** | §2.4 *Detail level* = **detay seviyesi** |
+| Parameter kind: Length / Angle / Number / Yes–no / Text / Material | **Uzunluk / Açı / Sayı / Evet–hayır / Metin / Malzeme** | *Yes / no* = **Evet / hayır** |
+| Fully defined / Constraints disagree / Has a problem | **Tam tanımlı / Kısıtlar çelişiyor / Sorunlu** | Eskiz durumu; üçüncüsü §8 durum sözlüğü |
+| Direction free (*3 directions free*) | **{{n}} yönü serbest** | §8: sayıdan sonra çoğul eki yok |
+| Clearance zone name: Dedicated space above | **Üstte ayrılmış boşluk** | §5.12 *Dedicated equipment space* = **ayrılmış ekipman boşluğu**; buradaki ad *üstte* olanı söyler |
+| Clearance to combustibles | **Yanıcılara mesafe** | `partSpace.purposeCombustible` ile **aynı** Türkçe (§0.1) |
+| End type / Not set | **uç tipi / Ayarlanmadı** | §8 *Not set* |
+| Load class / Load (VA) / Motor (hp) / Voltage (V) | **Yük sınıfı / Yük (VA) / Motor (hp) / Gerilim (V)** | §9/Ç12 *fixture unit* = **yük birimi** ile karışmaz; §7 birim sembolleri çevrilmez |
+| Continuous (3 h or more) | **Kesintisiz (3 saat ya da daha çok)** | §9/Ç9 *runs* burada bir süredir: **çalışır**, *hat* değil |
+| Model in place (the editor opened on a spot) | **yerinde model** | §2.2; cümlede *{{level}} üzerinde tıkladığınız nokta* |
+| Publish / Publish revision {{n}} | **Yayınla… / {{n}}. revizyonu yayınla** | §2.2 *revision* = **revizyon**, *version* = **sürüm**; ikisi karışmaz |
+| Update / Keep (a newer library revision) | **Güncelle / Koru** | §3 *Update* = **Güncelle**, *Keep* = **Koru** |
+| Review update | **Güncellemeyi incele** | §3 *Review* burada fiil; ad hâliyle **inceleme** |
+| Placed copy / {{n}} placed copies | **yerleştirilmiş kopya / {{n}} yerleştirilmiş kopya** | §9/Ç10 *copy* = **kopya**; §8 çoğul eki yok |
+| Inspector: Fields / Columns / Units / Grouping | **alanlar / sütunlar / birimler / gruplama** | §5 alan adları; *alan* burada bir form alanıdır (§2.3 *alan* = area ile karışmaz, bağlam form) |
+| Value / Default / Override | **değer / varsayılan / geçersiz kılma** | |
+| Design limit | **tasarım limiti** | §4 panel adı **Tasarım limitleri**; *kısıt* DEĞİL (§8 *constraint* eskiz kısıtıdır) |
+
+> **`part-editor/` kapandı (2026-11-10).** Ağacın tamamı anahtarlı: **285** site
+> (14 dosya) sıfıra indi ve ağaç `OUTSIDE_STAGE_4`'ten çıkıp `OWNED_DIRS`'a girdi;
+> Türkçesi `i18n-part-editor.test.tsx` içinde ölçülür. Etiket tabloları erişen
+> oldu: `partCategoryLabel`, `purposeWord`, `faceWord`, `faceTitle`, `viewTitle`,
+> `drawingOn`, `planeName`, `domainWord`, `systemWord`, `axisWord`, `partCategoryLabel`
+> ve `sketchState` bir `Translate` alır. Çekirdeğin `PART_CATEGORY_LABELS` /
+> `CLEARANCE_PURPOSE_LABELS` İngilizcesi anahtarlı bir çerçeveye ham
+> **splice edilmez**: bilinmeyen bir kategori/purpose paketin kendi sözcüğüyle
+> gelir. Bağlantı domainleri ve sistem türleri `domainLabelOf` ile
+> `locales/tr/domain.json`'dan okunur; eksik altı satır (hava ve yangın koruma
+> sistemleri) aynı commit'te eklendi.
+>
+> **Yeni parçanın varsayılanları çalışılan dilde yazılır.** `blankDraft`,
+> `addStarterBox`, `addExtrude` ve `addRevolve` bir `Translate` alır (varsayılan
+> `englishOnly`, yani bugüne kadarki İngilizce birebir). Parçanın adı, tek boyutu
+> (`Standart`), üç parametresi (`Uzunluk/Genişlik/Yükseklik`), beş düzlemi
+> (`Ön/Arka/Sol/Sağ/Üst`), eskizi ve nitelikleri **tanıma yazılan veri**dir; Türkçe
+> çalışan biri Türkçe parça yazar. Parametre **adları** (`length`, `width`,
+> `height`) şemadır, dille yer değiştirmez.
+>
+> **Ertelenen: kitaplıktan gelen veri İngilizce kalır.** Yerleştirilmiş bir parçanın
+> bağlantı etiketleri (`p.connectorLabel`), çekirdeğin `PartImportReport`
+> cümleleri (`p.message`, `p.nextStep`), `connectorEndTypeTable()` satır adları ve
+> paketlerin kendi uç tipleri **veri**dir; ağaç onları yazmaz. Sahibi: Aşama 5'in
+> alan haritası ve çekirdeğin prose haritası.
+
 ---
 
 ## 6. Maliyet ve ticari terimler

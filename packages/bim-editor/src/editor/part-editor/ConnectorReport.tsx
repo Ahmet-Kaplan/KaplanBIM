@@ -5,6 +5,7 @@ import type { PartImportReport } from '@permitzip/bim-kernel'
 import { Badge } from '../../ui/badge'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '../../ui/empty'
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '../../ui/item'
+import { useEditorTranslate } from '../i18n/translate'
 
 /**
  * The connector report for one part type (round 9 J9): every bad connector,
@@ -13,6 +14,7 @@ import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '../../
  * problems show as issues wherever the type is placed.
  */
 export function ConnectorReport({ report }: { readonly report: PartImportReport }) {
+  const t = useEditorTranslate()
   if (report.connectorCount === 0) {
     return (
       <Empty className="border" data-testid="connector-report-none">
@@ -20,8 +22,13 @@ export function ConnectorReport({ report }: { readonly report: PartImportReport 
           <EmptyMedia variant="icon">
             <TriangleAlert />
           </EmptyMedia>
-          <EmptyTitle>No connectors</EmptyTitle>
-          <EmptyDescription>{report.typeName} has no connectors, so nothing can be joined to it. Add them in the part editor before connecting this part.</EmptyDescription>
+          <EmptyTitle>{t('partEditor.report.noneTitle', 'No connectors', { ns: 'editor' })}</EmptyTitle>
+          <EmptyDescription>
+            {t('partEditor.report.noneWhy', '{{name}} has no connectors, so nothing can be joined to it. Add them in the part editor before connecting this part.', {
+              ns: 'editor',
+              name: report.typeName,
+            })}
+          </EmptyDescription>
         </EmptyHeader>
       </Empty>
     )
@@ -33,9 +40,14 @@ export function ConnectorReport({ report }: { readonly report: PartImportReport 
           <EmptyMedia variant="icon">
             <CircleCheck />
           </EmptyMedia>
-          <EmptyTitle>Every connector checks out</EmptyTitle>
+          <EmptyTitle>{t('partEditor.report.allGood', 'Every connector checks out', { ns: 'editor' })}</EmptyTitle>
           <EmptyDescription>
-            {report.connectorCount === 1 ? 'Its one connector has' : `All ${report.connectorCount} connectors have`} a size, a direction out of the part, a system and an end type where one is needed.
+            {report.connectorCount === 1
+              ? t('partEditor.report.oneGood', 'Its one connector has a size, a direction out of the part, a system and an end type where one is needed.', { ns: 'editor' })
+              : t('partEditor.report.allGoodWhy', 'All {{n}} connectors have a size, a direction out of the part, a system and an end type where one is needed.', {
+                  ns: 'editor',
+                  n: report.connectorCount,
+                })}
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -44,9 +56,15 @@ export function ConnectorReport({ report }: { readonly report: PartImportReport 
   return (
     <div className="flex flex-col gap-2" data-testid="connector-report-problems">
       <p className="text-sm">
-        {report.problems.length === 1 ? '1 connector problem' : `${report.problems.length} connector problems`} on {report.typeName}. You can still save it; the problems show as issues wherever it is placed.
+        {report.problems.length === 1
+          ? t('partEditor.report.oneProblem', '1 connector problem on {{name}}. You can still save it; the problems show as issues wherever it is placed.', { ns: 'editor', name: report.typeName })
+          : t('partEditor.report.manyProblems', '{{n}} connector problems on {{name}}. You can still save it; the problems show as issues wherever it is placed.', {
+              ns: 'editor',
+              n: report.problems.length,
+              name: report.typeName,
+            })}
       </p>
-      <ItemGroup className="gap-1" aria-label={`Connector problems on ${report.typeName}`}>
+      <ItemGroup className="gap-1" aria-label={t('partEditor.report.problemsOn', 'Connector problems on {{name}}', { ns: 'editor', name: report.typeName })}>
         {report.problems.map((p, i) => (
           <Item key={`${p.connectorId}-${p.check}-${i}`} variant="outline" size="sm">
             <ItemContent>

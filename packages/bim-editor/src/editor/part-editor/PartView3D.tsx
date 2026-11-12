@@ -5,6 +5,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import type { TriangleMesh } from '@permitzip/bim-geometry'
 import type { Plane3D } from './draft'
+import { useEditorTranslate } from '../i18n/translate'
 import { WHEEL_GAIN } from '@permitzip/bim-viewer-3d/wheel-zoom'
 
 /**
@@ -48,6 +49,7 @@ const PLANE_COLOR = 0x2563eb
 const SELECTED_COLOR = 0xd97706
 
 export function PartView3D({ mesh, planes, selectedPlane, visible, fitKey }: Props) {
+  const t = useEditorTranslate()
   const host = useRef<HTMLDivElement>(null)
   const labelHost = useRef<HTMLDivElement>(null)
   const ctxRef = useRef<Ctx | null>(null)
@@ -234,7 +236,7 @@ export function PartView3D({ mesh, planes, selectedPlane, visible, fitKey }: Pro
   }, [fitKey])
 
   return (
-    <div ref={host} className={`relative size-full overflow-hidden ${visible ? '' : 'hidden'}`} data-testid="part-view-3d" data-planes={planes.length} role="img" aria-label="3D view of the part with its reference planes">
+    <div ref={host} className={`relative size-full overflow-hidden ${visible ? '' : 'hidden'}`} data-testid="part-view-3d" data-planes={planes.length} role="img" aria-label={t('partEditor.view3d.aria', '3D view of the part with its reference planes', { ns: 'editor' })}>
       <div ref={labelHost} className="pointer-events-none absolute inset-0" />
     </div>
   )

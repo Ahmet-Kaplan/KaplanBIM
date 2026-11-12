@@ -10,7 +10,9 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from '../../ui/field'
 import { Input } from '../../ui/input'
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '../../ui/item'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../ui/select'
+import { englishOnly, useEditorTranslate, type Translate } from '../i18n/translate'
 import type { Draft } from './draft'
+import { peId } from './field-id'
 
 /**
  * The part type's clearance zones in the part editor: the space every placed
@@ -23,13 +25,67 @@ import type { Draft } from './draft'
 const MM_PER_FT = 304.8
 const ft = (mm: number) => Math.round((mm / MM_PER_FT) * 1000) / 1000
 
-const DEFAULT_NAME: Readonly<Record<ClearancePurpose, string>> = {
-  service_access: 'Service access',
-  combustible: 'Clearance to combustibles',
-  economizer_access: 'Economizer access',
-  working_space: 'Working space',
-  keep_out: 'Keep clear',
-  dedicated_space: 'Dedicated space above',
+/**
+ * The name a new zone is saved under. An accessor, not a table of English: a
+ * table of strings is how an English default ends up stored on a Turkish
+ * person's part (§2.1 *öğe* is banned, §5.12/Ç21 fix *açıklık*). The default is
+ * `englishOnly`, so a caller that passes no translator writes the words it
+ * always wrote.
+ */
+function defaultZoneName(purpose: ClearancePurpose, t: Translate = englishOnly): string {
+  switch (purpose) {
+    case 'service_access':
+      return t('partEditor.zone.purposeServiceAccess', 'Service access', { ns: 'editor' })
+    case 'combustible':
+      return t('partEditor.zone.purposeCombustible', 'Clearance to combustibles', { ns: 'editor' })
+    case 'economizer_access':
+      return t('partEditor.zone.purposeEconomizerAccess', 'Economizer access', { ns: 'editor' })
+    case 'working_space':
+      return t('partEditor.zone.purposeWorkingSpace', 'Working space', { ns: 'editor' })
+    case 'keep_out':
+      return t('partEditor.zone.purposeKeepOut', 'Keep clear', { ns: 'editor' })
+    case 'dedicated_space':
+      return t('partEditor.zone.purposeDedicatedSpace', 'Dedicated space above', { ns: 'editor' })
+  }
+}
+
+/** What a zone keeps clear, in the editor's words rather than the kernel's English label. */
+function purposeWord(purpose: string, t: Translate): string {
+  switch (purpose) {
+    case 'service_access':
+      return t('partEditor.zone.purposeServiceAccess', 'Service access', { ns: 'editor' })
+    case 'combustible':
+      return t('partEditor.zone.purposeCombustible', 'Clearance to combustibles', { ns: 'editor' })
+    case 'economizer_access':
+      return t('partEditor.zone.purposeEconomizerAccess', 'Economizer access', { ns: 'editor' })
+    case 'working_space':
+      return t('partEditor.zone.purposeWorkingSpace', 'Working space', { ns: 'editor' })
+    case 'keep_out':
+      return t('partEditor.zone.purposeKeepOut', 'Keep clear', { ns: 'editor' })
+    case 'dedicated_space':
+      return t('partEditor.zone.purposeDedicatedSpace', 'Dedicated space above', { ns: 'editor' })
+    default:
+      // An add-on's own purpose: the pack's words are data, never a frame with an English noun in it.
+      return CLEARANCE_PURPOSE_LABELS[purpose] ?? purpose
+  }
+}
+
+/** Which side of the part a zone sits on (§5.12: a *Side* is a **yüz**). */
+function faceWord(face: ClearanceFace, t: Translate): string {
+  switch (face) {
+    case 'front':
+      return t('partEditor.face.front', 'front', { ns: 'editor' })
+    case 'back':
+      return t('partEditor.face.back', 'back', { ns: 'editor' })
+    case 'left':
+      return t('partEditor.face.left', 'left', { ns: 'editor' })
+    case 'right':
+      return t('partEditor.face.right', 'right', { ns: 'editor' })
+    case 'top':
+      return t('partEditor.face.top', 'top', { ns: 'editor' })
+    case 'bottom':
+      return t('partEditor.face.bottom', 'bottom', { ns: 'editor' })
+  }
 }
 
 function withClearances(d: Draft, zones: readonly ClearanceZone[]): Draft {
@@ -46,6 +102,7 @@ function freshZoneId(purpose: ClearancePurpose, used: ReadonlySet<string>): stri
 }
 
 export function ClearancesPanel({ draft, canEdit, edit }: { draft: Draft; canEdit: boolean; edit: (next: Draft | ((d: Draft) => Draft)) => void }) {
+  const t = useEditorTranslate()
   const zones = draft.definition.clearances ?? []
   const [purpose, setPurpose] = useState<ClearancePurpose>('service_access')
   const [face, setFace] = useState<ClearanceFace>('front')
@@ -54,7 +111,7 @@ export function ClearancesPanel({ draft, canEdit, edit }: { draft: Draft; canEdi
   const add = () => {
     const d = Number(depthFt)
     if (purpose !== 'dedicated_space' && (!Number.isFinite(d) || d <= 0)) {
-      setError('Depth must be a number of feet greater than 0.')
+      setError(t('partEditor.zone.depthIsFeet', 'Depth must be a number of feet greater than 0.', { ns: 'editor' }))
       return
     }
     setError(null)
@@ -62,27 +119,27 @@ export function ClearancesPanel({ draft, canEdit, edit }: { draft: Draft; canEdi
     // NEC 110.26(E) fixes the dedicated space (the top face, 6 ft or to structure, ducts and pipes kept out); the side and depth typed here don't apply to it.
     const zone: ClearanceZone =
       purpose === 'dedicated_space'
-        ? dedicatedSpaceZone(null, { id, name: DEFAULT_NAME.dedicated_space })
-        : { id, name: DEFAULT_NAME[purpose], purpose, face, depth: Math.round(d * MM_PER_FT * 10) / 10, ...(purpose === 'working_space' ? { fromFloor: true } : {}) }
+        ? dedicatedSpaceZone(null, { id, name: defaultZoneName('dedicated_space', t) })
+        : { id, name: defaultZoneName(purpose, t), purpose, face, depth: Math.round(d * MM_PER_FT * 10) / 10, ...(purpose === 'working_space' ? { fromFloor: true } : {}) }
     edit((cur) => withClearances(cur, [...(cur.definition.clearances ?? []), zone]))
   }
   const update = (id: string, change: (z: ClearanceZone) => ClearanceZone) => edit((cur) => withClearances(cur, (cur.definition.clearances ?? []).map((z) => (z.id === id ? change(z) : z))))
   return (
     <FieldGroup className="gap-3" data-testid="part-editor-clearances">
-      <span className="text-sm font-medium">Clearances</span>
+      <span className="text-sm font-medium">{t('partEditor.zone.title', 'Clearances', { ns: 'editor' })}</span>
       <ItemGroup className="gap-2">
         {zones.map((z) => (
           <Item key={z.id} size="xs" variant="outline">
             <ItemContent className="gap-2">
               <ItemTitle className="text-xs">{z.name}</ItemTitle>
               <ItemDescription className="text-xs">
-                {CLEARANCE_PURPOSE_LABELS[z.purpose]} · {z.face}
+                {purposeWord(z.purpose, t)} · {faceWord(z.face, t)}
               </ItemDescription>
               <FieldGroup className="grid grid-cols-2 gap-2">
                 <Field>
-                  <FieldLabel htmlFor={`pe-zone-${z.id}-depth`}>Depth (ft)</FieldLabel>
+                  <FieldLabel htmlFor={peId('zone', z.id, 'depth')}>{t('partEditor.zone.depthFt', 'Depth (ft)', { ns: 'editor' })}</FieldLabel>
                   <Input
-                    id={`pe-zone-${z.id}-depth`}
+                    id={peId('zone', z.id, 'depth')}
                     inputMode="decimal"
                     defaultValue={typeof z.depth === 'number' ? String(ft(z.depth)) : ''}
                     disabled={!canEdit || typeof z.depth !== 'number'}
@@ -93,9 +150,9 @@ export function ClearancesPanel({ draft, canEdit, edit }: { draft: Draft; canEdi
                   />
                 </Field>
                 <Field>
-                  <FieldLabel htmlFor={`pe-zone-${z.id}-offset`}>Slide (ft)</FieldLabel>
+                  <FieldLabel htmlFor={peId('zone', z.id, 'offset')}>{t('partEditor.zone.slideFt', 'Slide (ft)', { ns: 'editor' })}</FieldLabel>
                   <Input
-                    id={`pe-zone-${z.id}-offset`}
+                    id={peId('zone', z.id, 'offset')}
                     inputMode="decimal"
                     defaultValue={typeof z.offset === 'number' ? String(ft(z.offset)) : '0'}
                     disabled={!canEdit}
@@ -108,24 +165,28 @@ export function ClearancesPanel({ draft, canEdit, edit }: { draft: Draft; canEdi
                 </Field>
               </FieldGroup>
               <Field orientation="horizontal">
-                <Checkbox id={`pe-zone-${z.id}-floor`} checked={z.fromFloor === true} onCheckedChange={(v) => update(z.id, (cur) => ({ ...cur, fromFloor: v === true }))} disabled={!canEdit} />
-                <FieldLabel htmlFor={`pe-zone-${z.id}-floor`} className="font-normal">
-                  Measured from the floor
+                <Checkbox id={peId('zone', z.id, 'floor')} checked={z.fromFloor === true} onCheckedChange={(v) => update(z.id, (cur) => ({ ...cur, fromFloor: v === true }))} disabled={!canEdit} />
+                <FieldLabel htmlFor={peId('zone', z.id, 'floor')} className="font-normal">
+                  {t('partEditor.zone.fromFloor', 'Measured from the floor', { ns: 'editor' })}
                 </FieldLabel>
               </Field>
             </ItemContent>
             <ItemActions>
-              <Button type="button" size="sm" variant="ghost" aria-label={`Remove ${z.name}`} onClick={() => edit((cur) => withClearances(cur, (cur.definition.clearances ?? []).filter((x) => x.id !== z.id)))} disabled={!canEdit}>
+              <Button type="button" size="sm" variant="ghost" aria-label={t('partEditor.removeAria', 'Remove {{name}}', { ns: 'editor', name: z.name })} onClick={() => edit((cur) => withClearances(cur, (cur.definition.clearances ?? []).filter((x) => x.id !== z.id)))} disabled={!canEdit}>
                 <Trash2 data-icon="inline-start" />
               </Button>
             </ItemActions>
           </Item>
         ))}
       </ItemGroup>
-      {zones.length === 0 && <p className="text-xs text-muted-foreground">No clearances yet. They draw dashed around every placed part and are never solid.</p>}
+      {zones.length === 0 && (
+        <p className="text-xs text-muted-foreground">
+          {t('partEditor.zone.empty', 'No clearances yet. They draw dashed around every placed part and are never solid.', { ns: 'editor' })}
+        </p>
+      )}
       <FieldGroup className="grid grid-cols-3 gap-2">
         <Field className="col-span-3">
-          <FieldLabel htmlFor="pe-zone-purpose">Kind</FieldLabel>
+          <FieldLabel htmlFor="pe-zone-purpose">{t('partEditor.zone.kind', 'Kind', { ns: 'editor' })}</FieldLabel>
           <Select value={purpose} onValueChange={(v) => setPurpose(v as ClearancePurpose)} disabled={!canEdit}>
             <SelectTrigger id="pe-zone-purpose" size="sm">
               <SelectValue />
@@ -134,7 +195,7 @@ export function ClearancesPanel({ draft, canEdit, edit }: { draft: Draft; canEdi
               <SelectGroup>
                 {CLEARANCE_PURPOSES.map((p) => (
                   <SelectItem key={p} value={p}>
-                    {CLEARANCE_PURPOSE_LABELS[p]}
+                    {purposeWord(p, t)}
                   </SelectItem>
                 ))}
               </SelectGroup>
@@ -142,7 +203,7 @@ export function ClearancesPanel({ draft, canEdit, edit }: { draft: Draft; canEdi
           </Select>
         </Field>
         <Field className="col-span-2">
-          <FieldLabel htmlFor="pe-zone-face">Side</FieldLabel>
+          <FieldLabel htmlFor="pe-zone-face">{t('partEditor.zone.side', 'Side', { ns: 'editor' })}</FieldLabel>
           <Select value={face} onValueChange={(v) => setFace(v as ClearanceFace)} disabled={!canEdit}>
             <SelectTrigger id="pe-zone-face" size="sm">
               <SelectValue />
@@ -151,7 +212,7 @@ export function ClearancesPanel({ draft, canEdit, edit }: { draft: Draft; canEdi
               <SelectGroup>
                 {CLEARANCE_FACES.map((f) => (
                   <SelectItem key={f} value={f}>
-                    {f}
+                    {faceWord(f, t)}
                   </SelectItem>
                 ))}
               </SelectGroup>
@@ -159,20 +220,26 @@ export function ClearancesPanel({ draft, canEdit, edit }: { draft: Draft; canEdi
           </Select>
         </Field>
         <Field>
-          <FieldLabel htmlFor="pe-zone-depth">Depth (ft)</FieldLabel>
+          <FieldLabel htmlFor="pe-zone-depth">{t('partEditor.zone.depthFt', 'Depth (ft)', { ns: 'editor' })}</FieldLabel>
           <Input id="pe-zone-depth" inputMode="decimal" value={depthFt} onChange={(e) => setDepthFt(e.target.value)} disabled={!canEdit} />
         </Field>
       </FieldGroup>
       <Button type="button" size="sm" variant="outline" onClick={add} disabled={!canEdit} data-testid="part-editor-add-clearance">
         <Plus data-icon="inline-start" />
-        Add clearance
+        {t('partEditor.zone.add', 'Add clearance', { ns: 'editor' })}
       </Button>
       {error && (
         <FieldDescription className="text-danger-600" role="alert">
           {error}
         </FieldDescription>
       )}
-      <FieldDescription className="text-xs">For NEC 110.26 working space sized from voltage and condition, use Set NEC 110.26 working space in a placed panel&apos;s Properties.</FieldDescription>
+      <FieldDescription className="text-xs">
+        {t(
+          'partEditor.zone.necPointer',
+          "For NEC 110.26 working space sized from voltage and condition, use Set NEC 110.26 working space in a placed panel's Properties.",
+          { ns: 'editor' },
+        )}
+      </FieldDescription>
     </FieldGroup>
   )
 }
