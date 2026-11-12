@@ -79,6 +79,9 @@ const OWNED_DIRS = [
   // per surface, read when the model opens and saved a moment after each change),
   // the sections it collapses, and the rail's drag edge with its resize tooltip.
   "layout",
+  // Outside stage 4 — a schedule docked as a tab beside the plan: its title, the
+  // close button, the read-only line, the loading row and the error card with Retry.
+  "schedule-tab",
   // Outside stage 4 — how a linked model draws: the one-click look on each model's
   // card, the transparency and per-category overrides in View properties, the
   // disciplines field, the contributor fields, the identity dialog and the
@@ -141,7 +144,6 @@ const OUTSIDE_STAGE_4 = [
   "part-editor",
   "planned",
   "responsibilities",
-  "schedule-tab",
   "schedules",
   "state",
   "view-input",

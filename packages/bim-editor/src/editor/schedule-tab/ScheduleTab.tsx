@@ -6,6 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from '../../ui/alert'
 import { Button } from '../../ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '../../ui/empty'
 import { Spinner } from '../../ui/spinner'
+import { useEditorTranslate } from '../i18n/translate'
 
 /**
  * A schedule docked as a tab beside the plan (round 12 E12): full height at
@@ -29,7 +30,15 @@ export interface ScheduleTabProps {
   readonly children: ReactNode
 }
 
-class ScheduleErrorBoundary extends Component<{ readonly onRetry: () => void; readonly resetKey: string; readonly children: ReactNode }, { readonly message: string | null; readonly key: string }> {
+/**
+ * The boundary is a class, so it takes its two captions from the function component
+ * below rather than reaching for a hook: a `t()` this file cannot call would leave
+ * the error card in English above a Turkish schedule.
+ */
+class ScheduleErrorBoundary extends Component<
+  { readonly onRetry: () => void; readonly resetKey: string; readonly errorTitle: string; readonly retryWord: string; readonly children: ReactNode },
+  { readonly message: string | null; readonly key: string }
+> {
   state = { message: null as string | null, key: this.props.resetKey }
 
   static getDerivedStateFromError(err: unknown): { message: string } {
@@ -48,7 +57,7 @@ class ScheduleErrorBoundary extends Component<{ readonly onRetry: () => void; re
     if (this.state.message === null) return this.props.children
     return (
       <Alert variant="destructive" className="m-3 w-auto" data-testid="schedule-tab-error">
-        <AlertTitle>This schedule couldn&apos;t be drawn</AlertTitle>
+        <AlertTitle>{this.props.errorTitle}</AlertTitle>
         <AlertDescription>
           <p>{this.state.message}</p>
           <Button
@@ -61,7 +70,7 @@ class ScheduleErrorBoundary extends Component<{ readonly onRetry: () => void; re
             }}
           >
             <RotateCw data-icon="inline-start" />
-            Retry
+            {this.props.retryWord}
           </Button>
         </AlertDescription>
       </Alert>
@@ -70,6 +79,7 @@ class ScheduleErrorBoundary extends Component<{ readonly onRetry: () => void; re
 }
 
 export function ScheduleTab({ title, besideProperties, loading, readOnly, onClose, onRetry, unavailable, children }: ScheduleTabProps) {
+  const t = useEditorTranslate()
   return (
     <section
       className={`absolute inset-y-0 z-20 flex w-[min(44rem,55%)] flex-col border-l bg-background shadow-sm ${besideProperties ? 'right-80' : 'right-0'}`}
@@ -80,20 +90,26 @@ export function ScheduleTab({ title, besideProperties, loading, readOnly, onClos
         <h2 className="truncate text-sm font-medium" data-testid="schedule-tab-title">
           {title}
         </h2>
-        <Button variant="ghost" size="icon-sm" aria-label="Close the schedule" onClick={onClose} data-testid="schedule-tab-close">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={t('scheduleTab.close', 'Close the schedule', { ns: 'editor' })}
+          onClick={onClose}
+          data-testid="schedule-tab-close"
+        >
           <X />
         </Button>
       </header>
       {readOnly && (
         <p className="border-b bg-muted/50 px-3 py-1.5 text-xs text-muted-foreground" data-testid="schedule-tab-read-only">
-          Read only: {readOnly}
+          {t('scheduleTab.readOnly', 'Read only: {{why}}', { ns: 'editor', why: readOnly })}
         </p>
       )}
       <div className="flex min-h-0 flex-1 flex-col overflow-auto">
         {loading ? (
           <div className="flex items-center gap-2 p-3 text-sm text-muted-foreground" role="status" data-testid="schedule-tab-loading">
             <Spinner />
-            Loading the schedule…
+            {t('scheduleTab.loading', 'Loading the schedule…', { ns: 'editor' })}
           </div>
         ) : unavailable ? (
           <Empty data-testid="schedule-tab-unavailable">
@@ -103,7 +119,12 @@ export function ScheduleTab({ title, besideProperties, loading, readOnly, onClos
             </EmptyHeader>
           </Empty>
         ) : (
-          <ScheduleErrorBoundary onRetry={onRetry} resetKey={title}>
+          <ScheduleErrorBoundary
+            onRetry={onRetry}
+            resetKey={title}
+            errorTitle={t('scheduleTab.couldNotBeDrawn', "This schedule couldn't be drawn", { ns: 'editor' })}
+            retryWord={t('scheduleTab.retry', 'Retry', { ns: 'editor' })}
+          >
             {children}
           </ScheduleErrorBoundary>
         )}

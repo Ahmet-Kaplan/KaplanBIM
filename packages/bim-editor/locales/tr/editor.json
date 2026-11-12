@@ -6968,5 +6968,12 @@
     "tryAgain": "Yeniden dene",
     "whatItShows": "Neyi gösterdiği",
     "whatShowsTitle": "{{name}} neyi gösteriyor"
+  },
+  "scheduleTab": {
+    "close": "Çizelgeyi kapat",
+    "couldNotBeDrawn": "Çizelge çizilemedi",
+    "loading": "Çizelge yükleniyor…",
+    "readOnly": "Salt okunur: {{why}}",
+    "retry": "Yeniden dene"
   }
 }
