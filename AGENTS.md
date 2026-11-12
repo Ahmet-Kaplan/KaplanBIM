@@ -3,6 +3,12 @@
 Read [CONTRIBUTING.md](CONTRIBUTING.md) first: sign-off, setup, tests and the
 bedrock rule apply to agents exactly as to people.
 
+**Before you change a contract, read [`docs/architecture/`](docs/architecture/README.md).**
+It has one short page per subsystem — what it owns, what it promises, **how it goes wrong**,
+and which test fails when it does. Its [index](docs/architecture/README.md) lists what to read
+for the kind of diff you are making. `docs/ARCHITECTURE.md` is the tour; this directory is the
+contract, and where they disagree the directory wins.
+
 **Start here:** the example scripts in `packages/bim-script/examples`
 (`bim_script_reference({ example: "<name>" })` serves them). Copy the closest
 one rather than starting from nothing; each runs as one
