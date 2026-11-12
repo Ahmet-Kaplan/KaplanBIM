@@ -1,0 +1,119 @@
+# IFC
+
+## What it owns
+
+| Where | What |
+|---|---|
+| `packages/bim-ifc/src/import/read-products.ts` | A hand-written STEP reader. `readIfcSource` (`:119`) turns every placed product into a neutral `ImportProduct` and **decides nothing** |
+| `packages/bim-ifc/src/import/geometry.ts` | Placements and the solids it reads exactly: extruded area solids (rectangle, circle, polyline, a steel section's bounding rectangle), mapped items, bounding boxes, and mesh bounds. Everything else is reported in words (`:1-9`) |
+| `packages/bim-ifc/src/import/index.ts` | `importIfc` (`:21`): read, then plan, in one step |
+| `packages/bim-kernel/src/import/types.ts` | The neutral IR: `ImportProduct`, `ImportGeometry`, `ImportLayerSet`, `IfcImportPlan`, `IfcImportReport` |
+| `packages/bim-kernel/src/import/plan.ts` | `planIfcImport` (`:61`): the second, separate step. The reverse class map picks a class and a rule; levels, types, layers and the report come out of it |
+| `packages/bim-kernel/src/import/rules.ts` | The kernel's ten rules (`KERNEL_IMPORT_RULES`, `:420`): wall, slab, room, ceiling, column, beam, opening, run segment, part, component |
+| `packages/bim-kernel/src/import/shape.ts` | The few readings every rule shares: a vertical prism, a straight sweep, a plan rectangle's centre line |
+| `packages/bim-ifc/src/export.ts` | Model → IFC 4.3 ADD2 (`IFC_SCHEMA`, `:76`), deterministic, no clock, GlobalIds derived from stable ids |
+
+## The contract
+
+1. **Reading and deciding are two steps, and the reader never decides.** The
+   reader's output is products with geometry, properties, ports, groups, a
+   storey, a type id and a layer set (`read-products.ts:298-330`). *What* a
+   product becomes is answered in `planIfcImport` (`plan.ts:61`), by the class
+   whose registry `ifc` hint matches it and that class's import rule
+   (`import/rule-point.ts:1-16`). A pack's class comes in through its own rule
+   with no kernel or importer edit (`i9-reverse-map.test.ts:54`).
+2. **What is read.** Local placements; extruded area solids; mapped items; a
+   type's representation when the product has none of its own
+   (`read-products.ts:263-271`); `IfcRelAggregates`,
+   `IfcRelContainedInSpatialStructure`, `IfcRelDefinesByType`,
+   `IfcRelAssociatesClassification`, `IfcRelDefinesByProperties`,
+   `IfcRelVoidsElement` + `IfcRelFillsElement`, `IfcRelAssociatesMaterial`
+   (including `IfcMaterialLayerSetUsage`), `IfcRelNests` +
+   `IfcRelConnectsPortToElement` + `IfcRelConnectsPorts`,
+   `IfcRelAssignsToGroup`. Length scale comes from the project's unit
+   assignment, defaulting to metres (`:85-105`).
+3. **What is refused, in words, on the linked model.** A union or an
+   intersection, a mesh or faceted BRep, a bounding box only, an unreadable
+   section, a shape placed on a grid or alignment, a form the reader has no case
+   for. Each becomes a `stay` line in the report with its reason and count
+   (`plan.ts:139-143`), never a record. **Body only**: `bodyFirst`
+   (`geometry.ts:154-165`) reads the Body representation, else Box, else
+   everything that is not `Axis`, `Footprint`, `Annotation` or `Plan`.
+4. **A clipped solid is measured, not vetoed.** The reader reads a boolean
+   difference's first operand — the whole solid with the cut left in — sets
+   `cutsLeftIn` and keeps `unread = "cut by another shape"` (`geometry.ts:203-208`).
+   `holdsWholeShape` (`shape.ts:26`) admits it, because a cut-left-in reading
+   **over**-measures and never under-measures. The plan then says what was
+   measured: "N elements were measured from its uncut solid … so what was cut
+   out isn't subtracted" (`plan.ts:252-256`). Before this fix the same walls
+   were refused, and every door behind them went with them.
+5. **A file's type becomes a real `element_type`.** The reader carried a
+   type's GlobalId, name and codes on the neutral product all along
+   (`read-products.ts:159-173,307-309`); what it had nowhere to put was a
+   record. `typeFor` (`plan.ts:158-200`) makes one `element_type` per converted
+   type — carrying the type's build-up and classification — and stamps `typeId`
+   on its instances, so the takeoff groups by the file's own type name or code
+   instead of collapsing a trade into one line. A free-string `wallType` stays
+   on the wall for older readers and groups nothing
+   (`i9-import-types.test.ts:1-11`).
+6. **A build-up takes off per layer, per face.** `IfcMaterialLayerSetUsage` is
+   read whole — material, thickness, order and `OffsetFromReferenceLine`, with
+   the layers re-based on the reference line (`read-products.ts:368-397`) — and
+   lands on the wall or its type as `layers` (`import/layers.ts`). The takeoff
+   then measures each layer's net face area and its own volume
+   ([qto](qto.md)). `material` remains the first layer's name for older readers.
+7. **Export is IFC 4.3 ADD2 and preserves the links, not just the shapes.**
+   Spatial tree, spaces and zones, distribution systems and circuits, ports and
+   port connections, types through `IfcRelDefinesByType`, property sets and
+   quantity sets, assemblies, groups, grid axes, units from `bim-units`
+   (`c5i-export.test.ts:122-238`). An element no class recognises, or a hint the
+   schema lacks, is written as `IfcBuildingElementProxy` **and reported**:
+   'used IfcBuildingElementProxy for 2 building elements because class
+   "arch.wall" is unavailable' (`proxy-diagnostics.test.ts`).
+
+## How it goes wrong
+
+- **A clipped solid vetoed.** The symptom is not "one wall missing". The walls
+  vanish, then the door hosted in one of them has no host and goes too, and the
+  report says the geometry was unreadable while the reader had in fact read a
+  clean base extrusion. `i9-boolean-clip.test.ts` and the sample-model counts pin
+  it (products 34, walls 4, door 1).
+- **`unread` set and then silently measured less than the model holds.** A union
+  or an intersection measuring its first operand is the dangerous direction: a
+  wall half its real length still lands, still measures, and nobody notices.
+  `holdsWholeShape` (`shape.ts:26`) exists for that asymmetry alone.
+- **A layer offset dropped.** Without `referenceLineOffsetMm`, a 15 + 170 + 15
+  wall cannot say which face the reference line is on, so every layer's offset
+  is relative to nothing. The reader re-bases on it
+  (`read-products.ts:399-401`); a build-up whose stated total and the shape's
+  thickness part ways by more than 5 mm is a report note (`plan.ts:258-266`),
+  because the layers' volumes then do not add up to the element's.
+- **A proxy fallback that does not report the classification it lost.** An
+  export that quietly writes `IfcBuildingElementProxy` hands the reader a
+  model with no classes in it and no reason. The warning names the class and
+  the add-on that would have provided it (`proxy-diagnostics.test.ts`).
+- **The wall axis reconstructed from the body.** We discard `IfcWall`'s Axis
+  representation on purpose (`geometry.ts:154-165`) and reconstruct a centreline
+  from the body footprint's long side: `start`/`end` are the midpoints of the
+  footprint's short sides, `thickness` its short side (`rules.ts:80-90`,
+  `shape.ts:87-96`). That is the *body* centre line, not the reference line, so
+  the layer offsets are relative to a reference we did not read. The wall-join
+  solve derives ends from the stored `start`/`end` (`bim-kernel/src/joins/solve.ts:1-27`),
+  which is why the plan puts reading the Axis **before** wall joins (step 6):
+  joining on a reconstructed reference line joins the wrong thing.
+
+## Where the guard is
+
+`packages/bim-ifc/__tests__/` is the suite; the `i9-*` families carry the import.
+
+| Guard | Pins |
+|---|---|
+| `i9-convert-sample.test.ts` | The sample model: **34 products** read, **4 walls** and **1 door** and 1 footing converted, `report.converted = 6`, the exact summary sentence, 25 members/plates and the roof, stair and windows left linked; four walls as one `class|Walls|4` takeoff line because the file carries no type; total length 30 m |
+| `i9-boolean-clip.test.ts` | A difference converts with `unread` and `cutsLeftIn` both set and the note saying so; a union and an intersection stay linked, in words |
+| `i9-import-types.test.ts` | Two typed walls as two lines named after their types; one type as one line with both walls; an untyped wall keeping the class line beside the typed one; a type's code grouping by classification |
+| `i9-import-layers.test.ts` | The whole build-up in order with its offsets; a ventilated cavity named; the layers landing and taking off per face (three faces of 18.00 m²); the 240-vs-200 mm note; the sample model's one 360 mm brick layer over four walls summing to their net face area (117.8 m²) |
+| `i9-report.test.ts` | The sentence a person reads; a shardless curtain wall staying linked with its reason; a clipped wall measured and its door arriving with it |
+| `i9-reverse-map.test.ts` | Every built-in class with an IFC home mapping back to itself; a pack's class mapping back with zero kernel edits |
+| `proxy-diagnostics.test.ts` | The proxy fallback reporting the class it lost, and not warning when nothing was lost |
+| `c5i-export.test.ts`, `c5i-tower.test.ts` | IFC4X3_ADD2 with no dangling references, identical bytes twice, stable GlobalIds across edits, types, ports, quantity sets, units |
+| `i9-import-layers.test.ts` + `bim-kernel/src/__tests__/import-layers.test.ts` | that the importer adds no i18n or React to the kernel |
