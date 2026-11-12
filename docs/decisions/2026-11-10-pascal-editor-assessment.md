@@ -152,3 +152,55 @@ Geri çekmek istedikleri araç adlarına cevap vermek için bir shim tutuyorlar.
 | Şema, UI kit, CLI, hosted krediler | **Alma** | — |
 
 **Sıralama:** IFC adım 4-5 (kaplamalar, `IfcSpace` kalitesi) → polylabel + room-zone (ucuz, hemen görünür) → walkthrough ilk dilimi → performans okuması.
+
+---
+
+## Ek 2 — mimari wiki'de bizim çözemediğimiz iki problem
+
+Pascal'ın kodundan çok **`wiki/architecture/` altındaki 30 belge** değerli çıktı. İkisi bizdeki gerçek bir eksiği adresliyor.
+
+### 1. `wall-frame.md` — duvar referans çizgisi (bizim IFC planımızı düzeltiyor)
+
+**Bizim bugünkü hatamız:** duvarın başlangıç/bitişini **gövde ayak izi dikdörtgeninin** uzun ekseninden türetiyoruz (`bim-ifc/src/import/shape.ts:79-93`), çünkü import'ta IFC'nin **Axis** temsilini bilerek atıyoruz (`geometry.ts:140-149`, yalnızca Body okunuyor). Yani gerçek referans çizgisini atıp, sonra onu gövdeden yeniden uyduruyoruz. Katmanlı duvarda bu, katman offset'lerini de kaybediyor (adım 3'te `OffsetFromReferenceLine` artık okunuyor, ama referans çizgisinin kendisi yok).
+
+**Onların modeli:** saklanan `start → end` **referans çizgisidir**; gövde ondan yanal olarak `justification` ile kayar (**Inside/Center/Outside** ya da **A/Center/B**). Kalınlık düzenlemesi referansı **sabit tutar**. Birleşimlerde komşuların uçları kendi çizgileri boyunca yeni kesişime kaydırılır (`planWallMoveJunctions`), T-gövdeler ev sahibinin yakın yüzünde durur, çok kollu yelpazeler referans tepe noktasını korur.
+
+**Neden önemli:** "duvarı kalınlaştır" bugün bizde referansı kaydırıyor, yani bitişik duvarlar kopuyor; onlarda referans sabit kaldığı için yüzler korunuyor. Odalar gövde merkez çizgilerini izler, dolayısıyla referansı yeniden tanımlamak odaları bozmuyor.
+
+**Yapılacak:** IFC import'ta **Axis temsilini oku** ve referans çizgisini + `OffsetFromReferenceLine`'ı sakla; `shape.ts`'nin gövde-dikdörtgeni türetmesini yedek yol yap. **Bu, IFC planımızdaki adım 6'nın (duvar birleştirme + L/T) önkoşulu** — yanlış referans çizgisiyle birleşim yapmak, yanlış birleşim yapmaktır.
+
+### 2. `space-detection.md` — odaları duvarlardan türetmek, ve **kimliği korumak**
+
+Revizyon karşılaştırması yapan bir firma için asıl problem şu: **duvar değişince odanın miktarı ne olur?** Onların cevabı, bizde olmayan bir tasarım:
+
+- Odalar **türetilmiş durumdur** ve duvar düzenlemesinin *parçası* olarak yeniden hesaplanır — sonradan bir arka plan işi değil. Yani tutarlılık inşa gereği.
+- **Plaka (döşeme) eşleştirme önce ortak `zoneIds`'e, sonra poligon örtüşmesine bakar**, ve aynı kotta bölme düzenlemeleri boyunca **kimliği korur**. Emekliye ayrılan plaka sahipleri aynı yama kümesinde yeniden eşlenir.
+- **Duvar silme:** paylaşılmayan bir oda sınırı, aynı referans çizgisi aralığında bir **ayırıcıya** dönüşür — oda kimliği, bitişleri, plakası ve tavanı korunur. Paylaşılan aralıklar ayırıcı almaz, komşu odalar birleşir.
+- **Silme koruması**, saklanan oda poligonunun güncel bir yüzle **IoU ≥ 0.9** eşleşmesini şart koşar.
+- İnsanın verdiği ad asla sessizce değişmez (`room_named_by_person` reddi).
+
+**Bizim için değeri:** IFC'den oda alamasak bile (Revit odası olmayan modeller yaygın), duvar halkalarından oda türetmek ve **revizyonlar arasında oda kimliğini korumak** doğrudan metraj karşılaştırması demek. Duvarlarımız zaten `IfcRelConnectsPathElements` ile bağlanmıyor (araştırma: 0 isabet) — bu tasarım o boşluğun da cevabı.
+
+### 3. Okuma listesi — geri kalanı
+
+Aynı wiki'de bizde karşılığı olmayan başlıklar: `vertical-model.md` (dikey bağlantı, istiflenmiş asma kat odaları), `systems.md`, `layers.md`, `materials-and-themes.md`, `spatial-queries.md`, `selection-groups.md`/`selection-managers.md`, `renderers.md`, `viewer-isolation.md`, `construction-animation.md` (**inşaat sırası animasyonu** — Faz 3'ün 4D'sine görsel bir alternatif), `authored-objects.md`, `item-authoring.md`, `node-schemas.md`, `plugin-authoring.md`, `point-and-ask.md` (ajan UX deseni), `inspector-field-limits.md`.
+
+Ayrıca **`contracts/cut-intent.ts`** — kesme/boşluk (void) niyetinin açık bir sözleşme olması. Biz `IfcRelVoidsElement`'i okuyoruz ama "kesme niyeti"ni ayrı bir kavram olarak tutmuyoruz.
+
+### 4. Pratik olarak: bir mimari wiki tutmak
+
+Onların 30 belgesi, kodla birlikte yaşayan ve **"neden böyle"** sorusunu cevaplayan bir kütüphane. Bizde `docs/ARCHITECTURE.md` tek belge. Bu oturumda tam da bu eksikliği yaşadık: her ajan aynı soruları yeniden keşfetti. **Mimari wiki'si en az kod kadar alınmaya değer.**
+
+---
+
+## Ek 2 hükmü
+
+| Parça | Karar | Neden |
+|-------|-------|-------|
+| `wall-frame.md` modeli | **AL — IFC adım 6'nın önkoşulu** | Referans çizgisi + justification; gövde-dikdörtgeni türetmemiz kırılgan ve birleşimleri bozuyor |
+| `space-detection.md` tasarımı | **AL (tasarım), kademeli uygula** | Oda türetme + **revizyonlar arası kimlik koruma** = metraj karşılaştırması |
+| `vertical-model.md` | **Oku** | Dikey bağlantı; Faz 3'ün 4D'sinde işe yarar |
+| `construction-animation.md` | **Oku** | 4D'ye görsel alternatif |
+| `contracts/cut-intent.ts` | **Oku** | Kesme niyeti ayrı kavram |
+| Mimari wiki pratiği | **AL** | Bu oturumun en pahalı dersi: bilgi kodda yaşıyor ama *neden*i yaşamıyor |
+| Geri kalan wiki | Okuma listesi | — |
