@@ -1,0 +1,97 @@
+# Viewers and the shared look
+
+## What it owns
+
+| Package | What it draws | What it may not know |
+|---|---|---|
+| `packages/bim-ui` | The theme (`theme.ts`, `color-scheme.ts`, `theme-css.ts`), the primitives (`src/ui/*`), i18n, brand marks, window controls | Nothing about a model. It imports **no** `@permitzip` package at all — React, i18next and radix only |
+| `packages/bim-viewer` | The dev baseline page: an SVG plan, a live sheet, presence, drag-to-move and a schedules demo (`src/app.ts:57`, `src/schedules-demo.ts:1`) | The editor's business: there is no import of `@permitzip/bim-editor` anywhere in it |
+| `packages/bim-viewer-3d` | WebGL solids, picking, crop boxes, level planes, framing, orientation, IFC import (`src/viewer.ts`, `viewer-colors.ts`) | Model *meaning*: it is handed a scene and colours, not a tool or a command |
+| `packages/bim-grid` | A virtualised, editable data grid with its own range selection and TSV clipboard (`src/DataGrid.tsx`, `virtual.ts`, `tsv.ts`) | Any host's look or words: peer dependency `react` and nothing else |
+
+None of the four imports the editor; none of them creates a provider; none of them
+reaches for a host's router, storage or sign-in. `bim-viewer` and `bim-viewer-3d`
+peer-depend on the kernel and `bim-sync` — they read a model and speak the wire
+protocol, and that is the whole of their coupling.
+
+## The contract
+
+1. **The theme rule is absolute.** Every colour, font and radius comes from a
+   `--mutiny-*` variable. No hex in a stylesheet, no hex in a component, no inline
+   `style={{ color }}`, no one-off palette. Light, dark and the computer's setting all
+   come from `mutinyDefaultTheme` / `mutinyDarkTheme`: React screens get the variables
+   from `MutinyThemeProvider`, server-rendered pages from `themeStyleSheet()`
+   (`packages/bim-ui/src/theme-css.ts:11`).
+2. **The only hex lives in two files** — `packages/bim-ui/src/theme.ts` and
+   `src/color-scheme.ts`, where the variables are defined. That is not a convention:
+   it is the whitelist the guard scans against.
+3. **Paper is the exception.** Printed sheets and issued PDFs stay black on white and
+   never read the theme. So do the stored colours a model carries: a discipline's
+   colour, a system's graphic colour, a person's presence colour, and the parseable
+   hex WebGL needs.
+4. **Components are reused, not re-implemented.** `Button`, `Badge`, `Alert`, `Card`,
+   `Input`, `Textarea`, `NativeSelect`, `Label`, `Field`, `Empty`, `Separator`,
+   `Spinner`, `Tooltip`, `ToggleGroup`, `ThemeToggle` are exported from
+   `@permitzip/bim-ui` (`src/index.ts:11-15`). The editor draws no `<button>` of its own
+   — a search for one under `packages/bim-editor/src` and
+   `apps/mutinybim-web/src` returns nothing.
+5. **A missing primitive is added, not copied.** If a screen needs something
+   `bim-ui/src/ui/` lacks, it goes there in the same change, with `--mutiny-*` colours
+   only, and the screen uses it. A styled local copy is the failure.
+6. **A viewer takes the theme, it does not pick colours.** `bim-viewer-3d` reads
+   `viewer-colors.ts`; `bim-grid` is styled by `grid.css`; `bim-viewer` by
+   `viewer.css`. Each of those files reads `--mutiny-*` and is inside the guard.
+
+One honest exception: `bim-grid` keeps its own cell primitives —
+`GridButton`, `CellInput`, `CellSelect` in `src/components/ui/cell-controls.tsx:1-26` —
+hand-rolled and styled by `grid.css` rather than Tailwind, so the grid draws the same
+in any host. It is exempt from rule 4 in practice, not in writing, and no test says
+so.
+
+## How it goes wrong
+
+- **A hex in a stylesheet.** `color: #f2611d` looks innocent until dark mode ships and
+  the screen keeps its light accent. The same defect wearing a variable's name: a
+  fallback (`var(--mutiny-panel, #f2f3f4)`) or a variable that exists in light and not
+  in dark.
+- **A colour through an inline style.** `style={{ color: '#5d6670' }}` on a table row,
+  or `backgroundColor: 'rgba(0,0,0,.2)'` — invisible to a `className` audit.
+- **A hand-rolled button.** A `<button>` with its own padding and border makes one
+  screen disagree with every other screen's hover, focus ring and disabled state. *Tell:*
+  a component file that imports no primitive from `@permitzip/bim-ui`.
+- **A component that reaches for the kernel.** A `bim-ui` primitive importing
+  `@permitzip/bim-kernel` would drag the engine into every page that shows a badge.
+- **A viewer that imports the editor.** `bim-viewer` importing a screen from
+  `bim-editor` inverts the layer and puts the whole editor in the first download of a
+  read-only page.
+- **A one-off palette.** A local stylesheet that picks its own greys reads as a
+  different product in the same window.
+
+## Where the guard is
+
+`packages/bim-ui/__tests__/theme-token-compliance.test.ts`.
+
+- **What it scans.** Every `.css`, `.ts` and `.tsx` under `packages/*/src` and
+  `apps/*/src` — over 200 files, and it asserts it found that many, naming
+  `packages/bim-viewer/src/viewer.css`, `packages/bim-schedules-ui/src/schedules.css`,
+  `packages/bim-grid/src/grid.css` and `apps/mutinybim-web/src/app.ts` as files it must
+  have covered.
+- **Three rules.** No hex outside the theme's two files (hex in a `url(#id)` reference
+  and `&nbsp;`-style character references do not count); no colour set through
+  `style={{ … }}` unless it is a `var(--mutiny-…)`; every `--mutiny-*` a package
+  *reads* exists in **both** themes.
+- **What it exempts,** each with the mechanism that makes the hex content rather than
+  styling: discipline and system colours and element graphics stored in the model,
+  drawing and diagram output that prints on paper, title-block and rich-text colour,
+  the presence colours in the sync protocol, the 3D viewer's WebGL colours, the image
+  an agent is shown, and one skill file's text.
+- **It proves each exemption is real.** Every exempted path must still exist **and**
+  still contain hex; an exemption whose file was deleted, or whose hex is gone, fails
+  the guard. That is what stops the list from quietly becoming a place to put files.
+- **It proves it bites.** A self-test plants the shapes it must reject (`color: #f2611d`,
+  a hex fallback, `fill: #dbeafe`, an inline `borderColor`) and the shapes it must
+  accept (`var(--mutiny-text)`, `url(#drop-shadow)`) and asserts both sides.
+
+No guard forbids a viewer importing the editor, and no guard requires a new primitive
+to land in `bim-ui` rather than beside its screen. Both are review-only, and the second
+is the one that decays quietly.
