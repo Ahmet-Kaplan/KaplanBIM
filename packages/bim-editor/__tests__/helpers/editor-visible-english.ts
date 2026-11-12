@@ -137,10 +137,21 @@ const SPEAKING_CALLS = [
 ];
 
 /** The calls whose second argument is an undo label: `send(cmd, 'move the note')`. */
-const UNDO_CALLS = ["send", "submit", "onCommit", "onStep", "onTag", "onTagsBatch", "act", "setQuick", "setQuickCrop"];
+const UNDO_CALLS = [
+  "send",
+  "submit",
+  "onCommit",
+  "onStep",
+  "onTag",
+  "onTagsBatch",
+  "act",
+  "setQuick",
+  "setQuickCrop",
+];
 
 /** The field names whose value is a caption, wherever it sits. */
-const CAPTION_FIELDS = "label|prompt|desc|description|refusal|note|hint|caption";
+const CAPTION_FIELDS =
+  "label|prompt|desc|description|refusal|note|hint|caption";
 
 /**
  * Is this literal prose a person reads, rather than CSS, a transform, an id or a
@@ -151,13 +162,22 @@ const looksLikeProse = (text: string): boolean => {
   const trimmed = text.trim();
   if (trimmed === "" || trimmed === "use client") return false;
   // CSS, SVG transforms, urls, colours, template syntax, code punctuation.
-  if (/--|\bvar\(|\burl\(|rotate\(|matrix\(|translate|color-mix|srgb|\dpx\b|\drem\b|#\w|%|[{}<>\\=;|@]/u.test(trimmed)) return false;
+  if (
+    /--|\bvar\(|\burl\(|rotate\(|matrix\(|translate|color-mix|srgb|\dpx\b|\drem\b|#\w|%|[{}<>\\=;|@]/u.test(
+      trimmed,
+    )
+  )
+    return false;
   // A module specifier, a path, a token id.
   if (/^[@./]/u.test(trimmed) || trimmed.includes("/")) return false;
   // Three or more hyphenated tokens is a class list (`bm-coord-anim`, `draft-preview`).
-  if ((trimmed.match(/[A-Za-z0-9]+-[A-Za-z0-9]+/gu) ?? []).length >= 2) return false;
+  if ((trimmed.match(/[A-Za-z0-9]+-[A-Za-z0-9]+/gu) ?? []).length >= 2)
+    return false;
   // A media query, a font stack, a file name, a stored id: not words on a screen.
-  if (/prefers-|sans-serif|monospace|\bserif\b|\.pdf|\.png|\.csv/u.test(trimmed)) return false;
+  if (
+    /prefers-|sans-serif|monospace|\bserif\b|\.pdf|\.png|\.csv/u.test(trimmed)
+  )
+    return false;
   if (/^[a-z][\w.:-]*$/u.test(trimmed)) return false;
   // At least two words of two letters, and it must end as words do.
   const words = trimmed.match(/[A-Za-z]{2,}/gu) ?? [];
@@ -183,7 +203,11 @@ const looksLikeWords = (text: string): boolean => {
   // One identifier, camelCase, hyphenated or dotted: `Promise`, `DarkMode`, `detail-end`,
   // `working_angle`, `t.rich`. A single capitalised word is the exception — that is the
   // most common caption there is (`Cancel`, `Move`, `Rev`, `Date`, `Up`).
-  if (/^[A-Za-z_$][\w$-]*(?:\.[A-Za-z_$][\w$-]*)*$/u.test(trimmed) && !/^[A-Z][a-z]{1,}$/u.test(trimmed)) return false;
+  if (
+    /^[A-Za-z_$][\w$-]*(?:\.[A-Za-z_$][\w$-]*)*$/u.test(trimmed) &&
+    !/^[A-Z][a-z]{1,}$/u.test(trimmed)
+  )
+    return false;
   if (/[\[\]]/u.test(trimmed)) return false;
   if (/\)\s*:|\?\s*\(|\b as [A-Z]/u.test(trimmed)) return false;
   if (/\([A-Za-z_]+:/u.test(trimmed)) return false;
@@ -196,7 +220,13 @@ const looksLikeWords = (text: string): boolean => {
   return true;
 };
 
-/** Strip comments, keeping string literals (so a `t('…')` inside a string still counts). */
+/**
+ * Strip comments, keeping string literals (so a `t('…')` inside a string still counts).
+ *
+ * A block comment keeps its newlines, as spaces: it is removed, but the offsets after
+ * it must not move, or every failure this guard prints names a line above the real
+ * one — and a line number a person cannot trust is a line number they stop reading.
+ */
 function stripComments(source: string): string {
   let out = "";
   let index = 0;
@@ -208,10 +238,18 @@ function stripComments(source: string): string {
       continue;
     }
     if (char === "/" && next === "*") {
+      const start = index;
       index += 2;
-      while (index < source.length && !(source[index] === "*" && source[index + 1] === "/")) index += 1;
+      while (
+        index < source.length &&
+        !(source[index] === "*" && source[index + 1] === "/")
+      )
+        index += 1;
       index += 2;
-      out += " ";
+      // One character in, one newline out: the comment's own lines stay lines.
+      out += source
+        .slice(start, Math.min(index, source.length))
+        .replace(/[^\n]/gu, " ");
       continue;
     }
     if (char === '"' || char === "'" || char === "`") {
@@ -267,7 +305,9 @@ function matchingBracket(source: string, open: number): number {
 }
 
 /** Every character span a translator call covers: its key, its English and its values. */
-function translatorSpans(source: string): readonly (readonly [number, number])[] {
+function translatorSpans(
+  source: string,
+): readonly (readonly [number, number])[] {
   const spans: (readonly [number, number])[] = [];
   for (const match of source.matchAll(/\b(?:t|tr)\s*\(/gu)) {
     const open = match.index + match[0].length - 1;
@@ -276,7 +316,10 @@ function translatorSpans(source: string): readonly (readonly [number, number])[]
   return spans;
 }
 
-const inside = (spans: readonly (readonly [number, number])[], at: number): boolean => spans.some(([start, end]) => at >= start && at <= end);
+const inside = (
+  spans: readonly (readonly [number, number])[],
+  at: number,
+): boolean => spans.some(([start, end]) => at >= start && at <= end);
 
 function lineOf(source: string, at: number): number {
   return source.slice(0, at).split("\n").length;
@@ -307,7 +350,11 @@ interface Literal {
  * Every string or template literal between two offsets, with each `{…}`/`${…}`
  * replaced by a space: an interpolation is code, the words around it are not.
  */
-function literalsBetween(source: string, from: number, to: number): readonly Literal[] {
+function literalsBetween(
+  source: string,
+  from: number,
+  to: number,
+): readonly Literal[] {
   const out: Literal[] = [];
   let index = from;
   while (index < to) {
@@ -396,7 +443,9 @@ function jsxTags(source: string): readonly (readonly [number, number])[] {
  * balanced brace walk so an object literal inside the expression does not end it
  * early. `Press {key} to finish` gives "Press " and " to finish".
  */
-function literalSegments(body: string): readonly { readonly at: number; readonly text: string }[] {
+function literalSegments(
+  body: string,
+): readonly { readonly at: number; readonly text: string }[] {
   const segments: { at: number; text: string }[] = [];
   let runStart = 0;
   let index = 0;
@@ -406,7 +455,8 @@ function literalSegments(body: string): readonly { readonly at: number; readonly
       index += 1;
       continue;
     }
-    if (index > runStart) segments.push({ at: runStart, text: body.slice(runStart, index) });
+    if (index > runStart)
+      segments.push({ at: runStart, text: body.slice(runStart, index) });
     let depth = 0;
     while (index < body.length) {
       const inner = body[index];
@@ -424,12 +474,16 @@ function literalSegments(body: string): readonly { readonly at: number; readonly
     index += 1;
     runStart = index;
   }
-  if (runStart < body.length) segments.push({ at: runStart, text: body.slice(runStart) });
+  if (runStart < body.length)
+    segments.push({ at: runStart, text: body.slice(runStart) });
   return segments;
 }
 
 /** The call spans whose arguments hold captions, as `[open, close]`. */
-function callSpans(source: string, names: readonly string[]): readonly (readonly [number, number])[] {
+function callSpans(
+  source: string,
+  names: readonly string[],
+): readonly (readonly [number, number])[] {
   const pattern = new RegExp(String.raw`\b(?:${names.join("|")})\s*\(`, "gu");
   const spans: (readonly [number, number])[] = [];
   for (const match of source.matchAll(pattern)) {
@@ -443,7 +497,10 @@ function callSpans(source: string, names: readonly string[]): readonly (readonly
  * Every piece of user-visible English under `roots` that is not inside a
  * translator call, sorted by file and line.
  */
-export function visibleEnglish(roots: readonly string[], root = path.join(__dirname, "..", "..")): VisibleEnglish[] {
+export function visibleEnglish(
+  roots: readonly string[],
+  root = path.join(__dirname, "..", ".."),
+): VisibleEnglish[] {
   const found: VisibleEnglish[] = [];
   for (const dir of roots) {
     for (const file of sourceFiles(dir).sort()) {
@@ -457,7 +514,11 @@ export function visibleEnglish(roots: readonly string[], root = path.join(__dirn
       // put `("model").value.trim(), baseUrl: field` between a `>` and the next `<`.
       const isJsx = file.endsWith(".tsx");
 
-      const add = (at: number, text: string, kind: VisibleEnglish["kind"]): void => {
+      const add = (
+        at: number,
+        text: string,
+        kind: VisibleEnglish["kind"],
+      ): void => {
         const trimmed = text.replace(/\s+/gu, " ").trim();
         if (trimmed === "" || inside(spans, at)) return;
         if (NOT_CAPTIONS.has(trimmed)) return;
@@ -468,10 +529,13 @@ export function visibleEnglish(roots: readonly string[], root = path.join(__dirn
       // `<title>…</title>`: a hover tooltip a person reads. Its words sit in the text
       // *or* in a template literal inside an expression (`{`Snaps to the ${x}`}`), so
       // both are read — and a title whose words come from `t(…)` contributes nothing.
-      for (const match of isJsx ? source.matchAll(/<title>([\s\S]*?)<\/title>/gu) : []) {
+      for (const match of isJsx
+        ? source.matchAll(/<title>([\s\S]*?)<\/title>/gu)
+        : []) {
         const body = match[1] ?? "";
         const at = (match.index ?? 0) + "<title>".length;
-        for (const literal of literalsBetween(body, 0, body.length)) add(at + literal.at, literal.text, "title");
+        for (const literal of literalsBetween(body, 0, body.length))
+          add(at + literal.at, literal.text, "title");
         if (!body.includes("{")) add(at, body, "title");
       }
 
@@ -497,13 +561,16 @@ export function visibleEnglish(roots: readonly string[], root = path.join(__dirn
         for (const expression of body.matchAll(/\{[\s\S]*?\}/gu)) {
           const open = tagEnd + 1 + (expression.index ?? 0);
           const close = matchingBracket(source, open);
-          for (const literal of literalsBetween(source, open, close + 1)) add(literal.at, literal.text, "jsx");
+          for (const literal of literalsBetween(source, open, close + 1))
+            add(literal.at, literal.text, "jsx");
         }
       }
 
       // The attributes a screen reads out: a plain string, the strings inside an
       // expression, and a quoted key (`attributes: { 'aria-label': 'Note text' }`).
-      for (const match of source.matchAll(/['"]?\b(aria-label|title|placeholder)['"]?\s*[:=]\s*(["'{])/gu)) {
+      for (const match of source.matchAll(
+        /['"]?\b(aria-label|title|placeholder)['"]?\s*[:=]\s*(["'{])/gu,
+      )) {
         const at = match.index ?? 0;
         const marker = at + match[0].length - 1;
         if (match[2] !== "{") {
@@ -512,21 +579,30 @@ export function visibleEnglish(roots: readonly string[], root = path.join(__dirn
           continue;
         }
         const end = matchingBracket(source, marker);
-        for (const literal of literalsBetween(source, marker, end + 1)) add(literal.at, literal.text, "attribute");
+        for (const literal of literalsBetween(source, marker, end + 1))
+          add(literal.at, literal.text, "attribute");
       }
 
       // A field named like a caption, wherever in the value its words sit.
-      for (const match of source.matchAll(new RegExp(String.raw`\b(?:${CAPTION_FIELDS})\s*:\s*`, "gu"))) {
+      for (const match of source.matchAll(
+        new RegExp(String.raw`\b(?:${CAPTION_FIELDS})\s*:\s*`, "gu"),
+      )) {
         const at = (match.index ?? 0) + match[0].length;
-        const literal = literalsBetween(source, at, Math.min(at + 1, source.length))[0];
+        const literal = literalsBetween(
+          source,
+          at,
+          Math.min(at + 1, source.length),
+        )[0];
         if (literal !== undefined) {
           add(literal.at, literal.text, "argument");
           continue;
         }
         // A ternary or a helper here: read every string up to the end of the value.
         let end = at;
-        while (end < source.length && !/[\n,]/u.test(source[end] ?? "")) end += 1;
-        for (const inner of literalsBetween(source, at, end)) add(inner.at, inner.text, "argument");
+        while (end < source.length && !/[\n,]/u.test(source[end] ?? ""))
+          end += 1;
+        for (const inner of literalsBetween(source, at, end))
+          add(inner.at, inner.text, "argument");
       }
 
       // The calls that speak, and the calls that take an undo label: every string in
@@ -546,8 +622,18 @@ export function visibleEnglish(roots: readonly string[], root = path.join(__dirn
       for (const literal of literalsBetween(source, 0, source.length)) {
         if (inside(spans, literal.at)) continue;
         const lineStart = source.lastIndexOf("\n", literal.at) + 1;
-        const line = source.slice(lineStart, source.indexOf("\n", literal.at) === -1 ? source.length : source.indexOf("\n", literal.at));
-        if (/\b(?:className|cn|data-testid|testId|console\.|import |from |require\(|new Error|aria-|role=|data-|d=|id=|key=|type=|name=|href=|stroke|fill|style=|Math\.|JSON\.|process\.|localStorage|sessionStorage)\b/u.test(line)) continue;
+        const line = source.slice(
+          lineStart,
+          source.indexOf("\n", literal.at) === -1
+            ? source.length
+            : source.indexOf("\n", literal.at),
+        );
+        if (
+          /\b(?:className|cn|data-testid|testId|console\.|import |from |require\(|new Error|aria-|role=|data-|d=|id=|key=|type=|name=|href=|stroke|fill|style=|Math\.|JSON\.|process\.|localStorage|sessionStorage)\b/u.test(
+            line,
+          )
+        )
+          continue;
         if (/^\s*(?:export |import )/u.test(line)) continue;
         if (!looksLikeProse(literal.text)) continue;
         add(literal.at, literal.text, "argument");
@@ -559,7 +645,11 @@ export function visibleEnglish(roots: readonly string[], root = path.join(__dirn
         const second = splitTopLevel(source.slice(open + 1, close))[1];
         if (second === undefined) continue;
         const offset = open + 1 + source.slice(open + 1, close).indexOf(second);
-        for (const literal of literalsBetween(source, offset, offset + second.length)) {
+        for (const literal of literalsBetween(
+          source,
+          offset,
+          offset + second.length,
+        )) {
           if (inside(spans, literal.at)) continue;
           add(literal.at, literal.text, "argument");
         }
@@ -573,11 +663,18 @@ export function visibleEnglish(roots: readonly string[], root = path.join(__dirn
     seen.add(id);
     return true;
   });
-  return unique.sort((left, right) => (left.file === right.file ? left.line - right.line : left.file < right.file ? -1 : 1));
+  return unique.sort((left, right) =>
+    left.file === right.file
+      ? left.line - right.line
+      : left.file < right.file
+        ? -1
+        : 1,
+  );
 }
 
 /** Curly apostrophes and straight ones are the same word: compared, not shipped. */
-const sameWords = (text: string): string => text.replace(/\s+/gu, " ").replace(/[’‘]/gu, "'").trim();
+const sameWords = (text: string): string =>
+  text.replace(/\s+/gu, " ").replace(/[’‘]/gu, "'").trim();
 
 /**
  * Keyed sentences that also appear unkeyed somewhere in the same trees.
@@ -587,10 +684,17 @@ const sameWords = (text: string): string => text.replace(/\s+/gu, " ").replace(/
  * same words, so an unkeyed copy is a revert nobody had to write. The comparison
  * folds curly and straight apostrophes, since a copy can differ by that alone.
  */
-export function unkeyedTwins(roots: readonly string[], captions = roots.map((dir) => captionsIn(dir))): VisibleEnglish[] {
+export function unkeyedTwins(
+  roots: readonly string[],
+  captions = roots.map((dir) => captionsIn(dir)),
+): VisibleEnglish[] {
   const english = new Set<string>();
-  for (const source of captions) for (const caption of source.values()) english.add(sameWords(caption.english));
-  return visibleEnglish(roots).filter((entry) => english.has(sameWords(entry.text)));
+  for (const source of captions)
+    for (const caption of source.values())
+      english.add(sameWords(caption.english));
+  return visibleEnglish(roots).filter((entry) =>
+    english.has(sameWords(entry.text)),
+  );
 }
 
 /** A caption's file, line, shape and words, as the failure message shows them. */

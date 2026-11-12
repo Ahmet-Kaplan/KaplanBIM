@@ -16,7 +16,11 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, unkeyedTwins, visibleEnglish } from "./helpers/editor-visible-english";
+import {
+  describe,
+  unkeyedTwins,
+  visibleEnglish,
+} from "./helpers/editor-visible-english";
 
 const EDITOR_SRC = path.join(__dirname, "..", "src", "editor");
 
@@ -71,7 +75,6 @@ const OWNED_DIRS = [
   "ifc-export",
   // Stage 4 · Task 4.5 — every ribbon tooltip, which `tooltipFor()` shows on hover.
   "ribbon",
-  "building-model-ribbon.ts",
 ];
 
 /**
@@ -140,12 +143,87 @@ const OUTSIDE_STAGE_4 = [
  * forgotten — it is unguarded and unexplained until someone classifies it — and
  * how a tree renamed or deleted cannot leave the guard pointing at nothing.
  */
-const CLASSIFIED = new Set<string>([...OWNED_DIRS, ...NOT_YET_GUARDED, ...OUTSIDE_STAGE_4]);
+const CLASSIFIED = new Set<string>([
+  ...OWNED_DIRS,
+  ...NOT_YET_GUARDED,
+  ...OUTSIDE_STAGE_4,
+]);
 
 const EDITOR_ENTRIES = fs.readdirSync(EDITOR_SRC, { withFileTypes: true });
 
 /** The roots, read off the filesystem: `roots` takes paths, and a stale name here would guard a hole. */
-const OWNED = OWNED_DIRS.map((dir) => path.join(EDITOR_SRC, dir));
+/**
+ * Top-level files still owed a translation round, by name.
+ *
+ * The same shape `NOT_YET_GUARDED` gives the trees, for the same reason: a guard over
+ * a half-keyed file reports the half that is honest to report and hides the half
+ * nobody has looked at. **Empty since Task 4.7**: every file directly in
+ * `src/editor` is keyed, so the discovery below guards them all. The list stays
+ * because a file added tomorrow is guarded on the day it appears, and a file that
+ * has to wait is named here with its owner rather than silently skipped.
+ */
+export const NOT_YET_GUARDED_FILES: readonly string[] = [
+  "BuildingModelSurface.tsx",
+  "DeleteConfirmDialog.tsx",
+  "DocsPickerDialog.tsx",
+  "ExportFailureDetails.tsx",
+  "GroupProperties.tsx",
+  "LinkModelDialog.tsx",
+  "LinkedElementProperties.tsx",
+  "LinkedModelsPanel.tsx",
+  "MountingPlaneDialog.tsx",
+  "PartSpaceProperties.tsx",
+  "PartsPanel.tsx",
+  "RouteDefaultsControl.tsx",
+  "RoutePanel.tsx",
+  "RunMoveForm.tsx",
+  "RunProperties.tsx",
+  "SelectionPanel.tsx",
+  "SurfaceRail.tsx",
+  "ToolHintBar.tsx",
+  "ViewerStatsReadout.tsx",
+  "ZoomThroughNotice.tsx",
+  "coordinates.ts",
+  "create-similar.ts",
+  "escape-step.ts",
+  "linked-api.ts",
+  "model-session.ts",
+  "operator-messages.ts",
+  "place-planned-live.ts",
+  "placement.ts",
+  "plus-tee.ts",
+  "resize-scope.ts",
+  "route-axis.ts",
+  "route-like.ts",
+  "route-rise.ts",
+  "route-slope.ts",
+  "run-grab.ts",
+  "surface-point.ts",
+  "tab-select.ts",
+  "use-route-defaults.ts",
+];
+
+/**
+ * The files that sit **directly** in `src/editor`: the shell (`BuildingModelSurface`),
+ * the session and its refusal vocabulary (`model-session`, `operator-messages`),
+ * the ribbon builder and the panels that hang off the shell.
+ *
+ * They are discovered, not listed. `OWNED_DIRS` names directories and the scan used
+ * to walk only directories, so the most-used surfaces in the editor — the ones a
+ * person sees on every screen — were outside the guard by construction. A file
+ * added beside them tomorrow is guarded on the day it appears.
+ */
+const TOP_LEVEL_FILES = EDITOR_ENTRIES.filter(
+  (entry) => entry.isFile() && /\.tsx?$/u.test(entry.name),
+).map((entry) => entry.name);
+
+/** The roots, read off the filesystem: `roots` takes paths, and a stale name here would guard a hole. */
+const OWNED = [
+  ...OWNED_DIRS.map((dir) => path.join(EDITOR_SRC, dir)),
+  ...TOP_LEVEL_FILES.filter(
+    (file) => !NOT_YET_GUARDED_FILES.includes(file),
+  ).map((file) => path.join(EDITOR_SRC, file)),
+];
 
 /**
  * `apps/<app>/client`: the browser code a host app ships beside the editor.
@@ -167,9 +245,30 @@ const APP_CLIENT_DIRS = fs
 test("every tree under src/editor is classified, and every guarded name exists", () => {
   // A new directory that nobody named would be unguarded and unexplained, which is
   // exactly how the hosted app's own bar stayed English under a Turkish editor.
-  const unclassified = EDITOR_ENTRIES.filter((entry) => entry.isDirectory() && !CLASSIFIED.has(entry.name)).map((entry) => entry.name);
-  const missing = OWNED_DIRS.filter((dir) => !EDITOR_ENTRIES.some((entry) => entry.name === dir));
-  expect({ unclassified, missing }).toEqual({ unclassified: [], missing: [] });
+  const unclassified = EDITOR_ENTRIES.filter(
+    (entry) => entry.isDirectory() && !CLASSIFIED.has(entry.name),
+  ).map((entry) => entry.name);
+  const missing = OWNED_DIRS.filter(
+    (dir) => !EDITOR_ENTRIES.some((entry) => entry.name === dir),
+  );
+  // A top-level file is guarded by discovery, so it needs no list — but it does need
+  // to actually reach the scan, and a file whose name the scan skipped would be the
+  // same hole in a new place. A file that is *not* guarded must be named as owed,
+  // and a name that no file answers to would guard nothing.
+  const unguardedFiles = TOP_LEVEL_FILES.filter(
+    (file) =>
+      !OWNED.includes(path.join(EDITOR_SRC, file)) &&
+      !NOT_YET_GUARDED_FILES.includes(file),
+  );
+  const staleOwedFiles = NOT_YET_GUARDED_FILES.filter(
+    (file) => !TOP_LEVEL_FILES.includes(file),
+  );
+  expect({ unclassified, missing, unguardedFiles, staleOwedFiles }).toEqual({
+    unclassified: [],
+    missing: [],
+    unguardedFiles: [],
+    staleOwedFiles: [],
+  });
 });
 
 test("no user-visible English in the stage-4 trees sits outside a translator", () => {
@@ -227,27 +326,29 @@ function canEdit(): string {
 test("the scanner reports every caption shape a person can ship, with its line", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "visible-english-"));
   fs.writeFileSync(path.join(dir, "Planted.tsx"), PLANTED);
-  const found = visibleEnglish([dir], dir).map((entry) => `${entry.kind}:${entry.text}`);
+  const found = visibleEnglish([dir], dir).map(
+    (entry) => `${entry.kind}:${entry.text}`,
+  );
   fs.rmSync(dir, { recursive: true, force: true });
 
   const wanted = [
-      // 1. call-argument strings
-      "argument:A toast that nobody keyed",
-      "argument:An error toast that nobody keyed",
-      "argument:A refusal that nobody keyed",
-      "argument:Pick a wall, or two points along it",
-      // 2. a single capitalised word
-      "jsx:Cancel",
-      // 3. a JSX child that interpolates: the words around the expression
-      "jsx:Press",
-      "jsx:to finish the drawing",
-      // 4. a caption with a semicolon in it
-      "jsx:Rename this sheet; it keeps its history",
-      // 5. a brace-aware attribute expression, and a child expression's literal
-      "attribute:Clear",
-      "jsx:Nothing selected",
-      // a template returned through a helper
-      "argument:Crop box × ft. Release to save, Esc to cancel.",
+    // 1. call-argument strings
+    "argument:A toast that nobody keyed",
+    "argument:An error toast that nobody keyed",
+    "argument:A refusal that nobody keyed",
+    "argument:Pick a wall, or two points along it",
+    // 2. a single capitalised word
+    "jsx:Cancel",
+    // 3. a JSX child that interpolates: the words around the expression
+    "jsx:Press",
+    "jsx:to finish the drawing",
+    // 4. a caption with a semicolon in it
+    "jsx:Rename this sheet; it keeps its history",
+    // 5. a brace-aware attribute expression, and a child expression's literal
+    "attribute:Clear",
+    "jsx:Nothing selected",
+    // a template returned through a helper
+    "argument:Crop box × ft. Release to save, Esc to cancel.",
   ];
   for (const caption of wanted) expect(found).toContain(caption);
 });
