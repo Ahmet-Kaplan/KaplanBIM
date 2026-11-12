@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import { bagSummary, catalogKey, connectionTypeSummary, connectionTypeTrade, connectionTypes, type CatalogTrade, type ConnectionTypeEntry, type ModelState } from '@permitzip/bim-kernel'
 import { PLUMBING_STARTER_CONNECTION_TYPES } from '@permitzip/bim-pack-plumbing/host'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '../../ui/select'
+import { useEditorTranslate } from '../i18n/translate'
 
 export const NO_CONNECTION_TYPE = '__none__'
 
@@ -51,6 +52,7 @@ export function ConnectionTypeSelect({
   readonly noneLabel?: string
   readonly testId?: string
 }) {
+  const t = useEditorTranslate()
   const project = useMemo(() => connectionTypesFor(model, trade), [model, trade])
   const starters = useMemo(() => {
     if (trade === 'electrical') return []
@@ -61,12 +63,16 @@ export function ConnectionTypeSelect({
   return (
     <Select value={value} onValueChange={onChange} disabled={disabled}>
       <SelectTrigger id={id} size="sm" className="w-full" data-testid={testId}>
-        <SelectValue placeholder="Pick a connection type" />
+        <SelectValue placeholder={t('connectionTypes.pick', 'Pick a connection type', { ns: 'editor' })} />
       </SelectTrigger>
       <SelectContent>
         <SelectGroup>
           {noneLabel && <SelectItem value={NO_CONNECTION_TYPE}>{noneLabel}</SelectItem>}
-          {!known && value !== '' && <SelectItem value={value}>{value} (not in the project&apos;s types)</SelectItem>}
+          {!known && value !== '' && (
+            <SelectItem value={value}>
+              {value} {t('connectionTypes.notInProject', "(not in the project's types)", { ns: 'editor' })}
+            </SelectItem>
+          )}
           {project.map((e) => (
             <SelectItem key={e.designator} value={e.designator}>
               {e.designator} · {connectionTypeLine(e)}
@@ -75,7 +81,7 @@ export function ConnectionTypeSelect({
         </SelectGroup>
         {starters.length > 0 && (
           <SelectGroup>
-            <SelectLabel>Starter types (added with it, verify for permit work)</SelectLabel>
+            <SelectLabel>{t('connectionTypes.starters', 'Starter types (added with it, verify for permit work)', { ns: 'editor' })}</SelectLabel>
             {starters.map((e) => (
               <SelectItem key={e.designator} value={e.designator}>
                 {e.designator} · {connectionTypeLine(e)}

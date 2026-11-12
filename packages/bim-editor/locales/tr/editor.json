@@ -8279,5 +8279,10 @@
       "moreOne": "ve {{count}} girdi daha en az bir gerekliliği belirliyor",
       "moreMany": "ve {{count}} girdi daha en az bir gerekliliği belirliyor"
     }
+  },
+  "connectionTypes": {
+    "pick": "Bir bağlantı türü seçin",
+    "notInProject": "(projenin türlerinde yok)",
+    "starters": "Başlangıç türleri (onunla eklenir, ruhsat işi için doğrulayın)"
   }
 }

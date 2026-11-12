@@ -150,6 +150,10 @@ const OWNED_DIRS = [
   // count in the hint bar. Its one finding was the kernel's terminal marker
   // `OPEN END`, compared against a node's name, never shown.
   "diagrams",
+  // Outside stage 4 — the connection-type picker: what a trade's form offers, the
+  // starter types a project does not have yet, and the row that says a saved
+  // designator is no longer in the project's types (3 findings, one file).
+  "connection-types",
 ];
 
 /**
@@ -171,7 +175,6 @@ export const NOT_YET_GUARDED = [
   "code-study",
   "connect-agent",
   "connect-grip",
-  "connection-types",
   "construction",
   "contributions",
   "copies",

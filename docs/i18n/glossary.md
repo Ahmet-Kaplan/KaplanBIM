@@ -1270,6 +1270,25 @@ bağlı olanlar tekrar yazılmadı (`Doğrulandı`, `Karşılandı`, `Bekliyor`,
 > yetkisi gerekir” cümlesi `../code-study/code-study-client` sabitidir; satır onu
 > olduğu gibi gösterir. Sahibi: `code-study` ağacının kendi turu.
 
+### 5.19 Aşama 4 dışı: kalan ağaçlar (2026-11-10)
+
+Aşama 4 planının hiç adlandırmadığı on dokuz ağaç — `calc-sheets`, `diagrams`,
+`connection-types`, `graph`, `graphics`, `contributions`, `connect-grip`,
+`connect-agent`, `code-study`, `loads-policy`, `construction`, `view-input`,
+`blocks`, `ceilings`, `copies`, `branches`, `code-change`, `planned`,
+`responsibilities` — bu son turda ölçüldü ve çevrildi. Ölçüm tahmin değil: her ağaç
+`i18n-negative-space.test.ts` taramasından geçti (**625** bulgu, 19 ağaç) ve sıfıra
+indi. Yukarıda **zaten** karara bağlı olanlar tekrar yazılmadı (`Pafta`, `Hesap`,
+`Görünüm`, `Kat`, `Mekan`, `Eleman`, `Parça`, `Tip`, `Kopya`, `Yük`, `Politika`,
+`Diyagram`, `Tek hat diyagramı`, `Kolon şeması`, `Talep eğrisi`, `Kanal`, `Boru`,
+`Hat`, `Branşman`, `Panel/Pano`, `Armatür`, `Yük birimi`, `İşveren`).
+
+| EN | TR | Not |
+|----|----|-----|
+| Connection type (a trade form's pick list) | **bağlantı türü** | §2.8 *Fitting* = **bağlantı parçası**, §2.3 *Connector* = **bağlantı noktası**: üçü karışmaz |
+| Starter types (a project does not have them yet) | **başlangıç türleri** | §5.10 *starter pack* = **başlangıç paketi** ile aynı sözcük; *başlatıcı* değil |
+| (not in the project's types) | **(projenin türlerinde yok)** | Kayıtlı *designator* artık katalogda değil; designator **veri**dir, çevrilmez (§7 ruhu) |
+
 ---
 
 ## 6. Maliyet ve ticari terimler
