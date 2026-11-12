@@ -24,6 +24,7 @@ import {
   type LinkedDiscipline,
 } from '../contracts/building-model/linked-contract'
 import { useEditorHost } from '@permitzip/bim-editor/host'
+import { useEditorTranslate } from './i18n/translate'
 import { completeUploadFrom, putFileFrom, startAutodeskExportFrom, startUploadFrom, UploadCancelled, type UploadHandle } from './linked-api'
 
 interface Props {
@@ -44,6 +45,7 @@ interface Props {
 }
 
 export function LinkModelDialog({ projectId, open, onOpenChange, revitModel, autodeskExport, replacing, onQueued, onOpenDocsPicker, disciplineSet }: Props) {
+  const t = useEditorTranslate()
   const linked = useEditorHost().data.linkedModels
   const [tab, setTab] = useState<'autodesk' | 'upload'>(replacing ? 'upload' : revitModel ? 'autodesk' : 'upload')
   const [file, setFile] = useState<File | null>(null)
@@ -88,18 +90,18 @@ export function LinkModelDialog({ projectId, open, onOpenChange, revitModel, aut
       await handle.done
       uploadRef.current = null
       await completeUploadFrom(linked, projectId, started.versionId)
-      toast.success(`${file.name} uploaded. Converting it for the 3D view…`)
+      toast.success(t('linkModel.uploadDone', '{{name}} uploaded. Converting it for the 3D view…', { ns: 'editor', name: file.name }))
       onQueued()
       onOpenChange(false)
     } catch (err) {
       uploadRef.current = null
       if (err instanceof UploadCancelled) {
-        toast('Upload cancelled.')
+        toast(t('linkModel.uploadCancelled', 'Upload cancelled.', { ns: 'editor' }))
         setProgress(null)
         return
       }
       console.error('[LinkModelDialog] upload failed', err)
-      setError(err instanceof Error ? err.message : 'The upload failed.')
+      setError(err instanceof Error ? err.message : t('linkModel.uploadFailed', 'The upload failed.', { ns: 'editor' }))
       setProgress(null)
     }
   }
@@ -109,29 +111,29 @@ export function LinkModelDialog({ projectId, open, onOpenChange, revitModel, aut
     setExporting(true)
     try {
       await startAutodeskExportFrom(linked, projectId)
-      toast.success('Exporting from Revit. The models appear here when it finishes (usually 2–5 minutes).')
+      toast.success(t('linkModel.exportStarted', 'Exporting from Revit. The models appear here when it finishes (usually 2–5 minutes).', { ns: 'editor' }))
       onQueued()
       onOpenChange(false)
     } catch (err) {
       console.error('[LinkModelDialog] Autodesk export failed to start', err)
-      setError(err instanceof Error ? err.message : "The export from Revit didn't start.")
+      setError(err instanceof Error ? err.message : t('linkModel.exportDidNotStart', "The export from Revit didn't start.", { ns: 'editor' }))
     } finally {
       setExporting(false)
     }
   }
 
-  const uploadBlockedReason = !file ? 'Choose an IFC file first' : problem
-  const exportBlockedReason = exportRunning ? 'An export from Revit is already running' : null
+  const uploadBlockedReason = !file ? t('linkModel.chooseFile', 'Choose an IFC file first', { ns: 'editor' }) : problem
+  const exportBlockedReason = exportRunning ? t('linkModel.exportAlreadyRunning', 'An export from Revit is already running', { ns: 'editor' }) : null
 
   return (
     <Dialog open={open} onOpenChange={close}>
       <DialogContent className="sm:max-w-lg" data-testid="link-model-dialog">
         <DialogHeader>
-          <DialogTitle>{replacing ? `Upload a new version of ${replacing.label}` : 'Link a model'}</DialogTitle>
+          <DialogTitle>{replacing ? t('linkModel.uploadNewVersionTitle', 'Upload a new version of {{label}}', { ns: 'editor', label: replacing.label }) : t('linkModel.title', 'Link a model', { ns: 'editor' })}</DialogTitle>
           <DialogDescription>
             {replacing
-              ? 'The new file becomes the current version. Earlier versions stay listed, and you can switch back.'
-              : "Linked models are shown read-only next to the new ductwork, so you can design around the architect's building."}
+              ? t('linkModel.replaceDescription', 'The new file becomes the current version. Earlier versions stay listed, and you can switch back.', { ns: 'editor' })
+              : t('linkModel.linkDescription', "Linked models are shown read-only next to the new ductwork, so you can design around the architect's building.", { ns: 'editor' })}
           </DialogDescription>
         </DialogHeader>
 
@@ -140,11 +142,11 @@ export function LinkModelDialog({ projectId, open, onOpenChange, revitModel, aut
             <TabsList className="w-full">
               <TabsTrigger value="autodesk" disabled={uploading}>
                 <Building2 data-icon="inline-start" />
-                From linked models in our Revit file
+                {t('linkModel.tabAutodesk', 'From linked models in our Revit file', { ns: 'editor' })}
               </TabsTrigger>
               <TabsTrigger value="upload" disabled={uploading}>
                 <FileUp data-icon="inline-start" />
-                Upload an IFC file
+                {t('linkModel.tabUpload', 'Upload an IFC file', { ns: 'editor' })}
               </TabsTrigger>
             </TabsList>
           )}
@@ -153,23 +155,25 @@ export function LinkModelDialog({ projectId, open, onOpenChange, revitModel, aut
             {revitModel ? (
               <div className="flex flex-col gap-3 text-sm">
                 <p>
-                  This opens <span className="font-medium">{revitModel.name}</span> in Autodesk read-only and adds it here, along with every
-                  model it links (the architect&apos;s, structure, and so on) at the position it&apos;s linked at in Revit. Nothing in Revit
-                  changes.
+                  {t(
+                    'linkModel.autodeskBody',
+                    "This opens {{name}} in Autodesk read-only and adds it here, along with every model it links (the architect's, structure, and so on) at the position it's linked at in Revit. Nothing in Revit changes.",
+                    { ns: 'editor', name: revitModel.name },
+                  )}
                 </p>
-                <p className="text-muted-foreground">Usually 2–5 minutes. You can close this and keep working; it finishes on its own.</p>
+                <p className="text-muted-foreground">{t('linkModel.autodeskTime', 'Usually 2–5 minutes. You can close this and keep working; it finishes on its own.', { ns: 'editor' })}</p>
                 {onOpenDocsPicker && (
                   <p className="text-muted-foreground">
-                    Architect&apos;s model uploaded to Docs but not linked in ours?{' '}
+                    {t('linkModel.docsQuestion', "Architect's model uploaded to Docs but not linked in ours?", { ns: 'editor' })}{' '}
                     <Button variant="link" size="sm" className="h-auto p-0" onClick={onOpenDocsPicker} data-testid="link-dialog-open-docs">
-                      Add it from Autodesk Docs…
+                      {t('linkModel.addFromDocs', 'Add it from Autodesk Docs…', { ns: 'editor' })}
                     </Button>
                   </p>
                 )}
                 {autodeskExport && (
                   <Alert variant={autodeskExport.status === 'failed' ? 'destructive' : 'default'}>
                     {exportRunning && <Spinner />}
-                    <AlertTitle>{autodeskExport.status === 'failed' ? 'The last export failed' : 'Export from Revit'}</AlertTitle>
+                    <AlertTitle>{autodeskExport.status === 'failed' ? t('linkModel.lastExportFailed', 'The last export failed', { ns: 'editor' }) : t('linkModel.exportFromRevit', 'Export from Revit', { ns: 'editor' })}</AlertTitle>
                     <AlertDescription>{exportStatusLabel(autodeskExport)}</AlertDescription>
                   </Alert>
                 )}
@@ -180,12 +184,12 @@ export function LinkModelDialog({ projectId, open, onOpenChange, revitModel, aut
                   <EmptyMedia variant="icon">
                     <Building2 />
                   </EmptyMedia>
-                  <EmptyTitle>No Revit model is connected to this project</EmptyTitle>
-                  <EmptyDescription>Connect the project&apos;s Revit model in Autodesk Docs first, or upload an IFC file instead.</EmptyDescription>
+                  <EmptyTitle>{t('linkModel.noRevitModel', 'No Revit model is connected to this project', { ns: 'editor' })}</EmptyTitle>
+                  <EmptyDescription>{t('linkModel.connectFirst', "Connect the project's Revit model in Autodesk Docs first, or upload an IFC file instead.", { ns: 'editor' })}</EmptyDescription>
                 </EmptyHeader>
                 <EmptyContent>
                   <Button asChild size="sm" variant="outline">
-                    <Link href={`/projects/${projectId}?tab=integrations`}>Connect a Revit model</Link>
+                    <Link href={`/projects/${projectId}?tab=integrations`}>{t('linkModel.connectRevitModel', 'Connect a Revit model', { ns: 'editor' })}</Link>
                   </Button>
                 </EmptyContent>
               </Empty>
@@ -195,7 +199,7 @@ export function LinkModelDialog({ projectId, open, onOpenChange, revitModel, aut
           <TabsContent value="upload" className="pt-2">
             <FieldGroup>
               <Field data-invalid={problem ? true : undefined}>
-                <FieldLabel htmlFor="link-model-file">IFC file</FieldLabel>
+                <FieldLabel htmlFor="link-model-file">{t('linkModel.ifcFile', 'IFC file', { ns: 'editor' })}</FieldLabel>
                 <Input
                   id="link-model-file"
                   type="file"
@@ -213,36 +217,36 @@ export function LinkModelDialog({ projectId, open, onOpenChange, revitModel, aut
                   <FieldError>{problem}</FieldError>
                 ) : (
                   <FieldDescription>
-                    {file ? `${formatBytes(file.size)}` : 'Up to 150 MB for now. If the file has location data, the model is placed from it; otherwise you can line it up after.'}
+                    {file ? `${formatBytes(file.size)}` : t('linkModel.sizeLimit', 'Up to 150 MB for now. If the file has location data, the model is placed from it; otherwise you can line it up after.', { ns: 'editor' })}
                   </FieldDescription>
                 )}
               </Field>
               {!replacing && (
                 <>
                   <Field>
-                    <FieldLabel htmlFor="link-model-label">Name in the model</FieldLabel>
-                    <Input id="link-model-label" value={label} onChange={(e) => setLabel(e.target.value)} disabled={uploading} maxLength={200} placeholder="e.g. Architect's model, July 15" />
+                    <FieldLabel htmlFor="link-model-label">{t('linkModel.nameInModel', 'Name in the model', { ns: 'editor' })}</FieldLabel>
+                    <Input id="link-model-label" value={label} onChange={(e) => setLabel(e.target.value)} disabled={uploading} maxLength={200} placeholder={t('linkModel.namePlaceholder', "e.g. Architect's model, July 15", { ns: 'editor' })} />
                   </Field>
                   <LinkedDisciplinesField id="link-model-discipline" value={disciplines} onChange={setDisciplines} set={disciplineSet} disabled={uploading} />
                   <LinkedContributorFields id="link-model-contributor" organization={contributor.organization} contact={contributor.contact} onChange={setContributor} disabled={uploading} />
                 </>
               )}
               <Field>
-                <FieldLabel htmlFor="link-model-supplier">Who sent it (optional)</FieldLabel>
+                <FieldLabel htmlFor="link-model-supplier">{t('linkModel.whoSentIt', 'Who sent it (optional)', { ns: 'editor' })}</FieldLabel>
                 <Input
                   id="link-model-supplier"
                   value={suppliedByName}
                   onChange={(e) => setSuppliedByName(e.target.value)}
                   disabled={uploading}
                   maxLength={200}
-                  placeholder="e.g. Acme Architects, by email"
+                  placeholder={t('linkModel.whoSentPlaceholder', 'e.g. Acme Architects, by email', { ns: 'editor' })}
                 />
-                <FieldDescription>Kept with this version so anyone can see where the file came from.</FieldDescription>
+                <FieldDescription>{t('linkModel.keptWithVersion', 'Kept with this version so anyone can see where the file came from.', { ns: 'editor' })}</FieldDescription>
               </Field>
               {uploading && (
                 <Field>
-                  <FieldLabel>Uploading… {Math.round((progress ?? 0) * 100)}%</FieldLabel>
-                  <Progress value={(progress ?? 0) * 100} aria-label="Upload progress" />
+                  <FieldLabel>{t('linkModel.uploadingPercent', 'Uploading… {{percent}}%', { ns: 'editor', percent: Math.round((progress ?? 0) * 100) })}</FieldLabel>
+                  <Progress value={(progress ?? 0) * 100} aria-label={t('linkModel.uploadProgress', 'Upload progress', { ns: 'editor' })} />
                 </Field>
               )}
             </FieldGroup>
@@ -251,24 +255,24 @@ export function LinkModelDialog({ projectId, open, onOpenChange, revitModel, aut
 
         {error && (
           <Alert variant="destructive">
-            <AlertTitle>That didn&apos;t work</AlertTitle>
+            <AlertTitle>{t('linkModel.failedTitle', "That didn't work", { ns: 'editor' })}</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
 
         <DialogFooter>
           <Button variant="outline" onClick={() => close(false)}>
-            {uploading ? 'Cancel upload' : 'Cancel'}
+            {uploading ? t('linkModel.cancelUpload', 'Cancel upload', { ns: 'editor' }) : t('linkModel.cancel', 'Cancel', { ns: 'editor' })}
           </Button>
           {tab === 'autodesk' && revitModel ? (
             <Button onClick={() => void exportFromRevit()} disabled={exporting || exportBlockedReason !== null} title={exportBlockedReason ?? undefined}>
               {exporting && <Spinner data-icon="inline-start" />}
-              {exportBlockedReason ?? 'Bring in its linked models'}
+              {exportBlockedReason ?? t('linkModel.bringInLinked', 'Bring in its linked models', { ns: 'editor' })}
             </Button>
           ) : tab === 'upload' ? (
             <Button onClick={() => void upload()} disabled={uploading || uploadBlockedReason !== null} title={uploadBlockedReason ?? undefined}>
               {uploading && <Spinner data-icon="inline-start" />}
-              {uploading ? 'Uploading…' : 'Upload and link'}
+              {uploading ? t('linkModel.uploading', 'Uploading…', { ns: 'editor' }) : t('linkModel.uploadAndLink', 'Upload and link', { ns: 'editor' })}
             </Button>
           ) : null}
         </DialogFooter>

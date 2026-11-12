@@ -53,6 +53,15 @@ const CAPTIONS: readonly Caption[] = [
   { key: 'linkedElement.clearFilter', english: 'Clear filter', turkish: 'Filtreyi temizle' },
   { key: 'linkedElement.fromRevit', english: 'From Revit', turkish: "Revit'ten" },
   { key: 'linkedElement.fromIfc', english: 'From the IFC file', turkish: 'IFC dosyasından' },
+  // §2.2: a linked model is a *bağlı model*; §7: the size in MB keeps its symbol.
+  { key: 'linkModel.title', english: 'Link a model', turkish: 'Model bağla' },
+  { key: 'linkModel.tabUpload', english: 'Upload an IFC file', turkish: 'IFC dosyası yükle' },
+  { key: 'linkModel.noRevitModel', english: 'No Revit model is connected to this project', turkish: 'Bu projeye bağlı Revit modeli yok' },
+  { key: 'linkModel.connectRevitModel', english: 'Connect a Revit model', turkish: 'Revit modeli bağla' },
+  { key: 'linkModel.ifcFile', english: 'IFC file', turkish: 'IFC dosyası' },
+  { key: 'linkModel.nameInModel', english: 'Name in the model', turkish: 'Modeldeki adı' },
+  { key: 'linkModel.cancel', english: 'Cancel', turkish: 'İptal' },
+  { key: 'linkModel.uploadAndLink', english: 'Upload and link', turkish: 'Yükle ve bağla' },
 ]
 
 /**
@@ -70,7 +79,7 @@ const SITES: Readonly<Record<string, number>> = {
 }
 
 /** The prefixes this file owns. A key under one of them must have Turkish. */
-const PREFIXES = ['linkedElement.'] as const
+const PREFIXES = ['linkedElement.', 'linkModel.'] as const
 
 /** `"{{n}} edits"` with `{ n: 3 }` → `"3 edits"`. The panel never shows a placeholder. */
 function fill(template: string, values: Readonly<Record<string, string | number>> | undefined): string {
@@ -183,4 +192,6 @@ test('§0.7: sentences speak to a person in the formal plural, buttons stay sing
   // reader (*…görmek için … dışa aktarın*).
   expect(TR('linkedElement.clearFilter', 'Clear filter', { ns: 'editor' })).not.toMatch(/ın$|in$/u)
   expect(TR('linkedElement.noRevitWhy', 'This linked model was exported without its Revit parameters. Export it again from Revit to see type and instance values here.', { ns: 'editor' })).toContain('aktarın')
+  expect(TR('linkModel.replaceDescription', 'The new file becomes the current version. Earlier versions stay listed, and you can switch back.', { ns: 'editor' })).toContain('dönebilirsiniz')
+  expect(TR('linkModel.cancel', 'Cancel', { ns: 'editor' })).toBe('İptal')
 })

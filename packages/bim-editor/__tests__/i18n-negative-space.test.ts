@@ -165,7 +165,6 @@ const EDITOR_ENTRIES = fs.readdirSync(EDITOR_SRC, { withFileTypes: true });
 export const NOT_YET_GUARDED_FILES: readonly string[] = [
   "PartSpaceProperties.tsx",
   "GroupProperties.tsx",
-  "LinkModelDialog.tsx",
   "DocsPickerDialog.tsx",
   "LinkedModelsPanel.tsx",
 ];
