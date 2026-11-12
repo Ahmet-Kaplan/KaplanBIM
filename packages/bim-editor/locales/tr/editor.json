@@ -8293,5 +8293,25 @@
     "recordFor": "{{name}} için bir karar kaydet",
     "recordUndo": "{{name}} için {{key}} kararını kaydet",
     "andMore": "ve {{count}} tane daha"
+  },
+  "loadsPolicy": {
+    "gone": "Bu mekan artık modelde yok. Birisi silmiş olabilir; başka bir mekan seçin.",
+    "label": "Tahminlerin sayımı",
+    "aria": "Bu mekanın tahminleri nasıl sayılır",
+    "asModelSays": "Modelin dediği gibi ({{policy}})",
+    "now": "Şimdi: {{text}}.",
+    "typical": "Tipik {{kind}} {{mark}} içinde: burada bir kez, proje toplamlarında {{count}}× sayılır.",
+    "undoModel": "{{where}}: tahminleri modelin dediği gibi say",
+    "undoPolicy": "{{where}}: tahminleri {{policy}} say",
+    "policy": {
+      "max": "Cihazlar geçene kadar tahmin",
+      "actualOnly": "Cihaz konunca yalnız cihazlar",
+      "allocationOnly": "Yalnız tahmin"
+    },
+    "help": {
+      "max": "Mekana yerleştirilen cihazlar, kalem kalem tahminden fazla olana kadar tahmin geçerlidir.",
+      "actualOnly": "Mekana bir cihaz yerleştirildiğinde yalnız cihazlar sayılır; o zamana kadar tahmin sayılır.",
+      "allocationOnly": "Ne yerleştirilirse yerleştirilsin yalnız tahmin sayılır (erken çalışmalar)."
+    }
   }
 }

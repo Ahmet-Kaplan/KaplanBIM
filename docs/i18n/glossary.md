@@ -1299,6 +1299,25 @@ indi. Yukarıda **zaten** karara bağlı olanlar tekrar yazılmadı (`Pafta`, `H
 > **Ertelenen: grafiğin kendi cümleleri.** `answer.empty`, her `item.cause` ve
 > `depends.quantityDeltas[].label` çekirdeğin yazdığı **veri**dir; bölüm onları
 > olduğu gibi gösterir. Sahibi: çekirdeğin prose haritası (Aşama 5).
+| Estimate (a space's, counted by a policy) | **tahmin** | §6 *Estimate* = **keşif** bir maliyet kalemidir; buradaki tahmin mekanın yük tahminidir, ikisi karışmaz |
+| Estimate until devices exceed it / Devices only once any are placed / Estimate only | **Cihazlar geçene kadar tahmin / Cihaz konunca yalnız cihazlar / Yalnız tahmin** | Çekirdeğin üç politikası; çekirdek sabitleriyle **birebir** aynı İngilizce, testle eşitlenir |
+| How estimates count | **Tahminlerin sayımı** | *Sayım* = sayma işi; `count` fiili cümle içinde *sayılır* |
+| Now (what the space counts right now) | **Şimdi** | Miktarlar ve birimleri **veri**dir (§7) |
+| Typical room A: counted once here, 4× in the project totals | **Tipik oda A içinde: burada bir kez, proje toplamlarında 4× sayılır** | §5.14 *tipik*; §7 `×` bir semboldür, çevrilmez; §8 sayıdan sonra çoğul eki yok |
+
+> **`loads-policy/` kapandı (2026-11-10).** **7** bulgu (bir dosya) sıfıra indi; ağaç
+> `OWNED_DIRS`'a girdi ve Türkçesi `i18n-loads-policy.test.tsx` içinde ölçülür.
+>
+> **Çekirdeğin İngilizcesi çerçeveye splice edilmiyor.** Üç politika adı ve üç
+> yardım satırı artık ağacın kendi anahtarlarıdır (`allocationPolicyLabel(policy, t)`,
+> `allocationPolicyHelp(policy, t)`); İngilizce çağrı yerinde yazılır ki tarama onu
+> görsün, ve test her satırı `ALLOCATION_POLICY_LABELS` / `ALLOCATION_POLICY_HELP` ile
+> karşılaştırır — çekirdek bir politikayı yeniden yazarsa test adıyla düşer.
+>
+> **Ertelenen: `estimateVsDevicesText` ve `typicalOf`.** Şu an ne sayıldığını söyleyen
+> satır ile tipik birimin hesabı çekirdeğin yazdığı **veri**dir; ağaç onları kendi
+> cümlesinin içine alır (`loadsPolicy.now`, `loadsPolicy.typical`). Sahibi: çekirdeğin
+> prose haritası (Aşama 5).
 
 
 ---

@@ -159,6 +159,12 @@ const OWNED_DIRS = [
   // studies cannot be read, and Record a decision with its title and undo label
   // (7 findings, one file). The graph's own sentences are data and read as they are.
   "graph",
+  // Outside stage 4 — how a space's estimates count once devices are placed in it:
+  // the control, its three policies and their one-line help, what the space counts
+  // now, the typical unit's arithmetic, and the undo label per choice (7 findings,
+  // one file). The policy words were the kernel's English spliced into a Turkish
+  // frame; the tree owns them now, asserted against the kernel's own strings.
+  "loads-policy",
 ];
 
 /**
@@ -184,7 +190,6 @@ export const NOT_YET_GUARDED = [
   "contributions",
   "copies",
   "graphics",
-  "loads-policy",
   "planned",
   "responsibilities",
   "view-input",
