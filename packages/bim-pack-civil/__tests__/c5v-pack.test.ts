@@ -58,7 +58,7 @@ describe("civil pack contract", () => {
     expect(withPackSet(set, () => serviceById("storm"))).toBe(serviceById("storm"));
     // The always-installed Architecture (round 13) and Structural (round 14) add-ons contribute their classes beside the civil pack's own.
     expect(set.contributors(CLASS_POINT)).toEqual([
-      { packId: "architecture", packName: "Architecture", version: "1.0.0", count: 9 },
+      { packId: "architecture", packName: "Architecture", version: "1.0.0", count: 10 },
       { packId: "struct", packName: "Structural", version: "0.1.0", count: 9 },
       { packId: "civil", packName: "Civil", version: "0.1.0", count: 7 },
     ]);
