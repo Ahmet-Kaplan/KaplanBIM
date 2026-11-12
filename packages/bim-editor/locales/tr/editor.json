@@ -6848,5 +6848,13 @@
     "versionOption": "Sürüm {{number}} · {{date}} · {{file}}",
     "waitingForHost": "{{host}} dışa aktarmayı bitirene kadar bekleniyor; sonra Proje modeliyle hizala'yı seçin.",
     "whatRevitReported": "Revit'in bildirdiği: {{detail}}"
+  },
+  "layout": {
+    "couldNotRead": "Kaydedilmiş düzeniniz okunamadı",
+    "couldNotSave": "Düzeniniz kaydedilemedi",
+    "dragToResize": "Yeniden boyutlandırmak için sürükleyin. Varsayılan genişlik için çift tıklayın.",
+    "notSaved": "Düzeniniz kaydedilmedi",
+    "notSavedWhy": "{{why}}. Siz sayfayı yenileyene kadar bu şekilde kalır; bir sonraki değişiklik yeniden dener.",
+    "savingLayout": "Düzeniniz kaydediliyor"
   }
 }

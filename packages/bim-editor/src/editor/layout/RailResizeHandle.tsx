@@ -4,6 +4,7 @@ import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip'
 import { clampLayoutWidth } from '../../contracts/building-model/layout-prefs'
 import { cn } from '../../ui/cn'
+import { useEditorTranslate } from '../i18n/translate'
 
 /** How far one arrow key moves the edge, px (Shift: five times that). */
 export const RAIL_KEY_STEP_PX = 16
@@ -27,6 +28,7 @@ interface Props {
  * default width, and arrow keys when focused.
  */
 export function RailResizeHandle({ edge, width, onPreview, onCommit, defaultWidth, ariaLabel }: Props) {
+  const t = useEditorTranslate()
   const from = useRef<{ x: number; width: number } | null>(null)
   const [dragging, setDragging] = useState(false)
   // The tooltip stays out of the way while the edge is dragged, and until the pointer leaves after a drag.
@@ -100,7 +102,9 @@ export function RailResizeHandle({ edge, width, onPreview, onCommit, defaultWidt
           <div className="pointer-events-none absolute top-1/2 left-1/2 h-10 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-border transition-colors group-hover:bg-primary/70 group-data-[dragging=true]:bg-primary" />
         </div>
       </TooltipTrigger>
-      <TooltipContent side={edge === 'right' ? 'right' : 'left'}>Drag to resize. Double-click for the default width.</TooltipContent>
+      <TooltipContent side={edge === 'right' ? 'right' : 'left'}>
+        {t('layout.dragToResize', 'Drag to resize. Double-click for the default width.', { ns: 'editor' })}
+      </TooltipContent>
     </Tooltip>
   )
 }

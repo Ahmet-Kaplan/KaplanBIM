@@ -903,6 +903,22 @@ gerekti. Yukarıda **zaten** karara bağlı olanlar tekrar yazılmadı (`Eleman`
 | Volts to ground / Condition (1, 2, 3) | **toprağa göre volt / koşul** | NEC 110.26(A)(1) koşulları; `V`, `in.`, `ft` çevrilmez (§7) |
 | Fan static (external static pressure) | **fan statik basıncı** | `in. w.c.` bir birim sembolüdür, çevrilmez (§7) |
 
+### 5.13 Aşama 4 dışında kalan ağaçlar (2026-11-10)
+
+Aşama 4 planı bazı ağaçları hiç adlandırmadı, ama Türkçe bir kullanıcı onlarla yine
+karşılaşıyor: kenar çubukları, bağlı model ekranı, parça düzenleyici, gruplar ve
+fazlar. Bu ağaçlar çevrilirken gereken sözcükler burada toplanır. Yukarıda **zaten**
+karara bağlı olanlar tekrar yazılmadı (`Eleman`, `Parça`, `Tip`, `Kat`, `Mekan`,
+`Pafta`, `Görünüm`, `Grup`, `Faz`, `Bağlı model`, `Panel/Pano`).
+
+| EN | TR | Not |
+|----|----|-----|
+| Layout (the person's saved sidebars: width, collapsed sections) | **düzen** | §5.2'deki *Layout = yerleşim* **pafta yerleşimi** içindir; buradaki arayüz düzenidir, `rail.defaultLayout` (*Varsayılan düzen*) ile aynı sözcük |
+| Sidebar / Side rail / Rail (the docked panel strip) | **kenar çubuğu** | `rail.resizeSidebar` = *Sol kenar çubuğunu yeniden boyutlandır*; §5.12 *Rail (beside a curb)* = **korkuluk**, ayrı kavram |
+| Collapse to a strip | **şeride daralt** | §4.2 `panel.collapseRailToStrip` ile aynı |
+| Drag to resize | **yeniden boyutlandırmak için sürükleyin** | §4.2 *Resize {{name}}* = **{{name}} panelini yeniden boyutlandır**; fiil aynı |
+| Your layout wasn't saved | **Düzeniniz kaydedilmedi** | §0.7: cümleler kibar çoğul, düğmeler tekil |
+
 ---
 
 ## 6. Maliyet ve ticari terimler

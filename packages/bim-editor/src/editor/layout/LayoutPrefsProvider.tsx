@@ -3,8 +3,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import type { EditorDataAnswer, EditorDataHost } from '@permitzip/bim-editor-host'
-import { unavailableWords } from '@permitzip/bim-editor/host/unavailable'
 import { clampLayoutWidth, type LayoutSurfacePrefs } from '../../contracts/building-model/layout-prefs'
+import { useEditorTranslate } from '../i18n/translate'
+import { unavailableIn } from '../i18n/unavailable'
 
 /**
  * How this person left the Building Model's sidebars (collapsed sections, rail
@@ -51,6 +52,7 @@ async function responseError(res: EditorDataAnswer, fallback: string): Promise<s
 }
 
 export function LayoutPrefsProviderFrom({ port, children }: { port: EditorDataHost['layoutPrefs']; children: ReactNode }) {
+  const t = useEditorTranslate()
   const [surfaces, setSurfaces] = useState<Surfaces>({})
   const [status, setStatus] = useState<LayoutLoadStatus>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -67,7 +69,7 @@ export function LayoutPrefsProviderFrom({ port, children }: { port: EditorDataHo
     port
       .read({ signal: controller.signal })
       .then(async (res) => {
-        if (!res.ok) throw new Error(await responseError(res, "Couldn't read your saved layout"))
+        if (!res.ok) throw new Error(await responseError(res, t('layout.couldNotRead', "Couldn't read your saved layout", { ns: 'editor' })))
         const body: unknown = await res.json()
         const rows = body && typeof body === 'object' && 'surfaces' in body && Array.isArray(body.surfaces) ? body.surfaces.filter(isSurfacePrefs) : []
         setSurfaces((current) => {
@@ -83,11 +85,11 @@ export function LayoutPrefsProviderFrom({ port, children }: { port: EditorDataHo
       .catch((err: unknown) => {
         if (controller.signal.aborted) return
         console.error('[LayoutPrefs] loading the saved layout failed; showing the default layout', err)
-        setLoadError(err instanceof Error ? err.message : "Couldn't read your saved layout")
+        setLoadError(err instanceof Error ? err.message : t('layout.couldNotRead', "Couldn't read your saved layout", { ns: 'editor' }))
         setStatus('error')
       })
     return () => controller.abort()
-  }, [port, loadAttempt])
+  }, [port, loadAttempt, t])
 
   const send = useCallback((surface: string, keepalive: boolean) => {
     const prefs = latest.current[surface]
@@ -95,16 +97,19 @@ export function LayoutPrefsProviderFrom({ port, children }: { port: EditorDataHo
     port
       .save({ surface, collapsed: prefs.collapsed, widthPx: prefs.widthPx }, { keepalive })
       .then(async (res) => {
-        if (!res.ok) throw new Error(await responseError(res, "Couldn't save your layout"))
+        if (!res.ok) throw new Error(await responseError(res, t('layout.couldNotSave', "Couldn't save your layout", { ns: 'editor' })))
         setSaveError(null)
       })
       .catch((err: unknown) => {
         console.error('[LayoutPrefs] saving the layout failed', { surface, err })
-        const message = err instanceof Error ? err.message : "Couldn't save your layout"
+        const message = err instanceof Error ? err.message : t('layout.couldNotSave', "Couldn't save your layout", { ns: 'editor' })
         setSaveError(message)
-        toast.error("Your layout wasn't saved", { id: 'bim-layout-save', description: `${message}. It stays this way until you reload; the next change tries again.` })
+        toast.error(t('layout.notSaved', "Your layout wasn't saved", { ns: 'editor' }), {
+          id: 'bim-layout-save',
+          description: t('layout.notSavedWhy', '{{why}}. It stays this way until you reload; the next change tries again.', { ns: 'editor', why: message }),
+        })
       })
-  }, [port])
+  }, [port, t])
 
   // Leaving the model a moment after a change still saves it.
   useEffect(() => {
@@ -147,7 +152,7 @@ export function LayoutPrefsProviderFrom({ port, children }: { port: EditorDataHo
     [save],
   )
 
-  const missing = port ? null : unavailableWords('Saving your layout')
+  const missing = port ? null : unavailableIn(t('layout.savingLayout', 'Saving your layout', { ns: 'editor' }), null, t)
   const value = useMemo<LayoutPrefsValue>(
     () => ({
       status: missing ? 'error' : status,

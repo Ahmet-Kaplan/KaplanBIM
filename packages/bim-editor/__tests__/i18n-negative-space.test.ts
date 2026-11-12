@@ -75,6 +75,10 @@ const OWNED_DIRS = [
   "ifc-export",
   // Stage 4 · Task 4.5 — every ribbon tooltip, which `tooltipFor()` shows on hover.
   "ribbon",
+  // Outside stage 4 — the chrome every screen hangs on: the saved layout (one row
+  // per surface, read when the model opens and saved a moment after each change),
+  // the sections it collapses, and the rail's drag edge with its resize tooltip.
+  "layout",
 ];
 
 /**
@@ -122,7 +126,6 @@ const OUTSIDE_STAGE_4 = [
   "i18n",
   "input",
   "inspector",
-  "layout",
   "linked-display",
   "linked-reference",
   "loads-policy",
