@@ -12,6 +12,7 @@ import { disciplinesOf, type LinkedDiscipline, type LinkedReferenceView } from '
 import { useEditorHost } from '@permitzip/bim-editor/host'
 import { updateLinkedReferenceFrom } from '../linked-api'
 import { LinkedContributorFields, LinkedDisciplinesField } from './LinkedDisciplinesField'
+import { useEditorTranslate } from '../i18n/translate'
 
 /**
  * Linked models › a model › What it shows and who sent it…: the disciplines
@@ -41,6 +42,7 @@ export function LinkedIdentityDialog({
 }
 
 function IdentityForm({ projectId, reference, set, onClose, onSaved }: { readonly projectId: string; readonly reference: LinkedReferenceView; readonly set?: PackSet; readonly onClose: () => void; readonly onSaved: () => void }) {
+  const t = useEditorTranslate()
   const linked = useEditorHost().data.linkedModels
   const [disciplines, setDisciplines] = useState<readonly LinkedDiscipline[]>(disciplinesOf(reference))
   const [contributor, setContributor] = useState({ organization: reference.contributor?.organization ?? '', contact: reference.contributor?.contact ?? '' })
@@ -52,12 +54,12 @@ function IdentityForm({ projectId, reference, set, onClose, onSaved }: { readonl
     setError(null)
     try {
       await updateLinkedReferenceFrom(linked, projectId, reference.id, { disciplines, contributor: { organization: contributor.organization.trim(), contact: contributor.contact.trim() } })
-      toast.success(`Saved what ${reference.label} shows.`)
+      toast.success(t('linkedModel.savedWhatShows', 'Saved what {{name}} shows.', { ns: 'editor', name: reference.label }))
       onSaved()
       onClose()
     } catch (err) {
       console.error('[LinkedIdentityDialog] saving the disciplines failed', { referenceId: reference.id, err })
-      setError(err instanceof Error ? err.message : "That wasn't saved.")
+      setError(err instanceof Error ? err.message : t('linkedModel.thatWasNotSaved', "That wasn't saved.", { ns: 'editor' }))
     } finally {
       setSaving(false)
     }
@@ -66,8 +68,12 @@ function IdentityForm({ projectId, reference, set, onClose, onSaved }: { readonl
   return (
     <>
       <DialogHeader>
-        <DialogTitle>What {reference.label} shows</DialogTitle>
-        <DialogDescription>The disciplines in this linked model and who contributed it. Everyone on the project sees the change.</DialogDescription>
+        <DialogTitle>{t('linkedModel.whatShowsTitle', 'What {{name}} shows', { ns: 'editor', name: reference.label })}</DialogTitle>
+        <DialogDescription>
+          {t('linkedModel.identityLede', 'The disciplines in this linked model and who contributed it. Everyone on the project sees the change.', {
+            ns: 'editor',
+          })}
+        </DialogDescription>
       </DialogHeader>
       <FieldGroup>
         <LinkedDisciplinesField id="linked-identity-discipline" value={disciplines} onChange={setDisciplines} set={set} disabled={saving} />
@@ -75,17 +81,19 @@ function IdentityForm({ projectId, reference, set, onClose, onSaved }: { readonl
       </FieldGroup>
       {error && (
         <Alert variant="destructive">
-          <AlertTitle>Not saved</AlertTitle>
-          <AlertDescription>{error} Try again, or press Cancel to keep it as it was.</AlertDescription>
+          <AlertTitle>{t('linkedModel.notSaved', 'Not saved', { ns: 'editor' })}</AlertTitle>
+          <AlertDescription>
+            {t('linkedModel.notSavedWhy', '{{why}} Try again, or press Cancel to keep it as it was.', { ns: 'editor', why: error })}
+          </AlertDescription>
         </Alert>
       )}
       <DialogFooter>
         <Button variant="outline" onClick={onClose} disabled={saving}>
-          Cancel
+          {t('linkedModel.cancel', 'Cancel', { ns: 'editor' })}
         </Button>
         <Button onClick={() => void save()} disabled={saving} data-testid="linked-identity-save">
           {saving && <Spinner data-icon="inline-start" />}
-          {error ? 'Try again' : 'Save'}
+          {error ? t('linkedModel.tryAgain', 'Try again', { ns: 'editor' }) : t('linkedModel.save', 'Save', { ns: 'editor' })}
         </Button>
       </DialogFooter>
     </>

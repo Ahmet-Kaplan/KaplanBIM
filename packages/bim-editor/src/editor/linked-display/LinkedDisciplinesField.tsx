@@ -16,6 +16,7 @@ import {
   type LinkedDiscipline,
 } from '../../contracts/building-model/linked-contract'
 import { LinkedDisciplineSelectItems } from './LinkedDisciplineSelectItems'
+import { useEditorTranslate } from '../i18n/translate'
 
 /**
  * What a linked model shows: its main discipline (the one older views use)
@@ -35,15 +36,22 @@ export function LinkedDisciplinesField({
   readonly set?: PackSet
   readonly disabled?: boolean
 }) {
+  const t = useEditorTranslate()
   const [main, ...more] = value
   const primary = main ?? 'architecture'
   const left = linkedDisciplineChoices(set).filter((c) => !value.includes(c.value))
   const full = value.length >= MAX_LINKED_DISCIPLINES
-  const addBlocked = disabled ? null : full ? `A linked model can show up to ${MAX_LINKED_DISCIPLINES} disciplines.` : left.length === 0 ? 'Every discipline is already picked.' : null
+  const addBlocked = disabled
+    ? null
+    : full
+      ? t('linkedModel.tooManyDisciplines', 'A linked model can show up to {{max}} disciplines.', { ns: 'editor', max: MAX_LINKED_DISCIPLINES })
+      : left.length === 0
+        ? t('linkedModel.everyDisciplinePicked', 'Every discipline is already picked.', { ns: 'editor' })
+        : null
   return (
     <>
       <Field>
-        <FieldLabel htmlFor={id}>What it shows</FieldLabel>
+        <FieldLabel htmlFor={id}>{t('linkedModel.whatItShows', 'What it shows', { ns: 'editor' })}</FieldLabel>
         <Select value={primary} onValueChange={(v) => isLinkedDiscipline(v) && onChange([v, ...more.filter((d) => d !== v)])} disabled={disabled}>
           <SelectTrigger id={id}>
             <SelectValue />
@@ -54,7 +62,7 @@ export function LinkedDisciplinesField({
         </Select>
       </Field>
       <Field>
-        <FieldLabel htmlFor={`${id}-more`}>Also shows (optional)</FieldLabel>
+        <FieldLabel htmlFor={`${id}-more`}>{t('linkedModel.alsoShows', 'Also shows (optional)', { ns: 'editor' })}</FieldLabel>
         {more.length > 0 && (
           <div className="flex flex-wrap gap-1.5" data-testid={`${id}-more-list`}>
             {more.map((d) => {
@@ -62,7 +70,14 @@ export function LinkedDisciplinesField({
               return (
                 <Badge key={d} variant="secondary" className="gap-1 pr-0.5">
                   {label}
-                  <Button type="button" variant="ghost" size="icon-xs" aria-label={`Remove ${label}`} disabled={disabled} onClick={() => onChange([primary, ...more.filter((x) => x !== d)])}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label={t('linkedModel.removeDiscipline', 'Remove {{name}}', { ns: 'editor', name: label })}
+                    disabled={disabled}
+                    onClick={() => onChange([primary, ...more.filter((x) => x !== d)])}
+                  >
                     <X />
                   </Button>
                 </Badge>
@@ -72,7 +87,7 @@ export function LinkedDisciplinesField({
         )}
         <Select value="" onValueChange={(v) => isLinkedDiscipline(v) && !value.includes(v) && onChange([primary, ...more, v])} disabled={disabled || addBlocked !== null}>
           <SelectTrigger id={`${id}-more`} title={addBlocked ?? undefined}>
-            <SelectValue placeholder={addBlocked ?? 'Add another discipline…'} />
+            <SelectValue placeholder={addBlocked ?? t('linkedModel.addAnotherDiscipline', 'Add another discipline…', { ns: 'editor' })} />
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
@@ -84,7 +99,9 @@ export function LinkedDisciplinesField({
             </SelectGroup>
           </SelectContent>
         </Select>
-        <FieldDescription>One firm&apos;s model can carry several disciplines; pick each one it shows.</FieldDescription>
+        <FieldDescription>
+          {t('linkedModel.severalDisciplines', "One firm's model can carry several disciplines; pick each one it shows.", { ns: 'editor' })}
+        </FieldDescription>
       </Field>
     </>
   )
@@ -104,15 +121,30 @@ export function LinkedContributorFields({
   readonly onChange: (next: { organization: string; contact: string }) => void
   readonly disabled?: boolean
 }) {
+  const t = useEditorTranslate()
   return (
     <div className="grid grid-cols-2 gap-3">
       <Field>
-        <FieldLabel htmlFor={`${id}-company`}>Company (optional)</FieldLabel>
-        <Input id={`${id}-company`} value={organization} maxLength={MAX_CONTRIBUTOR_CHARS} disabled={disabled} placeholder="e.g. Acme Engineering" onChange={(e) => onChange({ organization: e.target.value, contact })} />
+        <FieldLabel htmlFor={`${id}-company`}>{t('linkedModel.companyOptional', 'Company (optional)', { ns: 'editor' })}</FieldLabel>
+        <Input
+          id={`${id}-company`}
+          value={organization}
+          maxLength={MAX_CONTRIBUTOR_CHARS}
+          disabled={disabled}
+          placeholder={t('linkedModel.companyExample', 'e.g. Acme Engineering', { ns: 'editor' })}
+          onChange={(e) => onChange({ organization: e.target.value, contact })}
+        />
       </Field>
       <Field>
-        <FieldLabel htmlFor={`${id}-contact`}>Contact (optional)</FieldLabel>
-        <Input id={`${id}-contact`} value={contact} maxLength={MAX_CONTRIBUTOR_CHARS} disabled={disabled} placeholder="e.g. J. Rao" onChange={(e) => onChange({ organization, contact: e.target.value })} />
+        <FieldLabel htmlFor={`${id}-contact`}>{t('linkedModel.contactOptional', 'Contact (optional)', { ns: 'editor' })}</FieldLabel>
+        <Input
+          id={`${id}-contact`}
+          value={contact}
+          maxLength={MAX_CONTRIBUTOR_CHARS}
+          disabled={disabled}
+          placeholder={t('linkedModel.contactExample', 'e.g. J. Rao', { ns: 'editor' })}
+          onChange={(e) => onChange({ organization, contact: e.target.value })}
+        />
       </Field>
     </div>
   )

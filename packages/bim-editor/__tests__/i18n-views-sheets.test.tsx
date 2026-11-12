@@ -225,8 +225,13 @@ const SITES: Readonly<Record<string, number>> = {
   "view.leaveOutLinkedUnder": 2,
   "view.noLimit": 2,
   "view.projection": 3,
+  // The linked models' display controls name where a change lands too
+  // (`linked-display/use-linked-display.ts`): one panel in View properties, one hook
+  // in the canvas, the same two words.
+  "view.thisView": 2,
   "view.type.detail": 2,
   "view.undoLabel.cropBoxOf": 3,
+  "view.your3dView": 2,
 };
 
 const fill = (template: string, values: Readonly<Record<string, string | number>> | undefined): string =>

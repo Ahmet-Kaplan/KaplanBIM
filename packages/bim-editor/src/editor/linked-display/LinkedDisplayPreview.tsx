@@ -2,6 +2,7 @@
 
 import type { ReferenceDisplayPreset } from '@permitzip/bim-kernel'
 import { cn } from '../../ui/cn'
+import { useEditorTranslate } from '../i18n/translate'
 
 /**
  * A small picture of what a linked-model look does (ROADMAP U8): the
@@ -57,13 +58,14 @@ export function LinkedDisplayPreview({ preset, className }: { preset: ReferenceD
 
 /** Before (Normal) and after (the chosen look), side by side, for the control. */
 export function LinkedDisplayBeforeAfter({ preset }: { preset: ReferenceDisplayPreset | 'custom' }) {
+  const t = useEditorTranslate()
   if (preset === 'normal') return null
   return (
     <div className="flex items-center gap-1.5 text-xs text-muted-foreground" data-testid="linked-display-before-after">
       <LinkedDisplayPreview preset="normal" />
       <span aria-hidden="true">→</span>
       <LinkedDisplayPreview preset={preset} />
-      <span className="sr-only">Normal on the left, this look on the right.</span>
+      <span className="sr-only">{t('linkedDisplay.normalOnTheLeft', 'Normal on the left, this look on the right.', { ns: 'editor' })}</span>
     </div>
   )
 }

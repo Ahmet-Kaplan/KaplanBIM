@@ -79,6 +79,11 @@ const OWNED_DIRS = [
   // per surface, read when the model opens and saved a moment after each change),
   // the sections it collapses, and the rail's drag edge with its resize tooltip.
   "layout",
+  // Outside stage 4 — how a linked model draws: the one-click look on each model's
+  // card, the transparency and per-category overrides in View properties, the
+  // disciplines field, the contributor fields, the identity dialog and the
+  // before/after preview. Its undo labels are composed here too.
+  "linked-display",
   // Outside stage 4 — the linked models as reference geometry: the snap and
   // dimension points that follow a linked wall by its GlobalId, the copies kept in
   // step with the link for loads, and the words a tool says when there is nothing
@@ -131,7 +136,6 @@ const OUTSIDE_STAGE_4 = [
   "i18n",
   "input",
   "inspector",
-  "linked-display",
   "loads-policy",
   "organization",
   "part-editor",

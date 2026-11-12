@@ -924,6 +924,15 @@ karara bağlı olanlar tekrar yazılmadı (`Eleman`, `Parça`, `Tip`, `Kat`, `Me
 | Snap marker noun (wall / window / door / roof / column / beam) | **duvar / pencere / kapı / çatı / kolon / kiriş** | Paketlerin `kernel.linked_reference` satırlarındaki `noun`; paketin adlandırmadığı IFC varlığı kendi adıyla (veri) gelir |
 | Copy a linked element (keep it in step with the link) | **bağlı modelden kopyala** | Eş adımda tutma: *bağlı modelle eş adımda tutulur* (`spaces.copyEnvelopeWhy`) |
 | Update from the link / Keep mine | **Bağlantıdan güncelle / Kendiminkini koru** | `spaces.updateFromLink`, `spaces.keepMine` ile aynı karar |
+| Halftone (the linked model's look) | **Yarım ton** | §2.4/§5 ile aynı |
+| See-through | **Yarı saydam** | *Saydam* değil: arkası görünür ama silik |
+| Underlay (a linked model's look) | **Altlık** | §2.3 *Underlay* ile aynı |
+| Hidden (a linked model's look) | **Gizli** | §4.2 *Hide* = **Gizle** (fiil), bu bir sıfattır |
+| Custom (a hand-set look) | **Özel** | |
+| Cut lines / Lines below the cut | **kesme çizgileri / kesme düzleminin altındaki çizgiler** | Revit TR *kesme düzlemi* |
+| Line weight (thin / medium / wide / heavy) | **çizgi kalınlığı (ince / orta / geniş / kalın)** | |
+| Discipline (of a linked model) | **disiplin** | §1 disiplinler; `linkedModel.*` |
+| Contributor (company and contact) | **katkı veren** (firma ve ilgili kişi) | *İşveren* (§9/Ç20) değil — bu, modeli paylaşan taraftır |
 
 ---
 

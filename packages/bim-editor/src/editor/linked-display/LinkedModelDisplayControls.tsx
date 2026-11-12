@@ -1,14 +1,16 @@
 'use client'
 
 import { ChevronDown } from 'lucide-react'
-import { LINE_WEIGHTS, REFERENCE_DISPLAY_PRESETS, REFERENCE_PRESET_LABEL, MAX_REFERENCE_TRANSPARENCY_PCT, type LineWeight, type ReferenceCategoryDisplay, type ReferenceDisplayPreset } from '@permitzip/bim-kernel'
+import { LINE_WEIGHTS, REFERENCE_DISPLAY_PRESETS, MAX_REFERENCE_TRANSPARENCY_PCT, type ReferenceCategoryDisplay, type ReferenceDisplayPreset } from '@permitzip/bim-kernel'
 import { Button } from '../../ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../../ui/collapsible'
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel } from '../../ui/field'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../ui/select'
 import { Slider } from '../../ui/slider'
+import { useEditorTranslate } from '../i18n/translate'
 import type { LinkedDisplay } from './use-linked-display'
 import { LinkedDisplayBeforeAfter, LinkedDisplayPreview } from './LinkedDisplayPreview'
+import { categoryChoiceWord, categoryListWord, lineSideWord, penWord, presetHint, presetWord } from './linked-display-words'
 
 /**
  * Controls for how a linked model draws: a one-click choice (Normal,
@@ -16,17 +18,6 @@ import { LinkedDisplayBeforeAfter, LinkedDisplayPreview } from './LinkedDisplayP
  * View properties the same choice plus how see-through it is in 3D and
  * per-category exceptions.
  */
-
-const PRESET_HINT: Record<ReferenceDisplayPreset | 'custom', string> = {
-  normal: 'Full colour and linework, as the architect drew it.',
-  halftone: 'Lighter grey linework; slightly see-through in 3D.',
-  transparent: 'Grey and well see-through in 3D, so your work shows behind it.',
-  underlay: 'Faint, and your work draws over it: lighter than halftone on paper, mostly see-through in 3D.',
-  hidden: 'Not drawn, printed or pickable in this view. The link stays; pick another look to bring it back.',
-  custom: 'Set by hand below (see-through amount or categories).',
-}
-
-const PEN_LABEL: Record<LineWeight, string> = { thin: 'Thin', medium: 'Medium', wide: 'Wide', heavy: 'Heavy' }
 
 function isPreset(value: string): value is ReferenceDisplayPreset {
   return (REFERENCE_DISPLAY_PRESETS as readonly string[]).includes(value)
@@ -42,12 +33,13 @@ interface SelectProps {
 
 /** The one-click display choice for one linked model in whatever is open. */
 export function LinkedModelDisplaySelect({ display, referenceId, label, disabledReason = null }: SelectProps) {
+  const t = useEditorTranslate()
   const { preset } = display.entry(referenceId)
   const id = `linked-display-${referenceId}`
   return (
     <Field orientation="horizontal" className="gap-2" data-testid="linked-model-display">
       <FieldLabel htmlFor={id} className="shrink-0 text-xs font-normal text-muted-foreground">
-        In {display.targetLabel}
+        {t('linkedDisplay.inPlace', 'In {{where}}', { ns: 'editor', where: display.targetLabel })}
       </FieldLabel>
       <Select
         value={preset}
@@ -56,20 +48,20 @@ export function LinkedModelDisplaySelect({ display, referenceId, label, disabled
           if (isPreset(value)) display.setPreset(referenceId, label, value)
         }}
       >
-        <SelectTrigger id={id} size="sm" className="h-7 min-w-32 text-xs" aria-label={`How ${label} draws in ${display.targetLabel}`} title={disabledReason ?? PRESET_HINT[preset]}>
+        <SelectTrigger id={id} size="sm" className="h-7 min-w-32 text-xs" aria-label={t('linkedDisplay.howDrawsIn', 'How {{name}} draws in {{where}}', { ns: 'editor', name: label, where: display.targetLabel })} title={disabledReason ?? presetHint(preset, t)}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>
             {REFERENCE_DISPLAY_PRESETS.map((p) => (
-              <SelectItem key={p} value={p} className="text-xs" title={PRESET_HINT[p]}>
+              <SelectItem key={p} value={p} className="text-xs" title={presetHint(p, t)}>
                 <LinkedDisplayPreview preset={p} className="h-5 w-8" />
-                {REFERENCE_PRESET_LABEL[p]}
+                {presetWord(p, t)}
               </SelectItem>
             ))}
             {preset === 'custom' && (
               <SelectItem value="custom" disabled className="text-xs">
-                {REFERENCE_PRESET_LABEL.custom}
+                {presetWord('custom', t)}
               </SelectItem>
             )}
           </SelectGroup>
@@ -80,20 +72,10 @@ export function LinkedModelDisplaySelect({ display, referenceId, label, disabled
 }
 
 /** Common categories of an architect's model a person turns down or off. */
-export const LINKED_CATEGORY_CHOICES: readonly { readonly category: string; readonly label: string }[] = [
-  { category: 'IFCWALL', label: 'Walls' },
-  { category: 'IFCDOOR', label: 'Doors' },
-  { category: 'IFCWINDOW', label: 'Windows' },
-  { category: 'IFCSLAB', label: 'Floors' },
-  { category: 'IFCROOF', label: 'Roofs' },
-  { category: 'IFCCOVERING', label: 'Ceilings and finishes' },
-  { category: 'IFCCOLUMN', label: 'Columns' },
-  { category: 'IFCFURNISHINGELEMENT', label: 'Furniture' },
-]
+export const LINKED_CATEGORIES: readonly string[] = ['IFCWALL', 'IFCDOOR', 'IFCWINDOW', 'IFCSLAB', 'IFCROOF', 'IFCCOVERING', 'IFCCOLUMN', 'IFCFURNISHINGELEMENT']
 
 type CategoryChoice = 'follow' | 'halftone' | 'ink' | 'hidden'
 const CATEGORY_CHOICES: readonly CategoryChoice[] = ['follow', 'halftone', 'ink', 'hidden']
-const CATEGORY_CHOICE_LABEL: Record<CategoryChoice, string> = { follow: 'Like the model', halftone: 'Halftone', ink: 'Full colour', hidden: 'Hidden' }
 
 function categoryChoice(c: ReferenceCategoryDisplay | undefined): CategoryChoice {
   if (!c) return 'follow'
@@ -129,6 +111,7 @@ interface FieldsProps {
 
 /** View properties › Linked models in this view. */
 export function LinkedModelDisplayFields({ display, references, canEdit, disabledHint }: FieldsProps) {
+  const t = useEditorTranslate()
   const reason = canEdit ? null : disabledHint
   return (
     <FieldGroup className="gap-3" data-testid="linked-model-display-fields">
@@ -139,7 +122,7 @@ export function LinkedModelDisplayFields({ display, references, canEdit, disable
           <div key={r.id} className="flex flex-col gap-2" data-testid="linked-model-display-row" data-preset={preset}>
             <p className="text-xs font-medium">{r.label}</p>
             <LinkedModelDisplaySelect display={display} referenceId={r.id} label={r.label} disabledReason={reason} />
-            <FieldDescription className="text-xs">{reason ?? PRESET_HINT[preset]}</FieldDescription>
+            <FieldDescription className="text-xs">{reason ?? presetHint(preset, t)}</FieldDescription>
             <LinkedDisplayBeforeAfter preset={preset} />
             {display.surface === 'drawing' && resolved.visible && (
               <div className="grid grid-cols-2 gap-2" data-testid="linked-model-pens">
@@ -148,7 +131,9 @@ export function LinkedModelDisplayFields({ display, references, canEdit, disable
                   return (
                     <Field key={kind}>
                       <FieldLabel htmlFor={`linked-pen-${kind}-${r.id}`} className="text-xs font-normal">
-                        {kind === 'cut' ? 'Cut lines (walls)' : 'Lines below the cut'}
+                        {kind === 'cut'
+                          ? t('linkedDisplay.cutLines', 'Cut lines (walls)', { ns: 'editor' })
+                          : t('linkedDisplay.belowCutLines', 'Lines below the cut', { ns: 'editor' })}
                       </FieldLabel>
                       <Select
                         value={current ?? 'default'}
@@ -158,17 +143,19 @@ export function LinkedModelDisplayFields({ display, references, canEdit, disable
                           if (pen !== (current ?? null)) display.setPen(r.id, r.label, kind, pen)
                         }}
                       >
-                        <SelectTrigger id={`linked-pen-${kind}-${r.id}`} size="sm" className="h-7 text-xs" aria-label={`${r.label} ${kind === 'cut' ? 'cut' : 'below the cut'} line weight`}>
+                        <SelectTrigger id={`linked-pen-${kind}-${r.id}`} size="sm" className="h-7 text-xs" aria-label={t('linkedDisplay.lineWeight', '{{name}} {{where}} line weight', { ns: 'editor', name: r.label, where: lineSideWord(kind, t) })}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectGroup>
                             <SelectItem value="default" className="text-xs">
-                              {kind === 'cut' ? 'Default (wide)' : 'Default (thin)'}
+                              {kind === 'cut'
+                                ? t('linkedDisplay.defaultWide', 'Default (wide)', { ns: 'editor' })
+                                : t('linkedDisplay.defaultThin', 'Default (thin)', { ns: 'editor' })}
                             </SelectItem>
                             {LINE_WEIGHTS.map((w) => (
                               <SelectItem key={w} value={w} className="text-xs">
-                                {PEN_LABEL[w]}
+                                {penWord(w, t)}
                               </SelectItem>
                             ))}
                           </SelectGroup>
@@ -182,7 +169,7 @@ export function LinkedModelDisplayFields({ display, references, canEdit, disable
             {display.surface === '3d' && resolved.visible && (
               <Field>
                 <FieldLabel htmlFor={sliderId} className="text-xs font-normal">
-                  See-through in 3D: {resolved.transparencyPct}%
+                  {t('linkedDisplay.seeThroughIn3d', 'See-through in 3D: {{pct}}%', { ns: 'editor', pct: resolved.transparencyPct })}
                 </FieldLabel>
                 <Slider
                   id={sliderId}
@@ -191,7 +178,7 @@ export function LinkedModelDisplayFields({ display, references, canEdit, disable
                   step={5}
                   value={[resolved.transparencyPct]}
                   disabled={!canEdit}
-                  aria-label={`How see-through ${r.label} is in 3D`}
+                  aria-label={t('linkedDisplay.howSeeThrough', 'How see-through {{name}} is in 3D', { ns: 'editor', name: r.label })}
                   onValueCommit={([pct]) => {
                     if (pct !== undefined && pct !== resolved.transparencyPct) display.setTransparency(r.id, r.label, pct)
                   }}
@@ -203,36 +190,43 @@ export function LinkedModelDisplayFields({ display, references, canEdit, disable
                 <CollapsibleTrigger asChild>
                   <Button variant="ghost" size="sm" className="h-7 w-fit px-1 text-xs">
                     <ChevronDown data-icon="inline-start" />
-                    By category{Object.keys(resolved.categories).length > 0 ? ` (${Object.keys(resolved.categories).length} changed)` : ''}
+                    {Object.keys(resolved.categories).length > 0
+                      ? t('linkedDisplay.byCategoryChanged', 'By category ({{count}} changed)', { ns: 'editor', count: Object.keys(resolved.categories).length })
+                      : t('linkedDisplay.byCategory', 'By category', { ns: 'editor' })}
                   </Button>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <FieldGroup className="gap-1 pl-2">
-                    {LINKED_CATEGORY_CHOICES.map((c) => {
-                      const id = `linked-cat-${r.id}-${c.category}`
-                      const choice = categoryChoice(stored?.categories?.[c.category])
+                    {LINKED_CATEGORIES.map((c) => {
+                      const id = `linked-cat-${r.id}-${c}`
+                      const choice = categoryChoice(stored?.categories?.[c])
                       return (
-                        <Field key={c.category} orientation="horizontal" className="justify-between gap-2">
+                        <Field key={c} orientation="horizontal" className="justify-between gap-2">
                           <FieldContent>
                             <FieldLabel htmlFor={id} className="text-xs font-normal">
-                              {c.label}
+                              {categoryListWord(c, t)}
                             </FieldLabel>
                           </FieldContent>
                           <Select
                             value={choice}
                             disabled={!canEdit}
                             onValueChange={(value) => {
-                              if (isCategoryChoice(value) && value !== choice) display.setCategory(r.id, r.label, c.category, categoryOverride(value))
+                              if (isCategoryChoice(value) && value !== choice) display.setCategory(r.id, r.label, c, categoryOverride(value))
                             }}
                           >
-                            <SelectTrigger id={id} size="sm" className="h-7 w-32 text-xs" aria-label={`${c.label} of ${r.label}`}>
+                            <SelectTrigger
+                              id={id}
+                              size="sm"
+                              className="h-7 w-32 text-xs"
+                              aria-label={t('linkedDisplay.categoryOf', '{{category}} of {{name}}', { ns: 'editor', category: categoryListWord(c, t), name: r.label })}
+                            >
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectGroup>
                                 {CATEGORY_CHOICES.map((k) => (
                                   <SelectItem key={k} value={k} className="text-xs">
-                                    {CATEGORY_CHOICE_LABEL[k]}
+                                    {categoryChoiceWord(k, t)}
                                   </SelectItem>
                                 ))}
                               </SelectGroup>
