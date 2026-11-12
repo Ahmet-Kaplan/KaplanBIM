@@ -11,6 +11,7 @@ import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '../ui/
 import { Separator } from '../ui/separator'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import { MM_PER_IN, feetInches } from './placement'
+import { useEditorTranslate, type Translate } from './i18n/translate'
 import { RunPipeInsulation } from './plumbing/RunPipeInsulation'
 import { RunMoveForm, RunTopHeightForm } from './RunMoveForm'
 import { RunLoadPoints } from './plumbing/RunLoadPoints'
@@ -34,44 +35,45 @@ interface Props {
   projectId?: string
 }
 
-function connectedTo(model: ModelState, id: string | undefined): string {
-  if (!id) return 'Open'
+function connectedTo(model: ModelState, id: string | undefined, t: Translate): string {
+  if (!id) return t('run.open', 'Open', { ns: 'editor' })
   const el = model.elements[id]
-  if (!el) return 'Connected'
-  if (el.kind === 'part') return `Connected to ${el.mark || 'a part'}`
-  if (el.kind === 'run_segment' || el.kind === 'run_fitting') return `Connected to the ${runLabel(model.elements, el)}`
-  return 'Connected'
+  if (!el) return t('run.connected', 'Connected', { ns: 'editor' })
+  if (el.kind === 'part') return el.mark ? t('run.connectedToPart', 'Connected to {{name}}', { ns: 'editor', name: el.mark }) : t('run.connectedToAPart', 'Connected to a part', { ns: 'editor' })
+  if (el.kind === 'run_segment' || el.kind === 'run_fitting') return t('run.connectedToLabel', 'Connected to the {{label}}', { ns: 'editor', label: runLabel(model.elements, el) })
+  return t('run.connected', 'Connected', { ns: 'editor' })
 }
 
 /** Properties of a routed segment or fitting: what it is, its system, size, flow and what each end meets; resize and delete. */
 export function RunProperties({ element: el, model, canEdit, onResize, onDelete, onCommand, actorName, onRouteLike, projectId }: Props) {
+  const t = useEditorTranslate()
   const system = model.elements[el.systemId]
   const rules = system?.kind === 'mep_system' ? systemRules(system.systemKind) : null
   // "Carries 12 DFU · 18.4 gpm": the pipe report's own walk (load points and fixtures), so it agrees with the report.
   const hydraulics = useMemo(() => new PipeHydraulicsEngine(), [])
   const carries = el.kind === 'run_segment' ? pipeCarriesLine(hydraulics, model, el.id) : null
-  const rows: [string, string][] = [['System', system?.kind === 'mep_system' ? system.name : el.systemId]]
+  const rows: [string, string][] = [[t('run.system', 'System', { ns: 'editor' }), system?.kind === 'mep_system' ? system.name : el.systemId]]
   if (el.kind === 'run_segment') {
     const len = Math.hypot(el.end.x - el.start.x, el.end.y - el.start.y, el.end.z - el.start.z)
     const vertical = Math.hypot(el.end.x - el.start.x, el.end.y - el.start.y) < 0.01
-    rows.push(['Size', sizeLabel(el.size)], ['Length', feetInches(len)], [vertical ? 'From height' : 'Height', feetInches(el.start.z)])
-    if (vertical) rows.push(['To height', feetInches(el.end.z)])
-    rows.push(['Carries', carries ? carries.replace(/^Carries /, '') : rules?.flowUnit ? `${Math.round(el.flow * 100) / 100} ${rules.flowUnit}` : String(el.flow)])
-    rows.push(['Start', connectedTo(model, el.links.start?.elementId)], ['End', connectedTo(model, el.links.end?.elementId)])
-    if (el.branches.length > 0) rows.push(['Branches', String(el.branches.length)])
+    rows.push([t('run.size', 'Size', { ns: 'editor' }), sizeLabel(el.size)], [t('run.length', 'Length', { ns: 'editor' }), feetInches(len)], [vertical ? t('run.fromHeight', 'From height', { ns: 'editor' }) : t('run.height', 'Height', { ns: 'editor' }), feetInches(el.start.z)])
+    if (vertical) rows.push([t('run.toHeight', 'To height', { ns: 'editor' }), feetInches(el.end.z)])
+    rows.push([t('run.carries', 'Carries', { ns: 'editor' }), carries ? carries.replace(/^Carries /, '') : rules?.flowUnit ? `${Math.round(el.flow * 100) / 100} ${rules.flowUnit}` : String(el.flow)])
+    rows.push([t('run.start', 'Start', { ns: 'editor' }), connectedTo(model, el.links.start?.elementId, t)], [t('run.end', 'End', { ns: 'editor' }), connectedTo(model, el.links.end?.elementId, t)])
+    if (el.branches.length > 0) rows.push([t('run.branches', 'Branches', { ns: 'editor' }), String(el.branches.length)])
   } else {
-    rows.push(['Height', feetInches(el.position.z)])
-    for (const p of el.ports) rows.push([`${p.id === 'branch' ? 'Branch' : `Opening ${p.id}`} (${sizeLabel(p.size)})`, connectedTo(model, p.link?.elementId)])
-    if (el.host) rows.push(['Along the trunk', feetInches(el.host.s)])
+    rows.push([t('run.height', 'Height', { ns: 'editor' }), feetInches(el.position.z)])
+    for (const p of el.ports) rows.push([`${p.id === 'branch' ? t('run.branch', 'Branch', { ns: 'editor' }) : t('run.opening', 'Opening {{id}}', { ns: 'editor', id: p.id })} (${sizeLabel(p.size)})`, connectedTo(model, p.link?.elementId, t)])
+    if (el.host) rows.push([t('run.alongTrunk', 'Along the trunk', { ns: 'editor' }), feetInches(el.host.s)])
   }
   const sectionProps: RunSectionProps = { model, element: el, canEdit, actorName, onCommand, onResize, ...(projectId ? { projectId } : {}) }
   return (
     <div className="flex flex-col gap-3" data-testid="run-properties">
       <span className="text-sm font-medium">{runLabel(model.elements, el).replace(/^./, (c) => c.toUpperCase())}</span>
       {onRouteLike && el.domain !== 'conduit' && (
-        <Button size="sm" variant="outline" onClick={onRouteLike} disabled={!canEdit} title={canEdit ? 'Same size, insulation, system and height (A)' : "Live editing isn't connected, so nothing can be routed"} data-testid="route-like">
+        <Button size="sm" variant="outline" onClick={onRouteLike} disabled={!canEdit} title={canEdit ? t('run.routeLikeWhy', 'Same size, insulation, system and height (A)', { ns: 'editor' }) : t('run.notLiveRouted', "Live editing isn't connected, so nothing can be routed", { ns: 'editor' })} data-testid="route-like">
           <CopyPlus data-icon="inline-start" />
-          Route another like this
+          {t('run.routeLike', 'Route another like this', { ns: 'editor' })}
           <kbd className="ml-auto text-xs text-muted-foreground">A</kbd>
         </Button>
       )}
@@ -87,7 +89,7 @@ export function RunProperties({ element: el, model, canEdit, onResize, onDelete,
         ))}
       </ItemGroup>
       <RunLoadPoints model={model} element={el} canEdit={canEdit} onCommand={onCommand} />
-      {el.kind === 'run_fitting' && el.host && <FieldDescription>Drag it in the view to slide the branch along the trunk. The trunk stays one piece.</FieldDescription>}
+      {el.kind === 'run_fitting' && el.host && <FieldDescription>{t('run.slideBranch', 'Drag it in the view to slide the branch along the trunk. The trunk stays one piece.', { ns: 'editor' })}</FieldDescription>}
       {el.kind === 'run_segment' && <RunResizeForm key={`${el.id}:${el.version}`} segment={el} canEdit={canEdit} onResize={onResize} />}
       {el.kind === 'run_segment' && Math.hypot(el.end.x - el.start.x, el.end.y - el.start.y) < 0.01 && <RunTopHeightForm key={`top:${el.id}:${el.version}`} element={el} canEdit={canEdit} onCommand={onCommand} />}
       {(el.kind === 'run_segment' ? Math.hypot(el.end.x - el.start.x, el.end.y - el.start.y) >= 0.01 : !el.host && el.ports.length === 2) && (
@@ -100,11 +102,11 @@ export function RunProperties({ element: el, model, canEdit, onResize, onDelete,
           <span>
             <Button variant="outline" size="sm" className="w-full" disabled={!canEdit} onClick={() => onDelete(el.id)} data-testid="run-delete">
               <Trash2 data-icon="inline-start" />
-              Delete
+              {t('run.delete', 'Delete', { ns: 'editor' })}
             </Button>
           </span>
         </TooltipTrigger>
-        <TooltipContent>{canEdit ? 'Asks first, and says what happens to connected pieces' : "Live editing isn't connected, so changes can't be saved"}</TooltipContent>
+        <TooltipContent>{canEdit ? t('run.deleteWhy', 'Asks first, and says what happens to connected pieces', { ns: 'editor' }) : t('run.notLive', "Live editing isn't connected, so changes can't be saved", { ns: 'editor' })}</TooltipContent>
       </Tooltip>
     </div>
   )
@@ -125,6 +127,7 @@ function inches(mm: number): string {
 }
 
 function RunResizeForm({ segment, canEdit, onResize }: { segment: RunSegment; canEdit: boolean; onResize: (segmentId: string, size: RunSize) => string | null }) {
+  const t = useEditorTranslate()
   const size = segment.size
   const [a, setA] = useState(size.shape === 'rect' || size.shape === 'oval' ? inches(size.width) : size.shape === 'round' ? inches(size.diameter) : size.shape === 'pipe' ? inches(size.nominalMm) : inches(size.tradeSizeMm))
   const [b, setB] = useState(size.shape === 'rect' || size.shape === 'oval' ? inches(size.height) : '')
@@ -136,7 +139,7 @@ function RunResizeForm({ segment, canEdit, onResize }: { segment: RunSegment; ca
     const y = Number(b)
     const mm = (v: number) => Math.round(v * MM_PER_IN * 1000) / 1000
     if (!(x > 0) || (twoDims && !(y > 0))) {
-      setError(twoDims ? 'Enter a width and height in inches.' : 'Enter a size in inches.')
+      setError(twoDims ? t('run.needWidthAndHeight', 'Enter a width and height in inches.', { ns: 'editor' }) : t('run.needSize', 'Enter a size in inches.', { ns: 'editor' }))
       return
     }
     const next: RunSize =
@@ -154,12 +157,12 @@ function RunResizeForm({ segment, canEdit, onResize }: { segment: RunSegment; ca
       <Separator />
       <FieldGroup className={twoDims ? 'grid grid-cols-2 gap-2' : 'flex flex-col gap-2'}>
         <Field>
-          <FieldLabel htmlFor="bm-run-a">{twoDims ? 'Width (in)' : size.shape === 'round' ? 'Diameter (in)' : 'Size (in)'}</FieldLabel>
+          <FieldLabel htmlFor="bm-run-a">{twoDims ? t('run.widthIn', 'Width (in)', { ns: 'editor' }) : size.shape === 'round' ? t('run.diameterIn', 'Diameter (in)', { ns: 'editor' }) : t('run.sizeIn', 'Size (in)', { ns: 'editor' })}</FieldLabel>
           <Input id="bm-run-a" inputMode="decimal" value={a} onChange={(e) => setA(e.target.value)} disabled={!canEdit} />
         </Field>
         {twoDims && (
           <Field>
-            <FieldLabel htmlFor="bm-run-b">Height (in)</FieldLabel>
+            <FieldLabel htmlFor="bm-run-b">{t('run.heightIn', 'Height (in)', { ns: 'editor' })}</FieldLabel>
             <Input id="bm-run-b" inputMode="decimal" value={b} onChange={(e) => setB(e.target.value)} disabled={!canEdit} />
           </Field>
         )}
@@ -169,11 +172,15 @@ function RunResizeForm({ segment, canEdit, onResize }: { segment: RunSegment; ca
           {error}
         </FieldDescription>
       )}
-      <Button type="submit" size="sm" disabled={!canEdit} title={canEdit ? undefined : "Live editing isn't connected, so changes can't be saved"}>
-        Resize this piece
+      <Button type="submit" size="sm" disabled={!canEdit} title={canEdit ? undefined : t('run.notLive', "Live editing isn't connected, so changes can't be saved", { ns: 'editor' })}>
+        {t('run.resizeThis', 'Resize this piece', { ns: 'editor' })}
       </Button>
       <FieldDescription>
-        Only this piece changes. Where a neighbour keeps its size a {segment.domain === 'pipe' ? 'reducer' : 'transition'} goes in, and a size that doesn&apos;t fit is refused with the reason. To resize more, hover it and press Tab to select the stretch or run.
+        {t(
+          'run.resizeWhy',
+          "Only this piece changes. Where a neighbour keeps its size a {{fitting}} goes in, and a size that doesn't fit is refused with the reason. To resize more, hover it and press Tab to select the stretch or run.",
+          { ns: 'editor', fitting: segment.domain === 'pipe' ? t('run.reducer', 'reducer', { ns: 'editor' }) : t('run.transition', 'transition', { ns: 'editor' }) },
+        )}
       </FieldDescription>
     </form>
   )

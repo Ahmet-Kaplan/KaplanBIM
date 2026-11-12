@@ -260,6 +260,11 @@ const SITES: Readonly<Record<string, number>> = {
   "electrical.voltageV1Pole": 2,
   "electrical.voltageVPoles": 2,
   "electrical.youCanUndoThis": 2,
+  // The run properties' read-only refusal is on the route-like button's tooltip, the
+  // delete tooltip and both move forms; `Height` labels a level piece and a fitting.
+  "run.notLive": 4,
+  "run.connected": 2,
+  "run.height": 2,
 };
 
 const fill = (template: string, values: Readonly<Record<string, string | number>> | undefined): string =>
@@ -281,7 +286,7 @@ test("an MEP caption is still keyed at every place it is written", () => {
 
 test("every MEP caption written twice or more has its site count pinned", () => {
   const source = editorSourceCaptions();
-  const prefixes = ["ventilation.", "balance.", "loads.", "electrical.", "plumbing."];
+  const prefixes = ["ventilation.", "balance.", "loads.", "electrical.", "plumbing.", "run."];
   const unpinned = [...source.entries()]
     .filter(([key]) => prefixes.some((prefix) => key.startsWith(prefix)))
     .filter(([key, caption]) => caption.sites > 1 && SITES[key] === undefined)
@@ -302,6 +307,19 @@ test("run reads hat in MEP context", () => {
   expect(TR("ventilation.scopeRun", "This run", { ns: "editor" })).toBe("Bu hat");
   expect(TR("ventilation.scopeRun", "This run", { ns: "editor" })).not.toContain("çalıştır");
   expect(TR("ventilation.scopePiece", "This piece", { ns: "editor" })).toBe("Bu parça");
+  // The run properties' own words: `Route another like this` makes a hat, and neither
+  // the button nor the sentence that says a move carries its neighbours says çalıştır.
+  expect(TR("run.routeLike", "Route another like this", { ns: "editor" })).toBe("Buna benzer bir hat daha çiz");
+  expect(TR("run.notLiveRouted", "Live editing isn't connected, so nothing can be routed", { ns: "editor" })).toContain("hat");
+  expect(TR("run.riseMoves", "The rise gets taller or shorter; the run above it moves with its top.", { ns: "editor" })).toContain("hat");
+  for (const key of ["run.routeLike", "run.notLiveRouted", "run.slideBranch", "run.moveWhy"] as const) {
+    expect(TR(key, "", { ns: "editor" })).not.toContain("çalıştır");
+  }
+  // §2.8: the trunk a branch leaves is an ana hat.
+  expect(TR("run.alongTrunk", "Along the trunk", { ns: "editor" })).toBe("Ana hat boyunca");
+  // §2.1: a piece is an eleman; §2.8: a branch is a branşman.
+  expect(TR("run.resizeThis", "Resize this piece", { ns: "editor" })).toBe("Bu elemanı yeniden boyutlandır");
+  expect(TR("run.branch", "Branch", { ns: "editor" })).toBe("Branşman");
 });
 
 test("rate is disambiguated per Ç13: a friction rate is a sürtünme oranı", () => {
@@ -382,7 +400,7 @@ function flatten(source: Record<string, unknown>, prefix = ""): Record<string, s
 
 const LOCALE = flatten(JSON.parse(fs.readFileSync(path.join(__dirname, "..", "locales", "tr", "editor.json"), "utf8")) as Record<string, unknown>);
 
-const MEP_PREFIXES = ["ventilation.", "balance.", "loads.", "electrical.", "plumbing."] as const;
+const MEP_PREFIXES = ["ventilation.", "balance.", "loads.", "electrical.", "plumbing.", "run."] as const;
 
 test("every MEP caption in the source has its Turkish", () => {
   const inSource = [...editorSourceCaptions().keys()].filter((key) => MEP_PREFIXES.some((prefix) => key.startsWith(prefix)));
