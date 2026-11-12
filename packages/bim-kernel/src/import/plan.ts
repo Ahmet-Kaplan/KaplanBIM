@@ -1,11 +1,10 @@
 import { activeClassRegistry } from "../registry";
 import type { Registry } from "../registry/types";
-import type { ElementCoreKind } from "../elements/feature";
 import { activePackSet, withModelStatePacks } from "../packs/scope";
 import { GLOBAL_PARTITION } from "../partition";
 import { elementsOfKind } from "../store";
 import type { BimElement, ElementId, ElementTypeElement, Level, ModelState, ParamValue } from "../types";
-import { IFC_IMPORT_RULE_POINT, type ImportRuleContext, type ImportRuleDef } from "./rule-point";
+import { IFC_IMPORT_RULE_POINT, type ImportRuleContext, type ImportRuleDef, type ImportTypedKind } from "./rule-point";
 import { reverseClassMap } from "./reverse-map";
 import { importedLayerSet } from "./layers";
 import { importElementId } from "./rules";
@@ -156,7 +155,7 @@ function planInScope(source: ImportSource, opts: PlanImportOptions): IfcImportPl
   // takeoff groups by the file's own type name (`qtoGroupOf`) instead of
   // collapsing a whole trade into one line.
   const types = new Map<string, ElementTypeElement>();
-  const typeFor = (product: ImportProduct, kind: ElementCoreKind): ElementTypeElement | null => {
+  const typeFor = (product: ImportProduct, kind: ImportTypedKind): ElementTypeElement | null => {
     const typeId = product.typeId?.trim() ?? "";
     const name = product.typeName?.trim() ?? "";
     if (typeId === "" || name === "") return null;

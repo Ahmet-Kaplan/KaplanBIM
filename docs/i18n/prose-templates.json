@@ -2,7 +2,7 @@
   "generatedBy": "tools/i18n/extract-prose.mjs",
   "algorithm": "numbers, number+unit and dates become {0}, {1} … in document order; see packages/bim-ui/src/i18n/prose.ts",
   "totals": {
-    "files": 879,
+    "files": 880,
     "literals": 1238,
     "labels": 24,
     "templates": 1092,
@@ -80,7 +80,7 @@
       "template": "{0}",
       "count": 11,
       "sources": [
-        "packages/bim-kernel/src/import/plan.ts:54",
+        "packages/bim-kernel/src/import/plan.ts:53",
         "packages/bim-kernel/src/parts.ts:614",
         "packages/bim-kernel/src/parts.ts:621",
         "packages/bim-kernel/src/requirements/facets.ts:109",

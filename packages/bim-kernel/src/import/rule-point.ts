@@ -6,6 +6,13 @@ import { KERNEL_IMPORT_RULES } from "./rules";
 import type { ImportGroup, ImportProduct, ImportRuleResult } from "./types";
 
 /**
+ * The kinds an import writes an `element_type` for: the element-core kinds,
+ * and ceilings, which carry `typeId` the same way (a tile or a board is a
+ * type) but are their own kind, so the commands' `forKinds` names them too.
+ */
+export type ImportTypedKind = ElementCoreKind | "ceiling";
+
+/**
  * How a class's instances come in from a linked model (contract 1.7.0,
  * `kernel.ifc_import_rule` v1). The importer never decides what a product
  * becomes: it finds the class whose IFC home the product matches (the
@@ -42,7 +49,7 @@ export interface ImportRuleContext {
    * `part_type`). `base()` stamps its id on the record, so the takeoff groups
    * by the file's type (`qtoGroupOf`).
    */
-  typeFor(product: ImportProduct, kind: ElementCoreKind): ElementTypeElement | null;
+  typeFor(product: ImportProduct, kind: ImportTypedKind): ElementTypeElement | null;
   /** Values the registry maps from the product's property sets (`ifc` homes on the class's fields), by parameter key. */
   values(product: ImportProduct): Readonly<Record<string, ParamValue>>;
   /** What every record remembers: the GlobalId and the linked model version. */

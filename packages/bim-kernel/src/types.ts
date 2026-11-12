@@ -303,6 +303,17 @@ export interface Room extends ModelElementBase, ElementCore {
   readonly name: string;
   readonly outline: readonly Vec2[];
   readonly areaSqM: number;
+  /**
+   * Where a room tag sits without collisions: a point well inside the outline
+   * (`labelSeedOf`, model mm). Absent: the outline's centroid, which falls
+   * outside an L of two wings.
+   */
+  readonly labelSeed?: Vec2;
+  /**
+   * Floor to ceiling, mm, as read or stated (a linked model's space says how
+   * tall it is). Absent: not stated, and the takeoff gives no volume.
+   */
+  readonly ceilingHeightMm?: number;
 }
 
 export interface GridLine extends ModelElementBase, ElementCore {

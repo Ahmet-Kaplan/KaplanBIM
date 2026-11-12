@@ -1,12 +1,13 @@
 import { asElementId } from "../types";
 import { GLOBAL_PARTITION } from "../partition";
 import type { Beam, Column, Component, ElementId, Level, MepSystem, Opening, PartInstance, PartTypeElement, Room, RunDomain, RunSegment, RunSize, Slab, Wall } from "../types";
-import type { ElementCoreKind } from "../elements/feature";
+import type { Ceiling } from "../ceilings/types";
 import { RUN_DOMAINS } from "../routing/types";
 import { connectorDomainOf, sizeFitsDomain } from "../routing/rules";
 import { activeServiceRegistry } from "../services/registry";
 import { PART_CATEGORIES, type PartCategory, type PartTypeDefinition } from "../parts";
-import type { ImportRuleContext, ImportRuleDef } from "./rule-point";
+import { labelSeedOf } from "../placement/label-seed";
+import type { ImportRuleContext, ImportRuleDef, ImportTypedKind } from "./rule-point";
 import { importedLayerSet } from "./layers";
 import { axisAligned, outlineArea, outlineCentre, rectangleAxis, roundPlan, straightSweep, verticalPrism } from "./shape";
 import type { ImportProduct, ImportRuleResult } from "./types";
@@ -33,7 +34,20 @@ const nameOf = (p: ImportProduct): string => p.name?.trim() || p.tag?.trim() || 
 const typeNameOf = (p: ImportProduct, fallback: string): string => (p.typeName?.trim() || p.objectType?.trim() || fallback).slice(0, 200);
 const round = (n: number): number => Math.round(n * 10) / 10;
 
-function base(ctx: ImportRuleContext, p: ImportProduct, level: Level, kind?: ElementCoreKind, suffix?: string) {
+/**
+ * Whether the record keeps its `classId`. A class the registry could recognise
+ * back from the record itself (it names the record's kind, so recognising it
+ * needs nothing but the record) doesn't need one, and older readers that know
+ * only the kind still measure it. A class that names no kind at all — a floor
+ * finish over a slab, say — has nothing else to say what it is, so it writes
+ * its id.
+ */
+function keepsClassId(ctx: ImportRuleContext, kind: ImportTypedKind | undefined): boolean {
+  if (ctx.cls.source !== "builtin") return true;
+  return kind !== undefined && !(ctx.cls.recognize?.elementKinds ?? []).includes(kind);
+}
+
+function base(ctx: ImportRuleContext, p: ImportProduct, level: Level, kind?: ImportTypedKind, suffix?: string) {
   const values = ctx.values(p);
   const type = kind === undefined ? null : ctx.typeFor(p, kind);
   const layers = importedLayerSet(p);
@@ -44,7 +58,7 @@ function base(ctx: ImportRuleContext, p: ImportProduct, level: Level, kind?: Ele
     partition: ctx.partition(level),
     provenance: ctx.provenance(p),
     ...(type ? { typeId: type.id } : {}),
-    ...(ctx.cls.source === "builtin" ? {} : { classId: ctx.cls.id }),
+    ...(keepsClassId(ctx, kind) ? { classId: ctx.cls.id } : {}),
     ...(Object.keys(values).length > 0 ? { values } : {}),
     ...(layers ? { layers } : {}),
   };
@@ -92,6 +106,14 @@ const slab: ImportRuleDef = {
   },
 };
 
+/**
+ * A room: its floor outline, the name and number a person finds it by, a seed
+ * for its tag and how tall it is. A room that is all four is a quantity
+ * container (area, volume, count) and not just a shape with a label: `number`
+ * is the file's `Name` ("101"), `name` its `LongName` ("Office"), the seed is
+ * the point furthest from its own walls, and the height is its space solid's
+ * own — the file's floor to ceiling, not the storey's floor to floor.
+ */
 const room: ImportRuleDef = {
   id: "kernel.room",
   label: "Rooms",
@@ -102,6 +124,8 @@ const room: ImportRuleDef = {
     const prism = verticalPrism(p.geometry);
     if (!prism) return fail(whyNot(p, "its outline couldn't be read as a floor plan", "outline"));
     const outline = prism.outline.map(roundPlan);
+    const heightMm = round(prism.top - prism.bottom);
+    const seed = labelSeedOf(outline);
     const record: Room = {
       ...base(ctx, p, level, "room"),
       kind: "room",
@@ -109,6 +133,43 @@ const room: ImportRuleDef = {
       name: (p.longName?.trim() || p.name?.trim() || "Room").slice(0, 120),
       outline,
       areaSqM: Math.round((outlineArea(outline) / 1e6) * 100) / 100,
+      ...(seed ? { labelSeed: seed } : {}),
+      ...(heightMm > 0 ? { ceilingHeightMm: heightMm } : {}),
+    };
+    return { ok: true, records: [record] };
+  },
+};
+
+/**
+ * A covering that is a horizontal surface (an `IfcCovering` whose class says
+ * CEILING): its footprint and how high its underside hangs above the level.
+ * The takeoff's ceiling rule then prices suspended-ceiling m² off it. The
+ * surface's own build-up, when the file gives one, rides on the record as it
+ * does on a wall. A floor or wall finish is not this: a screed is a thin
+ * horizontal plate and comes in through the slab rule under a class of its
+ * own, so it stays a takeoff line apart from the slabs, and a cladding or a
+ * skirting is a face or an edge this slice doesn't read.
+ */
+const ceiling: ImportRuleDef = {
+  id: "kernel.ceiling",
+  label: "Ceilings",
+  forKinds: ["ceiling"],
+  convert(p, ctx) {
+    const level = needLevel(ctx, p);
+    if (typeof level === "string") return fail(level);
+    const prism = verticalPrism(p.geometry);
+    if (!prism) return fail(whyNot(p, "it isn't one flat horizontal surface"));
+    const outline = prism.outline.map(roundPlan);
+    if (outline.length < 3) return fail("its outline has no area");
+    const role = ctx.fields.role ?? ctx.options.role;
+    const record: Ceiling = {
+      ...base(ctx, p, level, "ceiling"),
+      kind: "ceiling",
+      levelId: level.id,
+      outline,
+      form: "flat",
+      heightMm: round(prism.bottom - level.elevationMm),
+      ...(typeof role === "string" && role.trim().length > 0 ? { role: role.trim() } : {}),
     };
     return { ok: true, records: [record] };
   },
@@ -356,7 +417,7 @@ const component: ImportRuleDef = {
   },
 };
 
-export const KERNEL_IMPORT_RULES: readonly ImportRuleDef[] = [wall, slab, room, column, beam, opening, runSegment, part, component];
+export const KERNEL_IMPORT_RULES: readonly ImportRuleDef[] = [wall, slab, room, ceiling, column, beam, opening, runSegment, part, component];
 
 /** An element id for imported records: `imp.<source>.<GlobalId>[.<suffix>]`, GlobalId's `$` as `-` (outside its alphabet, so ids stay distinct). */
 export function importElementId(sourceKey: string, sourceId: string, suffix?: string): ElementId {

@@ -187,12 +187,21 @@ const ROOM_RULE: MeasureRuleDef = {
   id: "kernel.room",
   label: "Rooms",
   kinds: ["room"],
-  measures: [primary({ key: "qto.area", kind: "area", unit: "m2", from: "the room's floor area", label: "Area" }), COUNT],
+  measures: [
+    primary({ key: "qto.area", kind: "area", unit: "m2", from: "the room's floor area", label: "Area" }),
+    // Only a room that states how tall it is gives a volume: an imported space does (its own
+    // solid's height), and a room traced here does not until someone says.
+    { key: "qto.volume", kind: "volume", unit: "m3", from: "floor area × stated ceiling height", label: "Volume" },
+    COUNT,
+  ],
   measure(el): Readonly<Record<string, number>> {
     if (el.kind !== "room") return {};
     const stated = num(el.areaSqM);
     const area = stated !== null && stated > 0 ? stated : Math.abs(polygonAreaAndCentroid(el.outline).areaMm2) / MM2_PER_M2;
-    return { "qto.area": area, "qto.count": 1 };
+    const out: Record<string, number> = { "qto.area": area, "qto.count": 1 };
+    const h = num(el.ceilingHeightMm);
+    if (h !== null && h > 0) out["qto.volume"] = (area * h) / MM_PER_M;
+    return out;
   },
 };
 

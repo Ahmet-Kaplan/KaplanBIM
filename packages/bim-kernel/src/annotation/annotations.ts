@@ -257,6 +257,10 @@ function pointOf(model: Pick<ModelState, "elements">, el: BimElement): Point3 | 
       return el.position;
     case "room":
     case "space": {
+      // A room that states where its tag goes (`labelSeed`, the point furthest
+      // from its walls) uses that; anything else falls back to the outline's mean.
+      const seed = el.kind === "room" ? el.labelSeed : undefined;
+      if (seed) return { ...seed, z: el.kind === "space" && el.levelId ? levelZ(model, el.levelId) : 0 };
       const outline = floorOutlineOf(model, el);
       const at = outline ? outlineCentroid(outline) : null;
       return at ? { ...at, z: el.kind === "space" && el.levelId ? levelZ(model, el.levelId) : 0 } : null;

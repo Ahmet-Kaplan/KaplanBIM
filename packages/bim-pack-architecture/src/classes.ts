@@ -24,6 +24,15 @@ export const ARCHITECTURE_CLASSES: readonly PackClass[] = [
     recognize: { elementKinds: ["ceiling"] },
     description: "Typed horizontal surfaces: flat, sloped, clouds, soffits and open to structure, with what they are made of as an element type.",
   },
+  {
+    id: "arch.finish",
+    label: "Floor finishes",
+    discipline: "architecture",
+    // A screed, a topping or a finish floor over the structural slab: a thin horizontal plate with a
+    // plan area and a thickness, which is what the slab kind holds and measures (m2 to price, m3 to pour).
+    ifc: { entity: "IfcCovering", predefinedType: "FLOORING", import: { rule: "kernel.slab" } },
+    description: "Screeds, toppings and finish floors, measured by area and by volume apart from the slab they sit on.",
+  },
   { id: "arch.roof", label: "Roofs", discipline: "architecture", ifc: { entity: "IfcRoof", predefinedType: "FLAT_ROOF", typeEntity: "IfcRoofType" }, recognize: { elementKinds: ["architecture.roof"] } },
   { id: "arch.stair", label: "Stairs", discipline: "architecture", ifc: { entity: "IfcStair", predefinedType: "STRAIGHT_RUN_STAIR", typeEntity: "IfcStairType" }, recognize: { elementKinds: ["architecture.stair"] } },
 ];
