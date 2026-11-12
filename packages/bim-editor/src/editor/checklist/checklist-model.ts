@@ -1,4 +1,5 @@
 import { GRAPH_ANSWER_LIMIT, type Requirement } from '@permitzip/bim-kernel'
+import { englishOnly, type Translate } from '../i18n/translate'
 import { SHOW_AGENT_FOUND } from './decisions'
 
 /**
@@ -70,10 +71,18 @@ export function needsCount(requirements: readonly Requirement[]): number {
   return requirements.filter((r) => r.standing !== 'conflicting' && needsAttention(r)).length
 }
 
-const MODEL_STATUS_LABEL: Readonly<Record<string, string>> = {
-  verified: 'Verified',
-  overridden: 'Overridden',
-  withdrawn: 'Withdrawn',
+/** The model's own state for a requirement, in the language on screen (§8's status vocabulary). */
+function ownStatusWord(status: string, t: Translate): string | null {
+  switch (status) {
+    case 'verified':
+      return t('checklist.status.verified', 'Verified', { ns: 'editor' })
+    case 'overridden':
+      return t('checklist.status.overridden', 'Overridden', { ns: 'editor' })
+    case 'withdrawn':
+      return t('checklist.status.withdrawn', 'Withdrawn', { ns: 'editor' })
+    default:
+      return null
+  }
 }
 
 /**
@@ -81,33 +90,39 @@ const MODEL_STATUS_LABEL: Readonly<Record<string, string>> = {
  * rule's standing in its source ("Found by an agent" only with
  * `SHOW_AGENT_FOUND`).
  */
-export function statusLabel(r: Requirement): string {
-  const own = MODEL_STATUS_LABEL[r.status]
+export function statusLabel(r: Requirement, t: Translate = englishOnly): string {
+  const own = ownStatusWord(r.status, t)
   if (own) return own
-  if (r.ruleVerification === 'verified') return 'Verified in its code study'
-  if (r.ruleVerification === 'invalidated') return 'Ruled out in its code study'
-  if (r.ruleVerification === 'agent_found' && SHOW_AGENT_FOUND) return 'Found by an agent'
-  return 'Proposed'
+  if (r.ruleVerification === 'verified') return t('checklist.status.verifiedInStudy', 'Verified in its code study', { ns: 'editor' })
+  if (r.ruleVerification === 'invalidated') return t('checklist.status.ruledOut', 'Ruled out in its code study', { ns: 'editor' })
+  if (r.ruleVerification === 'agent_found' && SHOW_AGENT_FOUND) return t('checklist.status.agentFound', 'Found by an agent', { ns: 'editor' })
+  return t('checklist.status.proposed', 'Proposed', { ns: 'editor' })
 }
 
-export function fulfilmentLabel(r: Requirement): string {
+export function fulfilmentLabel(r: Requirement, t: Translate = englishOnly): string {
   if (r.fulfilment.summary) return r.fulfilment.summary
   switch (r.fulfilment.state) {
     case 'met':
-      return 'Met'
+      return t('checklist.fulfil.met', 'Met', { ns: 'editor' })
     case 'not_met':
-      return 'Not met'
+      return t('checklist.fulfil.notMet', 'Not met', { ns: 'editor' })
     case 'open':
-      return 'Not drawn yet'
+      return t('checklist.fulfil.notDrawn', 'Not drawn yet', { ns: 'editor' })
     default:
-      return 'No model check; a person confirms it'
+      return t('checklist.fulfil.manual', 'No model check; a person confirms it', { ns: 'editor' })
   }
 }
 
 /** "138" with its unit, "2 ea", "A"; null for a manual rule. */
-export function valueLabel(r: Pick<Requirement, 'value' | 'unit' | 'compare'>): string | null {
+export function valueLabel(r: Pick<Requirement, 'value' | 'unit' | 'compare'>, t: Translate = englishOnly): string | null {
   if (r.value === null) return null
+  // §7: the unit is a symbol and travels as it is.
   const unit = r.unit && r.unit !== '1' ? ` ${r.unit}` : ''
-  const prefix = r.compare === 'at_least' ? 'at least ' : r.compare === 'at_most' ? 'at most ' : ''
+  const prefix =
+    r.compare === 'at_least'
+      ? t('checklist.value.atLeast', 'at least', { ns: 'editor' }) + ' '
+      : r.compare === 'at_most'
+        ? t('checklist.value.atMost', 'at most', { ns: 'editor' }) + ' '
+        : ''
   return `${prefix}${String(r.value)}${typeof r.value === 'number' ? unit : ''}`
 }

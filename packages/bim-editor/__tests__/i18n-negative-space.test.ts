@@ -133,6 +133,11 @@ const OWNED_DIRS = [
   // `@permitzip/bim-schedules-ui` under its `schedules` namespace; the editor's
   // chrome around them is the `editor` namespace's `schedule.*`.
   "schedules",
+  // Outside stage 4 — the checklist pane: the requirement rows with their status
+  // and fulfilment words, the override and decision forms, Verify and the Code Map
+  // link, What drives the most, and Merges waiting for you with its approvers and
+  // its decline (119 findings, four files).
+  "checklist",
 ];
 
 /**
@@ -162,7 +167,6 @@ const OUTSIDE_STAGE_4 = [
   "branches",
   "calc-sheets",
   "ceilings",
-  "checklist",
   "code-change",
   "code-study",
   "connect-agent",
@@ -177,7 +181,6 @@ const OUTSIDE_STAGE_4 = [
   "loads-policy",
   "planned",
   "responsibilities",
-  "schedules",
   "view-input",
 ] as const;
 

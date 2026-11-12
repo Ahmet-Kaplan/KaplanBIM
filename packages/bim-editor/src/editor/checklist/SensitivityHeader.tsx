@@ -10,6 +10,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '..
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '../../ui/item'
 import { Skeleton } from '../../ui/skeleton'
 import { Spinner } from '../../ui/spinner'
+import { useEditorTranslate } from '../i18n/translate'
 
 /**
  * Checklist header › What drives the most: the inputs (a room's occupancy,
@@ -31,6 +32,7 @@ type Load = { readonly state: 'loading' } | { readonly state: 'error'; readonly 
 const errorWords = (err: unknown) => (err instanceof Error ? err.message : String(err))
 
 function Detail({ model, item, onSelect }: { model: ModelState; item: SensitivityItem; onSelect: (ids: readonly string[]) => void }) {
+  const t = useEditorTranslate()
   const [all, setAll] = useState(false)
   const answer = useMemo((): { readonly ok: true; readonly value: Sensitivity } | { readonly ok: false; readonly message: string } => {
     try {
@@ -43,7 +45,7 @@ function Detail({ model, item, onSelect }: { model: ModelState; item: Sensitivit
   if (!answer.ok) {
     return (
       <p className="text-xs text-danger-600" data-testid="sensitivity-detail-error">
-        Couldn&apos;t list what {item.label} drives: {answer.message}
+        {t('checklist.sensitivity.cannotList', 'Couldn’t list what {{what}} drives: {{reason}}', { ns: 'editor', what: item.label, reason: answer.message })}
       </p>
     )
   }
@@ -52,12 +54,12 @@ function Detail({ model, item, onSelect }: { model: ModelState; item: Sensitivit
   const anchors = [...new Set(answer.value.requirements.map((r) => r.anchor.id).filter((id): id is string => id !== null))]
   return (
     <div className="flex flex-col gap-1.5 pl-6" data-testid="sensitivity-detail">
-      <ul className="flex flex-col gap-1 text-xs" aria-label={`Requirements ${item.label} drives`}>
+      <ul className="flex flex-col gap-1 text-xs" aria-label={t('checklist.sensitivity.listAria', 'Requirements {{what}} drives', { ns: 'editor', what: item.label })}>
         {lines.map((l) => (
           <li key={l.requirement.id} className="flex items-center gap-2" data-testid="sensitivity-line">
             <span className="min-w-0 flex-1">{l.words}</span>
             <Badge variant={l.open ? 'secondary' : 'outline'} className="shrink-0">
-              {l.open ? 'Open' : 'Met or decided'}
+              {l.open ? t('checklist.sensitivity.open', 'Open', { ns: 'editor' }) : t('checklist.sensitivity.metOrDecided', 'Met or decided', { ns: 'editor' })}
             </Badge>
           </li>
         ))}
@@ -65,12 +67,12 @@ function Detail({ model, item, onSelect }: { model: ModelState; item: Sensitivit
       <div className="flex flex-wrap gap-2">
         {more > 0 && (
           <Button size="sm" variant="link" className="px-0" onClick={() => setAll(true)} data-testid="sensitivity-detail-more">
-            and {more} more
+            {t('checklist.andMore', 'and {{count}} more', { ns: 'editor', count: more })}
           </Button>
         )}
         <Button size="sm" variant="outline" onClick={() => onSelect([item.node.id, ...anchors])} data-testid="sensitivity-show">
           <Crosshair data-icon="inline-start" />
-          Show in model
+          {t('checklist.sensitivity.showInModel', 'Show in model', { ns: 'editor' })}
         </Button>
       </div>
     </div>
@@ -78,6 +80,7 @@ function Detail({ model, item, onSelect }: { model: ModelState; item: Sensitivit
 }
 
 export function SensitivityHeader({ model, requirements, onSelect }: SensitivityHeaderProps) {
+  const t = useEditorTranslate()
   const [open, setOpen] = useState(false)
   const [attempt, setAttempt] = useState(0)
   const [load, setLoad] = useState<Load>({ state: 'loading' })
@@ -100,7 +103,12 @@ export function SensitivityHeader({ model, requirements, onSelect }: Sensitivity
 
   const ranking = load.state === 'ready' ? load.ranking : null
   const pickedItem = ranking?.items.find((i) => i.node.id === picked) ?? null
-  const teaser = load.state === 'loading' ? 'Working out what drives the most requirements…' : load.state === 'error' ? 'Couldn’t work out what drives the most requirements.' : (ranking?.items[0]?.words ?? 'Nothing drives a requirement yet.')
+  const teaser =
+    load.state === 'loading'
+      ? t('checklist.sensitivity.working', 'Working out what drives the most requirements…', { ns: 'editor' })
+      : load.state === 'error'
+        ? t('checklist.sensitivity.failedOne', 'Couldn’t work out what drives the most requirements.', { ns: 'editor' })
+        : (ranking?.items[0]?.words ?? t('checklist.sensitivity.nothingOne', 'Nothing drives a requirement yet.', { ns: 'editor' }))
 
   return (
     <section
@@ -117,7 +125,7 @@ export function SensitivityHeader({ model, requirements, onSelect }: Sensitivity
       <Button variant="ghost" size="sm" className="h-auto justify-start gap-2 px-1 py-1 text-left" aria-expanded={open} onClick={() => setOpen((v) => !v)} data-testid="sensitivity-toggle">
         {open ? <ChevronDown data-icon="inline-start" /> : <ChevronRight data-icon="inline-start" />}
         <span className="flex min-w-0 flex-col items-start">
-          <span className="text-sm font-medium">What drives the most</span>
+          <span className="text-sm font-medium">{t('checklist.sensitivity.title', 'What drives the most', { ns: 'editor' })}</span>
           {!open && (
             <span className="truncate text-xs font-normal text-muted-foreground" data-testid="sensitivity-teaser">
               {teaser}
@@ -138,11 +146,11 @@ export function SensitivityHeader({ model, requirements, onSelect }: Sensitivity
       {open && load.state === 'error' && (
         <Alert variant="destructive" data-testid="sensitivity-error">
           <TriangleAlert />
-          <AlertTitle>Couldn&apos;t work out what drives the most requirements</AlertTitle>
+          <AlertTitle>{t('checklist.sensitivity.failed', 'Couldn’t work out what drives the most requirements', { ns: 'editor' })}</AlertTitle>
           <AlertDescription>
             {load.message}
             <Button variant="outline" size="sm" className="mt-2" onClick={() => setAttempt((n) => n + 1)} data-testid="sensitivity-retry">
-              Retry
+              {t('checklist.retry', 'Retry', { ns: 'editor' })}
             </Button>
           </AlertDescription>
         </Alert>
@@ -154,7 +162,7 @@ export function SensitivityHeader({ model, requirements, onSelect }: Sensitivity
             <EmptyMedia variant="icon">
               <Network />
             </EmptyMedia>
-            <EmptyTitle>Nothing drives a requirement yet</EmptyTitle>
+            <EmptyTitle>{t('checklist.sensitivity.nothing', 'Nothing drives a requirement yet', { ns: 'editor' })}</EmptyTitle>
             <EmptyDescription>{ranking.empty}</EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -162,7 +170,7 @@ export function SensitivityHeader({ model, requirements, onSelect }: Sensitivity
 
       {open && ranking && ranking.items.length > 0 && (
         <>
-          <ItemGroup className="gap-1.5" aria-label="What drives the most requirements">
+          <ItemGroup className="gap-1.5" aria-label={t('checklist.sensitivity.groupAria', 'What drives the most requirements', { ns: 'editor' })}>
             {ranking.items.map((item) => {
               const shown = picked === item.node.id
               return (
@@ -172,7 +180,21 @@ export function SensitivityHeader({ model, requirements, onSelect }: Sensitivity
                     size="sm"
                     className="h-auto w-full justify-start gap-2 px-2 py-1.5 text-left"
                     aria-expanded={shown}
-                    aria-label={`${item.label}: drives ${item.drives} ${item.drives === 1 ? 'requirement' : 'requirements'}. ${shown ? 'Hide' : 'See'} them`}
+                    aria-label={
+                      shown
+                        ? t('checklist.sensitivity.rowAriaShown', '{{what}}: drives {{count}} {{noun}}. Hide them', {
+                            ns: 'editor',
+                            what: item.label,
+                            count: item.drives,
+                            noun: item.drives === 1 ? t('checklist.sensitivity.requirement', 'requirement', { ns: 'editor' }) : t('checklist.sensitivity.requirements', 'requirements', { ns: 'editor' }),
+                          })
+                        : t('checklist.sensitivity.rowAriaHidden', '{{what}}: drives {{count}} {{noun}}. See them', {
+                            ns: 'editor',
+                            what: item.label,
+                            count: item.drives,
+                            noun: item.drives === 1 ? t('checklist.sensitivity.requirement', 'requirement', { ns: 'editor' }) : t('checklist.sensitivity.requirements', 'requirements', { ns: 'editor' }),
+                          })
+                    }
                     onClick={() => setPicked(shown ? null : item.node.id)}
                     data-testid="sensitivity-row-toggle"
                   >
@@ -180,8 +202,12 @@ export function SensitivityHeader({ model, requirements, onSelect }: Sensitivity
                     <ItemContent className="min-w-0 gap-0.5">
                       <ItemTitle className="text-sm">{item.label}</ItemTitle>
                       <ItemDescription className="text-xs">
-                        Drives {item.drives.toLocaleString('en-US')} {item.drives === 1 ? 'requirement' : 'requirements'}
-                        {item.open > 0 ? `, ${item.open.toLocaleString('en-US')} still open` : ', none open'}
+                        {item.drives === 1
+                          ? t('checklist.sensitivity.drivesOne', 'Drives {{count}} requirement', { ns: 'editor', count: item.drives.toLocaleString('en-US') })
+                          : t('checklist.sensitivity.drivesMany', 'Drives {{count}} requirements', { ns: 'editor', count: item.drives.toLocaleString('en-US') })}
+                        {item.open > 0
+                          ? t('checklist.sensitivity.stillOpen', ', {{count}} still open', { ns: 'editor', count: item.open.toLocaleString('en-US') })
+                          : t('checklist.sensitivity.noneOpen', ', none open', { ns: 'editor' })}
                       </ItemDescription>
                     </ItemContent>
                   </Button>
@@ -192,7 +218,9 @@ export function SensitivityHeader({ model, requirements, onSelect }: Sensitivity
           </ItemGroup>
           {ranking.more > 0 && (
             <p className="text-xs text-muted-foreground" data-testid="sensitivity-more">
-              and {ranking.more.toLocaleString('en-US')} more {ranking.more === 1 ? 'input drives' : 'inputs drive'} at least one requirement
+              {ranking.more === 1
+                ? t('checklist.sensitivity.moreOne', 'and {{count}} more input drives at least one requirement', { ns: 'editor', count: ranking.more.toLocaleString('en-US') })
+                : t('checklist.sensitivity.moreMany', 'and {{count}} more inputs drive at least one requirement', { ns: 'editor', count: ranking.more.toLocaleString('en-US') })}
             </p>
           )}
         </>

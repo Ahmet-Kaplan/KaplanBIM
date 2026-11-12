@@ -1208,6 +1208,68 @@ tablosunun “kimin kitabı”sı — çevrilirken bunlar gerekti.
 > (`@permitzip/bim-library`) ve `connection_type.mark` gibi alan **yolları** veridir;
 > ağaç onları yazmaz. `PRICE_BOOK_BASIS_LABELS` de sözleşme katmanının verisidir; cümle
 > içinde kullanılan biçimi `basisWord` söyler.
+
+### 5.18 Aşama 4 dışı: kontrol listesi ağacı (2026-11-10)
+
+`packages/bim-editor/src/editor/checklist` — gereklilik satırları ve durumları, geçersiz
+kılma ve karar formları, Doğrula ve Kod Haritası bağlantısı, “En çok neyi belirliyor” ve
+“Sizi bekleyen birleştirmeler” — çevrilirken bunlar gerekti. Yukarıda **zaten** karara
+bağlı olanlar tekrar yazılmadı (`Doğrulandı`, `Karşılandı`, `Bekliyor`, `Çakışma`,
+`Bulgu`, `Önem düzeyi`, `Gerekçe`, `Branşman`, `Sahip/İşveren`).
+
+| EN | TR | Not |
+|----|----|-----|
+| Verified / Overridden / Withdrawn | **Doğrulandı / Geçersiz kılındı / Geri çekildi** | §8 durum sözlüğü; `questions` ağacının *Geri çekildi*'siyle aynı |
+| Verified in its code study / Ruled out in its code study | **Kod çalışmasında doğrulandı / Kod çalışmasında elendi** | *Ruled out* = **elendi**, *kaldırıldı* değil |
+| Found by an agent / Proposed | **Bir ajan buldu / Önerildi** | §8; *öneri* bir durumdur, *teklif* değil |
+| Met / Not met / Not drawn yet | **Karşılandı / Karşılanmadı / Henüz çizilmedi** | §8: *met* = karşılanmak |
+| No model check; a person confirms it | **Model denetimi yok; bir kişi onaylar** | *check* burada **denetim** (bir *kontrol* değil) |
+| at least / at most | **en az / en çok** | §5.5'in toplam/azami/asgari sözlüğünden ayrı: bu bir **karşılaştırma**dır |
+| Open / Met or decided | **Açık / Karşılandı veya karara bağlandı** | §8 |
+| Override… / Override / Reason (required) | **Geçersiz kıl… / Geçersiz kıl / Gerekçe (zorunlu)** | §3 *override* = **geçersiz kıl**; *gerekçe* zorunludur |
+| Record decision / What you decided / Answer / Reasoning / Confidence | **Kararı kaydet / Karar verdiğiniz konu / Yanıt / Gerekçe / Güven düzeyi** | Bir karar **karar**dır (*hüküm* değil) |
+| High / Medium / Low (confidence) | **Yüksek / Orta / Düşük** | Başlıksız, tek sözcük |
+| Verify / Verify it as a person with code-study edit rights | **Doğrula / Kod çalışması düzenleme yetkisi olan bir kişi olarak doğrulayın** | Ajanlar asla doğrulamaz; cümle kişiyi söyler |
+| Overridden in the model and offered to the Code Map | **Modelde geçersiz kılındı ve Kod Haritası’na sunuldu** | *Code Map* bir ürün adıdır, çevrilmez |
+| Link to Code Map / Open in Code Map | **Kod Haritası’na bağla / Kod Haritası’nda aç** | |
+| Also from {{provider}}: … / no model check | **{{provider}} tarafından da: … / model denetimi yok** | Aynı yer için ikinci kaynağın gerekliliği (karar 11) |
+| {{count}} open / and {{count}} more | **{{count}} açık / ve {{count}} tane daha** | §8: sayıdan sonra çoğul eki yok |
+| Show {{count}} more causes ({{left}} left) | **{{count}} neden daha göster ({{left}} kaldı)** | *Cause* = burada **neden** (kuralın dayanağı) |
+| What drives the most | **En çok neyi belirliyor** | *Drive* burada **belirlemek**; §9/Ç9 *run* = çalıştır ile karışmaz |
+| Drives {{count}} requirement(s) | **{{count}} gereklilik belirliyor** | §8 |
+| nothing drives a requirement yet | **henüz bir gerekliliği belirleyen bir girdi yok** | *input* = **girdi** |
+| Merges waiting for you | **Sizi bekleyen birleştirmeler** | §9/Ç8 *branch* = **dal**; *merge* = **birleştirme** |
+| Branch: {{name}} / proposed by … / version … | **Dal: {{name}} / öneren … / sürüm …** | §2.2 *version* = **sürüm**, *revizyon* değil |
+| 1 conflict with Main to resolve on the branch first | **Önce dalda çözülecek 1 çakışma (Main ile)** | §5.11 *clash/conflict* = **çakışma**; *Main* dal adıdır (veri) |
+| Design change. Not a change order. | **Tasarım değişikliği. Değişiklik emri değil.** | §5.1 *change order* = **değişiklik emri** |
+| You were named responsible for {{what}}. Accept? | **{{what}} için sorumlu olarak adlandırıldınız. Kabul edilsin mi?** | §0.7 kibar çoğul; *accept* = **kabul et** |
+| Take responsibility / Take responsibility for this | **Sorumluluğu üstlen / Bunun sorumluluğunu üstlen** | §9/Ç20 *responsibility* = **sorumluluk** |
+| Approve / Decline… / Decline | **Onayla / Reddet… / Reddet** | *Reddet*, *geri çevir* değil |
+| Say why you decline, so the proposer knows what to change. | **Neden reddettiğinizi yazın, öneren neyi değiştirmesi gerektiğini bilsin.** | İki yerde aynı anahtar (ipucu ve engel nedeni) |
+| Yours / Yours (as project lead) | **Sizin / Sizin (proje lideri olarak)** | §4.1 *project lead* = **proje lideri** |
+| Approved / Declined / Waiting / Changed since approval | **Onaylandı / Reddedildi / Bekliyor / Onaydan beri değişti** | §8 |
+| {{count}} change / changes | **{{count}} değişiklik** | §8: tek biçim |
+| Request sent to {{who}} | **Talep {{who}} kişisine gönderildi** | |
+| No merges are waiting for you. | **Sizi bekleyen birleştirme yok.** | |
+| Couldn't accept it. Try again. | **Kabul edilemedi. Yeniden deneyin.** | Fiil + ad birleştirilmez: her eylemin **kendi cümlesi** vardır |
+
+> **`checklist/` kapandı (2026-11-10).** Ağaç **119** siteden (dört dosya) sıfıra indi ve
+> `OUTSIDE_STAGE_4`'ten çıkıp `OWNED_DIRS`'a girdi; Türkçesi `i18n-checklist.test.tsx`
+> içinde ölçülür.
+>
+> **Durum ve karşılama sözcükleri erişen oldu.** `statusLabel`, `fulfilmentLabel` ve
+> `valueLabel` bir `Translate` alır (`MODEL_STATUS_LABEL` tablosu kalktı; İngilizce
+> `englishOnly` ile birebir aynı). Grafiğin yazdığı `fulfilment.summary` **veri**dir:
+> olduğu gibi gösterilir.
+>
+> **Bir cümle bir anahtardır.** `act(fn, what)` “Couldn’t ${what}. Try again.” diye
+> fiil + ad kuruyordu — bu sıra İngilizcenin sırasıdır. Her eylem artık **kendi
+> cümlesini** taşır (`acceptFailed`, `grantFailed`, `takeFailed`, `decideFailed`).
+>
+> **Ertelenen: `VERIFY_NEEDS_RIGHTS`.** “Doğrulamak için kod çalışması düzenleme
+> yetkisi gerekir” cümlesi `../code-study/code-study-client` sabitidir; satır onu
+> olduğu gibi gösterir. Sahibi: `code-study` ağacının kendi turu.
+
 ---
 
 ## 6. Maliyet ve ticari terimler

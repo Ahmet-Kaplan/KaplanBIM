@@ -16,6 +16,7 @@ import { Textarea } from '../../ui/textarea'
 import type { EditorDataHost } from '@permitzip/bim-editor-host'
 import { useEditorHost } from '@permitzip/bim-editor/host'
 import { createBrowserCodeStudyWriteBackFrom, createRequirementLinkFrom, PERMITZIP_CODE_STUDY_SOURCE_ID, VERIFY_NEEDS_RIGHTS, type RequirementLinkInput } from '../code-study/code-study-client'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
 import { checklistGroups, fulfilmentLabel, statusLabel, valueLabel, visibleRows, type ChecklistGroup, type ChecklistRow } from './checklist-model'
 
 /**
@@ -72,11 +73,11 @@ function linkOf(r: Requirement, modelId: string, linkKind: RequirementLinkInput[
 }
 
 /** Write the requirement ↔ model link after a person acted on a PermitZIP requirement; a refusal is shown, never swallowed. */
-async function linkAfter(port: EditorDataHost['codeStudy'], projectId: string, r: Requirement, modelId: string): Promise<void> {
+async function linkAfter(port: EditorDataHost['codeStudy'], projectId: string, r: Requirement, modelId: string, t: Translate): Promise<void> {
   const link = linkOf(r, modelId, 'anchor')
   if (!link || !isPermitZip(r)) return
   const result = await createRequirementLinkFrom(port, projectId, link)
-  if (!result.ok) toast.error(`Saved in the model, but the Code Map link wasn't written: ${result.reason}`)
+  if (!result.ok) toast.error(t('checklist.linkNotWritten', "Saved in the model, but the Code Map link wasn't written: {{reason}}", { ns: 'editor', reason: result.reason }))
 }
 
 function newId(prefix: string): string {
@@ -84,16 +85,17 @@ function newId(prefix: string): string {
 }
 
 function OverrideForm({ r, onCancel, onSave }: { r: Requirement; onCancel: () => void; onSave: (value: number | string, reason: string) => void }) {
+  const t = useEditorTranslate()
   const [value, setValue] = useState(r.value === null ? '' : String(r.value))
   const [reason, setReason] = useState('')
   const [error, setError] = useState<string | null>(null)
   const save = () => {
     if (reason.trim().length < 3) {
-      setError('Say why you are overriding it; the reason travels with the model and is offered to its code study.')
+      setError(t('checklist.override.why', 'Say why you are overriding it; the reason travels with the model and is offered to its code study.', { ns: 'editor' }))
       return
     }
     if (!value.trim()) {
-      setError('Enter the value that should apply here.')
+      setError(t('checklist.override.value', 'Enter the value that should apply here.', { ns: 'editor' }))
       return
     }
     const n = Number(value)
@@ -102,11 +104,15 @@ function OverrideForm({ r, onCancel, onSave }: { r: Requirement; onCancel: () =>
   return (
     <FieldGroup className="gap-2" data-testid="checklist-override-form">
       <Field>
-        <FieldLabel htmlFor={`ov-v-${r.id}`}>Value{r.unit && r.unit !== '1' ? ` (${r.unit})` : ''}</FieldLabel>
+        <FieldLabel htmlFor={`ov-v-${r.id}`}>
+          {r.unit && r.unit !== '1'
+            ? t('checklist.override.valueWithUnit', 'Value ({{unit}})', { ns: 'editor', unit: r.unit })
+            : t('checklist.override.valueLabel', 'Value', { ns: 'editor' })}
+        </FieldLabel>
         <Input id={`ov-v-${r.id}`} value={value} onChange={(e) => setValue(e.target.value)} />
       </Field>
       <Field>
-        <FieldLabel htmlFor={`ov-r-${r.id}`}>Reason (required)</FieldLabel>
+        <FieldLabel htmlFor={`ov-r-${r.id}`}>{t('checklist.override.reason', 'Reason (required)', { ns: 'editor' })}</FieldLabel>
         <Textarea id={`ov-r-${r.id}`} rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />
       </Field>
       {error && (
@@ -116,10 +122,10 @@ function OverrideForm({ r, onCancel, onSave }: { r: Requirement; onCancel: () =>
       )}
       <div className="flex gap-2">
         <Button size="sm" onClick={save} data-testid="checklist-override-save">
-          Override
+          {t('checklist.override.action', 'Override', { ns: 'editor' })}
         </Button>
         <Button size="sm" variant="ghost" onClick={onCancel}>
-          Cancel
+          {t('checklist.cancel', 'Cancel', { ns: 'editor' })}
         </Button>
       </div>
     </FieldGroup>
@@ -127,6 +133,7 @@ function OverrideForm({ r, onCancel, onSave }: { r: Requirement; onCancel: () =>
 }
 
 export function DecisionForm({ anchorLabel, onCancel, onSave }: { anchorLabel: string; onCancel: () => void; onSave: (d: { key: string; value: string; reasoning: string; confidence: 'high' | 'medium' | 'low' }) => void }) {
+  const t = useEditorTranslate()
   const [key, setKey] = useState('occupancy')
   const [value, setValue] = useState('')
   const [reasoning, setReasoning] = useState('')
@@ -134,43 +141,43 @@ export function DecisionForm({ anchorLabel, onCancel, onSave }: { anchorLabel: s
   const [error, setError] = useState<string | null>(null)
   const save = () => {
     if (!key.trim() || !value.trim()) {
-      setError('Say what you decided (for example occupancy) and the answer (for example A-3).')
+      setError(t('checklist.decision.what', 'Say what you decided (for example occupancy) and the answer (for example A-3).', { ns: 'editor' }))
       return
     }
     if (reasoning.trim().length < 3) {
-      setError('Write the reasoning in your own words; it is what "why is this here?" shows.')
+      setError(t('checklist.decision.reasoning', 'Write the reasoning in your own words; it is what "why is this here?" shows.', { ns: 'editor' }))
       return
     }
     onSave({ key: key.trim(), value: value.trim(), reasoning: reasoning.trim(), confidence })
   }
   return (
     <FieldGroup className="gap-2" data-testid="checklist-decision-form">
-      <p className="text-xs text-muted-foreground">A decision for {anchorLabel}</p>
+      <p className="text-xs text-muted-foreground">{t('checklist.decision.for', 'A decision for {{place}}', { ns: 'editor', place: anchorLabel })}</p>
       <div className="grid grid-cols-2 gap-2">
         <Field>
-          <FieldLabel htmlFor="dec-key">What you decided</FieldLabel>
+          <FieldLabel htmlFor="dec-key">{t('checklist.decision.key', 'What you decided', { ns: 'editor' })}</FieldLabel>
           <Input id="dec-key" value={key} onChange={(e) => setKey(e.target.value)} />
         </Field>
         <Field>
-          <FieldLabel htmlFor="dec-value">Answer</FieldLabel>
+          <FieldLabel htmlFor="dec-value">{t('checklist.decision.answer', 'Answer', { ns: 'editor' })}</FieldLabel>
           <Input id="dec-value" value={value} onChange={(e) => setValue(e.target.value)} />
         </Field>
       </div>
       <Field>
-        <FieldLabel htmlFor="dec-reason">Reasoning</FieldLabel>
+        <FieldLabel htmlFor="dec-reason">{t('checklist.decision.reasoningLabel', 'Reasoning', { ns: 'editor' })}</FieldLabel>
         <Textarea id="dec-reason" rows={2} value={reasoning} onChange={(e) => setReasoning(e.target.value)} />
       </Field>
       <Field>
-        <FieldLabel htmlFor="dec-confidence">Confidence</FieldLabel>
+        <FieldLabel htmlFor="dec-confidence">{t('checklist.decision.confidence', 'Confidence', { ns: 'editor' })}</FieldLabel>
         <Select value={confidence} onValueChange={(v) => setConfidence(v === 'high' || v === 'low' ? v : 'medium')}>
           <SelectTrigger id="dec-confidence" className="w-full">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
-              <SelectItem value="high">High</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="low">Low</SelectItem>
+              <SelectItem value="high">{t('checklist.confidence.high', 'High', { ns: 'editor' })}</SelectItem>
+              <SelectItem value="medium">{t('checklist.confidence.medium', 'Medium', { ns: 'editor' })}</SelectItem>
+              <SelectItem value="low">{t('checklist.confidence.low', 'Low', { ns: 'editor' })}</SelectItem>
             </SelectGroup>
           </SelectContent>
         </Select>
@@ -182,24 +189,25 @@ export function DecisionForm({ anchorLabel, onCancel, onSave }: { anchorLabel: s
       )}
       <div className="flex gap-2">
         <Button size="sm" onClick={save} data-testid="checklist-decision-save">
-          Record decision
+          {t('checklist.decision.record', 'Record decision', { ns: 'editor' })}
         </Button>
         <Button size="sm" variant="ghost" onClick={onCancel}>
-          Cancel
+          {t('checklist.cancel', 'Cancel', { ns: 'editor' })}
         </Button>
       </div>
     </FieldGroup>
   )
 }
 
-function anchorLabelOf(model: ModelState, r: Requirement): string {
-  if (!r.anchor.id) return 'the whole model'
+function anchorLabelOf(model: ModelState, r: Requirement, t: Translate): string {
+  if (!r.anchor.id) return t('checklist.theWholeModel', 'the whole model', { ns: 'editor' })
   const el = model.elements[r.anchor.id]
   if (el && 'name' in el && typeof el.name === 'string' && el.name) return el.name
   return r.anchor.id
 }
 
 function Row({ row, props }: { row: ChecklistRow; props: ChecklistNeedsProps }) {
+  const t = useEditorTranslate()
   const { requirement: r, conflicts } = row
   const { projectId, modelId, model, canEdit, canVerify, blockedReason, actorName, submit, onSelect } = props
   const codeStudy = useEditorHost().data.codeStudy
@@ -207,25 +215,34 @@ function Row({ row, props }: { row: ChecklistRow; props: ChecklistNeedsProps }) 
   const ours = isPermitZip(r)
   const writeBack = ours ? createBrowserCodeStudyWriteBackFrom(codeStudy, projectId) : null
   const showIds = [...(r.anchor.id ? [r.anchor.id] : []), ...r.fulfilment.elementIds]
-  const verifyReason = !canEdit ? blockedReason : canVerify === false ? VERIFY_NEEDS_RIGHTS : canVerify === null ? 'Checking your code-study rights…' : null
-  const value = valueLabel(r)
+  const verifyReason =
+    !canEdit ? blockedReason : canVerify === false ? VERIFY_NEEDS_RIGHTS : canVerify === null ? t('checklist.checkingRights', 'Checking your code-study rights…', { ns: 'editor' }) : null
+  const value = valueLabel(r, t)
+  const verifiedReason = t('checklist.verify.reason', 'Verified in the Building Model checklist', { ns: 'editor' })
 
   const verify = async () => {
-    const refused = submit({ type: 'set_requirement_state', requirementId: r.id, status: 'verified', reason: 'Verified in the Building Model checklist', by: actorName }, `verify ${r.title}`)
+    const refused = submit(
+      { type: 'set_requirement_state', requirementId: r.id, status: 'verified', reason: verifiedReason, by: actorName },
+      t('checklist.undo.verify', 'verify {{title}}', { ns: 'editor', title: r.title }),
+    )
     if (refused) {
       toast.error(refused)
       return
     }
     if (writeBack && r.sourceRef) {
-      const result = await writeBack.verifyRule({ ruleId: r.ruleId, sourceRef: r.sourceRef, status: 'verified', reason: 'Verified in the Building Model checklist' })
-      if (!result.ok) toast.error(`Saved in the model; PermitZIP code study didn't accept it: ${result.reason}`)
+      const result = await writeBack.verifyRule({ ruleId: r.ruleId, sourceRef: r.sourceRef, status: 'verified', reason: verifiedReason })
+      if (!result.ok)
+        toast.error(t('checklist.writeBackRefused', "Saved in the model; PermitZIP code study didn't accept it: {{reason}}", { ns: 'editor', reason: result.reason }))
     }
-    await linkAfter(codeStudy, projectId, r, modelId)
+    await linkAfter(codeStudy, projectId, r, modelId, t)
   }
 
   const override = async (next: number | string, reason: string) => {
     const unit = r.unit && r.unit !== '1' ? r.unit : undefined
-    const refused = submit({ type: 'set_requirement_state', requirementId: r.id, status: 'overridden', value: next, ...(unit ? { unit } : {}), reason, by: actorName }, `override ${r.title}`)
+    const refused = submit(
+      { type: 'set_requirement_state', requirementId: r.id, status: 'overridden', value: next, ...(unit ? { unit } : {}), reason, by: actorName },
+      t('checklist.undo.override', 'override {{title}}', { ns: 'editor', title: r.title }),
+    )
     if (refused) {
       toast.error(refused)
       return
@@ -233,10 +250,10 @@ function Row({ row, props }: { row: ChecklistRow; props: ChecklistNeedsProps }) 
     setOpen(null)
     if (writeBack) {
       const result = await writeBack.overrideRequirement({ modelId, modelRevision: model.revision, requirementId: r.id, ...(r.sourceRef ? { sourceRef: r.sourceRef } : {}), anchorId: r.anchor.id, value: next, ...(unit ? { unit } : {}), reason })
-      if (result.ok) toast.success('Overridden in the model and offered to the Code Map')
-      else toast.error(`Saved in the model; PermitZIP code study didn't accept it: ${result.reason}`)
+      if (result.ok) toast.success(t('checklist.overridden', 'Overridden in the model and offered to the Code Map', { ns: 'editor' }))
+      else toast.error(t('checklist.writeBackRefused', "Saved in the model; PermitZIP code study didn't accept it: {{reason}}", { ns: 'editor', reason: result.reason }))
     }
-    await linkAfter(codeStudy, projectId, r, modelId)
+    await linkAfter(codeStudy, projectId, r, modelId, t)
   }
 
   const decide = async (d: { key: string; value: string; reasoning: string; confidence: 'high' | 'medium' | 'low' }) => {
@@ -244,7 +261,10 @@ function Row({ row, props }: { row: ChecklistRow; props: ChecklistNeedsProps }) 
     const determinationId = newId('det')
     const subject = { kind: placeKind(r), id: r.anchor.id }
     const decidedAt = new Date().toISOString()
-    const refused = submit({ type: 'record_determination', determinationId, subject, key: d.key, value: d.value, reasoning: d.reasoning, decidedBy: actorName, decidedAt, confidence: d.confidence }, `record ${d.key} for ${anchorLabelOf(model, r)}`)
+    const refused = submit(
+      { type: 'record_determination', determinationId, subject, key: d.key, value: d.value, reasoning: d.reasoning, decidedBy: actorName, decidedAt, confidence: d.confidence },
+      t('checklist.undo.record', 'record {{key}} for {{place}}', { ns: 'editor', key: d.key, place: anchorLabelOf(model, r, t) }),
+    )
     if (refused) {
       toast.error(refused)
       return
@@ -256,16 +276,17 @@ function Row({ row, props }: { row: ChecklistRow; props: ChecklistNeedsProps }) 
         modelRevision: model.revision,
         record: { id: asElementId(determinationId), kind: 'determination', version: 1, authoredRev: {}, determination: { subject, key: d.key, value: d.value, inputs: [], reasoning: d.reasoning, decidedBy: actorName, decidedAt, confidence: d.confidence, status: 'recorded' } },
       })
-      if (!result.ok) toast.error(`Saved in the model; PermitZIP code study didn't accept it: ${result.reason}`)
+      if (!result.ok)
+        toast.error(t('checklist.writeBackRefused', "Saved in the model; PermitZIP code study didn't accept it: {{reason}}", { ns: 'editor', reason: result.reason }))
     }
-    await linkAfter(codeStudy, projectId, r, modelId)
+    await linkAfter(codeStudy, projectId, r, modelId, t)
   }
 
   const linkNow = async () => {
     const link = linkOf(r, modelId, 'anchor')
     if (!link) return
     const result = await createRequirementLinkFrom(codeStudy, projectId, link)
-    if (result.ok) toast.success('Linked: Code Map › Show in model now opens it here')
+    if (result.ok) toast.success(t('checklist.linked', 'Linked: Code Map › Show in model now opens it here', { ns: 'editor' }))
     else toast.error(result.reason)
   }
 
@@ -274,19 +295,21 @@ function Row({ row, props }: { row: ChecklistRow; props: ChecklistNeedsProps }) 
       <ItemHeader className="min-w-0 flex-wrap gap-1">
         <ItemTitle className="min-w-0 text-sm">{r.title}</ItemTitle>
         <Badge variant={r.status === 'overridden' || r.status === 'withdrawn' ? 'secondary' : 'outline'} data-testid="checklist-status">
-          {statusLabel(r)}
+          {statusLabel(r, t)}
         </Badge>
       </ItemHeader>
       <ItemContent className="gap-1">
         <ItemDescription className="text-xs">
           {r.citation.instrument} {r.citation.section}
-          {value ? ` · ${value}` : ''} · {anchorLabelOf(model, r)}
+          {value ? ` · ${value}` : ''} · {anchorLabelOf(model, r, t)}
         </ItemDescription>
         <ItemDescription className="text-xs" data-testid="checklist-fulfilment">
-          {fulfilmentLabel(r)}
+          {fulfilmentLabel(r, t)}
           {r.problem ? ` (${r.problem})` : ''}
         </ItemDescription>
-        {r.accepted && <ItemDescription className="text-xs">Accepted in its code study: {r.accepted.reason}</ItemDescription>}
+        {r.accepted && (
+          <ItemDescription className="text-xs">{t('checklist.accepted', 'Accepted in its code study: {{reason}}', { ns: 'editor', reason: r.accepted.reason })}</ItemDescription>
+        )}
         {(r.chips ?? []).length > 0 && (
           <div className="flex flex-wrap gap-1">
             {(r.chips ?? []).map((chip) => (
@@ -298,42 +321,76 @@ function Row({ row, props }: { row: ChecklistRow; props: ChecklistNeedsProps }) 
         )}
         {conflicts.map((c) => (
           <ItemDescription key={c.id} className="text-xs text-warning-700" data-testid="checklist-conflict">
-            Also from {c.provider}: {valueLabel(c) ?? 'no model check'} ({c.citation.instrument} {c.citation.section})
+            {t('checklist.conflict', 'Also from {{provider}}: {{value}} ({{instrument}} {{section}})', {
+              ns: 'editor',
+              provider: c.provider,
+              value: valueLabel(c, t) ?? t('checklist.noModelCheck', 'no model check', { ns: 'editor' }),
+              instrument: c.citation.instrument,
+              section: c.citation.section,
+            })}
           </ItemDescription>
         ))}
         {open === 'override' && <OverrideForm r={r} onCancel={() => setOpen(null)} onSave={(v, reason) => void override(v, reason)} />}
-        {open === 'decision' && <DecisionForm anchorLabel={anchorLabelOf(model, r)} onCancel={() => setOpen(null)} onSave={(d) => void decide(d)} />}
+        {open === 'decision' && <DecisionForm anchorLabel={anchorLabelOf(model, r, t)} onCancel={() => setOpen(null)} onSave={(d) => void decide(d)} />}
         {verifyReason && canVerify === false && <p className="text-xs text-muted-foreground">{VERIFY_NEEDS_RIGHTS}</p>}
       </ItemContent>
       <ItemActions className="flex-wrap">
-        <Button size="sm" variant="ghost" disabled={showIds.length === 0} onClick={() => onSelect(showIds)} title="Select it and what meets it">
+        <Button size="sm" variant="ghost" disabled={showIds.length === 0} onClick={() => onSelect(showIds)} title={t('checklist.showWhy', 'Select it and what meets it', { ns: 'editor' })}>
           <Crosshair data-icon="inline-start" />
-          Show
+          {t('checklist.showAction', 'Show', { ns: 'editor' })}
         </Button>
         {(r.anchor.kind === 'space' || r.anchor.kind === 'zone') && (
-          <Button size="sm" variant="ghost" disabled={!canEdit} title={canEdit ? 'Record a decision for this place' : blockedReason} onClick={() => setOpen('decision')} data-testid="checklist-record-decision">
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={!canEdit}
+            title={canEdit ? t('checklist.decision.why', 'Record a decision for this place', { ns: 'editor' }) : blockedReason}
+            onClick={() => setOpen('decision')}
+            data-testid="checklist-record-decision"
+          >
             <PenLine data-icon="inline-start" />
-            Record decision
+            {t('checklist.decision.record', 'Record decision', { ns: 'editor' })}
           </Button>
         )}
-        <Button size="sm" variant="ghost" disabled={!canEdit} title={canEdit ? 'Replace the value here, with a reason' : blockedReason} onClick={() => setOpen('override')} data-testid="checklist-override">
-          Override…
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={!canEdit}
+          title={canEdit ? t('checklist.override.title', 'Replace the value here, with a reason', { ns: 'editor' }) : blockedReason}
+          onClick={() => setOpen('override')}
+          data-testid="checklist-override"
+        >
+          {t('checklist.override.more', 'Override…', { ns: 'editor' })}
         </Button>
-        <Button size="sm" variant="ghost" disabled={verifyReason !== null || r.status === 'verified'} title={verifyReason ?? 'Verify it as a person with code-study edit rights'} onClick={() => void verify()} data-testid="checklist-verify">
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={verifyReason !== null || r.status === 'verified'}
+          title={verifyReason ?? t('checklist.verify.why', 'Verify it as a person with code-study edit rights', { ns: 'editor' })}
+          onClick={() => void verify()}
+          data-testid="checklist-verify"
+        >
           <ShieldCheck data-icon="inline-start" />
-          Verify
+          {t('checklist.verify.action', 'Verify', { ns: 'editor' })}
         </Button>
         {ours && (
           <>
             <Button size="sm" variant="ghost" asChild>
               <a href={CODE_MAP_HREF(projectId)} target="_blank" rel="noreferrer" data-testid="checklist-open-code-map">
                 <BookOpen data-icon="inline-start" />
-                Open in Code Map
+                {t('checklist.openCodeMap', 'Open in Code Map', { ns: 'editor' })}
               </a>
             </Button>
-            <Button size="sm" variant="ghost" disabled={!canEdit} title={canEdit ? 'Link it so the Code Map can show it in the model' : blockedReason} onClick={() => void linkNow()} data-testid="checklist-link">
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={!canEdit}
+              title={canEdit ? t('checklist.linkWhy', 'Link it so the Code Map can show it in the model', { ns: 'editor' }) : blockedReason}
+              onClick={() => void linkNow()}
+              data-testid="checklist-link"
+            >
               <Link2 data-icon="inline-start" />
-              Link to Code Map
+              {t('checklist.linkAction', 'Link to Code Map', { ns: 'editor' })}
             </Button>
           </>
         )}
@@ -343,6 +400,7 @@ function Row({ row, props }: { row: ChecklistRow; props: ChecklistNeedsProps }) 
 }
 
 function Group({ group, props }: { group: ChecklistGroup; props: ChecklistNeedsProps }) {
+  const t = useEditorTranslate()
   const [expanded, setExpanded] = useState(false)
   const { rows, more } = visibleRows(group, expanded)
   return (
@@ -350,7 +408,7 @@ function Group({ group, props }: { group: ChecklistGroup; props: ChecklistNeedsP
       <h3 className="flex items-start gap-2 text-sm font-medium">
         <span className="min-w-0 flex-1">{group.cause}</span>
         <Badge variant="outline" className="shrink-0">
-          {group.open} open
+          {t('checklist.openCount', '{{count}} open', { ns: 'editor', count: group.open })}
         </Badge>
       </h3>
       <ItemGroup className="gap-2">
@@ -360,7 +418,7 @@ function Group({ group, props }: { group: ChecklistGroup; props: ChecklistNeedsP
       </ItemGroup>
       {more > 0 && (
         <Button size="sm" variant="link" className="self-start" onClick={() => setExpanded(true)} data-testid="checklist-more">
-          and {more} more
+          {t('checklist.andMore', 'and {{count}} more', { ns: 'editor', count: more })}
         </Button>
       )}
     </section>
@@ -371,17 +429,18 @@ function Group({ group, props }: { group: ChecklistGroup; props: ChecklistNeedsP
 export const CAUSES_PER_PAGE = 40
 
 export function ChecklistNeeds(props: ChecklistNeedsProps) {
+  const t = useEditorTranslate()
   const [pages, setPages] = useState(1)
   if (props.problem) {
     return (
       <Alert variant="destructive" data-testid="checklist-error">
         <TriangleAlert />
-        <AlertTitle>The checklist couldn&apos;t read the code studies</AlertTitle>
+        <AlertTitle>{t('checklist.errorTitle', "The checklist couldn't read the code studies", { ns: 'editor' })}</AlertTitle>
         <AlertDescription>
           {props.problem}
           {props.onRetry && (
             <Button variant="outline" size="sm" className="mt-2" onClick={props.onRetry}>
-              Retry
+              {t('checklist.retry', 'Retry', { ns: 'editor' })}
             </Button>
           )}
         </AlertDescription>
@@ -396,9 +455,11 @@ export function ChecklistNeeds(props: ChecklistNeedsProps) {
           <EmptyMedia variant="icon">
             <ShieldCheck />
           </EmptyMedia>
-          <EmptyTitle>Nothing left to check</EmptyTitle>
+          <EmptyTitle>{t('checklist.emptyTitle', 'Nothing left to check', { ns: 'editor' })}</EmptyTitle>
           <EmptyDescription>
-            {groups.length === 0 ? 'No code study on this model produces a requirement yet. Pin one, or add a local rule.' : 'Every requirement the code studies produce here is met or decided.'}
+            {groups.length === 0
+              ? t('checklist.emptyNoStudy', 'No code study on this model produces a requirement yet. Pin one, or add a local rule.', { ns: 'editor' })
+              : t('checklist.emptyAllMet', 'Every requirement the code studies produce here is met or decided.', { ns: 'editor' })}
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -411,7 +472,11 @@ export function ChecklistNeeds(props: ChecklistNeedsProps) {
       ))}
       {groups.length > pages * CAUSES_PER_PAGE && (
         <Button size="sm" variant="outline" className="self-start" onClick={() => setPages((n) => n + 1)} data-testid="checklist-more-causes">
-          Show {Math.min(CAUSES_PER_PAGE, groups.length - pages * CAUSES_PER_PAGE)} more causes ({groups.length - pages * CAUSES_PER_PAGE} left)
+          {t('checklist.moreCauses', 'Show {{count}} more causes ({{left}} left)', {
+            ns: 'editor',
+            count: Math.min(CAUSES_PER_PAGE, groups.length - pages * CAUSES_PER_PAGE),
+            left: groups.length - pages * CAUSES_PER_PAGE,
+          })}
         </Button>
       )}
     </div>
