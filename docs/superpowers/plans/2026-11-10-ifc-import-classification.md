@@ -8,7 +8,7 @@
 
 ## Mevcut durum (ölçüldü, tahmin değil)
 
-`readIfcSource` (`packages/bim-ifc/src/import/read-products.ts:119`) el yazımı bir STEP okuyucu. Her yerleşimi olan varlık nötr bir `ImportProduct`'a dönüşüyor (`packages/bim-kernel/src/import/types.ts:56-89`) — "ne olacağına asla karar vermez". Dönüşüm ikinci, ayrı bir adım: `planIfcImport` (`bim-kernel/src/import/plan.ts:57`) sınıf kaydındaki `ifc` ipucuna bakıp dokuz kuraldan birini çalıştırıyor (`import/rules.ts:345`): wall, slab, room, column, beam, opening, run_segment, part, component.
+`readIfcSource` (`packages/bim-ifc/src/import/read-products.ts:119`) el yazımı bir STEP okuyucu. Her yerleşimi olan varlık nötr bir `ImportProduct`'a dönüşüyor (`packages/bim-kernel/src/import/types.ts:56-89`) — "ne olacağına asla karar vermez". Dönüşüm ikinci, ayrı bir adım: `planIfcImport` (`bim-kernel/src/import/plan.ts:57`) sınıf kaydındaki `ifc` ipucuna bakıp on kuraldan birini çalıştırıyor (`import/rules.ts`): wall, slab, room, column, beam, opening, run_segment, part, component, ceiling (sonuncusu adım 4 ile eklendi).
 
 **Gerçek örnek modelde sonuç** — `sample-models/IfcOpenHouse_IFC4.ifc`, ilk-parti pack'lerle:
 **34 ürün → 3 kayıt** (2 duvar, 1 temel).
