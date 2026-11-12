@@ -49,13 +49,14 @@ describe("i9-import-on-branch", () => {
     const before = await host.main.store.head();
     const result = await landImportOnBranch(depsFor(host), { main: before, source: source(), referenceId: "ref-arch", sourceKey: "v1", branchName: "Proposal: Main St shell", actor: rao, chunkSize: 3 });
     if (result.status !== "done") throw new Error(`expected done, got ${result.status}`);
-    // Round 14 A14: the roof and the stair import as records too (two more), so 10 land in 4 chunks of 3.
+    // Round 14 A14: the roof and the stair import as records too (two more), and the
+    // file's one wall type lands as an `element_type`, so 11 land in 4 chunks of 3.
     expect(result.revisions).toBe(4);
-    expect(result.landed).toBe(10);
+    expect(result.landed).toBe(11);
     const branch = await host.open(result.branch.modelId);
     const head = await branch?.store.head();
     const imported = Object.values(head?.elements ?? {}).filter((e) => e.id.startsWith("imp."));
-    expect(imported.map((e) => e.kind).sort()).toEqual(["architecture.roof", "architecture.stair", "beam", "column", "level", "opening", "room", "slab", "wall", "wall"]);
+    expect(imported.map((e) => e.kind).sort()).toEqual(["architecture.roof", "architecture.stair", "beam", "column", "element_type", "level", "opening", "room", "slab", "wall", "wall"]);
     const changes = await branch?.store.changesSince(result.branch.baseRevision);
     expect(changes?.map((c) => [c.command.type, c.actor.name])).toEqual([["import_elements", "J. Rao"], ["import_elements", "J. Rao"], ["import_elements", "J. Rao"], ["import_elements", "J. Rao"]]);
     // Main: same revision, none of the imported records.
@@ -147,7 +148,7 @@ describe("i9 import service", () => {
     releaseNow();
     for (let i = 0; i < 20 && (await service.progress(runId, { userId: rao.id }))?.status !== "done"; i++) await settle();
     const done = await service.progress(runId, { userId: rao.id });
-    expect(done).toMatchObject({ status: "done", landed: 10, report: { converted: 9 } });
+    expect(done).toMatchObject({ status: "done", landed: 11, report: { converted: 9 } });
     expect(done?.branch?.modelId).toMatch(/^site-1~/);
     expect(runs.rows.get(runId)).toMatchObject({ status: "done", branchModelId: done?.branch?.modelId });
 

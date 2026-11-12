@@ -4,7 +4,7 @@ import type { PackSet } from "../packs/set";
 import { registerRevisionCarry } from "../revision-carry";
 import { elementValues } from "../store";
 import type { BimElement } from "../types";
-import { constructionStageIdOf, qtoGroupOf, type QtoGroup } from "./group";
+import { constructionStageIdOf, qtoGroupOf, qtoLineGroupOf, type QtoGroup } from "./group";
 import { hostIdOf } from "./hosted";
 import { measureElement } from "./measure";
 import type { MeasureDef } from "./types";
@@ -84,14 +84,18 @@ function contribute(elements: Elements, el: BimElement, set: PackSet, system: st
   const typeId = typeIdOf(el);
   const lineKeys: string[] = [];
   const lines: Omit<TakeoffTotal, "elementCount">[] = [];
+  const add = (lineGroup: QtoGroup, measure: MeasureDef, value: number, sizeGroup: string | null) => {
+    const key = [lineGroup.key, sizeGroup ?? "", stageId ?? "", typeId ?? "", measure.key].join("\u0000");
+    lineKeys.push(key);
+    lines.push({ key, group: lineGroup, sizeGroup, stageId, typeId, measure, value });
+  };
   for (const ruleDef of m.rule.measures) {
     const value = m.values[ruleDef.key];
     if (value === undefined) continue;
-    const measure = ruleDef;
-    const key = [group.key, m.sizeGroup ?? "", stageId ?? "", typeId ?? "", ruleDef.key].join("\u0000");
-    lineKeys.push(key);
-    lines.push({ key, group, sizeGroup: m.sizeGroup, stageId, typeId, measure, value });
+    add(group, ruleDef, value, m.sizeGroup);
   }
+  // A layer is a line of its own under the element's group, so a finish is priced per m² and never buried in a wall's volume.
+  for (const line of m.lines) add(qtoLineGroupOf(group, line, set), line.measure, line.value, null);
   return lines.length === 0 ? null : { lineKeys, lines };
 }
 

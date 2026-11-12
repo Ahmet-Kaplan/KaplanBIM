@@ -50,6 +50,43 @@ export interface ImportClassification {
   readonly code: string;
 }
 
+/**
+ * One layer of a product's build-up, as the file states it (an IFC
+ * `IfcMaterialLayer` in an `IfcMaterialLayerSet`, directly or through an
+ * `IfcMaterialLayerSetUsage`): what it is made of, how thick it is, where it
+ * sits in the build-up and where its outer face falls from the file's
+ * reference line. Read, never interpreted: what a layer costs is the firm's
+ * data, not this.
+ */
+export interface ImportLayer {
+  /** The layer's material, as the file names it ("Brick", "Sıva"). */
+  readonly materialName: string;
+  /** Its thickness, mm (the file's length unit converted). */
+  readonly thicknessMm: number;
+  /** Its place in the build-up, 1 for the file's first (outermost) layer. */
+  readonly order: number;
+  /**
+   * Where its outer face falls from the reference line, mm: the set's offset,
+   * then each layer's thickness in turn. Negative when the face is on the far
+   * side of the reference line. An `IfcMaterialLayer` states no offset of its
+   * own, so this is worked out from the set's usage, not read.
+   */
+  readonly offsetFromReferenceLineMm: number;
+  /** The file says this layer is ventilated (a drained cavity). */
+  readonly ventilated?: true;
+}
+
+/** A product's build-up: the file's layers in its order, with the set's own numbers. */
+export interface ImportLayerSet {
+  /** The set's name as the file gives it ("Wall", "WD-01 200mm tuğla"). */
+  readonly name: string | null;
+  readonly layers: readonly ImportLayer[];
+  /** The set's total thickness, mm: as the file states it, else its layers summed. */
+  readonly totalThicknessMm: number;
+  /** Where the reference line sits inside the set, mm from its outer face (the file's `OffsetFromReferenceLine`). */
+  readonly referenceLineOffsetMm: number;
+}
+
 /** A connection point on a product (an IFC port), for the report and for joins. */
 export interface ImportPort {
   readonly id: string;
@@ -88,6 +125,8 @@ export interface ImportProduct {
   /** Overall width and height the file states (doors and windows carry them). */
   readonly overall: { readonly width: number | null; readonly height: number | null };
   readonly material: string | null;
+  /** Its build-up as the file states it, or null when it has none (a plain material, a shape alone). */
+  readonly layerSet: ImportLayerSet | null;
   readonly ports: readonly ImportPort[];
 }
 

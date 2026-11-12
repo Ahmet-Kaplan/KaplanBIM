@@ -35,6 +35,27 @@ export interface MeasureDef {
 }
 
 /**
+ * One line a rule reports on its own, beside its element-level values: a
+ * build-up's layer ("Sıva 15 mm"), measured per face and per thickness. It
+ * groups under its element's group but on a line of its own, so m² of plaster
+ * is priced as plaster and never folded into the wall's volume.
+ */
+export interface MeasureLine {
+  /** Stable within the element: "layer:2" (its place in the build-up, so two like layers differ). */
+  readonly key: string;
+  /** As a person reads it, in the file's or the firm's words ("Brick 360 mm"). */
+  readonly label: string;
+  /** The material or product it is, for a firm's code lookup (`layerCodeOf`). */
+  readonly subject?: string;
+  /** Its thickness, mm (a layer's). */
+  readonly thicknessMm?: number;
+  /** The measure this line's value is in. */
+  readonly measure: MeasureDef;
+  /** SI, in `measure.unit`. */
+  readonly value: number;
+}
+
+/**
  * How a class measures itself (v1): length of runs and walls, areas, volume,
  * count, mass from type parameters. A rule reads only the element and the
  * elements it names in `reads` (incremental: a measure re-runs when one of
@@ -52,6 +73,8 @@ export interface MeasureRuleDef {
   measure(element: BimElement, elements: Readonly<Record<string, BimElement>>): Readonly<Record<string, number>>;
   /** Other elements a measure of `element` read (hosted openings for a wall's net area). */
   reads?(element: BimElement, elements: Readonly<Record<string, BimElement>>): readonly string[];
+  /** Lines it reports beyond its values, each grouped on its own (a wall's layers). Absent: the element's values only. */
+  lines?(element: BimElement, elements: Readonly<Record<string, BimElement>>): readonly MeasureLine[];
   /** Narrows `kinds` / `classes` further (a rule for one service's links). Absent: every element they name. */
   appliesTo?(element: BimElement, elements: Readonly<Record<string, BimElement>>): boolean;
   /** A size or material its quantities also group by (`2" copper`, `#4 CU`). Absent: no such group. */

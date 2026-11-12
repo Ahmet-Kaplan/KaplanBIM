@@ -7,6 +7,7 @@ import { elementsOfKind } from "../store";
 import type { BimElement, ElementId, ElementTypeElement, Level, ModelState, ParamValue } from "../types";
 import { IFC_IMPORT_RULE_POINT, type ImportRuleContext, type ImportRuleDef } from "./rule-point";
 import { reverseClassMap } from "./reverse-map";
+import { importedLayerSet } from "./layers";
 import { importElementId } from "./rules";
 import type { IfcImportPlan, IfcImportReport, ImportClassLine, ImportGroup, ImportProduct, ImportSource } from "./types";
 
@@ -33,6 +34,8 @@ export interface PlanImportOptions {
 }
 
 const LEVEL_MATCH_MM = 50;
+/** How far a build-up's stated total and the element's measured thickness may part before the report says so, mm. */
+const LAYER_THICKNESS_TOLERANCE_MM = 5;
 
 /** "2 walls", "1 air terminal", "1 floor or slab": the label's nouns counted (registry labels are mostly plural, some singular). */
 function plural(n: number, label: string): string {
@@ -157,6 +160,7 @@ function planInScope(source: ImportSource, opts: PlanImportOptions): IfcImportPl
     const typeId = product.typeId?.trim() ?? "";
     const name = product.typeName?.trim() ?? "";
     if (typeId === "" || name === "") return null;
+    const layers = importedLayerSet(product);
     const have = types.get(typeId);
     if (have) {
       // One type used by two kinds (a file that reuses a type): it admits both.
@@ -177,6 +181,8 @@ function planInScope(source: ImportSource, opts: PlanImportOptions): IfcImportPl
       name: name.slice(0, 120),
       forKinds: [kind],
       provenance: { ifcGlobalId: typeId, source: source.id },
+      // The type's build-up, so a wall of this type made later has it too, and the layers ride one record rather than one per instance.
+      ...(layers ? { layers } : {}),
       ...(product.typeClassification && product.typeClassification.length > 0 ? { classification: product.typeClassification.map((c) => ({ system: c.system, code: c.code })) } : {}),
     };
     types.set(typeId, record);
@@ -185,6 +191,8 @@ function planInScope(source: ImportSource, opts: PlanImportOptions): IfcImportPl
   };
   /** Records read with their cuts left in, by the cut the reader named. */
   const cutLeftIn = new Map<string, number>();
+  /** Build-ups whose stated total and the shape's measured thickness part ways, by "stated|measured". */
+  const layerMismatch = new Map<string, number>();
 
   for (const { product, choice } of chosen) {
     const { cls } = choice;
@@ -231,6 +239,14 @@ function planInScope(source: ImportSource, opts: PlanImportOptions): IfcImportPl
     if (own) converted.set(product.sourceId, own.id);
     // A solid read with its cuts left in converts, and the report says what it measured (a wall's openings aren't subtracted, so it reads long).
     if (product.geometry.cutsLeftIn) cutLeftIn.set(product.geometry.unread ?? "cut", (cutLeftIn.get(product.geometry.unread ?? "cut") ?? 0) + 1);
+    // A build-up measures its layers against the wall's shape; when the file's own total and that
+    // thickness part ways, the layers' volumes don't add up to the element's and the report says so.
+    const stated = importedLayerSet(product)?.totalThicknessMm;
+    const measured = own && "thickness" in own && typeof own.thickness === "number" ? own.thickness : null;
+    if (stated !== undefined && measured !== null && Math.abs(stated - measured) > LAYER_THICKNESS_TOLERANCE_MM) {
+      const key = `${Math.round(stated)}|${Math.round(measured)}`;
+      layerMismatch.set(key, (layerMismatch.get(key) ?? 0) + 1);
+    }
     line(cls.id, cls.id, cls.label).converted += 1;
   }
   for (const u of source.unreadable) stay(u.entity, null, entityWords(u.entity), u.reason, u.count);
@@ -238,6 +254,13 @@ function planInScope(source: ImportSource, opts: PlanImportOptions): IfcImportPl
     if (notes.size >= 200) break;
     const one = count === 1;
     notes.add(`${count} ${one ? "element was" : "elements were"} measured from its uncut solid (the file gives ${one ? "its" : "their"} shape as ${cut}), so what was cut out isn't subtracted. Check ${one ? "it" : "them"} against the source model.`);
+  }
+
+  for (const [key, count] of layerMismatch) {
+    if (notes.size >= 200) break;
+    const [stated, measured] = key.split("|");
+    const one = count === 1;
+    notes.add(`${count} ${one ? "element states a build-up" : "elements state build-ups"} ${stated} mm thick where ${one ? "its shape measures" : "their shapes measure"} ${measured} mm, so ${one ? "its" : "their"} layers' volumes don't add up to ${one ? "its" : "their"} own. Check the layer set against the shape.`);
   }
 
   const classes: ImportClassLine[] = [...lines.values()]

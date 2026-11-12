@@ -152,12 +152,24 @@ export interface MaterialLayer {
   readonly materialId: string;
   readonly thicknessMm: number;
   readonly function?: MaterialLayerFunction;
+  /** What the file calls the layer when it names it apart from its material. */
+  readonly name?: string;
+  /** The file says this layer is ventilated (a drained cavity). */
+  readonly ventilated?: true;
+  /** Where its outer face falls from the reference line, mm (an imported build-up states it; a firm's own need not). */
+  readonly offsetFromReferenceLineMm?: number;
 }
 
-/** A wall, slab or roof build-up, exterior (or top) first. Referenced by id from a type's or an element's `values` (`elements/material-layers.ts`). */
+/** A wall, slab or roof build-up, exterior (or top) first. Referenced by id from a type's or an element's `values` (`elements/material-layers.ts`), or carried whole on the record as `layers`. */
 export interface MaterialLayerSet {
   readonly id: string;
   readonly layers: readonly MaterialLayer[];
+  /** The set's name, as the file or firm gives it ("Wall", "WD-01 200mm tuğla"). */
+  readonly name?: string;
+  /** The set's total thickness, mm: as its source states it, else its layers summed. */
+  readonly totalThicknessMm?: number;
+  /** Where the reference line sits inside the set, mm from its outer face. */
+  readonly referenceLineOffsetMm?: number;
 }
 
 /**
@@ -221,6 +233,13 @@ export interface ElementCore extends ClassifiedCore {
   readonly classification?: readonly ClassificationAssignment[];
   /** The construction stage it is built in (`construction_stage` record id). Written only to peers advertising `construction:stages`. */
   readonly constructionStageId?: string;
+  /**
+   * What it is built up of, whole: an imported layer set (an IFC
+   * `IfcMaterialLayerSetUsage`) rides here rather than in a catalogue nothing
+   * holds. A firm's own build-ups may sit here too, or in a catalogue a value
+   * names (`MATERIAL_LAYER_SET_KEY`). Read by the takeoff per layer.
+   */
+  readonly layers?: MaterialLayerSet;
 }
 
 export const KNOWN_OPENING_TYPES = ["door", "window"] as const;
@@ -422,6 +441,8 @@ export interface ElementTypeElement extends ModelElementBase, ValuedCore {
   readonly name: string;
   /** Element kinds it may type (`["beam"]`). Absent: any building or structure kind. */
   readonly forKinds?: readonly string[];
+  /** The build-up its instances are made of, when the file gives one type one layer set (`ElementCore.layers`). */
+  readonly layers?: MaterialLayerSet;
 }
 
 /** A placed instance of a part type, hosted to a level. */

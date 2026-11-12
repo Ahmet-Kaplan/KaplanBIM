@@ -1,4 +1,4 @@
-import type { ImportClassification, ImportGroup, ImportPort, ImportProduct, ImportSource, ImportStorey, ParamValue } from "@permitzip/bim-kernel";
+import type { ImportClassification, ImportGroup, ImportLayer, ImportLayerSet, ImportPort, ImportProduct, ImportSource, ImportStorey, ParamValue } from "@permitzip/bim-kernel";
 import { readStep, type ReadEntity, type StepFile, type StepToken } from "../read";
 import { ifcEntityName, ownAttributes } from "../schema-ifc4x3";
 import { GeometryReader, apply, boundsOf, compose, hostFrame, type Frame } from "./geometry";
@@ -188,9 +188,13 @@ export function readIfcSource(text: string, opts: IfcReadOptions): ImportSource 
     for (const o of refs(r.args[4])) groupsOf.set(o, [...(groupsOf.get(o) ?? []), id]);
   }
   const materialOf = new Map<number, string>();
+  const layerSetsOf = new Map<number, ImportLayerSet>();
   for (const r of all("IFCRELASSOCIATESMATERIAL")) {
-    const name = materialName(file, refs(r.args[5])[0] ?? -1);
+    const id = refs(r.args[5])[0] ?? -1;
+    const name = materialName(file, id);
     if (name) for (const o of refs(r.args[4])) materialOf.set(o, name);
+    const set = layerSetOf(file, id, scale);
+    if (set) for (const o of refs(r.args[4])) layerSetsOf.set(o, set);
   }
   const portsOf = new Map<number, number[]>();
   for (const r of all("IFCRELNESTS")) {
@@ -312,6 +316,7 @@ export function readIfcSource(text: string, opts: IfcReadOptions): ImportSource 
         height: heightIndex !== null ? numberOf(e.args[heightIndex], scale) : null,
       },
       material: materialOf.get(e.id) ?? (type ? (materialOf.get(type.id) ?? null) : null),
+      layerSet: layerSetsOf.get(e.id) ?? (type ? (layerSetsOf.get(type.id) ?? null) : null),
       ports,
     });
   }
@@ -343,6 +348,56 @@ function classificationOf(file: StepFile, id: number, depth = 0): ImportClassifi
     return name ? { system: name, code: name } : null;
   }
   return null;
+}
+
+/** A finite number as the file states it (no unit applied), or null. */
+function number(t: StepToken | undefined): number | null {
+  const v = t?.kind === "number" ? t.value : null;
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+
+/**
+ * A build-up as the file states it: an `IfcMaterialLayerSetUsage` (with the
+ * reference line's offset), else the `IfcMaterialLayerSet` itself, its layers
+ * in the file's order. Each layer carries its material, its thickness in mm
+ * (the file's length unit converted through the project's unit assignment)
+ * and where its outer face falls from the reference line. Null when the
+ * relationship points at a plain material or a constituent set, which carry no
+ * layers.
+ */
+function layerSetOf(file: StepFile, id: number, scale: number, depth = 0): ImportLayerSet | null {
+  const e = file.entities.get(id);
+  if (!e || depth > 4) return null;
+  if (e.type === "IFCMATERIALLAYERSETUSAGE") {
+    const set = layerSetOf(file, refs(e.args[0])[0] ?? -1, scale, depth + 1);
+    if (!set) return null;
+    // OffsetFromReferenceLine: where the reference line sits inside the set,
+    // from its outer face. The direction sense flips which way the set runs,
+    // not the order of its layers, so the layers' offsets are re-based here.
+    const stated = number(e.args[3]);
+    const offset = stated === null ? set.referenceLineOffsetMm : stated * scale;
+    return { ...set, referenceLineOffsetMm: offset, layers: reBasedLayers(set.layers, offset) };
+  }
+  if (e.type !== "IFCMATERIALLAYERSET") return null;
+  const layers: ImportLayer[] = [];
+  let total = 0;
+  for (const layerId of refs(e.args[0])) {
+    const layer = file.entities.get(layerId);
+    if (layer?.type !== "IFCMATERIALLAYER") continue;
+    const material = materialName(file, refs(layer.args[0])[0] ?? -1);
+    const thicknessMm = number(layer.args[1]);
+    if (material === null || thicknessMm === null || thicknessMm <= 0) continue;
+    const mm = thicknessMm * scale;
+    layers.push({ materialName: material, thicknessMm: mm, order: layers.length + 1, offsetFromReferenceLineMm: total, ...(value(layer.args[2]) === true ? { ventilated: true as const } : {}) });
+    total += mm;
+  }
+  if (layers.length === 0) return null;
+  return { name: str(e.args[1]), layers, totalThicknessMm: total, referenceLineOffsetMm: 0 };
+}
+
+/** The layers' outer faces measured from a reference line `offset` mm inside the set (negative toward the outer face). */
+function reBasedLayers(layers: readonly ImportLayer[], offset: number): readonly ImportLayer[] {
+  return layers.map((l) => ({ ...l, offsetFromReferenceLineMm: l.offsetFromReferenceLineMm - offset }));
 }
 
 function materialName(file: StepFile, id: number, depth = 0): string | null {

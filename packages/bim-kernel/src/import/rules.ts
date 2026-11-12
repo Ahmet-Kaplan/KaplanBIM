@@ -7,6 +7,7 @@ import { connectorDomainOf, sizeFitsDomain } from "../routing/rules";
 import { activeServiceRegistry } from "../services/registry";
 import { PART_CATEGORIES, type PartCategory, type PartTypeDefinition } from "../parts";
 import type { ImportRuleContext, ImportRuleDef } from "./rule-point";
+import { importedLayerSet } from "./layers";
 import { axisAligned, outlineArea, outlineCentre, rectangleAxis, roundPlan, straightSweep, verticalPrism } from "./shape";
 import type { ImportProduct, ImportRuleResult } from "./types";
 
@@ -35,6 +36,7 @@ const round = (n: number): number => Math.round(n * 10) / 10;
 function base(ctx: ImportRuleContext, p: ImportProduct, level: Level, kind?: ElementCoreKind, suffix?: string) {
   const values = ctx.values(p);
   const type = kind === undefined ? null : ctx.typeFor(p, kind);
+  const layers = importedLayerSet(p);
   return {
     id: ctx.idFor(p.sourceId, suffix),
     version: 0,
@@ -44,6 +46,7 @@ function base(ctx: ImportRuleContext, p: ImportProduct, level: Level, kind?: Ele
     ...(type ? { typeId: type.id } : {}),
     ...(ctx.cls.source === "builtin" ? {} : { classId: ctx.cls.id }),
     ...(Object.keys(values).length > 0 ? { values } : {}),
+    ...(layers ? { layers } : {}),
   };
 }
 

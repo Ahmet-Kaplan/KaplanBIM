@@ -70,6 +70,7 @@ const SURVEY_READER: ImportSourceDef = {
           properties: {},
           overall: { width: null, height: null },
           material: null,
+          layerSet: null,
           ports: [],
         };
       });

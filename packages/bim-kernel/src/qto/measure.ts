@@ -1,15 +1,17 @@
 import { elementClass } from "../categories/element";
+import { convert } from "@permitzip/bim-units";
 import { elementTypeValue } from "../elements/types";
+import { layerSetOf } from "../elements/material-layers";
 import { activePackSet } from "../packs/scope";
 import type { PackSet } from "../packs/set";
 import { polygonAreaAndCentroid } from "../placement/geometric-math";
 import { activeClassRegistry } from "../registry";
 import { spaceAreaM2 } from "../spaces/space-geometry";
-import type { BimElement } from "../types";
+import type { BimElement, MaterialLayerSet, Wall } from "../types";
 import { hostVoidsOf, voidAreaM2 } from "../hosting/voids";
 import { BOUNDARY_MEASURES, boundaryQuantities, boundaryQuantityReads } from "./boundary";
 import { hostedIds } from "./hosted";
-import { MEASURE_RULE_POINT, type MeasureDef, type MeasureRuleDef } from "./types";
+import { MEASURE_RULE_POINT, type MeasureDef, type MeasureLine, type MeasureRuleDef } from "./types";
 
 /**
  * How every element measures itself (KERNEL-FOUNDATION §3.13): the
@@ -38,6 +40,22 @@ const MASS_UNIT: MeasureDef = { key: "qto.mass", kind: "mass", unit: "kg", from:
 const MASS_LINEAR: MeasureDef = { key: "qto.mass", kind: "mass", unit: "kg", from: `length × the type's weight per length (${QTO_MASS_PER_LENGTH_KEY})`, label: "Weight" };
 
 const primary = (m: MeasureDef): MeasureDef => ({ ...m, primary: true });
+
+/** Per layer of a build-up: m² of one face of the host, net of its openings (what a finish is priced by). */
+const LAYER_FACE: MeasureDef = { key: "qto.layer_area", kind: "area", unit: "m2", from: "the host's net face area, one face per layer", label: "Layer face area" };
+const LAYER_VOLUME: MeasureDef = { key: "qto.layer_volume", kind: "volume", unit: "m3", from: "the layer's face area × its thickness", label: "Layer volume" };
+
+/** A build-up's layers as lines of their own: one face each, and the layer's own volume. */
+function layerLines(set: MaterialLayerSet, faceM2: number): readonly MeasureLine[] {
+  const out: MeasureLine[] = [];
+  for (const [i, layer] of set.layers.entries()) {
+    const material = layer.name?.trim() || layer.materialId.trim() || `Layer ${i + 1}`;
+    const common = { key: `layer:${i}`, label: `${material} ${Math.round(layer.thicknessMm)} mm`, subject: layer.materialId.trim(), thicknessMm: layer.thicknessMm };
+    out.push({ ...common, measure: LAYER_FACE, value: faceM2 });
+    out.push({ ...common, measure: LAYER_VOLUME, value: faceM2 * convert(layer.thicknessMm, "mm", "m") });
+  }
+  return out;
+}
 
 function num(v: unknown): number | null {
   return typeof v === "number" && Number.isFinite(v) ? v : null;
@@ -70,29 +88,46 @@ const WALL_RULE: MeasureRuleDef = {
     { key: "qto.area_gross", kind: "area", unit: "m2", from: "length × height, one face", label: "Face area" },
     { key: "qto.area_net", kind: "area", unit: "m2", from: "length × height, one face, less hosted doors and windows", label: "Net face area" },
     { key: "qto.volume", kind: "volume", unit: "m3", from: "net face area × thickness", label: "Volume" },
+    LAYER_FACE,
+    LAYER_VOLUME,
     COUNT,
     MASS_UNIT,
   ],
   reads: (el, elements) => [...hostedIds(elements, el.id)],
+  // Its build-up, layer by layer: the wall's volume says nothing about how much
+  // plaster, render, paint or insulation its two faces carry.
+  lines(el, elements) {
+    if (el.kind !== "wall") return [];
+    const set = layerSetOf(elements, el);
+    if (set === null) return [];
+    const faces = wallFaces(el, elements);
+    return faces === null ? [] : layerLines(set, faces.net);
+  },
   measure(el, elements) {
     if (el.kind !== "wall") return {};
     const length = planLength(el.start, el.end);
     const out: Record<string, number> = { "qto.length": length, "qto.count": 1 };
-    const height = num(el.height);
-    if (height !== null && height > 0) {
-      const gross = (length * height) / MM_PER_M;
-      let openings = 0;
-      for (const v of hostVoidsOf(elements, el.id)) openings += voidAreaM2(v);
-      const net = Math.max(0, gross - openings);
-      out["qto.area_gross"] = gross;
-      out["qto.area_net"] = net;
+    const faces = wallFaces(el, elements);
+    if (faces !== null) {
+      out["qto.area_gross"] = faces.gross;
+      out["qto.area_net"] = faces.net;
       const t = num(el.thickness);
-      if (t !== null && t > 0) out["qto.volume"] = (net * t) / MM_PER_M;
+      if (t !== null && t > 0) out["qto.volume"] = (faces.net * t) / MM_PER_M;
     }
     withUnitMass(out, elements, el, 1);
     return out;
   },
 };
+
+/** A wall's two faces in m²: length × height, then less the door and window voids it hosts. Null without a height. */
+function wallFaces(el: Wall, elements: Elements): { readonly gross: number; readonly net: number } | null {
+  const height = num(el.height);
+  if (height === null || height <= 0) return null;
+  const gross = (planLength(el.start, el.end) * height) / MM_PER_M;
+  let openings = 0;
+  for (const v of hostVoidsOf(elements, el.id)) openings += voidAreaM2(v);
+  return { gross, net: Math.max(0, gross - openings) };
+}
 
 const OPENING_RULE: MeasureRuleDef = {
   id: "kernel.opening",
@@ -329,6 +364,8 @@ export interface ElementMeasure {
   readonly rule: MeasureRuleDef;
   /** Values by `qto.*` key, SI; a measure the rule couldn't take is absent. */
   readonly values: Readonly<Record<string, number>>;
+  /** Lines the rule reports on their own (a wall's layers), each with its own group when it takes off. */
+  readonly lines: readonly MeasureLine[];
   readonly sizeGroup: string | null;
   /** Records the measure read beyond the element (its type, hosted openings). */
   readonly reads: readonly string[];
@@ -383,6 +420,16 @@ function finiteValues(raw: Readonly<Record<string, number>>, rule: MeasureRuleDe
   return out;
 }
 
+/** The lines a rule reports, with a value that isn't a number left out (a layer with no thickness adds nothing). */
+function finiteLines(raw: readonly MeasureLine[], rule: MeasureRuleDef, el: BimElement): MeasureLine[] {
+  const out: MeasureLine[] = [];
+  for (const line of raw) {
+    if (typeof line.value === "number" && Number.isFinite(line.value)) out.push(line);
+    else console.error("[qto] a measure line has a value that isn't a number; left out", { ruleId: rule.id, elementId: el.id, line: line.key });
+  }
+  return out;
+}
+
 /** An element's measured quantities in the set in force, or null when no rule measures it. Cached per record. */
 export function measureElement(elements: Elements, el: BimElement, set: PackSet = activePackSet()): ElementMeasure | null {
   const hit = cache.get(el);
@@ -392,14 +439,16 @@ export function measureElement(elements: Elements, el: BimElement, set: PackSet 
   const reads = readIdsOf(rule, el, elements);
   if (rule) {
     let values: Record<string, number> = {};
+    let lines: MeasureLine[] = [];
     let sizeGroup: string | null = null;
     try {
       values = finiteValues(rule.measure(el, elements), rule, el);
+      lines = rule.lines ? finiteLines(rule.lines(el, elements), rule, el) : [];
       sizeGroup = rule.sizeGroup?.(el, elements) ?? null;
     } catch (err) {
       console.error("[qto] a measure rule threw; the element reads as unmeasured", { ruleId: rule.id, elementId: el.id, err });
     }
-    measure = { elementId: el.id, rule, values: Object.freeze(values), sizeGroup, reads: Object.freeze(reads) };
+    measure = { elementId: el.id, rule, values: Object.freeze(values), lines: Object.freeze(lines), sizeGroup, reads: Object.freeze(reads) };
   }
   cache.set(el, { set, measure, readRecords: reads.map((id) => [id, elements[id]] as const) });
   return measure;

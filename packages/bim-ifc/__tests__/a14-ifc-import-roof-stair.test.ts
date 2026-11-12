@@ -101,7 +101,7 @@ describe("a14 ifc import roof and stair", () => {
       note: () => {},
     };
     const box = (x0: number, z0: number, h: number, lean = 0): ImportExtrusion => ({ base: [{ x: x0, y: 0, z: z0 }, { x: x0 + 280, y: 0, z: z0 + lean }, { x: x0 + 280, y: 1100, z: z0 + lean }, { x: x0, y: 1100, z: z0 }], along: { x: 0, y: 0, z: h } });
-    const product = (entity: string, extrusions: readonly ImportExtrusion[]): ImportProduct => ({ sourceId: "g1", entity, predefinedType: null, objectType: null, name: "X", longName: null, tag: null, storeyId: null, typeId: null, typeName: null, hostId: null, groupIds: [], geometry: { extrusions, bounds: null, unread: null }, properties: {}, overall: { width: null, height: null }, material: null, ports: [] });
+    const product = (entity: string, extrusions: readonly ImportExtrusion[]): ImportProduct => ({ sourceId: "g1", entity, predefinedType: null, objectType: null, name: "X", longName: null, tag: null, storeyId: null, typeId: null, typeName: null, hostId: null, groupIds: [], geometry: { extrusions, bounds: null, unread: null }, properties: {}, overall: { width: null, height: null }, material: null, layerSet: null, ports: [] });
     expect(ROOF_IMPORT_RULE.convert(product("IfcRoof", [box(0, 4000, 250, 600)]), ctx)).toEqual({ ok: false, reason: "its roof isn't made of flat pieces (a sloped or curved surface)" });
     expect(ROOF_IMPORT_RULE.convert(product("IfcRoof", []), ctx)).toEqual({ ok: false, reason: "it has no roof body of its own to read" });
     // Two steps side by side at the same place in plan: no line to climb along.
