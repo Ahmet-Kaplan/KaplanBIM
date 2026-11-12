@@ -138,6 +138,18 @@ const OWNED_DIRS = [
   // link, What drives the most, and Merges waiting for you with its approvers and
   // its decline (119 findings, four files).
   "checklist",
+  // Outside stage 4 — the calculation block on a sheet: Properties for a placed
+  // calculation (its template, its freshness and Remove with its confirm), the
+  // worked table with the row a lookup decided tinted and named, and Insert a
+  // calculation with its per-discipline groups and its "select the subject first"
+  // refusal. Already keyed under `calc.` when measured; its one finding was the
+  // kernel's row marker `governing cell`, which is compared, never read.
+  "calc-sheets",
+  // Outside stage 4 — a plumbing riser's or isometric's own properties: which
+  // systems it draws, what each pipe prints, fixtures left off, and the pin-move
+  // count in the hint bar. Its one finding was the kernel's terminal marker
+  // `OPEN END`, compared against a node's name, never shown.
+  "diagrams",
 ];
 
 /**
@@ -146,26 +158,14 @@ const OWNED_DIRS = [
  * report and hides the half nobody has looked at. Each joins `OWNED_DIRS` when
  * its task closes (`docs/superpowers/plans/2026-11-10-bilingual-ui.md`, Stage 4).
  *
- * **Empty since Task 4.6.** The last four trees closed in one round —
- * `questions` (213), `equipment-list` (110), `library` (68) and `coordination`
- * (58) — so the discovery below now covers every Stage-4 tree: a tree added
- * under `src/editor` tomorrow is unguarded and unexplained until someone puts it
- * here or in `OUTSIDE_STAGE_4`, and a tree that regresses fails with its file
- * and line. The list stays because that is the point of it, not because a tree
- * is owed.
+ * **The last round (2026-11-10).** Aşama 4 closed its own trees long ago; these
+ * nineteen are the ones the plan never named, and every one of them turned out to
+ * hold user-visible English (measured, not assumed: 625 findings across 19 trees).
+ * Each leaves this list for `OWNED_DIRS` as its round lands.
  */
-export const NOT_YET_GUARDED = [] as const;
-
-/**
- * Every tree under `src/editor` that **Aşama 4 never covered**: a panel or a
- * surface the bilingual plan does not name, so no task owes it a `t()` call.
- * They are listed so the discovery below can tell "not in this plan" from
- * "somebody forgot", which is the whole reason it is a list and not an omission.
- */
-const OUTSIDE_STAGE_4 = [
+export const NOT_YET_GUARDED = [
   "blocks",
   "branches",
-  "calc-sheets",
   "ceilings",
   "code-change",
   "code-study",
@@ -175,7 +175,6 @@ const OUTSIDE_STAGE_4 = [
   "construction",
   "contributions",
   "copies",
-  "diagrams",
   "graph",
   "graphics",
   "loads-policy",
@@ -183,6 +182,14 @@ const OUTSIDE_STAGE_4 = [
   "responsibilities",
   "view-input",
 ] as const;
+
+/**
+ * Every tree under `src/editor` that **Aşama 4 never covered**: a panel or a
+ * surface the bilingual plan does not name, so no task owes it a `t()` call.
+ * They are listed so the discovery below can tell "not in this plan" from
+ * "somebody forgot", which is the whole reason it is a list and not an omission.
+ */
+const OUTSIDE_STAGE_4 = [] as const;
 
 /**
  * The three lists above are one classification, and it is checked against the

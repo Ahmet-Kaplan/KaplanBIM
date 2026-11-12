@@ -129,6 +129,15 @@ const NOT_CAPTIONS = new Set([
   // The fallback inside a thrown `Error` (`HTTP 500: no message`): a developer's
   // words, on no screen. The same reason `new Error(…)` is skipped above.
   "no message",
+  // `blockTextTable` marks the row a lookup decided with this exact prefix, and
+  // `CalcSheetTable` compares against it to tint the row (`how.startsWith(GOVERNING)`).
+  // The badge a person reads is `calc.governingCell`; translating this would stop it
+  // matching the kernel's text. A wire marker, not a caption.
+  "governing cell",
+  // The kernel's names for the two ends of a plumbing diagram (`diagramGraph` calls
+  // them `OPEN END` and `CAP`). `PipingDiagramProperties` counts fixtures by
+  // comparing a node's name against them; nothing prints the name. Data, not words.
+  "OPEN END",
 ]);
 
 /** The calls whose string arguments a person reads. */
