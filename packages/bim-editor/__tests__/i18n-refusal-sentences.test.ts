@@ -482,7 +482,7 @@ test("every keyed sentence in those two files has a Turkish string, and the coun
     "session.measureAnswer": 1,
     "session.modelNotLoaded": 1,
     "session.modelNotLoadedYet": 1,
-    "session.modelNotOpen": 3,
+    "session.modelNotOpen": 5,
     "session.modelStillOpening": 1,
     "session.movePreview": 1,
     "session.noAirflowYet": 1,

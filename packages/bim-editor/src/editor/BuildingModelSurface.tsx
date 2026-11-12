@@ -5,7 +5,7 @@ import { clientOnly as dynamic } from '@permitzip/bim-editor/client-only'
 import { useEditorNavigation } from '@permitzip/bim-editor/host'
 import { toast } from 'sonner'
 import { RefreshCw, Wind, X, ArrowLeft } from 'lucide-react'
-import { AUTO_TAG_CATEGORIES, ORGANIZATION_ZONE, elementsOfKind, planAutoTags, runLabel, type RunFitting, type RunSegment, SYSTEM_KINDS, displayContextOf, documentIndex, viewCamera3d, type Aabb3, normalizeLevelName, organizationOf, sheetDependsOn, sheetViewports, type Actor, type DisplayContext, type GroupVisibility, type ModelState, type PartInstance, type PartTypeDefinition, type SectionCut, type Sheet, type Vec2, type ViewElement, originPointPosition, viewFloorMm, viewModelLevel, canonicalViewLevel, modelLevels, viewRotationDeg, type OriginPoint, diagramKindLabel, type StoredDiagramKind, type ScheduleCategory, type ElementId, type WorkFrame, asElementId, type AuthorRef, type BranchRef, parseBranchModelId, type SubmittalCommand, matchingPlanCrop, projectParametersOf } from '@permitzip/bim-kernel'
+import { AUTO_TAG_CATEGORIES, ORGANIZATION_ZONE, elementsOfKind, planAutoTags, runLabel, type RunFitting, type RunSegment, SYSTEM_KINDS, displayContextOf, documentIndex, viewCamera3d, type Aabb3, normalizeLevelName, organizationOf, sheetDependsOn, sheetViewports, type Actor, type DisplayContext, type GroupVisibility, type ModelState, type PartInstance, type PartTypeDefinition, type SectionCut, type Sheet, type Vec2, type ViewElement, originPointPosition, viewFloorMm, viewModelLevel, canonicalViewLevel, modelLevels, viewRotationDeg, type OriginPoint, type StoredDiagramKind, type ScheduleCategory, type ElementId, type WorkFrame, asElementId, type AuthorRef, type BranchRef, parseBranchModelId, type SubmittalCommand, matchingPlanCrop, projectParametersOf } from '@permitzip/bim-kernel'
 import type { ConnectionStatus, Presence, SaveState } from '@permitzip/bim-sync'
 import { editingOffReason, type ConnectionProblem } from './operator-messages'
 import { SHEET_FIRM_NAME, type SheetTitle } from '../contracts/building-model/sheet-title'
@@ -165,7 +165,7 @@ import { useSheetImagesFrom } from '@permitzip/bim-editor/editor/views-sheets/us
 import { addOns, loadAddOns } from '../contracts/building-model/add-ons'
 
 import { MemoRibbon, useStableCommands, useStableRibbonTabs } from './ribbon/stable-ribbon'
-import { useEditorLanguage, useEditorTranslate, withValues } from './i18n/translate'
+import { useEditorLanguage, useEditorTranslate, withValues, type Translate } from './i18n/translate'
 import { useModelPacks } from './state/use-model-packs'
 import { buildingModelQuickCommands, buildingModelRibbon, PROJECTION_SHORTCUT, type BoxCategory, type BuildingModelTool, type RibbonSelection } from './building-model-ribbon'
 import { OrientationControls } from './orientation/OrientationControls'
@@ -271,11 +271,27 @@ function initials(name: string): string {
 /** What shared dialogs read from the add-ons' workflows (sizing rules, the code edition), typed by the dialog. */
 type ListProps = ComponentProps<typeof EquipmentListDialogComponent>
 
+/** A diagram kind's own word, in the language on screen (the kernel's label is English). */
+function diagramKindWords(kind: StoredDiagramKind, t: Translate): string {
+  switch (kind) {
+    case 'one_line':
+      return t('panel.new.oneLine', 'One-line diagram', { ns: 'editor' })
+    case 'electrical_riser':
+      return t('panel.new.electricalRiser', 'Electrical riser diagram', { ns: 'editor' })
+    case 'plumbing_riser':
+      return t('panel.new.plumbingRiser', 'Plumbing riser diagram', { ns: 'editor' })
+    case 'plumbing_isometric':
+      return t('panel.new.plumbingIsometric', 'Plumbing isometric', { ns: 'editor' })
+    default:
+      return kind
+  }
+}
+
 /** Bring a section of the open view's properties into sight and put the keyboard on its first control. */
-function focusViewSection(id: string): void {
+function focusViewSection(id: string, t: Translate): void {
   const section = document.getElementById(id) ?? document.querySelector<HTMLElement>(`[data-testid="${id}"]`)
   if (!section) {
-    toast.info('Open the view’s properties on the right to see this.')
+    toast.info(t('surface.openViewProperties', 'Open the view’s properties on the right to see this.', { ns: 'editor' }))
     return
   }
   section.scrollIntoView({ block: 'start', behavior: 'smooth' })
@@ -358,7 +374,10 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
       })
       .catch((err: unknown) => {
         console.error('[BuildingModelSurface] the add-ons failed to load', err)
-        if (!cancelled) setLoadError(`The trade tools for this model didn't load (${err instanceof Error ? err.message : String(err)}).`)
+        if (!cancelled)
+          setLoadError(
+            t('surface.tradeToolsFailed', "The trade tools for this model didn't load ({{reason}}).", { ns: 'editor', reason: err instanceof Error ? err.message : String(err) }),
+          )
       })
     return () => {
       cancelled = true
@@ -538,7 +557,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
       })
       .catch((err: unknown) => {
         console.error('[BuildingModelSurface] config load failed', err)
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : "Couldn't open the model.")
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : t('surface.couldNotOpenModel', "Couldn't open the model.", { ns: 'editor' }))
       })
     return () => {
       cancelled = true
@@ -601,7 +620,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
       .then(() => setViewer(session.viewer))
       .catch((err: unknown) => {
         console.error('[BuildingModelSurface] model open failed', err)
-        setLoadError(err instanceof Error ? err.message : "Couldn't open the model.")
+        setLoadError(err instanceof Error ? err.message : t('surface.couldNotOpenModel', "Couldn't open the model.", { ns: 'editor' }))
         setPhase('')
       })
     return () => {
@@ -629,7 +648,10 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
       })
       .catch((err: unknown) => {
         console.error('[BuildingModelSurface] design limits failed to load for route checks', err)
-        if (!gone) toast.error("The firm's design limits couldn't be loaded, so route checks use the add-ons' defaults. Reload the page to try again.")
+        if (!gone)
+          toast.error(
+            t('surface.designLimitsFailed', "The firm's design limits couldn't be loaded, so route checks use the add-ons' defaults. Reload the page to try again.", { ns: 'editor' }),
+          )
       })
     return () => {
       gone = true
@@ -646,7 +668,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
       })
       .catch((err: unknown) => {
         console.error('[BuildingModelSurface] reference refresh failed', err)
-        toast.error("The linked models changed, but the 3D view couldn't update. Reload the page to see them.")
+        toast.error(t('surface.referenceRefreshFailed', "The linked models changed, but the 3D view couldn't update. Reload the page to see them.", { ns: 'editor' }))
       })
   }, [projectId, openModelConfig])
 
@@ -695,7 +717,13 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
   const projection: Projection = (projectionLook && projectionLook.key === viewItemKey ? projectionLook.value : null) ?? savedProjection ?? freeProjection
 
   useEffect(() => {
-    if (vanished) toast(`That ${requested.kind} was removed, so the 3D model is showing. Ctrl+Z brings it back if you removed it.`)
+    if (vanished)
+      toast(
+        t('surface.openItemRemoved', 'That {{kind}} was removed, so the 3D model is showing. Ctrl+Z brings it back if you removed it.', {
+          ns: 'editor',
+          kind: requested.kind === 'sheet' ? t('surface.kindSheet', 'sheet', { ns: 'editor' }) : t('surface.kindView', 'view', { ns: 'editor' }),
+        }),
+      )
   }, [vanished, requested.kind])
 
   /** Floor elevation of a level: the same-floor model level's, else the linked models' storey (cached); 0 when neither has it. */
@@ -804,7 +832,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
     }
     void run().catch((err: unknown) => {
       console.error('[BuildingModelSurface] opening the view in the canvas failed', { cameraKey, err })
-      toast.error("The view couldn't be shown in the canvas. Its printed drawing is still available.")
+      toast.error(t('surface.viewCouldNotBeShown', "The view couldn't be shown in the canvas. Its printed drawing is still available.", { ns: 'editor' }))
     })
     return () => {
       cancelled = true
@@ -1011,7 +1039,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
   const submitWithUndo = useCallback<SubmitCommand>(
     (command, label = 'change') => {
       const refusal = submit(command, label)
-      if (!refusal) toast(`${label.charAt(0).toUpperCase()}${label.slice(1)}`, { action: { label: 'Undo', onClick: undo } })
+      if (!refusal) toast(`${label.charAt(0).toUpperCase()}${label.slice(1)}`, { action: { label: t('surface.undo', 'Undo', { ns: 'editor' }), onClick: undo } })
       return refusal
     },
     [submit, undo],
@@ -1058,12 +1086,15 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
     reset: () => void crop3d.reset(),
     workingAngleDeg: crop3d.workingAngleDeg,
     alignToWorkingAngle: crop3d.alignToWorkingAngle,
-    alignToEdge: () => workingAngle.startPick({ kind: 'crop', label: openView?.name ?? 'the 3D view' }),
+    alignToEdge: () => workingAngle.startPick({ kind: 'crop', label: openView?.name ?? t('surface.theThreeDView', 'the 3D view', { ns: 'editor' }) }),
     alignBlocked: crop3d.alignBlocked,
     useCamera: (): string | null => {
       const camera = viewer?.camera3dState()
-      if (!camera || !openView || openView.viewType !== 'three_d') return 'Open the 3D view in the canvas first.'
-      return submitWithUndo({ type: 'set_3d_view_camera', viewId: openView.id, camera, projection }, `save the camera of ${openView.name}`)
+      if (!camera || !openView || openView.viewType !== 'three_d') return t('surface.openThreeDFirst', 'Open the 3D view in the canvas first.', { ns: 'editor' })
+      return submitWithUndo(
+        { type: 'set_3d_view_camera', viewId: openView.id, camera, projection },
+        t('surface.undoSaveCamera', 'save the camera of {{name}}', { ns: 'editor', name: openView.name }),
+      )
     },
   }
   /** What the crop box's faces snap to: everything loaded, linked models included. */
@@ -1096,7 +1127,6 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
       return
     }
     if (next === projection) return
-    const label = next === 'orthographic' ? 'orthographic' : 'perspective'
     if (openView?.viewType !== 'three_d' || !viewItemKey) {
       setFreeProjection(next)
       return
@@ -1114,7 +1144,10 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
       return
     }
     setProjectionLook(null)
-    const refusal = submitWithUndo({ type: 'set_view_properties', viewId: openView.id, props: { projection: next } }, `switch ${openView.name} to ${label}`)
+    const refusal = submitWithUndo(
+      { type: 'set_view_properties', viewId: openView.id, props: { projection: next } },
+      t('surface.undoSwitchTo', 'switch {{name}} to {{target}}', { ns: 'editor', name: openView.name, target: projectionLabel(next) }),
+    )
     if (refusal) toast.error(refusal)
   }
   const toggleProjection = () => changeProjection(projection === 'orthographic' ? 'perspective' : 'orthographic')
@@ -1125,7 +1158,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
 
   /** Show, halftone or hide a group: saved on the open view, or for the free 3D model in this tab. */
   const setGroupVisibility = (groupId: string, visibility: GroupVisibility): string | null => {
-    const name = model ? (organizationOf(model).groupById.get(groupId)?.entry.name ?? 'the group') : 'the group'
+    const name = model ? (organizationOf(model).groupById.get(groupId)?.entry.name ?? t('surface.theGroup', 'the group', { ns: 'editor' })) : t('surface.theGroup', 'the group', { ns: 'editor' })
     if (!openView) {
       setFreeDisplay((prev) => ({ ...prev, groupDisplay: { ...prev.groupDisplay, [groupId]: visibility } }))
       return null
@@ -1145,7 +1178,12 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
             context={displayContextOf(view)}
             disabledReason={canEdit ? null : blockedReason}
             onEditFilters={() => setOrganizationDialog('filters')}
-            onChange={(change) => submitWithUndo({ type: 'set_view_properties', viewId: view.id, props: change }, change.phaseId ? 'change the view phase' : 'change the phase filter')}
+            onChange={(change) =>
+              submitWithUndo(
+                { type: 'set_view_properties', viewId: view.id, props: change },
+                change.phaseId ? t('surface.undoChangeViewPhase', 'change the view phase', { ns: 'editor' }) : t('surface.undoChangePhaseFilter', 'change the phase filter', { ns: 'editor' }),
+              )
+            }
           />
         )
       }
@@ -1161,9 +1199,9 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
     if (plan) {
       openItem({ kind: 'view', id: plan.id })
       setSectionTool(true)
-      toast(`Opened ${plan.name}. Drag across it where the section cuts.`)
-    } else {
-      toast('Sections are drawn on a floor plan. Make one first.')
+      toast(t('surface.sectionPlanOpened', 'Opened {{name}}. Drag across it where the section cuts.', { ns: 'editor', name: plan.name }))
+     } else {
+      toast(t('surface.sectionsNeedFloorPlan', 'Sections are drawn on a floor plan. Make one first.', { ns: 'editor' }))
       setRequest({ kind: 'new_view', viewType: 'floor_plan' })
     }
   }, [planOpen, index, openItem])
@@ -1172,7 +1210,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
   const openDiagram = useCallback(
     (kind: StoredDiagramKind, forceNew = false): string | null => {
       const now = currentModel()
-      if (!now) return "The model isn't open yet."
+      if (!now) return t('session.modelNotOpen', "The model isn't open yet.", { ns: 'editor' })
       const existing = forceNew ? undefined : diagramViews(now, kind)[0]
       if (existing) {
         openItem({ kind: 'view', id: existing.id })
@@ -1180,7 +1218,10 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
       }
       if (!canEdit) return blockedReason
       const id = newId('view')
-      const refusal = submitWithUndo(createDiagramCommand(now, kind, id), `make a live ${diagramKindLabel(kind).toLowerCase()}`)
+      const refusal = submitWithUndo(
+        createDiagramCommand(now, kind, id),
+        t('surface.undoMakeLive', 'make a live {{what}}', { ns: 'editor', what: diagramKindWords(kind, t).toLowerCase() }),
+      )
       if (refusal) return refusal
       openItem({ kind: 'view', id })
       return null
@@ -1260,7 +1301,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
   const hoverHintRef = useRef<string | null>(null)
   // Route clicks land in order, each once the surface under it is known; Finish and Enter wait for them,
   // so click, click, Enter never finishes before the points it was given.
-  const [routeSteps] = useState(() => orderedSteps('BuildingModelSurface route'))
+  const [routeSteps] = useState(() => orderedSteps('BuildingModelSurface/route'))
   // "Routed." stays up while the pointer is still; the still-pointer refresh below would otherwise replace it at once.
   const [routeResult] = useState(resultHold)
   const finishRouteAfterClicks = useCallback(() => {
@@ -1394,7 +1435,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
     if (tool === 'move' && movingRef.current) {
       movingRef.current = false
       const refused = session.endMove(true)
-      setToolHint(refused ?? 'Click a part and drag it to move it. Esc to stop.')
+      setToolHint(refused ?? t('surface.moveHint', 'Click a part and drag it to move it. Esc to stop.', { ns: 'editor' }))
       return
     }
     if (dragRef.current) {
@@ -1577,7 +1618,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
         return
       case 'move':
         movingRef.current = true
-        setToolHint(`Moving ${took.move}. Release to save, Esc to cancel.`)
+        setToolHint(t('surface.movingWords', 'Moving {{what}}. Release to save, Esc to cancel.', { ns: 'editor', what: took.move }))
         return
       case 'run-drag':
       case 'move-selection':
@@ -1589,7 +1630,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
         const drag = took.slide
         if (!drag) return
         dragRef.current = { drag, s: null }
-        setDragHint('Slide along the trunk. Release to save, Esc to cancel.')
+        setDragHint(t('surface.slideAlongTrunk', 'Slide along the trunk. Release to save, Esc to cancel.', { ns: 'editor' }))
         // The quick check only sees new ductwork; if a wall or roof is actually in front, this was not a grab.
         void session.selectAt(e.clientX, e.clientY).then((pick) => {
           if (pick?.source !== 'native' && dragRef.current?.drag === drag) finishDrag(false)
@@ -1623,17 +1664,17 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
     setTool(next)
     setToolHint(
       next === 'place'
-        ? 'Choose a part on the left, then click in the view to place it.'
+        ? t('surface.toolPlace', 'Choose a part on the left, then click in the view to place it.', { ns: 'editor' })
         : next === 'route'
-          ? 'Click a connector, a run, or a point to start the route.'
+          ? t('surface.toolRoute', 'Click a connector, a run, or a point to start the route.', { ns: 'editor' })
           : next === 'move'
-          ? 'Click a part and drag it to move it. Esc to stop.'
+          ? t('surface.toolMove', 'Click a part and drag it to move it. Esc to stop.', { ns: 'editor' })
           : next === 'measure'
-            ? 'Click two points to measure between them.'
+            ? t('surface.toolMeasure', 'Click two points to measure between them.', { ns: 'editor' })
             : next === 'box'
-              ? 'Drag a box: left to right picks what is fully inside, right to left what it touches. Esc to stop.'
+              ? t('surface.toolBox', 'Drag a box: left to right picks what is fully inside, right to left what it touches. Esc to stop.', { ns: 'editor' })
               : next === 'split'
-                ? 'Click on a straight duct or pipe where it should be split. Esc to stop.'
+                ? t('surface.toolSplit', 'Click on a straight duct or pipe where it should be split. Esc to stop.', { ns: 'editor' })
                 : null,
     )
     if (next !== 'place') {
@@ -1770,7 +1811,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
       chooseTool('select')
       plannedPlacingRef.current = next
       setPlannedPlacing(next)
-      setToolHint(`Click in ${placeSurface.label} to place ${next.label}. R turns it, Esc stops.`)
+      setToolHint(t('surface.clickInToPlace', 'Click in {{where}} to place {{what}}. R turns it, Esc stops.', { ns: 'editor', where: placeSurface.label, what: next.label }))
     },
     [currentModel, placeSurface, planOpen, viewLevelId, activeLevel, chooseTool],
   )
@@ -1780,9 +1821,16 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
   useEffect(() => {
     if (!plannedPlacing) return
     const el = plannedPart ?? undefined
-    if (!placeSurface.canPlace) stopPlannedPlacing(`Stopped placing ${plannedPlacing.label}: ${placeSurface.reason ?? 'this view cannot take parts.'}`)
-    else if (model && el?.kind !== 'part') stopPlannedPlacing(`${plannedPlacing.label} is no longer in the model.`)
-    else if (el?.kind === 'part' && el.planned === undefined) stopPlannedPlacing(`${plannedPlacing.label} is placed.`)
+    if (!placeSurface.canPlace)
+      stopPlannedPlacing(
+        t('surface.stoppedPlacing', 'Stopped placing {{what}}: {{reason}}', {
+          ns: 'editor',
+          what: plannedPlacing.label,
+          reason: placeSurface.reason ?? t('surface.viewCannotTakeParts', 'this view cannot take parts.', { ns: 'editor' }),
+        }),
+      )
+    else if (model && el?.kind !== 'part') stopPlannedPlacing(t('surface.partNoLongerThere', '{{what}} is no longer in the model.', { ns: 'editor', what: plannedPlacing.label }))
+    else if (el?.kind === 'part' && el.planned === undefined) stopPlannedPlacing(t('surface.partNowPlaced', '{{what}} is placed.', { ns: 'editor', what: plannedPlacing.label }))
   }, [plannedPlacing, placeSurface, model, plannedPart, stopPlannedPlacing])
   const notPlacedDisciplines = useMemo(() => (notPlacedFor ? disciplinesForTab(notPlacedFor) : undefined), [notPlacedFor])
   const plannedCountsByTab = useModelSelector(modelStore, selectPlannedCounts, sameCounts)
@@ -1846,8 +1894,14 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
       chooseRoute(next)
       setPlaceLevel(el.levelId)
       const view = sessionRef.current?.currentView()
-      const label = view ? runLabel(view.elements, el) : 'piece'
-      setToolHint(`Routing another like the ${label}: same size, insulation and system, at ${feetInches(Number(next.elevationFt) * MM_PER_FT)}. Click where it starts.`)
+      const label = view ? runLabel(view.elements, el) : t('surface.aPiece', 'piece', { ns: 'editor' })
+      setToolHint(
+        t('surface.routingAnotherLike', 'Routing another like the {{label}}: same size, insulation and system, at {{height}}. Click where it starts.', {
+          ns: 'editor',
+          label,
+          height: feetInches(Number(next.elevationFt) * MM_PER_FT),
+        }),
+      )
     },
     [routeChoices, chooseTool, chooseRoute],
   )
@@ -1869,7 +1923,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
   const placeLikePart = useCallback(
     (part: PartInstance): string | null => {
       const entry = sessionRef.current?.partCatalog().find((e) => e.typeId === part.typeId)
-      if (!entry) return "That part's type isn't in the parts list. Reload the page and try again."
+      if (!entry) return t('surface.partTypeNotInList', "That part's type isn't in the parts list. Reload the page and try again.", { ns: 'editor' })
       setPlaceType(entry)
       placeHeightTyped.current = { forCategory: entry.definition.category }
       setPlaceHeightFt(String(Math.round((part.offsetMm / MM_PER_FT) * 100) / 100))
@@ -2036,7 +2090,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
     const session = sessionRef.current
     if (!session || ids.length === 0) return
     if (ids.length > 500) {
-      toast.error(`That is ${ids.length} elements; delete at most 500 at once. Select a branch or a smaller box.`)
+      toast.error(t('surface.tooManyToDelete', 'That is {{count}} elements; delete at most 500 at once. Select a branch or a smaller box.', { ns: 'editor', count: ids.length }))
       return
     }
     setPendingDelete({ ids: [...ids], title: `these ${ids.length} elements`, plan: session.planDelete(ids) })
@@ -2302,7 +2356,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
       )
       if (!refusal) {
         setSectionTool(false)
-        toast(`${name} created. It's in the panel under Sections; click its cut line to open it.`)
+        toast(t('surface.sectionCreated', "{{name}} created. It's in the panel under Sections; click its cut line to open it.", { ns: 'editor', name }))
       }
       return refusal
     },
@@ -2314,7 +2368,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
     async (side: 'north' | 'south' | 'east' | 'west') => {
       const rect = await sessionRef.current?.viewer?.sceneRectMm()
       if (!rect) {
-        toast.error('There is nothing in the model to make an elevation of yet. Link a model or draw something first.')
+        toast.error(t('surface.nothingForElevation', 'There is nothing in the model to make an elevation of yet. Link a model or draw something first.', { ns: 'editor' }))
         return
       }
       const title = `${side.charAt(0).toUpperCase()}${side.slice(1)} elevation`
@@ -2326,7 +2380,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
       if (refusal) toast.error(refusal)
       else {
         openItem({ kind: 'view', id })
-        toast(`${name} created. It's in the panel under Sections.`)
+        toast(t('surface.elevationCreated', "{{name}} created. It's in the panel under Sections.", { ns: 'editor', name }))
       }
     },
     [index, submitWithUndo, openItem],
@@ -2363,7 +2417,9 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
       if (saved.elements[openSheet.id]?.kind !== 'sheet') return "This sheet isn't saved yet. Wait for it to save, then print."
       try {
         const printed = await printSheetPdf(saved, openSheet.id, sheetTitle, backgrounds, sheetImages.source)
-        toast.success(`Printed ${openSheet.number} from Rev ${printed.revision} (${printed.fileName})`)
+        toast.success(
+          t('surface.printedFromRev', 'Printed {{number}} from Rev {{revision}} ({{file}})', { ns: 'editor', number: openSheet.number, revision: printed.revision, file: printed.fileName }),
+        )
         return null
       } catch (err) {
         console.error('[BuildingModelSurface] printing the sheet failed', { sheetId: openSheet.id, err })
@@ -2662,7 +2718,11 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
     const session = sessionRef.current
     if (!session || !inPlaceLevel) {
       setInPlacePick(false)
-      toast.error(inPlaceLevel ? "The model isn't open yet." : 'Add a level first: Model in place puts the part on a level.')
+      toast.error(
+        inPlaceLevel
+          ? t('session.modelNotOpen', "The model isn't open yet.", { ns: 'editor' })
+          : t('surface.inPlaceNeedsLevel', 'Add a level first: Model in place puts the part on a level.', { ns: 'editor' }),
+      )
       return undefined
     }
     const pointer = { x: Number.NaN, y: Number.NaN }
@@ -2681,7 +2741,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
       click: () => {
         const at = inPlacePoint.current(pointer.x, pointer.y)
         if (!at) {
-          toast(`Click inside a plan or the 3D model on ${inPlaceLevel.name}. Esc cancels.`)
+          toast(t('surface.inPlaceClickOn', 'Click inside a plan or the 3D model on {{level}}. Esc cancels.', { ns: 'editor', level: inPlaceLevel.name }))
           return true
         }
         setInPlacePick(false)
@@ -2734,16 +2794,25 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
           if (!now) return
           const plan = planAutoTags(now, tagAllView.id, { categories: [...AUTO_TAG_CATEGORIES], idPrefix: newId('tag') })
           if (plan.items.length === 0) {
-            toast(plan.alreadyTagged > 0 ? 'Everything in this view is already tagged.' : 'Nothing in this view to tag.')
+            toast(
+              plan.alreadyTagged > 0
+                ? t('surface.alreadyTagged', 'Everything in this view is already tagged.', { ns: 'editor' })
+                : t('surface.nothingToTag', 'Nothing in this view to tag.', { ns: 'editor' }),
+            )
             return
           }
           const n = plan.items.length
           const refusal = submitWithUndo(
-            { type: 'batch_documents', label: `Tag ${n} element${n === 1 ? '' : 's'}`, commands: plan.items.slice(0, 500).map((it) => ({ type: 'add_drawing_item' as const, itemId: it.itemId, ownerId: tagAllView.id, shape: 'tag' as const, points: [it.at], tag: it.tag })) },
-            `tag ${n} element${n === 1 ? '' : 's'}`,
+            {
+              type: 'batch_documents',
+              label: n === 1 ? t('surface.undoTagOne', 'Tag 1 element', { ns: 'editor', count: n }) : t('surface.undoTagN', 'Tag {{count}} elements', { ns: 'editor', count: n }),
+              commands: plan.items.slice(0, 500).map((it) => ({ type: 'add_drawing_item' as const, itemId: it.itemId, ownerId: tagAllView.id, shape: 'tag' as const, points: [it.at], tag: it.tag })),
+            },
+            n === 1 ? t('surface.undoTagOneLower', 'tag 1 element', { ns: 'editor', count: n }) : t('surface.undoTagNLower', 'tag {{count}} elements', { ns: 'editor', count: n }),
           )
           if (refusal) toast.error(refusal)
-          else if (plan.skipped.length > 0) toast(`${plan.skipped.length} couldn't be tagged: no clear spot beside them. Tag those by hand.`)
+          else if (plan.skipped.length > 0)
+            toast(t('surface.someCouldNotBeTagged', "{{count}} couldn't be tagged: no clear spot beside them. Tag those by hand.", { ns: 'editor', count: plan.skipped.length }))
         },
       }
     : null
@@ -2784,7 +2853,8 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
 
   // Copy and paste of placed parts (Ctrl+C / Ctrl+V): one clipboard for this tab, shared with every drawing.
   const partClip = useSyncExternalStore(subscribeClip, currentClip, () => null)
-  const clipNow = useMemo(() => (selectionModel ? clipOf(selectionModel, selectedIds) : 'The model is still loading.'), [selectionModel, selectedIds])
+  const modelLoading = t('surface.modelStillLoading', 'The model is still loading.', { ns: 'editor' })
+  const clipNow = useMemo(() => (selectionModel ? clipOf(selectionModel, selectedIds) : modelLoading), [selectionModel, selectedIds, modelLoading])
   const copyBlocked = typeof clipNow === 'string' ? clipNow : null
   const partPasteBlocked =
     pasteBlocked(partClip, editBlocked, t) ??
@@ -2803,7 +2873,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
     const blocked = pasteBlocked(clip, editBlocked, t)
     if (blocked || !clip) {
       setToolHint(blocked)
-      toast.error(blocked ?? 'Nothing to paste.')
+      toast.error(blocked ?? t('surface.nothingToPaste', 'Nothing to paste.', { ns: 'editor' }))
       return
     }
     const level = activeLevel ? model?.elements[activeLevel] : undefined
@@ -2859,10 +2929,10 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
     clipboard: { copyBlocked, copy: copyParts, pasteBlocked: partPasteBlocked, paste: pasteParts },
     plan: {
       equipmentList: setEquipmentListFor,
-      equipmentListBlocked: model ? null : 'The model is still loading.',
-      notPlacedYet: { open: setNotPlacedFor, counts: plannedCountsByTab, blocked: model ? null : 'The model is still loading.' },
-      spaces: { open: () => setSpacesOpen(true), blocked: model ? null : 'The model is still loading.', roomFromWalls, findFromWalls: findRoomsFromWalls, split: separationLine },
-      openRail: { open: setOpenRail, blocked: model ? null : 'The model is still loading.' },
+      equipmentListBlocked: model ? null : modelLoading,
+      notPlacedYet: { open: setNotPlacedFor, counts: plannedCountsByTab, blocked: model ? null : modelLoading },
+      spaces: { open: () => setSpacesOpen(true), blocked: model ? null : modelLoading, roomFromWalls, findFromWalls: findRoomsFromWalls, split: separationLine },
+      openRail: { open: setOpenRail, blocked: model ? null : modelLoading },
     },
     schedules: {
       views: (index?.views ?? []).filter((v) => v.viewType === 'schedule').map((v) => ({ id: v.id, name: v.name })),
@@ -2877,8 +2947,11 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
         // `noopener` would make window.open return null even when the tab opened; drop the opener by hand instead.
         const tab = window.open(url, '_blank')
         if (tab) tab.opener = null
-        if (tab) toast.success('Opened Settings › MutinyBIM library in a new tab.')
-        else toast.info('Your browser blocked the new tab.', { action: { label: 'Open here', onClick: () => router.push(url) } })
+        if (tab) toast.success(t('surface.libraryOpenedInTab', 'Opened Settings › MutinyBIM library in a new tab.', { ns: 'editor' }))
+        else
+          toast.info(t('surface.newTabBlocked', 'Your browser blocked the new tab.', { ns: 'editor' }), {
+            action: { label: t('surface.openHere', 'Open here', { ns: 'editor' }), onClick: () => router.push(url) },
+          })
       },
       editBlocked: canEdit ? null : blockedReason,
       loadSchedules: {
@@ -2938,7 +3011,15 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
             on: openView.props?.cropView !== false,
             shown: openView.props?.showCropBox !== false,
             set: (change) => {
-              const refusal = submitWithUndo({ type: 'set_view_crop', viewId: openView.id, ...change }, change.cropView === undefined ? (change.showCropBox ? 'show the crop box' : 'hide the crop box') : change.cropView ? 'crop the view' : 'stop cropping the view')
+              const label =
+                change.cropView === undefined
+                  ? change.showCropBox
+                    ? t('surface.undoShowCropBox', 'show the crop box', { ns: 'editor' })
+                    : t('surface.undoHideCropBox', 'hide the crop box', { ns: 'editor' })
+                  : change.cropView
+                    ? t('surface.undoCropView', 'crop the view', { ns: 'editor' })
+                    : t('surface.undoStopCropping', 'stop cropping the view', { ns: 'editor' })
+              const refusal = submitWithUndo({ type: 'set_view_crop', viewId: openView.id, ...change }, label)
               if (refusal) toast.error(refusal)
             },
           }
@@ -2955,7 +3036,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
             const refusal = crop3d.alignToWorkingAngle()
             if (refusal) toast(refusal)
           },
-          alignToEdge: () => workingAngle.startPick({ kind: 'crop', label: openView?.name ?? 'the 3D view' }),
+          alignToEdge: () => workingAngle.startPick({ kind: 'crop', label: openView?.name ?? t('surface.theThreeDView', 'the 3D view', { ns: 'editor' }) }),
           alignBlocked: crop3d.alignBlocked,
         }
       : null,
@@ -2984,7 +3065,10 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
     hasSheets: (index?.sheets.length ?? 0) > 0,
     printBlackOnly,
     setPrintBlackOnly: (on) => {
-      const err = submit({ type: 'set_print_black_only', blackOnly: on }, on ? 'Print sheets black only' : 'Print sheets in colour')
+      const err = submit(
+        { type: 'set_print_black_only', blackOnly: on },
+        on ? t('surface.undoPrintBlackOnly', 'Print sheets black only', { ns: 'editor' }) : t('surface.undoPrintColour', 'Print sheets in colour', { ns: 'editor' }),
+      )
       if (err) toast.error(err)
     },
     canLink,
@@ -3020,7 +3104,10 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
         picker.focus()
         return
       }
-      toast.info(document.querySelector('[data-testid="run-pressure-unavailable"]')?.textContent || "This fitting's type can't be chosen until it is on a duct system with a fan.")
+      toast.info(
+        document.querySelector('[data-testid="run-pressure-unavailable"]')?.textContent ||
+          t('surface.fittingTypeNeedsFan', "This fitting's type can't be chosen until it is on a duct system with a fan.", { ns: 'editor' }),
+      )
     },
     reducerShape: () => {
       const transition = document.getElementById('bm-group-transition')
@@ -3030,13 +3117,19 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
       } else if (ribbonSelection?.kind === 'run' && ribbonSelection.fitting) {
         document.getElementById('bm-fitting-type')?.focus()
       } else {
-        setToolHint('Press Tab until the whole run is selected, then pick a reducer shape under "Transitions where it meets another size".')
+        setToolHint(
+          t(
+            'surface.reducerShapeHint',
+            'Press Tab until the whole run is selected, then pick a reducer shape under "Transitions where it meets another size".',
+            { ns: 'editor' },
+          ),
+        )
       }
     },
     focusRunInsulation: () => {
       const insulation = document.getElementById('bm-run-insulation')
       if (!insulation) {
-        toast.info('Insulation is set on routed duct. Select a duct piece to set its wrap or liner.')
+        toast.info(t('surface.insulationOnRoutedDuct', 'Insulation is set on routed duct. Select a duct piece to set its wrap or liner.', { ns: 'editor' }))
         return
       }
       insulation.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
@@ -3044,15 +3137,15 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
     },
     viewGraphics: openView
       ? {
-          lines: () => focusViewSection('view-lines'),
-          range: openView.viewType === 'floor_plan' || openView.viewType === 'ceiling_plan' ? () => focusViewSection('view-range') : null,
-          linked: references.length > 0 && openView.viewType !== 'detail' ? () => focusViewSection('view-linked-models') : null,
+          lines: () => focusViewSection('view-lines', t),
+          range: openView.viewType === 'floor_plan' || openView.viewType === 'ceiling_plan' ? () => focusViewSection('view-range', t) : null,
+          linked: references.length > 0 && openView.viewType !== 'detail' ? () => focusViewSection('view-linked-models', t) : null,
         }
       : null,
     showPressure: () => {
       const section = document.querySelector('[data-testid="run-pressure"], [data-testid="run-pressure-unavailable"]')
       if (section) section.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-      else toast.info("No pressure to show: this piece isn't on a duct system with a fan yet.")
+      else toast.info(t('surface.noPressureToShow', "No pressure to show: this piece isn't on a duct system with a fan yet.", { ns: 'editor' }))
     },
     deleteSelected: () => (groupSelection ? requestGroupDelete(groupSelection.ids) : selectedId && requestDelete(selectedId)),
     clearSelection: () => void sessionRef.current?.clearSelection(),
@@ -3098,7 +3191,11 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
             offsetArmed,
             armOffset: () => {
               setOffsetArmed((on) => !on)
-              setToolHint(offsetArmed ? 'Offset cancelled.' : 'Click the beam, pipe or wall in the way of the leg you are drawing.')
+              setToolHint(
+                offsetArmed
+                  ? t('surface.offsetCancelled', 'Offset cancelled.', { ns: 'editor' })
+                  : t('surface.offsetClickObstacle', 'Click the beam, pipe or wall in the way of the leg you are drawing.', { ns: 'editor' }),
+              )
             },
             finish: finishRouteAfterClicks,
             cancel: () => {
@@ -3106,8 +3203,8 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
               setRoutePoints(0)
               setToolHint('Route cancelled; nothing was saved.')
             },
-            finishBlocked: routePoints === 0 ? 'Click where the route starts first.' : null,
-            riseBlocked: routePoints === 0 ? 'Click a first point along the run, then rise or drop there.' : null,
+            finishBlocked: routePoints === 0 ? t('surface.routeNeedsStart', 'Click where the route starts first.', { ns: 'editor' }) : null,
+            riseBlocked: routePoints === 0 ? t('surface.riseNeedsFirstPoint', 'Click a first point along the run, then rise or drop there.', { ns: 'editor' }) : null,
           }
         : null,
     coordinates: {
@@ -3139,7 +3236,13 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
           ? {
               value: openView.props?.orientation ?? 'plan_north',
               set: (value) => {
-                const refusal = submitWithUndo({ type: 'set_view_properties', viewId: openView.id, props: { orientation: value } }, value === 'true_north' ? 'turn the plan to true north' : value === 'working_angle' ? 'turn the plan to the working angle' : 'turn the plan to plan north')
+                const label =
+                  value === 'true_north'
+                    ? t('surface.undoTrueNorth', 'turn the plan to true north', { ns: 'editor' })
+                    : value === 'working_angle'
+                      ? t('surface.undoWorkingAngle', 'turn the plan to the working angle', { ns: 'editor' })
+                      : t('surface.undoPlanNorth', 'turn the plan to plan north', { ns: 'editor' })
+                const refusal = submitWithUndo({ type: 'set_view_properties', viewId: openView.id, props: { orientation: value } }, label)
                 if (refusal) toast.error(refusal)
               },
             }
@@ -3170,7 +3273,14 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
   const headerStatus = (
     <div className="flex items-center gap-2">
       {others.length > 0 && (
-        <div className="flex -space-x-2" aria-label={`${others.length} other ${others.length === 1 ? 'person' : 'people'} here`}>
+        <div
+          className="flex -space-x-2"
+          aria-label={
+            others.length === 1
+              ? t('surface.oneOtherPerson', '1 other person here', { ns: 'editor', count: others.length })
+              : t('surface.otherPeopleHere', '{{count}} other people here', { ns: 'editor', count: others.length })
+          }
+        >
           {others.slice(0, 5).map(([id, p]) => (
             <Tooltip key={id}>
               <TooltipTrigger asChild>
@@ -3178,7 +3288,13 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
                   <AvatarFallback>{initials(p.actor.name)}</AvatarFallback>
                 </Avatar>
               </TooltipTrigger>
-              <TooltipContent>{p.activity.kind === 'dragging_tap' ? `${p.actor.name} is moving a branch` : p.activity.kind === 'editing_note' ? `${p.actor.name} is editing a note` : `${p.actor.name} is here`}</TooltipContent>
+              <TooltipContent>
+                {p.activity.kind === 'dragging_tap'
+                  ? t('surface.presenceMovingBranch', '{{name}} is moving a branch', { ns: 'editor', name: p.actor.name })
+                  : p.activity.kind === 'editing_note'
+                    ? t('surface.presenceEditingNote', '{{name}} is editing a note', { ns: 'editor', name: p.actor.name })
+                    : t('surface.presenceHere', '{{name}} is here', { ns: 'editor', name: p.actor.name })}
+              </TooltipContent>
             </Tooltip>
           ))}
         </div>
@@ -3282,7 +3398,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
             selectedTypeId: placeType?.typeId ?? null,
             onSelectType: (entry) => {
               setPlaceType(entry)
-              setToolHint(`Click in the view to place ${entry.definition.typeName}. R rotates, Esc stops.`)
+              setToolHint(t('surface.clickInViewToPlace', 'Click in the view to place {{what}}. R rotates, Esc stops.', { ns: 'editor', what: entry.definition.typeName }))
               const next = heightAfterChoosingPart(placeHeightFt, placeHeightTyped.current, entry.definition.category)
               placeHeightTyped.current = next.typed
               setPlaceHeightFt(next.heightFt)
@@ -3312,7 +3428,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
             levelId: activeLevel,
             onLevel: setPlaceLevel,
             pointCount: routePoints,
-            finishBlocked: routePoints === 0 ? 'Click where the route starts first.' : null,
+            finishBlocked: routePoints === 0 ? t('surface.routeNeedsStart', 'Click where the route starts first.', { ns: 'editor' }) : null,
             onFinish: finishRouteAfterClicks,
             onStop: () => chooseTool('select'),
             myDefaults: routeDefaults,
@@ -3457,7 +3573,11 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
             }}
             onContextMenu={(e) => e.preventDefault()}
             onDoubleClick={(e) => void orbitClicks.doubleClicked(sessionRef.current?.viewer, e.clientX, e.clientY, { tool, planOpen })}
-            aria-label="3D model view. Drag to orbit; scroll or pinch to zoom toward the pointer, which then becomes the point the view orbits around. Click a spot to orbit around it; double-click empty space to go back to the middle of the model. Drag a branch takeoff to slide it, or a selection to move it."
+            aria-label={t(
+              'surface.canvasAria',
+              '3D model view. Drag to orbit; scroll or pinch to zoom toward the pointer, which then becomes the point the view orbits around. Click a spot to orbit around it; double-click empty space to go back to the middle of the model. Drag a branch takeoff to slide it, or a selection to move it.',
+              { ns: 'editor' },
+            )}
             role="application"
             data-tool={tool}
             data-plan-up={planUpDeg}
@@ -3508,7 +3628,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
               onOpenSection={(id) => openItem({ kind: 'view', id })}
               onCreate={createSection}
               onCancel={() => setSectionTool(false)}
-              onFarClip={canEdit ? (viewId, depthMm) => submitWithUndo({ type: 'set_view_crop', viewId, farClipMm: depthMm }, 'change how far the section sees') : undefined}
+              onFarClip={canEdit ? (viewId, depthMm) => submitWithUndo({ type: 'set_view_crop', viewId, farClipMm: depthMm }, t('surface.undoSectionReach', 'change how far the section sees', { ns: 'editor' })) : undefined}
             />
           )}
           {viewer && model && !showDrawing && (showOrigin || pickingNorth) && (
@@ -3546,9 +3666,11 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
           )}
           {pickingNorth && !showDrawing && (
             <div className="absolute left-1/2 top-3 z-10 flex -translate-x-1/2 items-center gap-2 rounded-md border bg-background/95 p-1.5 shadow-sm" data-testid="true-north-bar">
-              <span className="px-1 text-xs text-muted-foreground">Set true north: click a point, then a second point toward true north.</span>
+              <span className="px-1 text-xs text-muted-foreground">
+                {t('surface.setTrueNorthBar', 'Set true north: click a point, then a second point toward true north.', { ns: 'editor' })}
+              </span>
               <Button size="sm" variant="outline" onClick={() => setPickingNorth(false)}>
-                Cancel (Esc)
+                {t('surface.cancelEsc', 'Cancel (Esc)', { ns: 'editor' })}
               </Button>
             </div>
           )}
@@ -3639,7 +3761,12 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
                 placing={drawingPlacing}
                 onPlaced={() => {
                   // A new part stays armed for the next click; a part from the list is placed once.
-                  if (!placingNewOnDrawing) stopPlannedPlacing(plannedPlacing ? `Placed ${plannedPlacing.label} on ${placeSurface.label}. Undo takes it back.` : null)
+                  if (!placingNewOnDrawing)
+                    stopPlannedPlacing(
+                      plannedPlacing
+                        ? t('surface.placedOnWords', 'Placed {{what}} on {{where}}. Undo takes it back.', { ns: 'editor', what: plannedPlacing.label, where: placeSurface.label })
+                        : null,
+                    )
                 }}
                 onPlacingCancel={() => {
                   if (placingNewOnDrawing) chooseTool('select')
@@ -3750,8 +3877,10 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
           {loadError && (
             <div className="absolute inset-x-4 top-4">
               <Alert variant="destructive">
-                <AlertTitle>The model didn&apos;t open</AlertTitle>
-                <AlertDescription>{loadError} Reload the page to try again; if it keeps happening, tell the software team.</AlertDescription>
+                <AlertTitle>{t('surface.modelDidNotOpen', "The model didn't open", { ns: 'editor' })}</AlertTitle>
+                <AlertDescription>
+                  {loadError} {t('surface.reloadToTryAgain', 'Reload the page to try again; if it keeps happening, tell the software team.', { ns: 'editor' })}
+                </AlertDescription>
               </Alert>
             </div>
           )}
@@ -3765,7 +3894,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
                   {problem.kind !== 'no_model' && (
                     <Button size="sm" variant="outline" className="mt-2" onClick={() => sessionRef.current?.retry()}>
                       <RefreshCw data-icon="inline-start" />
-                      Try again
+                      {t('surface.tryAgain', 'Try again', { ns: 'editor' })}
                     </Button>
                   )}
                 </AlertDescription>
@@ -3803,7 +3932,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
           {backSheet && !showDrawing && !drawingSection && (
             <Button size="sm" variant="secondary" className="absolute left-3 top-3 shadow-sm" onClick={() => openItem({ kind: 'sheet', id: backSheet.id })} data-testid="back-to-sheet">
               <ArrowLeft data-icon="inline-start" />
-              Back to {backSheet.number}
+              {t('surface.backToSheet', 'Back to {{number}}', { ns: 'editor', number: backSheet.number })}
             </Button>
           )}
           {boxDrag && <BoxOverlay drag={boxDrag} />}
@@ -4058,7 +4187,11 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
           {...(partEditor.spot ? { newCategory: 'generic' as const } : {})}
           firmLibrary={
             firmLibrary.status.state === 'ready'
-              ? { canWrite: firmLibrary.canWrite, ...(firmLibrary.canWrite ? {} : { reason: 'Your role can place firm library parts but not add them' }), save: firmLibrary.save }
+              ? {
+                  canWrite: firmLibrary.canWrite,
+                  ...(firmLibrary.canWrite ? {} : { reason: t('surface.firmLibraryPlaceOnly', 'Your role can place firm library parts but not add them', { ns: 'editor' }) }),
+                  save: firmLibrary.save,
+                }
               : undefined
           }
           onClose={() => setPartEditor(null)}
@@ -4123,11 +4256,25 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
               const old = request.sheet.props?.fields ?? {}
               const fields: Record<string, string> = { ...input.fields }
               for (const key of Object.keys(old)) if (!(key in fields)) fields[key] = ''
-              return submitWithUndo({ type: 'set_sheet_properties', sheetId: request.sheet.id, number: input.number, name: input.name, titleBlock: input.titleBlock, titleBlockRow: input.titleBlockRow, fields }, `update sheet ${input.number}`)
+              return submitWithUndo(
+                { type: 'set_sheet_properties', sheetId: request.sheet.id, number: input.number, name: input.name, titleBlock: input.titleBlock, titleBlockRow: input.titleBlockRow, fields },
+                t('surface.undoUpdateSheet', 'update sheet {{number}}', { ns: 'editor', number: input.number }),
+              )
             }
             const id = newId('sheet')
             const fields = Object.fromEntries(Object.entries(input.fields).filter(([, v]) => v.trim() !== ''))
-            const refusal = submitWithUndo({ type: 'create_sheet', sheetId: id, number: input.number, name: input.name, titleBlock: input.titleBlock, ...(input.titleBlockRow ? { titleBlockRow: input.titleBlockRow } : {}), fields }, `create sheet ${input.number}`)
+            const refusal = submitWithUndo(
+              {
+                type: 'create_sheet',
+                sheetId: id,
+                number: input.number,
+                name: input.name,
+                titleBlock: input.titleBlock,
+                ...(input.titleBlockRow ? { titleBlockRow: input.titleBlockRow } : {}),
+                fields,
+              },
+              t('surface.undoCreateSheet', 'create sheet {{number}}', { ns: 'editor', number: input.number }),
+            )
             if (!refusal) openItem({ kind: 'sheet', id })
             return refusal
           }}
@@ -4150,7 +4297,11 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
                 onPlaced={(itemId) => {
                   setFigureDialog(null)
                   setPlacedFigure({ id: itemId })
-                  toast.success(figureDialog === 'chart' ? 'Chart placed. Drag it to move, drag a corner to resize; Ctrl+Z takes it off.' : 'Picture placed. Drag it to move, drag a corner to resize; Ctrl+Z takes it off.')
+                  toast.success(
+                    figureDialog === 'chart'
+                      ? t('surface.chartPlaced', 'Chart placed. Drag it to move, drag a corner to resize; Ctrl+Z takes it off.', { ns: 'editor' })
+                      : t('surface.picturePlaced', 'Picture placed. Drag it to move, drag a corner to resize; Ctrl+Z takes it off.', { ns: 'editor' }),
+                  )
                 }}
               />
             )
@@ -4170,7 +4321,9 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
                 onPlaced={(itemId) => {
                   setCalcDialog(false)
                   setPlacedFigure({ id: itemId })
-                  toast.success('Calculation placed. It updates with every edit and freezes when the set is issued; Ctrl+Z takes it off.')
+                  toast.success(
+                    t('surface.calculationPlaced', 'Calculation placed. It updates with every edit and freezes when the set is issued; Ctrl+Z takes it off.', { ns: 'editor' }),
+                  )
                 }}
               />
             )
@@ -4178,7 +4331,11 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
         </ModelFromStore>
       )}
       {request?.kind === 'rename_view' && (
-        <RenameViewDialog view={request.view} onCancel={() => setRequest(null)} onRename={(name) => submitWithUndo({ type: 'rename_view', viewId: request.view.id, name }, `rename to ${name}`)} />
+        <RenameViewDialog
+          view={request.view}
+          onCancel={() => setRequest(null)}
+          onRename={(name) => submitWithUndo({ type: 'rename_view', viewId: request.view.id, name }, t('surface.undoRenameTo', 'rename to {{name}}', { ns: 'editor', name }))}
+        />
       )}
       {request?.kind === 'delete_view' && (
         <ModelFromStore store={modelStore}>
@@ -4187,11 +4344,15 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
       )}
       {request?.kind === 'delete_sheet' && (
         <DeleteDialog
-          title={`Delete sheet ${request.sheet.number}?`}
-          description={`Its notes and lines go with it. The ${index?.viewportsBySheet.get(request.sheet.id)?.length ?? 0} views on it stay in the panel, just off the sheet. Ctrl+Z brings the sheet back.`}
-          confirmLabel="Delete sheet"
+          title={t('surface.deleteSheetTitle', 'Delete sheet {{number}}?', { ns: 'editor', number: request.sheet.number })}
+          description={t(
+            'surface.deleteSheetBody',
+            'Its notes and lines go with it. The {{count}} views on it stay in the panel, just off the sheet. Ctrl+Z brings the sheet back.',
+            { ns: 'editor', count: index?.viewportsBySheet.get(request.sheet.id)?.length ?? 0 },
+          )}
+          confirmLabel={t('surface.deleteSheet', 'Delete sheet', { ns: 'editor' })}
           onCancel={() => setRequest(null)}
-          onConfirm={() => submitWithUndo({ type: 'delete_sheet', sheetId: request.sheet.id }, `delete sheet ${request.sheet.number}`)}
+          onConfirm={() => submitWithUndo({ type: 'delete_sheet', sheetId: request.sheet.id }, t('surface.undoDeleteSheet', 'delete sheet {{number}}', { ns: 'editor', number: request.sheet.number }))}
         />
       )}
       <LevelTools
@@ -4225,7 +4386,13 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
               onClose={() => setEquipmentListFor(null)}
               projectId={projectId}
               library={equipmentLibrary}
-              onAdded={(ids) => toast.success(`Added ${ids.length} planned item${ids.length === 1 ? '' : 's'}. They're in Not placed yet.`)}
+              onAdded={(ids) =>
+                toast.success(
+                  ids.length === 1
+                    ? t('surface.onePlannedItemAdded', "Added 1 planned item. They're in Not placed yet.", { ns: 'editor', count: ids.length })
+                    : t('surface.plannedItemsAdded', "Added {{count}} planned items. They're in Not placed yet.", { ns: 'editor', count: ids.length }),
+                )
+              }
               onOpenSchedule={() => {
                 setEquipmentListFor(null)
                 openBuiltinList('equipment_list')
@@ -4323,21 +4490,29 @@ function BoxOverlay({ drag }: { drag: BoxDrag }) {
 }
 
 function DeleteViewConfirm({ view, model, onCancel, onDelete }: { view: ViewElement; model: ModelState | null; onCancel: () => void; onDelete: (placed: 'refuse' | 'remove_from_sheet') => string | null }) {
+  const t = useEditorTranslate()
   const placedOn = useMemo(() => {
     if (!model) return null
     const index = documentIndex(model)
     const vp = index.viewportByView.get(view.id)
-    return vp ? index.sheets.find((s) => s.id === vp.sheetId)?.number ?? 'a sheet' : null
-  }, [model, view.id])
+    return vp ? (index.sheets.find((s) => s.id === vp.sheetId)?.number ?? t('surface.aSheet', 'a sheet', { ns: 'editor' })) : null
+  }, [model, view.id, t])
   return (
     <DeleteDialog
-      title={`Delete view "${view.name}"?`}
+      title={t('surface.deleteViewTitle', 'Delete view "{{name}}"?', { ns: 'editor', name: view.name })}
       description={
         placedOn
-          ? `It's placed on sheet ${placedOn}. Deleting it takes it off that sheet too. Ctrl+Z brings both back.`
-          : `${view.viewType === 'detail' ? 'Its lines, text and dimensions go with it. ' : ''}Ctrl+Z brings it back.`
+          ? t('surface.deleteViewOnSheet', "It's placed on sheet {{sheet}}. Deleting it takes it off that sheet too. Ctrl+Z brings both back.", { ns: 'editor', sheet: placedOn })
+          : t('surface.deleteViewBody', '{{detail}}Ctrl+Z brings it back.', {
+              ns: 'editor',
+              detail: view.viewType === 'detail' ? t('surface.deleteViewDetailLines', 'Its lines, text and dimensions go with it. ', { ns: 'editor' }) : '',
+            })
       }
-      confirmLabel={placedOn ? `Delete and take off ${placedOn}` : 'Delete view'}
+      confirmLabel={
+        placedOn
+          ? t('surface.deleteViewAndTakeOff', 'Delete and take off {{sheet}}', { ns: 'editor', sheet: placedOn })
+          : t('surface.deleteView', 'Delete view', { ns: 'editor' })
+      }
       onCancel={onCancel}
       onConfirm={() => onDelete(placedOn ? 'remove_from_sheet' : 'refuse')}
     />

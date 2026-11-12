@@ -245,6 +245,11 @@ const EN: Translate = translateFor("en");
  */
 const SITES: Readonly<Record<string, number>> = {
   "panel.addOns": 2,
+  // The new-view menu writes the four diagram kinds; the surface names one in the undo label.
+  "panel.new.oneLine": 2,
+  "panel.new.electricalRiser": 2,
+  "panel.new.plumbingRiser": 2,
+  "panel.new.plumbingIsometric": 2,
   "panel.changeOrders": 2,
   "panel.copies": 2,
   "panel.linkedModels": 4,
