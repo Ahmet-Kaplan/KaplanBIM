@@ -260,9 +260,10 @@ const SITES: Readonly<Record<string, number>> = {
   "electrical.voltageV1Pole": 2,
   "electrical.voltageVPoles": 2,
   "electrical.youCanUndoThis": 2,
-  // The run properties' read-only refusal is on the route-like button's tooltip, the
-  // delete tooltip and both move forms; `Height` labels a level piece and a fitting.
-  "run.notLive": 4,
+  // The read-only refusal is on the run's route-like tooltip, its delete tooltip and
+  // both move forms, then on the part-space panel's host button and its working-space
+  // tip; `Height` labels a level piece and a fitting.
+  "run.notLive": 6,
   "run.connected": 2,
   "run.height": 2,
   // The group properties say the same feet example, the same `Move` and the same

@@ -76,6 +76,20 @@ const CAPTIONS: readonly Caption[] = [
   { key: 'group.pipeSizeIn', english: 'Pipe size (in)', turkish: 'Boru boyutu (in)' },
   { key: 'group.ductShape', english: 'Duct shape', turkish: 'Kanal biçimi' },
   { key: 'group.flatOval', english: 'Flat oval', turkish: 'Yassı oval' },
+  // §2.3/Ç21: a clearance is an *açıklık*; a void is a *boşluk*, and the two words
+  // may not swap. A part's host is its *taşıyıcı*, a curb a *kaide*.
+  { key: 'partSpace.clearances', english: 'Clearances', turkish: 'Açıklıklar' },
+  { key: 'partSpace.clearanceZones', english: 'Clearance zones', turkish: 'Açıklık bölgeleri' },
+  { key: 'partSpace.standsOn', english: 'Stands on', turkish: 'Üzerinde durduğu' },
+  { key: 'partSpace.onItsHost', english: 'On its host', turkish: 'Taşıyıcısının üzerinde' },
+  { key: 'partSpace.hostGone', english: 'Host gone', turkish: 'Taşıyıcı yok oldu' },
+  { key: 'partSpace.noHost', english: 'No host', turkish: 'Taşıyıcı yok' },
+  { key: 'partSpace.curbOrRail', english: 'Curb or rail (in)', turkish: 'Kaide ya da korkuluk (in)' },
+  { key: 'partSpace.purposeWorkingSpace', english: 'Electrical working space', turkish: 'Elektrik çalışma boşluğu' },
+  { key: 'partSpace.purposeDedicatedSpace', english: 'Dedicated equipment space', turkish: 'Ayrılmış ekipman boşluğu' },
+  { key: 'partSpace.side', english: 'Side', turkish: 'Yüz' },
+  { key: 'partSpace.setWorkingSpace', english: 'Set NEC 110.26 working space', turkish: 'NEC 110.26 çalışma boşluğunu ayarla' },
+  { key: 'partSpace.voltsToGround', english: 'Volts to ground', turkish: 'Toprağa göre volt' },
 ]
 
 /**
@@ -93,7 +107,7 @@ const SITES: Readonly<Record<string, number>> = {
 }
 
 /** The prefixes this file owns. A key under one of them must have Turkish. */
-const PREFIXES = ['linkedElement.', 'linkModel.', 'group.'] as const
+const PREFIXES = ['linkedElement.', 'linkModel.', 'group.', 'partSpace.'] as const
 
 /** `"{{n}} edits"` with `{ n: 3 }` → `"3 edits"`. The panel never shows a placeholder. */
 function fill(template: string, values: Readonly<Record<string, string | number>> | undefined): string {
@@ -211,6 +225,16 @@ test('§2.8/Ç17: a duct is a kanal and a pipe a boru, never swapped', () => {
   expect(TR('group.pipeSizeIn', 'Pipe size (in)', { ns: 'editor' })).toBe('Boru boyutu (in)')
   // §7: the unit symbols travel unchanged.
   expect(TR('group.espValue', '{{esp}} in. w.c.', { ns: 'editor', esp: '0.25' })).toBe('0.25 in. w.c.')
+})
+
+test('§2.3/Ç21: a clearance is an açıklık, a void a boşluk, and they never swap', () => {
+  expect(TR('partSpace.clearances', 'Clearances', { ns: 'editor' })).toBe('Açıklıklar')
+  expect(TR('partSpace.clearanceZones', 'Clearance zones', { ns: 'editor' })).toBe('Açıklık bölgeleri')
+  // A NEC working space is a çalışma boşluğu, never a çalışma alanı: an *alan* is an area.
+  expect(TR('partSpace.purposeWorkingSpace', 'Electrical working space', { ns: 'editor' })).toBe('Elektrik çalışma boşluğu')
+  expect(TR('partSpace.purposeWorkingSpace', 'Electrical working space', { ns: 'editor' })).not.toContain('alan')
+  // §2.3: a space (a room) stays a mekan; only the NEC volume is a boşluk.
+  expect(TR('ventilation.space', 'Space', { ns: 'editor' })).toBe('Mekan')
 })
 
 test('§0.7: sentences speak to a person in the formal plural, buttons stay singular', () => {

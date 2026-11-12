@@ -874,6 +874,37 @@ Yukarıda **zaten** karara bağlı olanlar tekrar yazılmadı (`Ekipman`, `Armat
 
 ---
 
+### 5.12 Aşama 4 son turu: son sekiz üst düzey dosya (2026-11-10)
+
+`packages/bim-editor/src/editor` kökünde kalan sekiz dosya (`RunProperties`,
+`RunMoveForm`, `LinkedElementProperties`, `LinkModelDialog`, `GroupProperties`,
+`PartSpaceProperties`, `DocsPickerDialog`, `LinkedModelsPanel`) çevrilirken bunlar
+gerekti. Yukarıda **zaten** karara bağlı olanlar tekrar yazılmadı (`Eleman`,
+`Parça`, `Hat`, `Branşman`, `Ana hat`, `Tip`, `Kat`, `Mekan`, `Pafta`, `Antet`,
+`Model`, `Bağlı model`, `Yalıtım`, `Panel/Pano`).
+
+| EN | TR | Not |
+|----|----|-----|
+| Reducer (pipe) / Transition (duct) | **redüksiyon / geçiş parçası** | Bir boyut değişiminde araya giren bağlantı parçası; §2.8 *fitting* = bağlantı parçası |
+| Concentric / Eccentric (transition) | **konsantrik / eksantrik** | Eksenleri ortak / kaçık |
+| Trunk | **ana hat** | §2.8; `Along the trunk` = *Ana hat boyunca* |
+| Straight piece (Tab scope) | **düz parça** | §5.7 ile aynı karar |
+| Curb (an equipment base on a slab) | **kaide** | *Bordür* (yol/kenar) değil; çatı kaidesi |
+| Rail (beside a curb) | **korkuluk** | `Curb or rail` = *Kaide ya da korkuluk* |
+| Host (the element a part stands on) | **taşıyıcı** | Bir *bağlı model* değil; parçanın durduğu eleman |
+| Slab | **döşeme** | §2.1 ile aynı karar |
+| Clearance (the free distance a part needs) | **açıklık** | ⚠️ **boşluk** DEĞİL — o *void*'tir (§2.3). Zone = *açıklık bölgesi* |
+| Working space (NEC 110.26) | **çalışma boşluğu** | §2.3 *Space* = **mekan** yalnız mimari mekan içindir; NEC boşluğu bir hacimdir, *alan* (area) değildir |
+| Dedicated equipment space | **ayrılmış ekipman boşluğu** | §2.3 notuyla aynı |
+| Service access / Keep clear | **servis erişimi / açık tut** | Açıklık bölgesinin amacı |
+| Instance (Revit parameter group) | **örnek** | Revit TR; karşıtı **tip** (§2.2) |
+| Quantities (a Revit property group) | **miktarlar** | §5 *metraj* değil: bu bir özellik grubudur, metraj kalemi değil |
+| Curb height / Depth / Slide / Side | **kaide yüksekliği / derinlik / kaydırma / yüz** | `Slide` = §2.8 *offset* → **kaydırma**; `Side` bir yüzdür, *taraf* değil |
+| Volts to ground / Condition (1, 2, 3) | **toprağa göre volt / koşul** | NEC 110.26(A)(1) koşulları; `V`, `in.`, `ft` çevrilmez (§7) |
+| Fan static (external static pressure) | **fan statik basıncı** | `in. w.c.` bir birim sembolüdür, çevrilmez (§7) |
+
+---
+
 ## 6. Maliyet ve ticari terimler
 
 | EN | TR | Not |
@@ -1069,6 +1100,7 @@ Bunlar sözlüğün en kritik kısmı. Her biri için **benim önerim** yazılı
 | Ç18 | **ABD mühendislik kısaltmaları** | Varsayılan SI; ABD kısaltmaları yalnız `en-US` yerelinde. |
 | Ç19 | **`Submittal`** | *imalat onayı* (sektörde yerleşik). Alternatif *malzeme onayı*. |
 | Ç20 | **`Owner`** — (a) sözleşmede işi veren taraf, (b) bir modelin/hesabın sahibi olan kişi | (a) **işveren** (§6), (b) **sahip**. Ayrım bağlamla çözülür ve iki terim karıştırılmaz. **Karar (2026-11-10):** barındırılan uygulamanın “Who has it” listesindeki `share.owner` = (b) → **Sahip**; sözleşme/parsel/maliyet ekranlarındaki `Owner` = (a) → **işveren**. Bir modelin sahibi için "işveren" yazmak yanlıştır — o kişi işveren değil, modeli oluşturan kişidir. |
+| Ç21 | **`Clearance`** — parçanın ihtiyaç duyduğu serbest mesafe vs **`Void`** | *açıklık* (clearance) / *boşluk* (void). Aynı sözcüğü ikisine de vermek, "açıklık bölgesi" ile "boşluk"u karıştırır. `working space` bir *çalışma boşluğu*'dur (NEC), *çalışma alanı* değil — *alan* = area (§2.3). |
 
 ---
 

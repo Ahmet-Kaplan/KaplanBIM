@@ -163,7 +163,6 @@ const EDITOR_ENTRIES = fs.readdirSync(EDITOR_SRC, { withFileTypes: true });
  * has to wait is named here with its owner rather than silently skipped.
  */
 export const NOT_YET_GUARDED_FILES: readonly string[] = [
-  "PartSpaceProperties.tsx",
   "DocsPickerDialog.tsx",
   "LinkedModelsPanel.tsx",
 ];
