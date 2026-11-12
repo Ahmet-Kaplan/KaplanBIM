@@ -1073,6 +1073,26 @@ boşluğu`, `Yüz`, `Sürüm`, `Revizyon`, `İşveren`, `Pafta`, `Çizelge`, `Me
 > `DEFAULT_GROUPS`'u gibi **veri**dir; panel onları yazmaz. Sahibi: facet kayıt
 > defterinin kendi çeviri turu. Bir bölüm adı cümle içinde kullanılırken
 > (`More electrical fields`) Türkçede **küçük harfe indirilmez** (§4.2, `İ`/`I`).
+>
+> **`design-limits/` kapandı (2026-11-10).** Kitaplık › Tasarım limitleri paneli
+> (`DesignLimitsSection`), ekle/değiştir penceresi (`DesignLimitEditor`) ve
+> kitaplık istemcisi (`design-limits-client`): **60** site sıfıra indi, ağaç
+> `OUTSIDE_STAGE_4`'ten `OWNED_DIRS`'a girdi, Türkçesi
+> `i18n-design-limits.test.tsx` içinde ölçülür. `SEVERITY_WORDS` ve `LAYER_WORDS`
+> tabloları erişen oldu (`severityWords`, `layerWord`); `appliesToWords`,
+> `bandWords` ve `publishDesignLimitFrom` bir `Translate` alır.
+>
+> **Bir aralık cümledir, cümle de düzenleyicinin.** `bandWords` çekirdeğin
+> `policy.bandWords`'ından **splice edilmez**: çekirdeğinki kendi okuyucuları için
+> veridir, ama ekranda bir cümledir (*at most 8 ft/s*) ve Türkçe satırın içinde
+> İngilizce kalıyordu. Düzenleyici onu `band.between` / `band.atMost` /
+> `band.atLeast` / `band.aim` anahtarlarıyla kurar; sayılar çekirdeğin kendi
+> `limitNumber`'ından geçtiği için İngilizce birebir aynı okunur, birim sembolü
+> (`ft/s`) §7 gereği çevrilmez.
+>
+> **`rate` = `debit` değil burada.** Tasarım limitleri hız, basınç kaybı, yedek
+> kapasite ve paylardır; §9/Ç13'ün *debit*/*birim fiyat* ayrımı bu ekranda geçmez.
+> `Limit` = **limit**; *kısıt* (§8 eskiz kısıtı) ile karıştırılmaz.
 
 ---
 

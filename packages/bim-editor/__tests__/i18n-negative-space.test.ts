@@ -105,6 +105,10 @@ const OWNED_DIRS = [
   // clearance zones and test tab), the 2D and 3D canvases, the publish dialog and
   // the placed part's update review (285 findings, 14 files).
   "part-editor",
+  // Outside stage 4 — design limits: the library panel that lists the firm's rules
+  // of thumb (one row per limit, its band, its source and who set it), the add/
+  // change dialog and the put-back/remove confirm (60 findings, three files).
+  "design-limits",
   // Outside stage 4 — the Inspector: the part's Properties form — one field per
   // parameter in facet sections, the spare fields behind "More …", the read-only
   // types behind Edit type, and the fed-from/circuit field the link owns
@@ -154,7 +158,6 @@ const OUTSIDE_STAGE_4 = [
   "construction",
   "contributions",
   "copies",
-  "design-limits",
   "diagrams",
   "graph",
   "graphics",

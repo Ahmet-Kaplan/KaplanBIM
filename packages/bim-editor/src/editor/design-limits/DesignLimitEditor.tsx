@@ -8,8 +8,22 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '../
 import { Input } from '../../ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select'
 import { Textarea } from '../../ui/textarea'
+import { englishOnly, useEditorTranslate, type Translate } from '../i18n/translate'
 
-const SEVERITY_WORDS: Readonly<Record<DesignLimitSeverity, string>> = { error: 'Holds the issue until fixed', warning: 'Warning', info: 'Note only' }
+/**
+ * What breaking the limit means, as an accessor: a table of English is how
+ * "Holds the issue until fixed" stayed English in a Turkish dialog.
+ */
+function severityWords(severity: DesignLimitSeverity, t: Translate = englishOnly): string {
+  switch (severity) {
+    case 'error':
+      return t('designLimits.severity.error', 'Holds the issue until fixed', { ns: 'editor' })
+    case 'warning':
+      return t('designLimits.severity.warning', 'Warning', { ns: 'editor' })
+    case 'info':
+      return t('designLimits.severity.info', 'Note only', { ns: 'editor' })
+  }
+}
 
 interface Draft {
   label: string
@@ -78,6 +92,7 @@ function withoutUndefined(limit: DesignLimit): DesignLimit {
  * stays open with the problem shown until it is fixed or cancelled.
  */
 export function DesignLimitEditor({ initial, fallback, onCancel, onSave }: { readonly initial: DesignLimit | null; readonly fallback: DesignLimit | null; readonly onCancel: () => void; readonly onSave: (limit: DesignLimit) => Promise<boolean> }) {
+  const t = useEditorTranslate()
   const [draft, setDraft] = useState<Draft>(() => draftOf(initial))
   const [problems, setProblems] = useState<readonly string[]>([])
   const [saving, setSaving] = useState(false)
@@ -88,93 +103,133 @@ export function DesignLimitEditor({ initial, fallback, onCancel, onSave }: { rea
     const bad = [limit.band.min, limit.band.max, limit.band.target].some((v) => v !== undefined && !Number.isFinite(v))
     const { designLimitSchema } = await import('@permitzip/bim-kernel/policy')
     const parsed = designLimitSchema.safeParse(limit)
-    const found = [...(bad ? ['Minimum, maximum and target must be numbers.'] : []), ...(parsed.success ? [] : parsed.error.issues.map((i) => `${i.path.join(' ') || 'Limit'}: ${i.message}`))]
+    const found = [
+      ...(bad ? [t('designLimits.minMaxNumber', 'Minimum, maximum and target must be numbers.', { ns: 'editor' })] : []),
+      ...(parsed.success
+        ? []
+        : parsed.error.issues.map((i) =>
+            t('designLimits.issueLine', '{{where}}: {{message}}', {
+              ns: 'editor',
+              where: i.path.join(' ') || t('designLimits.limit', 'Limit', { ns: 'editor' }),
+              message: i.message,
+            }),
+          )),
+    ]
     setProblems(found)
     if (found.length > 0) return
     setSaving(true)
     const ok = await onSave(limit)
     setSaving(false)
-    if (!ok) setProblems(['It wasn\u2019t saved; the reason is shown above the list.'])
+    if (!ok) setProblems([t('designLimits.notSaved', 'It wasn’t saved; the reason is shown above the list.', { ns: 'editor' })])
   }
 
   return (
     <Dialog open onOpenChange={(open) => !open && onCancel()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{initial ? `Change ${initial.label}` : 'Add a design limit'}</DialogTitle>
-          <DialogDescription>{fallback ? `The default is ${fallback.band.max ?? fallback.band.min ?? fallback.band.target} ${fallback.unit} (${fallback.citation.source}).` : 'Say what it measures, the band to stay inside and where the number comes from.'}</DialogDescription>
+          <DialogTitle>
+            {initial
+              ? t('designLimits.changeNamed', 'Change {{name}}', { ns: 'editor', name: initial.label })
+              : t('designLimits.addTitle', 'Add a design limit', { ns: 'editor' })}
+          </DialogTitle>
+          <DialogDescription>
+            {fallback
+              ? t('designLimits.defaultIs', 'The default is {{value}} {{unit}} ({{source}}).', {
+                  ns: 'editor',
+                  value: fallback.band.max ?? fallback.band.min ?? fallback.band.target,
+                  unit: fallback.unit,
+                  source: fallback.citation.source,
+                })
+              : t('designLimits.addWhy', 'Say what it measures, the band to stay inside and where the number comes from.', { ns: 'editor' })}
+          </DialogDescription>
         </DialogHeader>
         <FieldGroup>
           <Field>
-            <FieldLabel htmlFor="dl-label">Name</FieldLabel>
-            <Input id="dl-label" value={draft.label} onChange={set('label')} placeholder="Domestic cold water velocity" />
+            <FieldLabel htmlFor="dl-label">{t('designLimits.name', 'Name', { ns: 'editor' })}</FieldLabel>
+            <Input
+              id="dl-label"
+              value={draft.label}
+              onChange={set('label')}
+              placeholder={t('designLimits.namePlaceholder', 'Domestic cold water velocity', { ns: 'editor' })}
+            />
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field>
-              <FieldLabel htmlFor="dl-quantity">What it measures</FieldLabel>
-              <Input id="dl-quantity" value={draft.quantity} onChange={set('quantity')} placeholder="velocity" disabled={initial !== null} />
+              <FieldLabel htmlFor="dl-quantity">{t('designLimits.quantity', 'What it measures', { ns: 'editor' })}</FieldLabel>
+              <Input
+                id="dl-quantity"
+                value={draft.quantity}
+                onChange={set('quantity')}
+                placeholder={t('designLimits.quantityPlaceholder', 'velocity', { ns: 'editor' })}
+                disabled={initial !== null}
+              />
             </Field>
             <Field>
-              <FieldLabel htmlFor="dl-unit">Unit</FieldLabel>
-              <Input id="dl-unit" value={draft.unit} onChange={set('unit')} placeholder="ft/s" />
+              <FieldLabel htmlFor="dl-unit">{t('designLimits.unit', 'Unit', { ns: 'editor' })}</FieldLabel>
+              <Input id="dl-unit" value={draft.unit} onChange={set('unit')} placeholder={t('designLimits.unitPlaceholder', 'ft/s', { ns: 'editor' })} />
             </Field>
           </div>
           <div className="grid grid-cols-3 gap-3">
             <Field>
-              <FieldLabel htmlFor="dl-min">At least</FieldLabel>
+              <FieldLabel htmlFor="dl-min">{t('designLimits.atLeast', 'At least', { ns: 'editor' })}</FieldLabel>
               <Input id="dl-min" inputMode="decimal" value={draft.min} onChange={set('min')} />
             </Field>
             <Field>
-              <FieldLabel htmlFor="dl-max">At most</FieldLabel>
+              <FieldLabel htmlFor="dl-max">{t('designLimits.atMost', 'At most', { ns: 'editor' })}</FieldLabel>
               <Input id="dl-max" inputMode="decimal" value={draft.max} onChange={set('max')} data-testid="design-limit-max" />
             </Field>
             <Field>
-              <FieldLabel htmlFor="dl-target">Aim for</FieldLabel>
+              <FieldLabel htmlFor="dl-target">{t('designLimits.aimFor', 'Aim for', { ns: 'editor' })}</FieldLabel>
               <Input id="dl-target" inputMode="decimal" value={draft.target} onChange={set('target')} />
             </Field>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Field>
-              <FieldLabel htmlFor="dl-discipline">Discipline</FieldLabel>
-              <Input id="dl-discipline" value={draft.discipline} onChange={set('discipline')} placeholder="Any" />
+              <FieldLabel htmlFor="dl-discipline">{t('designLimits.discipline', 'Discipline', { ns: 'editor' })}</FieldLabel>
+              <Input id="dl-discipline" value={draft.discipline} onChange={set('discipline')} placeholder={t('designLimits.any', 'Any', { ns: 'editor' })} />
             </Field>
             <Field>
-              <FieldLabel htmlFor="dl-systems">Systems</FieldLabel>
-              <Input id="dl-systems" value={draft.systems} onChange={set('systems')} placeholder="Any" />
-              <FieldDescription>Separate with commas.</FieldDescription>
+              <FieldLabel htmlFor="dl-systems">{t('designLimits.systems', 'Systems', { ns: 'editor' })}</FieldLabel>
+              <Input id="dl-systems" value={draft.systems} onChange={set('systems')} placeholder={t('designLimits.any', 'Any', { ns: 'editor' })} />
+              <FieldDescription>{t('designLimits.systemsWhy', 'Separate with commas.', { ns: 'editor' })}</FieldDescription>
             </Field>
           </div>
           <Field>
-            <FieldLabel htmlFor="dl-severity">When it&apos;s broken</FieldLabel>
+            <FieldLabel htmlFor="dl-severity">{t('designLimits.whenBroken', "When it's broken", { ns: 'editor' })}</FieldLabel>
             <Select value={draft.severity} onValueChange={(v) => setDraft((d) => ({ ...d, severity: v === 'error' || v === 'info' ? v : 'warning' }))}>
               <SelectTrigger id="dl-severity">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {(Object.keys(SEVERITY_WORDS) as DesignLimitSeverity[]).map((s) => (
+                {(['error', 'warning', 'info'] as const).map((s) => (
                   <SelectItem key={s} value={s}>
-                    {SEVERITY_WORDS[s]}
+                    {severityWords(s, t)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </Field>
           <Field>
-            <FieldLabel htmlFor="dl-source">Source</FieldLabel>
-            <Input id="dl-source" value={draft.source} onChange={set('source')} placeholder="PermitZIP practice, design review Nov 2026" />
+            <FieldLabel htmlFor="dl-source">{t('designLimits.source', 'Source', { ns: 'editor' })}</FieldLabel>
+            <Input
+              id="dl-source"
+              value={draft.source}
+              onChange={set('source')}
+              placeholder={t('designLimits.sourcePlaceholder', 'PermitZIP practice, design review Nov 2026', { ns: 'editor' })}
+            />
           </Field>
           <Field>
-            <FieldLabel htmlFor="dl-note">Note</FieldLabel>
+            <FieldLabel htmlFor="dl-note">{t('designLimits.note', 'Note', { ns: 'editor' })}</FieldLabel>
             <Textarea id="dl-note" value={draft.note} onChange={set('note')} rows={2} />
           </Field>
           {problems.length > 0 && <FieldError errors={problems.map((message) => ({ message }))} />}
         </FieldGroup>
         <DialogFooter>
           <Button variant="outline" onClick={onCancel}>
-            Cancel
+            {t('designLimits.cancel', 'Cancel', { ns: 'editor' })}
           </Button>
           <Button onClick={() => void submit()} disabled={saving} data-testid="design-limit-save">
-            {saving ? 'Saving…' : 'Save'}
+            {saving ? t('designLimits.saving', 'Saving…', { ns: 'editor' }) : t('designLimits.save', 'Save', { ns: 'editor' })}
           </Button>
         </DialogFooter>
       </DialogContent>

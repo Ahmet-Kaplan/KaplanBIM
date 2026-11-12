@@ -23,12 +23,22 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip'
 import { SettingsCard, SettingsLoadError, SettingsLoading } from '../../ui/settings-page'
 import { DesignLimitEditor } from './DesignLimitEditor'
 import { useEditorHost } from '@permitzip/bim-editor/host'
-import { appliesToWords, loadDesignLimitRowsFrom, publishDesignLimitFrom, type DesignLimitRows, type LibraryLimit } from './design-limits-client'
-import { useEditorTranslate } from '../i18n/translate'
+import { appliesToWords, bandWords, loadDesignLimitRowsFrom, publishDesignLimitFrom, type DesignLimitRows, type LibraryLimit } from './design-limits-client'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
 
 type LoadState = { readonly kind: 'loading' } | { readonly kind: 'ready'; readonly rows: DesignLimitRows } | { readonly kind: 'error'; readonly message: string }
 
-const LAYER_WORDS = { project: 'This project', firm: 'Firm', addon: 'Default' } as const
+/** Which layer a row comes from: this project's own, the firm's, or the add-on's shipped default. */
+function layerWord(layer: DesignLimitRow['layer'], t: Translate): string {
+  switch (layer) {
+    case 'project':
+      return t('designLimits.layer.project', 'This project', { ns: 'editor' })
+    case 'firm':
+      return t('designLimits.layer.firm', 'Firm', { ns: 'editor' })
+    case 'addon':
+      return t('designLimits.layer.addon', 'Default', { ns: 'editor' })
+  }
+}
 
 function whoSetIt(row: DesignLimitRow): string {
   if (row.layer === 'addon' || !row.limit.setBy) return '—'
@@ -52,16 +62,25 @@ export function DesignLimitsSection({ scope = 'firm', canEdit, editBlockedReason
   const [resetting, setResetting] = useState<DesignLimitRow | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
   const library = useEditorHost().data.firmLibrary
-  const loadRows = useCallback((from: string) => (loadRowsOverride ? loadRowsOverride(from) : loadDesignLimitRowsFrom(library, from)), [loadRowsOverride, library])
+  const loadRows = useCallback(
+    (from: string) => (loadRowsOverride ? loadRowsOverride(from) : loadDesignLimitRowsFrom(library, from, t)),
+    [loadRowsOverride, library, t],
+  )
 
   const fetchRows = useCallback(() => {
     loadRows(scope)
       .then((rows) => setState({ kind: 'ready', rows }))
       .catch((err: unknown) => {
         console.error('[DesignLimitsSection] the design limits failed to load', err)
-        setState({ kind: 'error', message: `Design limits couldn't be read (${err instanceof Error ? err.message : 'unknown error'}). Checks keep using the last limits they read.` })
+        setState({
+          kind: 'error',
+          message: t('designLimits.readFailed', "Design limits couldn't be read ({{reason}}). Checks keep using the last limits they read.", {
+            ns: 'editor',
+            reason: err instanceof Error ? err.message : t('designLimits.unknownError', 'unknown error', { ns: 'editor' }),
+          }),
+        })
       })
-  }, [loadRows, scope])
+  }, [loadRows, scope, t])
 
   useEffect(() => {
     fetchRows()
@@ -72,22 +91,24 @@ export function DesignLimitsSection({ scope = 'firm', canEdit, editBlockedReason
     fetchRows()
   }
 
-  if (state.kind === 'loading') return <SettingsLoading rows={5} label="Loading design limits" />
-  if (state.kind === 'error') return <SettingsLoadError title="Design limits didn't load" message={state.message} onRetry={reload} />
+  if (state.kind === 'loading') return <SettingsLoading rows={5} label={t('designLimits.loading', 'Loading design limits', { ns: 'editor' })} />
+  if (state.kind === 'error') return <SettingsLoadError title={t('designLimits.loadFailed', "Design limits didn't load", { ns: 'editor' })} message={state.message} onRetry={reload} />
 
   const { rows, own } = state.rows
   const ownById = new Map<string, LibraryLimit>(own.map((o) => [o.limit.id, o] as const))
-  const blocked = canEdit ? null : (editBlockedReason ?? "You can see the firm's limits; changing them needs MutinyBIM library publishing.")
+  const blocked = canEdit
+    ? null
+    : (editBlockedReason ?? t('designLimits.blocked', "You can see the firm's limits; changing them needs MutinyBIM library publishing.", { ns: 'editor' }))
 
   const save = async (limit: DesignLimit) => {
     const held = ownById.get(limit.id)
-    const result = await publishDesignLimitFrom(library, scope, limit, held?.revision ?? 0)
+    const result = await publishDesignLimitFrom(library, scope, limit, held?.revision ?? 0, {}, t)
     if (!result.ok) {
       setSaveError(result.message)
       return false
     }
     setSaveError(null)
-    toast.success(`Saved ${limit.label}.`)
+    toast.success(t('designLimits.savedNamed', 'Saved {{name}}.', { ns: 'editor', name: limit.label }))
     reload()
     return true
   }
@@ -95,11 +116,15 @@ export function DesignLimitsSection({ scope = 'firm', canEdit, editBlockedReason
   const putBack = async (row: DesignLimitRow) => {
     const held = ownById.get(row.limit.id)
     if (!held) return
-    const result = await publishDesignLimitFrom(library, scope, held.limit, held.revision, { deprecated: true })
+    const result = await publishDesignLimitFrom(library, scope, held.limit, held.revision, { deprecated: true }, t)
     if (!result.ok) setSaveError(result.message)
     else {
       setSaveError(null)
-      toast.success(row.fallback ? `${row.limit.label} is back to the default.` : `${row.limit.label} is removed.`)
+      toast.success(
+        row.fallback
+          ? t('designLimits.backToDefault', '{{name}} is back to the default.', { ns: 'editor', name: row.limit.label })
+          : t('designLimits.removed', '{{name}} is removed.', { ns: 'editor', name: row.limit.label }),
+      )
       reload()
     }
   }
@@ -107,7 +132,7 @@ export function DesignLimitsSection({ scope = 'firm', canEdit, editBlockedReason
   const addButton = (
     <Button size="sm" onClick={() => setEditing({ row: null })} disabled={blocked !== null} data-testid="design-limit-add">
       <Plus />
-      Add a limit
+      {t('designLimits.add', 'Add a limit', { ns: 'editor' })}
     </Button>
   )
 
@@ -115,7 +140,11 @@ export function DesignLimitsSection({ scope = 'firm', canEdit, editBlockedReason
     <SettingsCard
       id="design-limits"
       title={t('panel.designLimits', 'Design limits', { ns: 'editor' })}
-      description="The firm's rules of thumb (velocity, pressure loss, spare capacity, margins…), one per discipline and system, each with its source. Checks and calculation sheets design to these; a project can change any of them for itself."
+      description={t(
+        'designLimits.description',
+        "The firm's rules of thumb (velocity, pressure loss, spare capacity, margins…), one per discipline and system, each with its source. Checks and calculation sheets design to these; a project can change any of them for itself.",
+        { ns: 'editor' },
+      )}
       actions={
         blocked ? (
           <Tooltip>
@@ -140,44 +169,52 @@ export function DesignLimitsSection({ scope = 'firm', canEdit, editBlockedReason
             <EmptyMedia variant="icon">
               <Gauge />
             </EmptyMedia>
-            <EmptyTitle>No design limits yet</EmptyTitle>
-            <EmptyDescription>None of the add-ons in use ship a default, and the firm hasn&apos;t set one. Add a limit, for example water velocity at most 8 ft/s.</EmptyDescription>
+            <EmptyTitle>{t('designLimits.emptyTitle', 'No design limits yet', { ns: 'editor' })}</EmptyTitle>
+            <EmptyDescription>
+              {t(
+                'designLimits.emptyWhy',
+                "None of the add-ons in use ship a default, and the firm hasn't set one. Add a limit, for example water velocity at most 8 ft/s.",
+                { ns: 'editor' },
+              )}
+            </EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (
         <Table>
-          <TableCaption className="sr-only">Design limits, what each applies to, its band, its source and who set it</TableCaption>
+          <TableCaption className="sr-only">
+            {t('designLimits.caption', 'Design limits, what each applies to, its band, its source and who set it', { ns: 'editor' })}
+          </TableCaption>
           <TableHeader>
             <TableRow>
-              <TableHead>Limit</TableHead>
-              <TableHead>Applies to</TableHead>
-              <TableHead>Band</TableHead>
-              <TableHead>Source</TableHead>
-              <TableHead>Set by</TableHead>
-              <TableHead className="sr-only">Actions</TableHead>
+              <TableHead>{t('designLimits.limit', 'Limit', { ns: 'editor' })}</TableHead>
+              <TableHead>{t('designLimits.appliesTo', 'Applies to', { ns: 'editor' })}</TableHead>
+              <TableHead>{t('designLimits.bandTitle', 'Band', { ns: 'editor' })}</TableHead>
+              <TableHead>{t('designLimits.source', 'Source', { ns: 'editor' })}</TableHead>
+              <TableHead>{t('designLimits.setBy', 'Set by', { ns: 'editor' })}</TableHead>
+              <TableHead className="sr-only">{t('designLimits.actions', 'Actions', { ns: 'editor' })}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.map((row) => (
               <TableRow key={row.limit.id} data-testid={`design-limit-row-${row.limit.id}`}>
                 <TableCell className="font-medium">{row.limit.label}</TableCell>
-                <TableCell className="text-muted-foreground text-sm">{appliesToWords(row.limit)}</TableCell>
-                <TableCell className="text-sm">{state.rows.band(row.limit)}</TableCell>
+                <TableCell className="text-muted-foreground text-sm">{appliesToWords(row.limit, t)}</TableCell>
+                <TableCell className="text-sm">{bandWords(row.limit, t)}</TableCell>
                 <TableCell className="text-muted-foreground text-sm">{row.limit.citation.source}</TableCell>
                 <TableCell className="text-sm">
                   <div className="flex flex-col gap-1">
-                    <Badge variant={row.layer === 'addon' ? 'secondary' : 'outline'}>{LAYER_WORDS[row.layer]}</Badge>
+                    <Badge variant={row.layer === 'addon' ? 'secondary' : 'outline'}>{layerWord(row.layer, t)}</Badge>
                     <span className="text-muted-foreground">{whoSetIt(row)}</span>
                   </div>
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
                     <Button size="sm" variant="outline" disabled={blocked !== null} onClick={() => setEditing({ row })} data-testid={`design-limit-edit-${row.limit.id}`}>
-                      Change
+                      {t('designLimits.change', 'Change', { ns: 'editor' })}
                     </Button>
                     {ownById.has(row.limit.id) && (
                       <Button size="sm" variant="ghost" disabled={blocked !== null} onClick={() => setResetting(row)} data-testid={`design-limit-reset-${row.limit.id}`}>
-                        {row.fallback ? 'Put back the default' : 'Remove'}
+                        {row.fallback ? t('designLimits.putBack', 'Put back the default', { ns: 'editor' }) : t('designLimits.remove', 'Remove', { ns: 'editor' })}
                       </Button>
                     )}
                   </div>
@@ -195,13 +232,26 @@ export function DesignLimitsSection({ scope = 'firm', canEdit, editBlockedReason
       <AlertDialog open={resetting !== null} onOpenChange={(open) => !open && setResetting(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{resetting?.fallback ? `Put ${resetting.limit.label} back to the default?` : `Remove ${resetting?.limit.label ?? 'this limit'}?`}</AlertDialogTitle>
+            <AlertDialogTitle>
+              {resetting?.fallback
+                ? t('designLimits.putBackAsk', 'Put {{name}} back to the default?', { ns: 'editor', name: resetting.limit.label })
+                : t('designLimits.removeAsk', 'Remove {{name}}?', {
+                    ns: 'editor',
+                    name: resetting?.limit.label ?? t('designLimits.thisLimit', 'this limit', { ns: 'editor' }),
+                  })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              {resetting?.fallback ? `Checks go back to ${state.rows.band(resetting.fallback)} (${resetting.fallback.citation.source}). You can change it again any time.` : 'Checks stop using it. You can add it again any time.'}
+              {resetting?.fallback
+                ? t('designLimits.checksGoBack', 'Checks go back to {{band}} ({{source}}). You can change it again any time.', {
+                    ns: 'editor',
+                    band: bandWords(resetting.fallback, t),
+                    source: resetting.fallback.citation.source,
+                  })
+                : t('designLimits.checksStop', 'Checks stop using it. You can add it again any time.', { ns: 'editor' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep it</AlertDialogCancel>
+            <AlertDialogCancel>{t('designLimits.keepIt', 'Keep it', { ns: 'editor' })}</AlertDialogCancel>
             <AlertDialogAction
               data-testid="design-limit-reset-confirm"
               onClick={() => {
@@ -209,7 +259,7 @@ export function DesignLimitsSection({ scope = 'firm', canEdit, editBlockedReason
                 setResetting(null)
               }}
             >
-              {resetting?.fallback ? 'Put back the default' : 'Remove'}
+              {resetting?.fallback ? t('designLimits.putBack', 'Put back the default', { ns: 'editor' }) : t('designLimits.remove', 'Remove', { ns: 'editor' })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
