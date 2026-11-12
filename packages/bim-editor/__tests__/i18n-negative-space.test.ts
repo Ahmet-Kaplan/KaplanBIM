@@ -79,6 +79,15 @@ const OWNED_DIRS = [
   // per surface, read when the model opens and saved a moment after each change),
   // the sections it collapses, and the rail's drag edge with its resize tooltip.
   "layout",
+  // Outside stage 4, and already keyed when measured (0 findings): the gesture and
+  // trackpad plumbing with its hint chip (`input`), the editor's stores and their
+  // hooks (`state`), the live-connection chip (`connection-status`) and the
+  // translator itself (`i18n`). Guarded so the hole stays closed — a caption added
+  // to any of them tomorrow fails with its file and line.
+  "input",
+  "state",
+  "connection-status",
+  "i18n",
   // Outside stage 4 — a schedule docked as a tab beside the plan: its title, the
   // close button, the read-only line, the loading row and the error card with Retry.
   "schedule-tab",
@@ -127,7 +136,6 @@ const OUTSIDE_STAGE_4 = [
   "code-study",
   "connect-agent",
   "connect-grip",
-  "connection-status",
   "connection-types",
   "construction",
   "contributions",
@@ -136,8 +144,6 @@ const OUTSIDE_STAGE_4 = [
   "diagrams",
   "graph",
   "graphics",
-  "i18n",
-  "input",
   "inspector",
   "loads-policy",
   "organization",
@@ -145,7 +151,6 @@ const OUTSIDE_STAGE_4 = [
   "planned",
   "responsibilities",
   "schedules",
-  "state",
   "view-input",
 ] as const;
 
