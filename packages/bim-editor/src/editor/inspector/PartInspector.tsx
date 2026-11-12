@@ -14,6 +14,7 @@ import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '../../
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../ui/select'
 import { Separator } from '../../ui/separator'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip'
+import { useEditorLanguage, useEditorTranslate, type Translate } from '../i18n/translate'
 import { MM_PER_FT } from '../placement'
 import type { LinkedSupply } from '../electrical/linked-supply'
 import { builtinEquipmentParameters, declareOnType, type EquipmentParameter } from '../equipment-list/parameters'
@@ -62,6 +63,16 @@ export interface PartInspectorProps {
 const HEIGHT = '__height'
 const MARK = '__mark'
 
+/**
+ * A section's own name inside a sentence: lowercased in English, left exactly as
+ * the facet registry wrote it in Turkish (§4.2: a name is never lowercased —
+ * Turkish `İ`/`I` are different letters and `toLowerCase()` turns one into the
+ * other). English is unchanged: `More electrical fields (3)`.
+ */
+function sectionWord(label: string, language: string | undefined): string {
+  return language === 'tr' ? label : label.toLowerCase()
+}
+
 /** The unit after a label: the v1 wording for a part's own number ("CFM", "V"), else the display unit. */
 function unitLabel(p: InspectorParameter): string | null {
   if (p.def?.kind === 'length') return 'ft'
@@ -70,6 +81,7 @@ function unitLabel(p: InspectorParameter): string | null {
 }
 
 function ParameterInput({ p, id, text, onText, disabled, why }: { p: InspectorParameter; id: string; text: string; onText: (t: string) => void; disabled: boolean; why?: string }) {
+  const t = useEditorTranslate()
   const unit = unitLabel(p)
   if (p.valueType === 'boolean') {
     return (
@@ -88,7 +100,7 @@ function ParameterInput({ p, id, text, onText, disabled, why }: { p: InspectorPa
         <FieldLabel htmlFor={id}>{p.label}</FieldLabel>
         <Select value={text || undefined} onValueChange={onText} disabled={disabled}>
           <SelectTrigger id={id} size="sm">
-            <SelectValue placeholder="Choose" />
+            <SelectValue placeholder={t('inspector.choose', 'Choose', { ns: 'editor' })} />
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
@@ -116,14 +128,33 @@ function ParameterInput({ p, id, text, onText, disabled, why }: { p: InspectorPa
   )
 }
 
-const LINKED_COPY: Record<LinkedSupply['param'], { readonly testId: string; readonly from: string; readonly prints: string }> = {
-  fed_from: { testId: 'part-fed-from', from: 'From its feeder. Change it with Feed panel.', prints: 'Schedules print the feeder.' },
-  circuit: { testId: 'part-circuit', from: 'From its circuit. Change it with Add to circuit or the panel schedule.', prints: 'Schedules and tags print the circuit.' },
+/**
+ * What a fed-from or circuit field says about itself: an accessor, not a table of
+ * English, so the words around a data value are the editor's (§2.3 *Connector* =
+ * **bağlantı noktası**, but a *feeder* is a **besleme** and a *circuit* a **devre**
+ * — §4.1's own two commands, named here the way the ribbon names them).
+ */
+function linkedCopy(param: LinkedSupply['param'], t: Translate): { readonly testId: string; readonly from: string; readonly prints: string } {
+  switch (param) {
+    case 'fed_from':
+      return {
+        testId: 'part-fed-from',
+        from: t('inspector.fedFromWhere', 'From its feeder. Change it with Feed panel.', { ns: 'editor' }),
+        prints: t('inspector.fedFromPrints', 'Schedules print the feeder.', { ns: 'editor' }),
+      }
+    case 'circuit':
+      return {
+        testId: 'part-circuit',
+        from: t('inspector.circuitWhere', 'From its circuit. Change it with Add to circuit or the panel schedule.', { ns: 'editor' }),
+        prints: t('inspector.circuitPrints', 'Schedules and tags print the circuit.', { ns: 'editor' }),
+      }
+  }
 }
 
 /** Fed from / Circuit, once a link serves the part: the link is the truth, so the typed text is shown only when it disagrees. */
 function LinkedSupplyField({ label, supply, canEdit, onClear }: { readonly label: string; readonly supply: LinkedSupply; readonly canEdit: boolean; readonly onClear: () => void }) {
-  const copy = LINKED_COPY[supply.param]
+  const t = useEditorTranslate()
+  const copy = linkedCopy(supply.param, t)
   return (
     <Field data-testid={`${copy.testId}-linked`}>
       <FieldLabel>{label}</FieldLabel>
@@ -132,10 +163,17 @@ function LinkedSupplyField({ label, supply, canEdit, onClear }: { readonly label
       {supply.typedMismatch !== null && (
         <div className="flex flex-wrap items-center gap-2" role="alert" data-testid={`${copy.testId}-mismatch`}>
           <span className="text-xs text-warning-700">
-            The typed {label} still says “{supply.typedMismatch}”. {copy.prints}
+            {t('inspector.typedMismatch', 'The typed {{label}} still says “{{typed}}”. {{prints}}', { ns: 'editor', label, typed: supply.typedMismatch, prints: copy.prints })}
           </span>
-          <Button type="button" size="sm" variant="outline" onClick={onClear} disabled={!canEdit} title={canEdit ? undefined : "Live editing isn't connected, so changes can't be saved"}>
-            Clear typed text
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={onClear}
+            disabled={!canEdit}
+            title={canEdit ? undefined : t('run.notLive', "Live editing isn't connected, so changes can't be saved", { ns: 'editor' })}
+          >
+            {t('inspector.clearTyped', 'Clear typed text', { ns: 'editor' })}
           </Button>
         </div>
       )}
@@ -155,8 +193,6 @@ function initialTexts(part: PartInstance, type: PartTypeDefinition | null, secti
   return out
 }
 
-const NOT_ON_TYPE = 'Not on this part’s type yet; it is added the first time you save a value. Live editing must be connected.'
-
 /**
  * The Inspector for a part (NEXT-BATCH 5b-2): one form generated from the
  * part's parameter definitions, in one section per facet (identity,
@@ -166,6 +202,8 @@ const NOT_ON_TYPE = 'Not on this part’s type yet; it is added the first time y
  * its first value is saved. Type values stay read-only behind Edit type.
  */
 export function PartInspector(props: PartInspectorProps) {
+  const t = useEditorTranslate()
+  const language = useEditorLanguage()
   const { part, type, levelName, canEdit, saving, saveMessage, formatValue } = props
   const library = useMemo(() => props.library ?? builtinEquipmentParameters(), [props.library])
   const linked = props.linkedSupply?.param
@@ -194,7 +232,7 @@ export function PartInspector(props: PartInspectorProps) {
   const apply = (e: React.FormEvent) => {
     e.preventDefault()
     if (!type) return
-    const plan = planParameterEdit(type, part, allParams, texts, 'instance')
+    const plan = planParameterEdit(type, part, allParams, texts, 'instance', t)
     if ('problem' in plan) {
       setError(plan.problem)
       return
@@ -203,12 +241,17 @@ export function PartInspector(props: PartInspectorProps) {
     const mark = markText !== part.mark ? markText : undefined
     const heightFt = Number(texts[HEIGHT])
     if (!Number.isFinite(heightFt)) {
-      setError('Height above the level must be a number of feet.')
+      setError(t('inspector.heightIsFeet', 'Height above the level must be a number of feet.', { ns: 'editor' }))
       return
     }
     if (plan.declare.length > 0) {
       if (!props.onCommand) {
-        setError(`${plan.declare.map((p) => p.label).join(', ')}: ${NOT_ON_TYPE}`)
+        setError(
+          t('inspector.notOnTypeNamed', '{{names}}: Not on this part’s type yet; it is added the first time you save a value. Live editing must be connected.', {
+            ns: 'editor',
+            names: plan.declare.map((p) => p.label).join(', '),
+          }),
+        )
         return
       }
       const declared = declareOnType(props.typeId, type, plan.declare)
@@ -236,16 +279,29 @@ export function PartInspector(props: PartInspectorProps) {
       return <LinkedSupplyField key={p.name} label={p.label} supply={props.linkedSupply} canEdit={canEdit} onClear={() => setError(props.onInstance({ [p.name]: null }, undefined, 0))} />
     }
     const offType = !p.def
-    const why = p.locked ?? (offType ? (props.onCommand ? 'Added to this part’s type when you save a value.' : NOT_ON_TYPE) : undefined)
+    const why =
+      p.locked ??
+      (offType
+        ? props.onCommand
+          ? t('inspector.addedOnSave', 'Added to this part’s type when you save a value.', { ns: 'editor' })
+          : t('inspector.notOnType', 'Not on this part’s type yet; it is added the first time you save a value. Live editing must be connected.', { ns: 'editor' })
+        : undefined)
     return <ParameterInput key={p.name} p={p} id={`bm-part-${p.name}`} text={texts[p.name] ?? ''} onText={(t) => setTexts({ ...texts, [p.name]: t })} disabled={!canEdit || p.locked !== undefined || (offType && !props.onCommand)} {...(why ? { why } : {})} />
   }
 
-  const statusText = status === 'not_saved' ? 'Not saved yet: press Save changes.' : status === 'saving' ? 'Saving…' : (saveMessage ?? 'Saved')
-  const editWhy = canEdit ? undefined : "Live editing isn't connected, so changes can't be saved"
+  const statusText =
+    status === 'not_saved'
+      ? t('inspector.notSavedYet', 'Not saved yet: press Save changes.', { ns: 'editor' })
+      : status === 'saving'
+        ? t('inspector.saving', 'Saving…', { ns: 'editor' })
+        : (saveMessage ?? t('inspector.saved', 'Saved', { ns: 'editor' }))
+  const editWhy = canEdit ? undefined : t('run.notLive', "Live editing isn't connected, so changes can't be saved", { ns: 'editor' })
   return (
     <div className="flex flex-col gap-3" data-testid="part-properties" data-inspector="parameters">
       <div className="flex flex-col gap-0.5">
-        <span className="text-sm font-medium">{part.mark ? `${part.mark} — ${type?.typeName ?? 'Part'}` : (type?.typeName ?? 'Part')}</span>
+        <span className="text-sm font-medium">
+          {part.mark ? `${part.mark} — ${type?.typeName ?? t('inspector.part', 'Part', { ns: 'editor' })}` : (type?.typeName ?? t('inspector.part', 'Part', { ns: 'editor' }))}
+        </span>
         <span className="text-xs text-muted-foreground">
           {type ? `${partGroupName(type)} · ` : ''}
           {levelName}
@@ -256,14 +312,14 @@ export function PartInspector(props: PartInspectorProps) {
       </div>
       <form onSubmit={apply} className="flex flex-col gap-3">
         <FieldSet data-testid="inspector-section-this-part">
-          <FieldLegend variant="label">This part</FieldLegend>
+          <FieldLegend variant="label">{t('inspector.thisPart', 'This part', { ns: 'editor' })}</FieldLegend>
           <FieldGroup className="grid grid-cols-2 gap-2">
             <Field>
-              <FieldLabel htmlFor="bm-part-mark">Mark</FieldLabel>
+              <FieldLabel htmlFor="bm-part-mark">{t('inspector.mark', 'Mark', { ns: 'editor' })}</FieldLabel>
               <Input id="bm-part-mark" value={texts[MARK] ?? ''} onChange={(e) => setTexts({ ...texts, [MARK]: e.target.value })} disabled={!canEdit} />
             </Field>
             <Field>
-              <FieldLabel htmlFor="bm-part-height">Height above level (ft)</FieldLabel>
+              <FieldLabel htmlFor="bm-part-height">{t('inspector.heightAboveLevel', 'Height above level (ft)', { ns: 'editor' })}</FieldLabel>
               <Input id="bm-part-height" inputMode="decimal" value={texts[HEIGHT] ?? ''} onChange={(e) => setTexts({ ...texts, [HEIGHT]: e.target.value })} disabled={!canEdit} />
             </Field>
           </FieldGroup>
@@ -277,7 +333,11 @@ export function PartInspector(props: PartInspectorProps) {
                 <CollapsibleTrigger asChild>
                   <Button type="button" variant="ghost" size="sm" className="self-start" data-testid={`inspector-more-${s.id}`}>
                     <ChevronDown data-icon="inline-start" />
-                    More {s.label.toLowerCase()} fields ({s.parameters.filter(isSpare).length})
+                    {t('inspector.moreFields', 'More {{section}} fields ({{n}})', {
+                      ns: 'editor',
+                      section: sectionWord(s.label, language),
+                      n: s.parameters.filter(isSpare).length,
+                    })}
                   </Button>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
@@ -297,13 +357,23 @@ export function PartInspector(props: PartInspectorProps) {
             <TooltipTrigger asChild>
               <span className="flex-1">
                 <Button type="submit" size="sm" className="w-full" disabled={!canEdit || !dirty}>
-                  Save changes
+                  {t('inspector.saveChanges', 'Save changes', { ns: 'editor' })}
                 </Button>
               </span>
             </TooltipTrigger>
-            {(!canEdit || !dirty) && <TooltipContent>{canEdit ? 'Nothing changed yet' : editWhy}</TooltipContent>}
+            {(!canEdit || !dirty) && (
+              <TooltipContent>{canEdit ? t('inspector.nothingChanged', 'Nothing changed yet', { ns: 'editor' }) : editWhy}</TooltipContent>
+            )}
           </Tooltip>
-          <Button type="button" size="sm" variant="outline" onClick={() => setError(props.onRotate(90))} disabled={!canEdit} aria-label="Rotate 90 degrees" title={editWhy}>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setError(props.onRotate(90))}
+            disabled={!canEdit}
+            aria-label={t('inspector.rotate90', 'Rotate 90 degrees', { ns: 'editor' })}
+            title={editWhy}
+          >
             <RotateCw data-icon="inline-start" />
             90°
           </Button>
@@ -312,7 +382,7 @@ export function PartInspector(props: PartInspectorProps) {
       {props.airSide}
       <Separator />
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Type values</span>
+        <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{t('inspector.typeValues', 'Type values', { ns: 'editor' })}</span>
         <Button
           size="sm"
           variant="ghost"
@@ -321,20 +391,26 @@ export function PartInspector(props: PartInspectorProps) {
             setTypeOpen(true)
           }}
           disabled={!canEditType}
-          title={!canEdit ? editWhy : !type || type.typeParams.length === 0 ? 'This type has no type values to change' : undefined}
+          title={
+            !canEdit
+              ? editWhy
+              : !type || type.typeParams.length === 0
+                ? t('inspector.noTypeValuesWhy', 'This type has no type values to change', { ns: 'editor' })
+                : undefined
+          }
         >
           <Pencil data-icon="inline-start" />
-          Edit type
+          {t('inspector.editType', 'Edit type', { ns: 'editor' })}
         </Button>
       </div>
       {type?.model && props.onEditDefinition && (
         <Button size="sm" variant="outline" onClick={props.onEditDefinition} data-testid="edit-part-definition">
           <PencilRuler data-icon="inline-start" />
-          Edit definition
+          {t('inspector.editDefinition', 'Edit definition', { ns: 'editor' })}
         </Button>
       )}
       {type && typeSections.length > 0 ? (
-        <ItemGroup className="gap-1" aria-label="Type values">
+        <ItemGroup className="gap-1" aria-label={t('inspector.typeValues', 'Type values', { ns: 'editor' })}>
           {typeSections.flatMap((s) =>
             s.parameters.map((p) => {
               const v = storedValue(type, part, p)
@@ -352,7 +428,7 @@ export function PartInspector(props: PartInspectorProps) {
           )}
         </ItemGroup>
       ) : (
-        <p className="text-xs text-muted-foreground">This type has no type values.</p>
+        <p className="text-xs text-muted-foreground">{t('inspector.noTypeValues', 'This type has no type values.', { ns: 'editor' })}</p>
       )}
       {props.children}
       {props.spatial && (
@@ -364,7 +440,7 @@ export function PartInspector(props: PartInspectorProps) {
       <Separator />
       <Button variant="outline" size="sm" className="text-danger-600" onClick={props.onDelete} disabled={!canEdit} title={editWhy}>
         <Trash2 data-icon="inline-start" />
-        Delete…
+        {t('inspector.delete', 'Delete…', { ns: 'editor' })}
       </Button>
       {type && <EditTypeDialog key={props.typeId + JSON.stringify(type.typeValues)} open={typeOpen} onOpenChange={setTypeOpen} type={type} part={part} params={typeSections.flatMap((s) => s.parameters)} partsOfType={sharedBy} onType={props.onType} />}
     </div>
@@ -388,12 +464,13 @@ function EditTypeDialog({
   partsOfType: number
   onType: (values: Record<string, ParamValue | null>) => string | null
 }) {
+  const t = useEditorTranslate()
   const baseline: Record<string, string> = Object.fromEntries(params.map((p) => [p.name, displayText(p, storedValue(type, part, p))]))
   const [texts, setTexts] = useState(baseline)
   const [error, setError] = useState<string | null>(null)
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
-    const plan = planParameterEdit(type, part, params, texts, 'type')
+    const plan = planParameterEdit(type, part, params, texts, 'type', t)
     if ('problem' in plan) {
       setError(plan.problem)
       return
@@ -411,8 +488,12 @@ function EditTypeDialog({
       <DialogContent>
         <form onSubmit={submit} className="flex flex-col gap-4">
           <DialogHeader>
-            <DialogTitle>Edit type: {type.typeName}</DialogTitle>
-            <DialogDescription>{partsOfType === 1 ? 'This changes the 1 part of this type.' : `This changes all ${partsOfType} parts of this type.`}</DialogDescription>
+            <DialogTitle>{t('inspector.editTypeNamed', 'Edit type: {{name}}', { ns: 'editor', name: type.typeName })}</DialogTitle>
+            <DialogDescription>
+              {partsOfType === 1
+                ? t('inspector.changesOne', 'This changes the 1 part of this type.', { ns: 'editor' })
+                : t('inspector.changesAll', 'This changes all {{n}} parts of this type.', { ns: 'editor', n: partsOfType })}
+            </DialogDescription>
           </DialogHeader>
           <FieldGroup className="max-h-[50vh] gap-2 overflow-y-auto">
             {params.map((p) => (
@@ -426,9 +507,9 @@ function EditTypeDialog({
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+              {t('inspector.cancel', 'Cancel', { ns: 'editor' })}
             </Button>
-            <Button type="submit">Save type</Button>
+            <Button type="submit">{t('inspector.saveType', 'Save type', { ns: 'editor' })}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

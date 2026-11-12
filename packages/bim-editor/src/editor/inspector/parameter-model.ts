@@ -2,6 +2,7 @@ import { BASELINE_KIND_FACETS, EQUIPMENT_DEFAULT_COLUMNS } from '@permitzip/bim-
 import { BUILTIN_FACET_REGISTRY, groupParametersByFacet, partParameters, type FacetRegistry, type ParamDef, type ParameterDef, type ParamValue, type PartInstance, type PartTypeDefinition } from '@permitzip/bim-kernel'
 import { convert, displayUnit, type DisplayProfile, type Kind, type UnitCode } from '@permitzip/bim-units'
 import { parseParameterText, type EquipmentParameter, type ParameterSource } from '../equipment-list/parameters'
+import { englishOnly, type Translate } from '../i18n/translate'
 
 /**
  * The Inspector's model (NEXT-BATCH 5b-2): one list of parameters for a
@@ -160,35 +161,48 @@ export function displayText(p: InspectorParameter, value: ParamValue | undefined
 }
 
 /** A typed text back to the stored value: null clears, `problem` says why it can't be read. */
-export function parseDisplayText(p: InspectorParameter, text: string): { readonly value: ParamValue | null } | { readonly problem: string } {
-  const t = text.trim()
-  if (t === '') return { value: null }
+export function parseDisplayText(p: InspectorParameter, text: string, t: Translate = englishOnly): { readonly value: ParamValue | null } | { readonly problem: string } {
+  const trimmed = text.trim()
+  if (trimmed === '') return { value: null }
   if (p.valueType === 'quantity') {
-    const n = Number(t.replace(/,/g, ''))
-    if (!Number.isFinite(n)) return { problem: `${p.label} must be a number${p.displayUnit && p.displayUnit !== '1' ? ` in ${p.displayUnit}` : ''}.` }
+    const n = Number(trimmed.replace(/,/g, ''))
+    if (!Number.isFinite(n))
+      return {
+        problem:
+          p.displayUnit && p.displayUnit !== '1'
+            ? t('inspector.mustBeNumberIn', '{{label}} must be a number in {{unit}}.', { ns: 'editor', label: p.label, unit: p.displayUnit })
+            : t('inspector.mustBeNumber', '{{label}} must be a number.', { ns: 'editor', label: p.label }),
+      }
     if (p.storedUnit && p.displayUnit && p.storedUnit !== p.displayUnit) return { value: convert(n, p.displayUnit, p.storedUnit) }
     return { value: n }
   }
-  if (p.valueType === 'boolean') return { value: t === 'true' }
+  if (p.valueType === 'boolean') return { value: trimmed === 'true' }
   if (p.library && !p.def) {
-    const read = parseParameterText(p.library, t)
+    const read = parseParameterText(p.library, trimmed)
     return 'problem' in read ? read : { value: read.value }
   }
-  return { value: t }
+  return { value: trimmed }
 }
 
 /**
  * What a Save sends for the parameters of one scope: the changed values, and
  * the library fields the type must declare first. Unchanged texts send nothing.
  */
-export function planParameterEdit(type: PartTypeDefinition, part: PartInstance, params: readonly InspectorParameter[], texts: Readonly<Record<string, string>>, scope: 'instance' | 'type'): { readonly values: Record<string, ParamValue | null>; readonly declare: readonly EquipmentParameter[] } | { readonly problem: string } {
+export function planParameterEdit(
+  type: PartTypeDefinition,
+  part: PartInstance,
+  params: readonly InspectorParameter[],
+  texts: Readonly<Record<string, string>>,
+  scope: 'instance' | 'type',
+  t: Translate = englishOnly,
+): { readonly values: Record<string, ParamValue | null>; readonly declare: readonly EquipmentParameter[] } | { readonly problem: string } {
   const values: Record<string, ParamValue | null> = {}
   const declare: EquipmentParameter[] = []
   for (const p of params) {
     if (p.scope !== scope || p.locked) continue
     const text = texts[p.name]
     if (text === undefined || text === displayText(p, storedValue(type, part, p))) continue
-    const read = parseDisplayText(p, text)
+    const read = parseDisplayText(p, text, t)
     if ('problem' in read) return read
     if (!p.def) {
       if (read.value === null) continue

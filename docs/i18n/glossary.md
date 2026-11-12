@@ -1057,6 +1057,22 @@ boşluğu`, `Yüz`, `Sürüm`, `Revizyon`, `İşveren`, `Pafta`, `Çizelge`, `Me
 > cümleleri (`p.message`, `p.nextStep`), `connectorEndTypeTable()` satır adları ve
 > paketlerin kendi uç tipleri **veri**dir; ağaç onları yazmaz. Sahibi: Aşama 5'in
 > alan haritası ve çekirdeğin prose haritası.
+>
+> **`inspector/` kapandı (2026-11-10).** Özellikler panelinin parametre formu
+> (`PartInspector`, `parameter-model`, `Inspector`): **30** site sıfıra indi, ağaç
+> `OUTSIDE_STAGE_4`'ten `OWNED_DIRS`'a girdi, Türkçesi
+> `i18n-inspector.test.tsx` içinde ölçülür. `parseDisplayText` ve
+> `planParameterEdit` bir `Translate` alır, böylece *"Genişlik ft cinsinden bir
+> sayı olmalı."* Türkçe ekranda Türkçe çıkar; `run.notLive` bu ağaçta iki yeni
+> site kazandı (kaydet ipucu ve «yazılan metni temizle»), `i18n-mep` içindeki
+> sayım 6 → 8 oldu.
+>
+> **Ertelenen: bölüm başlıkları çekirdek verisidir.** Formun bölüm adları
+> (*Identity*, *Electrical*, *Mechanical* …) facet kayıt defterinden gelir
+> (`groupParametersByFacet`, `BUILTIN_FACET_REGISTRY`) — `organization` ağacının
+> `DEFAULT_GROUPS`'u gibi **veri**dir; panel onları yazmaz. Sahibi: facet kayıt
+> defterinin kendi çeviri turu. Bir bölüm adı cümle içinde kullanılırken
+> (`More electrical fields`) Türkçede **küçük harfe indirilmez** (§4.2, `İ`/`I`).
 
 ---
 

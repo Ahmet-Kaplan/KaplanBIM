@@ -105,6 +105,11 @@ const OWNED_DIRS = [
   // clearance zones and test tab), the 2D and 3D canvases, the publish dialog and
   // the placed part's update review (285 findings, 14 files).
   "part-editor",
+  // Outside stage 4 — the Inspector: the part's Properties form — one field per
+  // parameter in facet sections, the spare fields behind "More …", the read-only
+  // types behind Edit type, and the fed-from/circuit field the link owns
+  // (30 findings, three files).
+  "inspector",
   // Outside stage 4 — the linked models as reference geometry: the snap and
   // dimension points that follow a linked wall by its GlobalId, the copies kept in
   // step with the link for loads, and the words a tool says when there is nothing
@@ -153,7 +158,6 @@ const OUTSIDE_STAGE_4 = [
   "diagrams",
   "graph",
   "graphics",
-  "inspector",
   "loads-policy",
   "planned",
   "responsibilities",

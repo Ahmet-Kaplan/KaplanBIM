@@ -262,8 +262,9 @@ const SITES: Readonly<Record<string, number>> = {
   "electrical.youCanUndoThis": 2,
   // The read-only refusal is on the run's route-like tooltip, its delete tooltip and
   // both move forms, then on the part-space panel's host button and its working-space
-  // tip; `Height` labels a level piece and a fitting.
-  "run.notLive": 6,
+  // tip, and on the inspector's save tooltip and its typed-text clear button; `Height`
+  // labels a level piece and a fitting.
+  "run.notLive": 8,
   "run.connected": 2,
   "run.height": 2,
   // The group properties say the same feet example, the same `Move` and the same
