@@ -90,6 +90,16 @@ const CAPTIONS: readonly Caption[] = [
   { key: 'partSpace.side', english: 'Side', turkish: 'Yüz' },
   { key: 'partSpace.setWorkingSpace', english: 'Set NEC 110.26 working space', turkish: 'NEC 110.26 çalışma boşluğunu ayarla' },
   { key: 'partSpace.voltsToGround', english: 'Volts to ground', turkish: 'Toprağa göre volt' },
+  // The Autodesk Docs picker: a linked model is a *bağlı model*, a folder a *klasör*,
+  // and a Revit year keeps its number (§7).
+  { key: 'docsPicker.title', english: 'Add models from Autodesk Docs', turkish: "Autodesk Docs'tan model ekle" },
+  { key: 'docsPicker.folders', english: 'Folders', turkish: 'Klasörler' },
+  { key: 'docsPicker.files', english: 'Files', turkish: 'Dosyalar' },
+  { key: 'docsPicker.search', english: 'Search', turkish: 'Ara' },
+  { key: 'docsPicker.linked', english: 'Linked', turkish: 'Bağlı' },
+  { key: 'docsPicker.cloudModel', english: 'Cloud model', turkish: 'Bulut modeli' },
+  { key: 'docsPicker.pickAtLeastOne', english: 'Pick at least one Revit or IFC file', turkish: 'En az bir Revit ya da IFC dosyası seçin' },
+  { key: 'docsPicker.cancel', english: 'Cancel', turkish: 'İptal' },
 ]
 
 /**
@@ -107,7 +117,7 @@ const SITES: Readonly<Record<string, number>> = {
 }
 
 /** The prefixes this file owns. A key under one of them must have Turkish. */
-const PREFIXES = ['linkedElement.', 'linkModel.', 'group.', 'partSpace.'] as const
+const PREFIXES = ['linkedElement.', 'linkModel.', 'group.', 'partSpace.', 'docsPicker.'] as const
 
 /** `"{{n}} edits"` with `{ n: 3 }` → `"3 edits"`. The panel never shows a placeholder. */
 function fill(template: string, values: Readonly<Record<string, string | number>> | undefined): string {

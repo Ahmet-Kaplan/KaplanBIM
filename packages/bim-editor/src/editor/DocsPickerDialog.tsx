@@ -33,6 +33,7 @@ import {
   type LinkedDiscipline,
 } from '../contracts/building-model/linked-contract'
 import { useEditorHost } from '@permitzip/bim-editor/host'
+import { useEditorTranslate, type Translate } from './i18n/translate'
 import { addDocsItemsFrom, browseDocsFrom } from './linked-api'
 
 interface Props {
@@ -59,7 +60,19 @@ interface Picked {
   readonly more: readonly LinkedDiscipline[]
 }
 
-const KIND_LABEL: Readonly<Record<DocsFileKind, string>> = { rvt: 'Revit', ifc: 'IFC', nwc: 'Navisworks', other: 'File' }
+/** What kind of file a row is, each as a literal `t()` call: a key behind a variable is invisible to `i18n:review`. */
+function kindWord(kind: DocsFileKind, t: Translate): string {
+  switch (kind) {
+    case 'rvt':
+      return t('docsPicker.kindRvt', 'Revit', { ns: 'editor' })
+    case 'ifc':
+      return t('docsPicker.kindIfc', 'IFC', { ns: 'editor' })
+    case 'nwc':
+      return t('docsPicker.kindNwc', 'Navisworks', { ns: 'editor' })
+    case 'other':
+      return t('docsPicker.kindFile', 'File', { ns: 'editor' })
+  }
+}
 
 function FileIcon({ kind }: { kind: DocsFileKind }) {
   if (kind === 'rvt') return <FileBox className="text-primary" aria-hidden />
@@ -70,6 +83,7 @@ function FileIcon({ kind }: { kind: DocsFileKind }) {
 const stripExtension = (name: string) => name.replace(/\.[a-z0-9]+$/i, '')
 
 export function DocsPickerDialog({ projectId, open, onOpenChange, revitModelName, onQueued, disciplineSet }: Props) {
+  const t = useEditorTranslate()
   const linked = useEditorHost().data.linkedModels
   const [loaded, setLoaded] = useState<Record<string, Loaded>>({})
   const [names, setNames] = useState<Record<string, string>>({})
@@ -93,11 +107,11 @@ export function DocsPickerDialog({ projectId, open, onOpenChange, revitModelName
         return data
       } catch (err) {
         console.error('[DocsPickerDialog] browsing Autodesk Docs failed', { folderId, err })
-        setLoaded((prev) => ({ ...prev, [key]: { status: 'error', message: err instanceof Error ? err.message : "Couldn't open Autodesk Docs." } }))
+        setLoaded((prev) => ({ ...prev, [key]: { status: 'error', message: err instanceof Error ? err.message : t('docsPicker.couldNotOpen', "Couldn't open Autodesk Docs.", { ns: 'editor' }) } }))
         return null
       }
     },
-    [linked, projectId],
+    [linked, projectId, t],
   )
 
   useEffect(() => {
@@ -146,7 +160,7 @@ export function DocsPickerDialog({ projectId, open, onOpenChange, revitModelName
       setSearch((prev) => (prev && prev.query === query ? { query, scope, result: { status: 'loaded', data } } : prev))
     } catch (err) {
       console.error('[DocsPickerDialog] searching Autodesk Docs failed', { query, err })
-      setSearch((prev) => (prev && prev.query === query ? { query, scope, result: { status: 'error', message: err instanceof Error ? err.message : 'The search failed.' } } : prev))
+      setSearch((prev) => (prev && prev.query === query ? { query, scope, result: { status: 'error', message: err instanceof Error ? err.message : t('docsPicker.searchFailed', 'The search failed.', { ns: 'editor' }) } } : prev))
     }
   }
 
@@ -182,16 +196,23 @@ export function DocsPickerDialog({ projectId, open, onOpenChange, revitModelName
       const results = await addDocsItemsFrom(linked, projectId, items)
       const queued = results.filter((r) => r.outcome === 'queued').length
       const running = results.length - queued
-      toast.success(
-        `${queued} ${queued === 1 ? 'model is' : 'models are'} coming in from Autodesk Docs. Each shows its progress under Linked models.` +
-          (running > 0 ? ` ${running} ${running === 1 ? 'was' : 'were'} already on the way.` : ''),
-      )
+      const coming =
+        queued === 1
+          ? t('docsPicker.oneComingIn', '1 model is coming in from Autodesk Docs. Each shows its progress under Linked models.', { ns: 'editor' })
+          : t('docsPicker.manyComingIn', '{{count}} models are coming in from Autodesk Docs. Each shows its progress under Linked models.', { ns: 'editor', count: queued })
+      const onTheWay =
+        running === 0
+          ? ''
+          : running === 1
+            ? t('docsPicker.oneAlreadyOnTheWay', '{{count}} was already on the way.', { ns: 'editor', count: running })
+            : t('docsPicker.manyAlreadyOnTheWay', '{{count}} were already on the way.', { ns: 'editor', count: running })
+      toast.success(onTheWay === '' ? coming : `${coming} ${onTheWay}`)
       onQueued()
       setPicked(new Map())
       onOpenChange(false)
     } catch (err) {
       console.error('[DocsPickerDialog] adding models failed', err)
-      setError(err instanceof Error ? err.message : "The models weren't added.")
+      setError(err instanceof Error ? err.message : t('docsPicker.notAdded', "The models weren't added.", { ns: 'editor' }))
     } finally {
       setAdding(false)
     }
@@ -201,7 +222,12 @@ export function DocsPickerDialog({ projectId, open, onOpenChange, revitModelName
   const root = loaded[ROOT]
   const pickedList = useMemo(() => [...picked.values()], [picked])
   const badLabel = pickedList.some((p) => p.label.trim().length === 0)
-  const addBlockedReason = pickedList.length === 0 ? 'Pick at least one Revit or IFC file' : badLabel ? 'Give every model a name' : null
+  const addBlockedReason =
+    pickedList.length === 0
+      ? t('docsPicker.pickAtLeastOne', 'Pick at least one Revit or IFC file', { ns: 'editor' })
+      : badLabel
+        ? t('docsPicker.nameEveryModel', 'Give every model a name', { ns: 'editor' })
+        : null
 
   function renderTree(folders: readonly DocsFolderView[], depth: number) {
     return folders.map((folder) => {
@@ -210,7 +236,7 @@ export function DocsPickerDialog({ projectId, open, onOpenChange, revitModelName
       return (
         <div key={folder.id} className="flex flex-col">
           <div className="flex items-center" style={{ paddingLeft: depth * 12 }}>
-            <Button variant="ghost" size="icon" className="size-6 shrink-0" aria-label={isOpen ? `Collapse ${folder.name}` : `Expand ${folder.name}`} onClick={() => toggleFolder(folder)}>
+            <Button variant="ghost" size="icon" className="size-6 shrink-0" aria-label={isOpen ? t('docsPicker.collapse', 'Collapse {{name}}', { ns: 'editor', name: folder.name }) : t('docsPicker.expand', 'Expand {{name}}', { ns: 'editor', name: folder.name })} onClick={() => toggleFolder(folder)}>
               {isOpen ? <ChevronDown /> : <ChevronRight />}
             </Button>
             <Button
@@ -226,7 +252,7 @@ export function DocsPickerDialog({ projectId, open, onOpenChange, revitModelName
           </div>
           {isOpen && children?.status === 'loading' && (
             <span className="flex items-center gap-1 py-1 text-xs text-muted-foreground" style={{ paddingLeft: depth * 12 + 30 }}>
-              <Spinner className="size-3" /> Opening…
+              <Spinner className="size-3" /> {t('docsPicker.opening', 'Opening…', { ns: 'editor' })}
             </span>
           )}
           {isOpen && children?.status === 'error' && (
@@ -244,10 +270,14 @@ export function DocsPickerDialog({ projectId, open, onOpenChange, revitModelName
     <Dialog open={open} onOpenChange={(next) => !adding && onOpenChange(next)}>
       <DialogContent className="sm:max-w-4xl" data-testid="docs-picker-dialog">
         <DialogHeader>
-          <DialogTitle>Add models from Autodesk Docs</DialogTitle>
+          <DialogTitle>{t('docsPicker.title', 'Add models from Autodesk Docs', { ns: 'editor' })}</DialogTitle>
           <DialogDescription>
-            Pick Revit or IFC files in {revitModelName ? `the Autodesk Docs project of ${revitModelName}` : "this project's Autodesk Docs project"}, such as the
-            architect&apos;s model. Each comes in as its own linked model. Revit files are opened read-only; nothing in Docs or Revit changes.
+            {t('docsPicker.description', "Pick Revit or IFC files in {{project}}, such as the architect's model. Each comes in as its own linked model. Revit files are opened read-only; nothing in Docs or Revit changes.", {
+              ns: 'editor',
+              project: revitModelName
+                ? t('docsPicker.projectOfModel', 'the Autodesk Docs project of {{name}}', { ns: 'editor', name: revitModelName })
+                : t('docsPicker.thisProject', "this project's Autodesk Docs project", { ns: 'editor' }),
+            })}
           </DialogDescription>
         </DialogHeader>
 
@@ -256,8 +286,8 @@ export function DocsPickerDialog({ projectId, open, onOpenChange, revitModelName
             <Search />
           </InputGroupAddon>
           <InputGroupInput
-            placeholder={current && names[current] ? `Search in ${names[current]}` : 'Search all folders'}
-            aria-label="Search Autodesk Docs by file name"
+            placeholder={current && names[current] ? t('docsPicker.searchIn', 'Search in {{folder}}', { ns: 'editor', folder: names[current] }) : t('docsPicker.searchAllFolders', 'Search all folders', { ns: 'editor' })}
+            aria-label={t('docsPicker.searchByFileName', 'Search Autodesk Docs by file name', { ns: 'editor' })}
             value={queryText}
             onChange={(e) => setQueryText(e.target.value)}
             onKeyDown={(e) => {
@@ -271,7 +301,7 @@ export function DocsPickerDialog({ projectId, open, onOpenChange, revitModelName
           <InputGroupAddon align="inline-end">
             {search ? (
               <InputGroupButton
-                aria-label="Clear the search"
+                aria-label={t('docsPicker.clearTheSearch', 'Clear the search', { ns: 'editor' })}
                 onClick={() => {
                   setSearch(null)
                   setQueryText('')
@@ -281,17 +311,17 @@ export function DocsPickerDialog({ projectId, open, onOpenChange, revitModelName
               </InputGroupButton>
             ) : (
               <InputGroupButton onClick={() => void runSearch()} disabled={!queryText.trim()}>
-                Search
+                {t('docsPicker.search', 'Search', { ns: 'editor' })}
               </InputGroupButton>
             )}
           </InputGroupAddon>
         </InputGroup>
 
         <div className="grid min-h-0 grid-cols-1 gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-          <ScrollArea className="h-72 rounded-md border p-1" aria-label="Folders">
+          <ScrollArea className="h-72 rounded-md border p-1" aria-label={t('docsPicker.folders', 'Folders', { ns: 'editor' })}>
             {(!root || root.status === 'loading') && (
               <span className="flex items-center gap-2 p-2 text-xs text-muted-foreground">
-                <Spinner className="size-3" /> Opening Autodesk Docs…
+                <Spinner className="size-3" /> {t('docsPicker.openingDocs', 'Opening Autodesk Docs…', { ns: 'editor' })}
               </span>
             )}
             {root?.status === 'error' && (
@@ -299,25 +329,32 @@ export function DocsPickerDialog({ projectId, open, onOpenChange, revitModelName
                 <AlertDescription className="text-xs">
                   {root.message}{' '}
                   <Button variant="link" size="sm" className="h-auto p-0" onClick={() => void load(null)}>
-                    Try again
+                    {t('docsPicker.tryAgain', 'Try again', { ns: 'editor' })}
                   </Button>
                 </AlertDescription>
               </Alert>
             )}
-            {root?.status === 'loaded' && root.data.folders.length === 0 && <span className="block p-2 text-xs text-muted-foreground">No folders you can open.</span>}
+            {root?.status === 'loaded' && root.data.folders.length === 0 && <span className="block p-2 text-xs text-muted-foreground">{t('docsPicker.noFolders', 'No folders you can open.', { ns: 'editor' })}</span>}
             {root?.status === 'loaded' && renderTree(root.data.folders, 0)}
           </ScrollArea>
 
-          <ScrollArea className="h-72 rounded-md border p-1" aria-label="Files">
+          <ScrollArea className="h-72 rounded-md border p-1" aria-label={t('docsPicker.files', 'Files', { ns: 'editor' })}>
             {search && (
               <span className="block px-2 pb-1 text-xs text-muted-foreground">
-                Files named like “{search.query}” {search.scope && names[search.scope] ? `in ${names[search.scope]} and below` : 'in every folder'}
+                {t('docsPicker.filesNamedLike', 'Files named like “{{query}}” {{where}}', {
+                  ns: 'editor',
+                  query: search.query,
+                  where:
+                    search.scope && names[search.scope]
+                      ? t('docsPicker.inFolderAndBelow', 'in {{folder}} and below', { ns: 'editor', folder: names[search.scope] })
+                      : t('docsPicker.inEveryFolder', 'in every folder', { ns: 'editor' }),
+                })}
               </span>
             )}
-            {!shown && <span className="block p-2 text-xs text-muted-foreground">Open a folder to see its Revit and IFC files.</span>}
+            {!shown && <span className="block p-2 text-xs text-muted-foreground">{t('docsPicker.openAFolder', 'Open a folder to see its Revit and IFC files.', { ns: 'editor' })}</span>}
             {shown?.status === 'loading' && (
               <span className="flex items-center gap-2 p-2 text-xs text-muted-foreground">
-                <Spinner className="size-3" /> {search ? 'Searching…' : 'Opening the folder…'}
+                <Spinner className="size-3" /> {search ? t('docsPicker.searching', 'Searching…', { ns: 'editor' }) : t('docsPicker.openingTheFolder', 'Opening the folder…', { ns: 'editor' })}
               </span>
             )}
             {shown?.status === 'error' && (
@@ -328,8 +365,14 @@ export function DocsPickerDialog({ projectId, open, onOpenChange, revitModelName
             {shown?.status === 'loaded' && shown.data.files.length === 0 && (
               <Empty className="py-6">
                 <EmptyHeader>
-                  <EmptyTitle className="text-sm">{search ? 'No Revit or IFC files match' : 'No Revit or IFC files here'}</EmptyTitle>
-                  <EmptyDescription className="text-xs">{search ? 'Try part of the file name, or search a higher folder.' : 'Open a subfolder on the left, or search.'}</EmptyDescription>
+                  <EmptyTitle className="text-sm">
+                    {search ? t('docsPicker.noFilesMatch', 'No Revit or IFC files match', { ns: 'editor' }) : t('docsPicker.noFilesHere', 'No Revit or IFC files here', { ns: 'editor' })}
+                  </EmptyTitle>
+                  <EmptyDescription className="text-xs">
+                    {search
+                      ? t('docsPicker.tryPartOfTheName', 'Try part of the file name, or search a higher folder.', { ns: 'editor' })
+                      : t('docsPicker.openASubfolder', 'Open a subfolder on the left, or search.', { ns: 'editor' })}
+                  </EmptyDescription>
                 </EmptyHeader>
               </Empty>
             )}
@@ -338,7 +381,7 @@ export function DocsPickerDialog({ projectId, open, onOpenChange, revitModelName
                 {shown.data.files.map((file) => {
                   const isPicked = picked.has(file.itemId)
                   const full = !isPicked && picked.size >= MAX_PICK
-                  const disabledReason = file.blockedReason ?? (full ? `You can add up to ${MAX_PICK} at a time.` : null)
+                  const disabledReason = file.blockedReason ?? (full ? t('docsPicker.upToAtATime', 'You can add up to {{count}} at a time.', { ns: 'editor', count: MAX_PICK }) : null)
                   return (
                     <Item key={file.itemId} size="xs" variant={isPicked ? 'muted' : 'default'} data-testid="docs-file" data-blocked={file.blockedReason ? 'true' : 'false'}>
                       <ItemMedia>
@@ -346,7 +389,7 @@ export function DocsPickerDialog({ projectId, open, onOpenChange, revitModelName
                           checked={isPicked}
                           disabled={disabledReason !== null && !isPicked}
                           onCheckedChange={(checked) => togglePick(file, checked === true)}
-                          aria-label={`Add ${file.name}`}
+                          aria-label={t('docsPicker.addFile', 'Add {{name}}', { ns: 'editor', name: file.name })}
                         />
                       </ItemMedia>
                       <ItemMedia variant="icon">
@@ -355,29 +398,33 @@ export function DocsPickerDialog({ projectId, open, onOpenChange, revitModelName
                       <ItemContent>
                         <ItemTitle className="text-xs">{file.name}</ItemTitle>
                         <ItemDescription className="text-xs">
-                          {KIND_LABEL[file.kind]}
-                          {file.versionNumber !== null ? ` · version ${file.versionNumber}` : ''}
+                          {kindWord(file.kind, t)}
+                          {file.versionNumber !== null ? t('docsPicker.versionNumber', ' · version {{version}}', { ns: 'editor', version: file.versionNumber }) : ''}
                           {file.bytes !== null ? ` · ${formatBytes(file.bytes)}` : ''}
                           {file.lastModified ? ` · ${new Date(file.lastModified).toLocaleDateString()}` : ''}
                           {disabledReason && !isPicked && <span className="block">{disabledReason}</span>}
-                          {file.linked && <span className="block">Already linked as {file.linked.label}. Adding it again brings in its newest version.</span>}
+                          {file.linked && (
+                            <span className="block">
+                              {t('docsPicker.alreadyLinkedAs', 'Already linked as {{label}}. Adding it again brings in its newest version.', { ns: 'editor', label: file.linked.label })}
+                            </span>
+                          )}
                         </ItemDescription>
                       </ItemContent>
                       <ItemActions>
                         {file.revitYear !== null && (
                           <Badge variant="outline" className="text-[10px]" data-testid="docs-file-revit-year">
-                            Revit {file.revitYear}
+                            {t('docsPicker.revitYear', 'Revit {{year}}', { ns: 'editor', year: file.revitYear })}
                           </Badge>
                         )}
                         {file.isCloudModel && (
                           <Badge variant="outline" className="text-[10px]">
                             <Cloud data-icon="inline-start" />
-                            Cloud model
+                            {t('docsPicker.cloudModel', 'Cloud model', { ns: 'editor' })}
                           </Badge>
                         )}
                         {file.linked && (
                           <Badge variant="secondary" className="text-[10px]">
-                            Linked
+                            {t('docsPicker.linked', 'Linked', { ns: 'editor' })}
                           </Badge>
                         )}
                       </ItemActions>
@@ -392,7 +439,7 @@ export function DocsPickerDialog({ projectId, open, onOpenChange, revitModelName
         {pickedList.length > 0 && (
           <div className="flex flex-col gap-2" data-testid="docs-picked">
             <span className="text-sm font-medium">
-              {pickedList.length} picked · name each one and say what it shows
+              {t('docsPicker.pickedSummary', '{{count}} picked · name each one and say what it shows', { ns: 'editor', count: pickedList.length })}
             </span>
             <ScrollArea className="max-h-40">
               <div className="flex flex-col gap-2 pr-2">
@@ -408,13 +455,13 @@ export function DocsPickerDialog({ projectId, open, onOpenChange, revitModelName
                         maxLength={200}
                         aria-invalid={p.label.trim().length === 0 ? true : undefined}
                         disabled={p.file.linked !== null}
-                        title={p.file.linked ? 'Already linked: the new version keeps its name' : undefined}
+                        title={p.file.linked ? t('docsPicker.linkedKeepsName', 'Already linked: the new version keeps its name', { ns: 'editor' }) : undefined}
                         onChange={(e) => updatePick(p.file.itemId, { label: e.target.value })}
                       />
                     </Field>
                     <Field>
                       <FieldLabel htmlFor={`docs-discipline-${p.file.itemId}`} className="text-xs">
-                        Shows
+                        {t('docsPicker.shows', 'Shows', { ns: 'editor' })}
                       </FieldLabel>
                       <Select
                         value={p.discipline}
@@ -429,7 +476,7 @@ export function DocsPickerDialog({ projectId, open, onOpenChange, revitModelName
                         </SelectContent>
                       </Select>
                     </Field>
-                    <Button variant="ghost" size="icon" aria-label={`Don't add ${p.file.name}`} onClick={() => togglePick(p.file, false)}>
+                    <Button variant="ghost" size="icon" aria-label={t('docsPicker.dontAdd', "Don't add {{name}}", { ns: 'editor', name: p.file.name })} onClick={() => togglePick(p.file, false)}>
                       <X />
                     </Button>
                     {p.file.linked === null && <AlsoShows pick={p} set={disciplineSet} onChange={(more) => updatePick(p.file.itemId, { more })} />}
@@ -449,11 +496,14 @@ export function DocsPickerDialog({ projectId, open, onOpenChange, revitModelName
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={adding}>
-            Cancel
+            {t('docsPicker.cancel', 'Cancel', { ns: 'editor' })}
           </Button>
           <Button onClick={() => void add()} disabled={adding || addBlockedReason !== null} title={addBlockedReason ?? undefined} data-testid="docs-add">
             {adding && <Spinner data-icon="inline-start" />}
-            {addBlockedReason ?? `Add ${pickedList.length} ${pickedList.length === 1 ? 'model' : 'models'}`}
+            {addBlockedReason ??
+              (pickedList.length === 1
+                ? t('docsPicker.addOne', 'Add {{count}} model', { ns: 'editor', count: pickedList.length })
+                : t('docsPicker.addMany', 'Add {{count}} models', { ns: 'editor', count: pickedList.length }))}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -463,8 +513,14 @@ export function DocsPickerDialog({ projectId, open, onOpenChange, revitModelName
 
 /** The other disciplines one picked file shows, as chips with Remove, and a picker to add one. */
 function AlsoShows({ pick, set, onChange }: { readonly pick: Picked; readonly set?: PackSet; readonly onChange: (more: readonly LinkedDiscipline[]) => void }) {
+  const t = useEditorTranslate()
   const left = linkedDisciplineChoices(set).filter((c) => c.value !== pick.discipline && !pick.more.includes(c.value))
-  const blocked = pick.more.length + 1 >= MAX_LINKED_DISCIPLINES ? `Up to ${MAX_LINKED_DISCIPLINES} disciplines per model.` : left.length === 0 ? 'Every discipline is already picked.' : null
+  const blocked =
+    pick.more.length + 1 >= MAX_LINKED_DISCIPLINES
+      ? t('docsPicker.upToDisciplines', 'Up to {{count}} disciplines per model.', { ns: 'editor', count: MAX_LINKED_DISCIPLINES })
+      : left.length === 0
+        ? t('docsPicker.everyDisciplinePicked', 'Every discipline is already picked.', { ns: 'editor' })
+        : null
   return (
     <div className="col-span-3 flex flex-wrap items-center gap-1.5" data-testid={`docs-also-${pick.file.itemId}`}>
       {pick.more.map((d) => {
@@ -472,15 +528,15 @@ function AlsoShows({ pick, set, onChange }: { readonly pick: Picked; readonly se
         return (
           <Badge key={d} variant="secondary" className="gap-1 pr-0.5">
             {label}
-            <Button type="button" variant="ghost" size="icon-xs" aria-label={`Remove ${label} from ${pick.file.name}`} onClick={() => onChange(pick.more.filter((x) => x !== d))}>
+            <Button type="button" variant="ghost" size="icon-xs" aria-label={t('docsPicker.removeDiscipline', 'Remove {{label}} from {{name}}', { ns: 'editor', label, name: pick.file.name })} onClick={() => onChange(pick.more.filter((x) => x !== d))}>
               <X />
             </Button>
           </Badge>
         )
       })}
       <Select value="" onValueChange={(v) => isLinkedDiscipline(v) && onChange([...pick.more, v])} disabled={blocked !== null}>
-        <SelectTrigger size="sm" className="h-7 w-auto text-xs" aria-label={`Also shows, for ${pick.file.name}`} title={blocked ?? undefined}>
-          <SelectValue placeholder={blocked ?? 'Also shows…'} />
+        <SelectTrigger size="sm" className="h-7 w-auto text-xs" aria-label={t('docsPicker.alsoShowsFor', 'Also shows, for {{name}}', { ns: 'editor', name: pick.file.name })} title={blocked ?? undefined}>
+          <SelectValue placeholder={blocked ?? t('docsPicker.alsoShows', 'Also shows…', { ns: 'editor' })} />
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>
