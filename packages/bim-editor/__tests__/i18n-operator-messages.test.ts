@@ -441,6 +441,7 @@ const EMPTY_STATES: readonly Caption[] = [
     english: "None linked yet. You can model without one; Manage › Link a model brings in the architect's model when you have it.",
     turkish: "Henüz bağlı yok. Bağlı model olmadan da modelleyebilirsiniz; mimarın modelini edindiğinizde Yönet › Model bağla onu getirir.",
   },
+  { key: "empty.noneLinked", english: "None linked.", turkish: "Bağlı model yok." },
   { key: "empty.totalsNotConnected", english: "Totals appear once the model is connected.", turkish: "Model bağlandığında toplamlar görünür." },
   { key: "empty.noChangeToSave", english: "No change to save.", turkish: "Kaydedilecek değişiklik yok." },
   { key: "empty.noChangeToPutBack", english: "No change to put back.", turkish: "Geri konacak değişiklik yok." },

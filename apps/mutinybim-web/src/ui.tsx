@@ -12,7 +12,8 @@
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { TFunction } from "i18next";
-import { Alert, Badge, Button, MutinyWordmark, formatDate, themeStyleSheet, type MutinyColorScheme, type MutinyLanguage } from "@permitzip/bim-ui";
+import { Alert, AlertDescription, AlertTitle, Badge, Button, MutinyWordmark, formatDate, themeStyleSheet, type MutinyColorScheme, type MutinyLanguage } from "@permitzip/bim-ui";
+import type { WaitingApproval } from "./assistant-approvals";
 import type { QuoteConfig } from "./config";
 import { tFor } from "./i18n";
 
@@ -23,15 +24,15 @@ export interface FrameUser {
   readonly email: string;
   readonly scheme: MutinyColorScheme;
   /** Changes from outside assistants waiting for this person's answer (shown in the header when any). */
-  readonly waitingApprovals: number;
+  readonly waitingApprovals: readonly WaitingApproval[];
 }
 
-let waitingApprovals: (userId: string) => number = () => 0;
-/** The app tells the frame how to count a person's waiting approvals. */
-export function setWaitingApprovals(count: (userId: string) => number): void {
-  waitingApprovals = count;
+let waitingApprovals: (userId: string) => readonly WaitingApproval[] = () => [];
+/** The app tells the frame how to find what is waiting for a person's answer. */
+export function setWaitingApprovals(find: (userId: string) => readonly WaitingApproval[]): void {
+  waitingApprovals = find;
 }
-export function waitingApprovalsOf(userId: string): number {
+export function waitingApprovalsOf(userId: string): readonly WaitingApproval[] {
   return waitingApprovals(userId);
 }
 
@@ -176,14 +177,22 @@ function Header({ user, quote, current, language, t }: Pick<FrameOptions, "user"
               <NavLink href="/models" label={t("nav.models", "My models", { ns: "web" })} current={current === "models"} />
               <NavLink href="/connect" label={t("nav.connect", "Connect an assistant", { ns: "web" })} current={current === "connect"} />
               <NavLink href="/settings" label={t("nav.settings", "Settings", { ns: "web" })} current={current === "settings"} />
-              {user.waitingApprovals > 0 || current === "approvals" ? (
-                <Button asChild variant="ghost" size="sm" className={current === "approvals" ? CURRENT_LINK : undefined}>
-                  <a href="/approvals" aria-current={current === "approvals" ? "page" : undefined} data-testid="nav-approvals">
-                    {t("nav.approvals", "Approvals", { ns: "web" })}
-                    {user.waitingApprovals > 0 ? <Badge variant="destructive">{user.waitingApprovals}</Badge> : null}
-                  </a>
-                </Button>
-              ) : null}
+              <Button asChild variant="ghost" size="sm" className={current === "approvals" ? CURRENT_LINK : undefined}>
+                <a
+                  href="/approvals"
+                  aria-current={current === "approvals" ? "page" : undefined}
+                  aria-label={user.waitingApprovals.length > 0 ? t("nav.approvalsWaiting", "Approvals, {{n}} waiting for you", { ns: "web", n: user.waitingApprovals.length }) : t("nav.approvals", "Approvals", { ns: "web" })}
+                  data-approvals-nav=""
+                  data-approvals-label={t("nav.approvalsWaiting", "Approvals, {{n}} waiting for you", { ns: "web", n: "%n" })}
+                  data-approvals-label-none={t("nav.approvals", "Approvals", { ns: "web" })}
+                  data-testid="nav-approvals"
+                >
+                  {t("nav.approvals", "Approvals", { ns: "web" })}
+                  <Badge variant="destructive" hidden={user.waitingApprovals.length === 0} data-approvals-count="" data-testid="nav-approvals-count">
+                    {user.waitingApprovals.length}
+                  </Badge>
+                </a>
+              </Button>
             </nav>
             <div className="ml-auto flex flex-wrap items-center gap-2">
               {quote ? (
@@ -228,16 +237,63 @@ export function FlashMessage({ flash }: { flash: Flash }) {
   );
 }
 
+const NOTICES_SHOWN = 3;
+
+/** What is waiting for the person's answer, on every signed-in page but Approvals itself (which lists it all). */
+function WaitingNotices({ waiting, listed, t }: { waiting: readonly WaitingApproval[]; listed: boolean; t: TFunction }) {
+  const more = waiting.length - NOTICES_SHOWN;
+  return (
+    <section aria-label={t("approvals.waitingAria", "Waiting for your approval", { ns: "web" })} className="contents" data-approvals-shown={waiting.map((w) => w.id).join(",")} data-testid="approval-notices">
+      {listed
+        ? null
+        : waiting.slice(0, NOTICES_SHOWN).map((w) => (
+            <Alert key={w.id} role="status" className="border-(--mutiny-selection) bg-(--mutiny-accent-subtle)" data-approval-notice={w.id} data-testid="approval-notice">
+              <AlertTitle>
+                {t("approvals.assistantWaiting", "{{assistant}} is waiting for your approval to change {{model}}", { ns: "web", assistant: w.assistant, model: w.modelId ? `“${w.modelName}”` : w.modelName })}
+              </AlertTitle>
+              <AlertDescription className="break-words">{w.title}</AlertDescription>
+              <form method="post" action={w.href} className="mt-1.5 flex flex-wrap items-center gap-2">
+                <Button type="submit" name="decision" value="approve" size="sm">
+                  {t("approvals.approve", "Approve", { ns: "web" })}
+                </Button>
+                <Button type="submit" name="decision" value="decline" size="sm" variant="outline">
+                  {t("approvals.decline", "Decline", { ns: "web" })}
+                </Button>
+                <a href={w.href}>{t("approvals.seeExactly", "See exactly what changes", { ns: "web" })}</a>
+              </form>
+            </Alert>
+          ))}
+      {!listed && more > 0 ? (
+        <p className="text-sm" data-approval-more="">
+          {t("approvals.andMoreWaiting", "And {{count}} more waiting on", { ns: "web", count: more })}{" "}
+          <a href="/approvals">{t("nav.approvals", "Approvals", { ns: "web" })}</a>.
+        </p>
+      ) : null}
+      <Alert role="status" hidden className="border-(--mutiny-selection) bg-(--mutiny-accent-subtle)" data-approvals-new="">
+        <AlertTitle>{t("approvals.newChangeWaiting", "A new change is waiting for your approval.", { ns: "web" })}</AlertTitle>
+        <AlertDescription>
+          <a href="/approvals">{t("approvals.reviewIt", "Review it on Approvals", { ns: "web" })}</a>
+        </AlertDescription>
+      </Alert>
+      <Alert variant="destructive" hidden className="border-(--mutiny-danger)" data-approvals-problem="">
+        {t("approvals.couldNotCheck", "This page couldn't check for new approval requests. Reload it to see what is waiting.", { ns: "web" })}
+      </Alert>
+    </section>
+  );
+}
+
 export function page(body: ReactNode, options: FrameOptions): string {
   const scheme = options.user?.scheme ?? "system";
   const language = options.language ?? "en";
   const t = tFor(language);
+  const waiting = options.user?.waitingApprovals ?? [];
+  const scripts = [...(options.scripts ?? []), ...(options.user ? ["/static/approvals.js"] : [])];
   const markup = renderToStaticMarkup(
     <html lang={language} data-mutiny-scheme={scheme}>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>{`${options.title} · MutinyBIM`}</title>
+        <title>{`${waiting.length > 0 ? `(${waiting.length}) ` : ""}${options.title} · MutinyBIM`}</title>
         <link rel="icon" type="image/svg+xml" href="/assets/bim-ui/mutiny-icon.svg" />
         <style dangerouslySetInnerHTML={{ __html: THEME_CSS }} />
         <link rel="stylesheet" href="/static/app.css" />
@@ -246,6 +302,7 @@ export function page(body: ReactNode, options: FrameOptions): string {
         <Header user={options.user} quote={options.quote} current={options.current} language={language} t={t} />
         <main className={`mx-auto flex w-full flex-1 flex-col gap-5 px-4 py-8 ${options.narrow ? "max-w-md" : "max-w-4xl"}`}>
           <FlashMessage flash={options.flash ?? null} />
+          {options.user ? <WaitingNotices waiting={waiting} listed={options.current === "approvals"} t={t} /> : null}
           {body}
         </main>
         <footer className="border-t border-(--mutiny-border) px-4 py-5 text-center text-xs text-(--mutiny-muted)">
@@ -253,7 +310,7 @@ export function page(body: ReactNode, options: FrameOptions): string {
           <a href="https://github.com/permitzip/mutinybim">{t("footer.source", "Source code", { ns: "web" })}</a> · <a href="/terms">{t("footer.terms", "Terms", { ns: "web" })}</a> ·{" "}
           <a href="/privacy">{t("footer.privacy", "Privacy", { ns: "web" })}</a> · {t("footer.bringYourOwnAi", "Bring your own AI: this app pays for none and sees none of your keys.", { ns: "web" })}
         </footer>
-        {(options.scripts ?? []).map((src) => (
+        {scripts.map((src) => (
           <script key={src} type="module" src={src} />
         ))}
       </body>

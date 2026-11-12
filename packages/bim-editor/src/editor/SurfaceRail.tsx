@@ -13,6 +13,8 @@ import { Button } from '../ui/button'
 import { useLayoutPrefs } from './layout/LayoutPrefsProvider'
 import { LayoutSection } from './layout/LayoutSection'
 import { RailResizeHandle } from './layout/RailResizeHandle'
+import { useEditorHost } from '@permitzip/bim-editor/host'
+import { canLinkFrom, linkSourcesOf } from './linked-api'
 import { openModelPackSet } from './linked-display/open-model-disciplines'
 import type { LinkedDisplay } from './linked-display/use-linked-display'
 import type { UnplacedState } from './model-session'
@@ -115,6 +117,8 @@ export const SurfaceRail = memo<(props: SurfaceRailProps) => ReactNode>(function
   const documents = useModelSelector(store, documentsSelector)
   const organization = useModelSelector(store, organizationSelector)
   const prefs = useLayoutPrefs()
+  const linkSources = linkSourcesOf(useEditorHost().data.linkedModels)
+  const canLink = canLinkFrom(linkSources) || linkSources.autodeskDocs
   const savedWidth = prefs.width(RAIL_SURFACE)
   const [dragWidth, setDragWidth] = useState<number | null>(null)
   const width = dragWidth ?? savedWidth ?? RAIL_DEFAULT_WIDTH_PX
@@ -228,7 +232,9 @@ export const SurfaceRail = memo<(props: SurfaceRailProps) => ReactNode>(function
             <FieldGroup className="gap-2">
               {props.references.length === 0 && (
                 <p className="text-xs text-muted-foreground" data-testid="references-empty-hint">
-                  {t('empty.noneLinkedYet', "None linked yet. You can model without one; Manage › Link a model brings in the architect's model when you have it.", { ns: 'editor' })}
+                  {canLink
+                    ? t('empty.noneLinkedYet', "None linked yet. You can model without one; Manage › Link a model brings in the architect's model when you have it.", { ns: 'editor' })
+                    : t('empty.noneLinked', 'None linked.', { ns: 'editor' })}
                 </p>
               )}
               {props.references.map((ref) => (

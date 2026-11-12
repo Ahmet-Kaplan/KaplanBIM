@@ -2011,7 +2011,8 @@
     "nothingToRead": "Henüz okunacak bir şey yok: bir pano ve besleyicilerini çizin veya bu bloğun neyi okuyacağını seçin.",
     "nothingYetField": "Henüz bir şey yok: biraz metin yazın veya bir alan ekleyin.",
     "pickADate": "Tarih seçin",
-    "totalsNotConnected": "Model bağlandığında toplamlar görünür."
+    "totalsNotConnected": "Model bağlandığında toplamlar görünür.",
+    "noneLinked": "Bağlı model yok."
   },
   "equipmentList": {
     "addARow": "Satır ekle",
@@ -6419,7 +6420,17 @@
     "unexpectedAnswer": "{{what}}: sunucu beklenmeyen bir yanıt gönderdi.",
     "unlinking": "Bağlantı kaldırılıyor",
     "updatingFromRevit": "Revit'ten güncelleniyor",
-    "uploadCancelled": "Yükleme iptal edildi."
+    "uploadCancelled": "Yükleme iptal edildi.",
+    "bringFromDocsOrIfc": "Mimarın modelini Autodesk Docs'tan ya da bir IFC dosyasından getirin",
+    "bringFromDocs": "Mimarın modelini Autodesk Docs'tan getirin",
+    "bringFromIfc": "Mimarın modelini bir IFC dosyasından getirin",
+    "linkingNotAvailable": "Model bağlama burada kullanılamıyor",
+    "bringRevitLinks": "Revit dosyamızda bağlı modelleri getirin",
+    "noLinkSourcesHere": "Bağlı modeller burada kullanılamıyor: {{hostName}} bağlı model dosyalarını saklamıyor. Bağlı model olmadan modelleyebilirsiniz.",
+    "uploadService": "IFC dosyası yükleniyor",
+    "revitService": "Projenin Revit modeli getiriliyor",
+    "docsService": "Autodesk Docs'tan modeller ekleniyor",
+    "checkingNewVersionsService": "Autodesk Docs'ta yeni sürümler denetleniyor"
   },
   "parts": {
     "addLevel": "Kat ekle",
@@ -6588,7 +6599,7 @@
     "cancel": "İptal",
     "cancelUpload": "Yüklemeyi iptal et",
     "chooseFile": "Önce bir IFC dosyası seçin",
-    "connectFirst": "Önce projenin Revit modelini Autodesk Docs'ta bağlayın ya da onun yerine bir IFC dosyası yükleyin.",
+    "connectFirst": "Önce projenin Revit modelini Autodesk Docs'ta bağlayın.",
     "connectRevitModel": "Revit modeli bağla",
     "docsQuestion": "Mimarın modeli Docs'a yüklendi ama bizde bağlı değil mi?",
     "exportAlreadyRunning": "Revit'ten bir dışa aktarma zaten çalışıyor",
@@ -6617,7 +6628,10 @@
     "uploading": "Yükleniyor…",
     "uploadingPercent": "Yükleniyor… %{{percent}}",
     "whoSentIt": "Kim gönderdi (isteğe bağlı)",
-    "whoSentPlaceholder": "örn. Acme Mimarlık, e-postayla"
+    "whoSentPlaceholder": "örn. Acme Mimarlık, e-postayla",
+    "connectFirstOrUpload": "Önce projenin Revit modelini Autodesk Docs'ta bağlayın ya da onun yerine bir IFC dosyası yükleyin.",
+    "nothingCanBeLinked": "Buradan bağlanabilecek bir şey yok",
+    "useAddFromDocs": "Bunun yerine Bağlı modeller bölümündeki Autodesk Docs'tan ekle'yi kullanın."
   },
   "group": {
     "airflowEntering": "Giren hava",

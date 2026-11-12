@@ -115,8 +115,10 @@ const NOT_CAPTIONS = new Set([
   "KEYNOTES",
   "C S",
   "Promise",
-  // `window.open(…, '_blank', 'noopener,noreferrer')`: a browser feature list.
+  // `window.open(…, '_blank', 'noopener,noreferrer')`: a browser feature list. The JSX
+  // form writes the same two tokens separated by a space (`rel="noopener noreferrer"`).
   "noopener,noreferrer",
+  "noopener noreferrer",
   // `preserveAspectRatio="xMidYMid meet"`: the SVG keyword pair that means "fit the
   // whole drawing in", not words. It reads as prose to `looksLikeProse` (two
   // tokens, ends in a letter) and can never be keyed: the browser parses it.

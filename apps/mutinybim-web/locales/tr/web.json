@@ -77,7 +77,8 @@
     "signUp": "Ücretsiz hesap oluştur",
     "logOut": "Oturumu kapat",
     "main": "Ana menü",
-    "home": "MutinyBIM ana sayfası"
+    "home": "MutinyBIM ana sayfası",
+    "approvalsWaiting": "Onaylar, {{n}} tanesi sizi bekliyor"
   },
   "footer": {
     "openSource": "MutinyBIM açık kaynaktır (Apache-2.0).",
@@ -331,13 +332,34 @@
     "connected": "bağladığınız",
     "emptyTail": "bir asistan bir değişiklik önerip size kendisi soramadığında burada görünür.",
     "stateWaiting": "Sizi bekliyor",
-    "stateApproved": "Onaylandı",
+    "stateApproved": "Onaylandı, henüz uygulanmadı",
     "stateDeclined": "Geri çevrildi",
     "stateApplied": "Uygulandı",
     "stateFailed": "Uygulanamadı",
     "stateDropped": "Süresi doldu",
     "approve": "Onayla",
-    "decline": "Geri çevir"
+    "decline": "Geri çevir",
+    "waitingAria": "Onayınızı bekleyenler",
+    "assistantWaiting": "{{assistant}}, {{model}} modelini değiştirmek için onayınızı bekliyor",
+    "seeExactly": "Tam olarak ne değişiyor görün",
+    "andMoreWaiting": "{{count}} tanesi daha onay bekliyor:",
+    "andMoreOnApprovals": "{{count}} tane daha onay bekliyor",
+    "newChangeWaiting": "Onayınızı bekleyen yeni bir değişiklik var.",
+    "reviewIt": "Onaylar'da inceleyin",
+    "couldNotCheck": "Bu sayfa yeni onay isteklerini denetleyemedi. Neyin beklediğini görmek için sayfayı yenileyin.",
+    "dismiss": "Kapat",
+    "openApprovals": "Onaylar'ı aç",
+    "checkFailed": "Onay istekleri denetlenemedi. Neyin beklediğini görmek için Onaylar'ı açın.",
+    "checkFailedStatus": "Onay istekleri denetlenemedi (sunucu {{status}} yanıtını verdi). Neyin beklediğini görmek için Onaylar'ı açın.",
+    "checkFailedShape": "Onay istekleri denetlenemedi (sunucunun yanıtı bir liste değildi). Neyin beklediğini görmek için Onaylar'ı açın.",
+    "answerNotSent": "Yanıtınız gönderilmedi. Bağlantınızı denetleyip Onaylar'da yanıtlayın.",
+    "answerNotAccepted": "Yanıtınız kabul edilmedi (sunucu {{status}} yanıtını verdi). Hiçbir şey değişmedi; onu Onaylar'da yanıtlayın.",
+    "answerApproved": "Onaylandı.",
+    "answerDeclined": "Geri çevrildi. Hiçbir şey değişmedi.",
+    "signedOutList": "Oturumunuz kapalı, bu yüzden onay istekleri gösterilemiyor. Yeniden giriş yapın.",
+    "signedOutAnswer": "Oturumunuz kapalı, bu yüzden yanıtınız gönderilmedi. Yeniden giriş yapıp Onaylar'da yanıtlayın.",
+    "waitingChangeThisModel": " bu modeli değiştirmek için onayınızı bekliyor: {{title}}",
+    "waitingChange": " onayınızı bekliyor: {{title}}"
   },
   "approval": {
     "pageTitle": "Bir değişikliği onayla",
@@ -407,7 +429,9 @@
     "tooManyLogins": "Buradan çok fazla deneme yapıldı. On dakika bekleyip tekrar deneyin.",
     "tooManyPasswordTries": "Çok fazla deneme yapıldı. On dakika bekleyip tekrar deneyin.",
     "tooManySignups": "Buradan çok fazla kayıt yapıldı. On dakika bekleyip tekrar deneyin.",
-    "wrongEmailOrPassword": "Bu e-posta ve parola bir hesapla eşleşmiyor. İkisini kontrol edip tekrar deneyin."
+    "wrongEmailOrPassword": "Bu e-posta ve parola bir hesapla eşleşmiyor. İkisini kontrol edip tekrar deneyin.",
+    "linkedProviderNotSetUp": "O girişteki projeler bu sunucuda ayarlı değil.",
+    "answerDecision": "Onayla ya da Geri çevir seçin. Hiçbir şey değişmedi."
   },
   "flash": {
     "agentKeyMade": "“{{label}}” oluşturuldu.",
@@ -423,7 +447,13 @@
     "shareRoleView": "{{name}} artık yalnızca görüntüleyebilir.",
     "shared": "{{name}} ile paylaşıldı. Onu Modellerim sayfasında “Sizinle paylaşılanlar” altında görür.",
     "unshared": "{{name}} artık “{{model}}” modeline erişemiyor.",
-    "welcome": "Hoş geldiniz, {{name}}. İlk modelinizi aşağıda oluşturun."
+    "welcome": "Hoş geldiniz, {{name}}. İlk modelinizi aşağıda oluşturun.",
+    "linkedModelsBelow": "Tamam. {{models}} aşağıda.",
+    "linkedModelsOn": "Açık. {{models}} Modellerim'de görünüyor.",
+    "linkedModelsOff": "Kapalı. {{models}} artık burada görünmüyor ve asistanlarınız onlara bu uygulama üzerinden erişemiyor.",
+    "linkedDenied": "{{host}} üzerinde izin vermediniz. Hiçbir şey değişmedi; daha sonra Ayarlar'dan açabilirsiniz.",
+    "linkedStopped": "{{host}} durdu ({{error}}). Yeniden deneyin.",
+    "linkedExpired": "O bağlantı süresi dolmuş ya da zaten kullanılmış. Yeniden başlayın."
   },
   "message": {
     "assistantCantConnect": "Bu asistan bağlanamıyor",
@@ -460,15 +490,48 @@
     "clientIdPrivate": "Asistanın client_id değeri özel bir adresi gösteriyor, bu yüzden getirilmedi.",
     "clientIdUnresolved": "Asistanın client_id adresi bulunamadı.",
     "metadataAnswered": "Asistanın üst verisi {{status}} yanıtını verdi.",
+    "metadataNeedsPublicSignIn": "Bu asistan yalnızca bu sunucunun denetlemediği bir anahtarla giriş yapabiliyor (ortak, sırsız girişi sunmuyor).",
     "metadataNoRedirects": "Asistanın üst verisinde kullanılabilir redirect_uris yok.",
     "metadataNotKept": "Asistanın üst verisi saklanamadı.",
     "metadataNotObject": "Asistanın üst verisi bir JSON nesnesi değil.",
     "metadataOtherClient": "Asistanın üst verisi başka bir client_id adı veriyor.",
-    "metadataPublicOnly": "Burada yalnızca istemci sırrı olmayan ortak istemciler giriş yapabilir.",
     "metadataTooLarge": "Asistanın üst verisi 5 KB sınırından büyük.",
     "metadataUnreadable": "Asistanın üst verisi okunamadı.",
     "noClientId": "Asistan kim olduğunu söylemedi (client_id yok). Bağlantıyı asistandan yeniden başlatın.",
     "unknownClient": "Bu sunucu o asistanı tanımıyor. MutinyBIM'i asistandan kaldırıp yeniden ekleyin, böylece baştan kaydolur.",
     "unregisteredRedirect": "Asistan sizi kaydetmediği bir adrese geri göndermek istedi, bu yüzden durduruldu."
+  },
+  "linked": {
+    "canEdit": "Düzenleyebilir",
+    "openIn": "{{host}} içinde aç",
+    "openItFrom": "{{host}} içinden açın.",
+    "managedIn": "Erişim ve paylaşım {{host}} içinde yönetilir.",
+    "seeYoursHere": "{{label}} listesini burada, kendi modellerinizin yanında görün.",
+    "showMy": "{{label}} listemi göster",
+    "needsReconnect": "{{host}} yeniden bağlanmanızı istiyor. Kendi modellerinizde hiçbir şey değişmedi.",
+    "reconnect": "Yeniden bağlan",
+    "unreachable": "{{host}} şu anda erişilemiyor. Kendi modelleriniz sağlam.",
+    "tryAgain": "Yeniden dene",
+    "noneToOpen": "Açılacak {{label}} yok",
+    "onlyProjects": "{{host}} yalnızca orada açabileceğiniz bir yapı modeli olan projeleri gösterir.",
+    "keyMissing": "{{provider}} projeleri bu sunucuda henüz gösterilemiyor: işletmecisi bu bağlantıları sakladığı anahtarı ayarlamamış. Kendi modelleriniz sağlam."
+  },
+  "linkedSwitch": {
+    "show": "{{label}} gösterilsin:",
+    "on": "Açık",
+    "stopQuestion": "{{label}} burada gösterilmesin mi? Bu uygulama ve bağlı asistanlarınız onları hemen görmeyi bırakır. {{host}} içinde ya da kendi modellerinizde hiçbir şey değişmez.",
+    "turnOff": "Kapat",
+    "needsReconnecting": "Yeniden bağlanmalı",
+    "off": "Kapalı",
+    "showThem": "Göster"
+  },
+  "linkedOffer": {
+    "title": "{{label}} da gösterilsin mi?",
+    "lede": "{{host}}, orada açabileceğiniz projeleri burada, kendi modellerinizin altında listeleyebilir; bağlı asistanlarınız da onlar üzerinde çalışabilir. {{host}} bunun için izin isteyecek.",
+    "modelsOnly": "Yalnızca yapı modellerini açar: {{host}} hesabınızda başka hiçbir şeye dokunmaz.",
+    "roleStays": "Neyi görüp neyi değiştirebileceğiniz {{host}} içindeki rolünüze bağlı kalır ve her seferinde denetlenir.",
+    "notCopied": "Buraya hiçbir şey kopyalanmaz. İstediğiniz zaman Ayarlar'dan ya da {{host}} içinden kapatabilirsiniz.",
+    "notNow": "Şimdi değil",
+    "pageTitle": "{{label}} da gösterilsin"
   }
 }

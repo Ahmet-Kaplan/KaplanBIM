@@ -23,7 +23,15 @@
  * - Sessions and approvals are kept in the account database: after a
  *   restart an assistant carries on in the same session (with the families
  *   it turned on), and requests waiting for the person are still there.
+ * - Scripts an assistant sent are kept there too (36 hours), so it sends a
+ *   script once, fixes it by id and lands a preview by id, also after a
+ *   restart.
+ * - Linked models (linked-hosts.ts): a core tool call naming one is sent to
+ *   the linked host's own tool server, which enforces its own permissions;
+ *   a change asks the person here first, exactly as for their own models.
+ *   Other families don't reach linked models.
  */
+import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash, randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
@@ -33,15 +41,16 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { ElicitResultSchema, isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { canonicalJson, parseBranchModelId, type Command } from "@permitzip/bim-kernel";
-import { approvalIoFromRequest, createBimToolServer, familySlug, LOCAL_SCHEMAS, PACK_CONTROL_TOOL, type ApprovalGate, type BimToolHost, type ResolveBimCaller, type ScriptRunnerHost } from "@permitzip/bim-mcp";
+import { approvalIoFromRequest, createBimToolServer, familySlug, LOCAL_SCHEMAS, PACK_CONTROL_TOOL, parseKeptScript, readKeptScript, type ApprovalGate, type CoreSchemas, type BimToolHost, type ResolveBimCaller, type ScriptPreviewStore, type ScriptRunnerHost, type ToolCallWrapper } from "@permitzip/bim-mcp";
 import { localCaller, localModelAccess, MemoryScriptLibrary, type LocalModelServer } from "@permitzip/bim-mcp/local";
 import { localToolPacks } from "@permitzip/bim-mcp-packs";
 import type { AgentEditResult, AgentSocketFactory } from "@permitzip/bim-sync";
 import { agentActorId } from "@permitzip/bim-sync";
-import { APPROVAL_WAIT_MS, type ApprovalBook, type PendingApproval } from "./assistant-approvals";
+import { APPROVAL_WAIT_MS, type ApprovalBook, type LandingOutcome, type PendingApproval } from "./assistant-approvals";
 import { bearerChallenge, exchangeToken, protectedResourceMetadata, authorizationServerMetadata, registerClient, toolPathOf, verifyAccessToken, type AssistantAuthOptions } from "./assistant-auth";
 import type { AssistantSessionRow, Db, ModelAccess, ModelRow, UserRow } from "./db";
 import { tFor } from "./i18n";
+import { isLinkedAlias, linkedRefusal, type LinkedHosts } from "./linked-hosts";
 import type { HostedScripts } from "./script-sandbox";
 import { digest } from "./secrets";
 
@@ -70,6 +79,43 @@ export interface AssistantToolsOptions {
   readonly scripts: HostedScripts;
   /** How long a tool call waits for an answer on the approvals page before leaving it there (default 50 s). */
   readonly approvalWaitMs?: number;
+  /** Models on linked hosts (absent: none). */
+  readonly linked?: LinkedHosts;
+}
+
+/** Core tools sent to a linked host as they are (they read, check or preview; nothing lands). */
+const LINKED_FORWARDED = new Set(["bim_check_output", "bim_run_script", "bim_model_summary", "bim_query_elements", "bim_inspect_network", "bim_validation_issues"]);
+/** Core tools that land a change: the person approves here first, then the host checks it again. */
+const LINKED_GATED = new Set(["bim_apply_output", "bim_save_part_type"]);
+
+/** What lands when the person approves a linked change after its tool call returned. */
+interface ForwardLanding {
+  readonly forward: { readonly alias: string; readonly tool: string; readonly args: Record<string, unknown> };
+}
+
+function isForwardLanding(value: unknown): value is ForwardLanding {
+  if (typeof value !== "object" || value === null || !("forward" in value)) return false;
+  const f = (value as { forward: unknown }).forward;
+  if (typeof f !== "object" || f === null) return false;
+  const v = f as Record<string, unknown>;
+  return typeof v.alias === "string" && typeof v.tool === "string" && typeof v.args === "object" && v.args !== null;
+}
+
+function linkedChangeSummary(tool: string, args: Record<string, unknown>): string {
+  if (tool === "bim_save_part_type") return "Save the script's part types to the firm library";
+  const label = typeof args.label === "string" ? args.label.slice(0, 120) : "the script's result";
+  const steps = typeof args.steps === "number" ? ` (${args.steps} step${args.steps === 1 ? "" : "s"})` : "";
+  return `Apply “${label}”${steps}`;
+}
+
+function linkedChangeDetails(args: Record<string, unknown>): string[] {
+  const shown = Object.fromEntries(Object.entries(args).filter(([k]) => k !== "script" && k !== "output"));
+  const text = canonicalJson(shown);
+  return [text.length > 1500 ? `${text.slice(0, 1500)}…` : text];
+}
+
+function resultText(result: { content?: readonly { type: string; text?: string }[] }): string {
+  return (result.content ?? []).map((c) => (c.type === "text" ? (c.text ?? "") : "")).join(" ").slice(0, 400);
 }
 
 const BODY_LIMIT = 4 * 1024 * 1024;
@@ -80,9 +126,19 @@ const SESSION_IDLE_MS = 60 * 60_000;
 const SESSIONS_KEPT_PER_PERSON = 30;
 const SESSION_KEEP_MS = 30 * 24 * 60 * 60_000;
 const SESSION_TOUCH_MS = 60_000;
+/** Scripts kept per person so an assistant sends each one once (the oldest go first). */
+const KEPT_SCRIPTS_PER_PERSON = 200;
 const MEMORY_SYNC_URL = "memory://mutinybim-web/sync";
 /** This app has no projects; tool families that ask for a project id take this one. */
+/** An approval box answered "no" sooner than this was never shown to the person. */
+const INSTANT_DECLINE_MS = 1_500;
 export const HOSTED_PROJECT_ID = "00000000-0000-4000-8000-000000000001";
+/** Given as a read's model_id, it answers with the signed-in person's models instead of reading one. */
+export const LIST_MODELS_WORD = "list";
+const HOSTED_SCHEMAS: CoreSchemas = {
+  reads: { ...LOCAL_SCHEMAS.reads, model_id: LOCAL_SCHEMAS.reads.model_id.describe(`Model id. Pass "${LIST_MODELS_WORD}" to see this person's models.`) },
+  scripts: LOCAL_SCHEMAS.scripts,
+};
 
 
 /** Where a library save lands, as the approval names it. */
@@ -145,6 +201,37 @@ function commandSummary(command: Command): string {
 function commandDetails(command: Command): string[] {
   const text = canonicalJson(command);
   return [text.length > 1500 ? `${text.slice(0, 1500)}…` : text];
+}
+
+/** Requests the person approved on the approvals page while the tool call now running waited; settled when that call ends. */
+const approvedInCall = new AsyncLocalStorage<Set<string>>();
+
+const NOT_APPLIED_STATUSES = new Set(["refused", "conflict", "not_approved", "stale_preview", "has_issues", "stopped"]);
+
+/** Why a tool call's answer says nothing landed, or null when it landed. */
+function notApplied(result: unknown): string | null {
+  if (typeof result !== "object" || result === null) return null;
+  const answer = result as { readonly content?: readonly { type: string; text?: string }[]; readonly isError?: boolean };
+  const text = (answer.content ?? []).map((c) => (c.type === "text" ? (c.text ?? "") : "")).join(" ");
+  let said: Record<string, unknown> | null = null;
+  if (text.trimStart().startsWith("{")) {
+    try {
+      const parsed: unknown = JSON.parse(text);
+      if (typeof parsed === "object" && parsed !== null) said = parsed as Record<string, unknown>;
+    } catch (err) {
+      console.error("[mutinybim-web] a tool's answer looked like JSON but didn't parse; reading it as words", { err });
+    }
+  }
+  const status = said?.status;
+  const message = said?.message;
+  const refused = answer.isError === true || said?.nothing_changed === true || (typeof status === "string" && NOT_APPLIED_STATUSES.has(status));
+  if (!refused) return null;
+  const why = typeof message === "string" ? message : text;
+  return why.slice(0, 400) || "the model didn't take it";
+}
+
+function editOutcome(result: AgentEditResult): LandingOutcome {
+  return { applied: result.status === "saved" || result.status === "not_saved_yet", words: editWords(result) };
 }
 
 function editWords(result: AgentEditResult): string {
@@ -312,15 +399,18 @@ export function createAssistantTools(options: AssistantToolsOptions): AssistantT
    * otherwise the approvals page (shown by the assistant as a link when it
    * can open links), waiting a little under a minute.
    */
-  async function askPerson(server: McpServer, extraValue: unknown, person: UserRow, clientName: string, spec: { readonly modelId: string; readonly modelName: string; readonly summary: string; readonly details: readonly string[]; readonly kind: PendingApproval["kind"]; readonly key: string | null }): Promise<{ readonly answer: "approved" } | { readonly answer: "declined" } | { readonly answer: "waiting"; readonly item: PendingApproval }> {
+  async function askPerson(server: McpServer, extraValue: unknown, person: UserRow, clientName: string, spec: { readonly modelId: string; readonly modelName: string; readonly summary: string; readonly details: readonly string[]; readonly kind: PendingApproval["kind"]; readonly key: string | null }): Promise<{ readonly answer: "approved"; readonly item?: PendingApproval } | { readonly answer: "declined" } | { readonly answer: "waiting"; readonly item: PendingApproval }> {
     const extra = asExtra(extraValue);
     const elicitation = server.server.getClientCapabilities()?.elicitation;
     const canForm = Boolean(elicitation) && (Boolean(elicitation?.form) || !elicitation?.url);
     if (canForm) {
       try {
+        const askedAt = Date.now();
         const said = await approvalIoFromRequest(extraValue).confirm(`MutinyBIM: ${clientName} wants to make this change in “${spec.modelName}”: ${spec.summary}.\nApprove?`);
         if (said === "approved") return { answer: "approved" };
-        if (said === "declined") return { answer: "declined" };
+        // A "no" faster than anyone can read came from the assistant, not the person (some never show the box): ask on the approvals page.
+        if (said === "declined" && Date.now() - askedAt >= INSTANT_DECLINE_MS) return { answer: "declined" };
+        if (said === "declined") console.warn("[mutinybim-web] the assistant's approval box said no at once; asking on the approvals page", { userId: person.id, clientName });
       } catch (err) {
         console.error("[mutinybim-web] the assistant's approval box failed; asking on the approvals page", { userId: person.id, err });
       }
@@ -348,7 +438,40 @@ export function createAssistantTools(options: AssistantToolsOptions): AssistantT
       extra.sendNotification({ method: "notifications/elicitation/complete", params: { elicitationId: item.id } }).catch((err: unknown) => console.error("[mutinybim-web] closing the approval link failed", { err }));
     }
     if (answer === "timeout") return { answer: "waiting", item };
-    return answer === "approved" ? { answer: "approved" } : { answer: "declined" };
+    if (answer === "declined") return { answer: "declined" };
+    const inCall = approvedInCall.getStore();
+    if (inCall) inCall.add(item.id);
+    else {
+      console.warn("[mutinybim-web] a change was approved outside a tool call, so its end can't be followed", { userId: person.id });
+      approvals.settle(person.id, item.id, true, "Approved. Your assistant went on to apply it.");
+    }
+    return { answer: "approved", item };
+  }
+
+  /** Scripts the assistant sent, kept in the account database: an id still works after a restart and in the person's other sessions. */
+  function keptScriptsOf(person: UserRow): ScriptPreviewStore {
+    return {
+      async put(script) {
+        db.saveKeptScript({ id: script.id, userId: person.id, body: script, expiresAt: script.expiresAt, keep: KEPT_SCRIPTS_PER_PERSON });
+      },
+      async get(id) {
+        return parseKeptScript(db.keptScript(id, person.id));
+      },
+    };
+  }
+
+  /**
+   * A call for a linked model that names a script this app kept (an id from a
+   * check made here) is sent with the script's text: the linked host keeps
+   * its own scripts under its own ids. An id this app doesn't have is the
+   * linked host's, and goes as it is.
+   */
+  async function withScriptText(person: UserRow, given: Record<string, unknown>): Promise<Record<string, unknown>> {
+    const script = given.script;
+    if (typeof script !== "object" || script === null || !("id" in script) || typeof script.id !== "string" || "replace" in script) return given;
+    const kept = await readKeptScript(keptScriptsOf(person), person.id, script.id, Date.now());
+    if (!kept) return given;
+    return { ...given, script: { source: kept.source, reads: "reads" in script && script.reads !== undefined ? script.reads : kept.reads } };
   }
 
   function makeHost(person: UserRow, grant: { readonly grantId: string; readonly clientName: string }, runId: string, server: () => McpServer): BimToolHost & { readonly caller: ResolveBimCaller; readonly runId: string; readonly person: string } {
@@ -380,7 +503,14 @@ export function createAssistantTools(options: AssistantToolsOptions): AssistantT
             if (!now) return no("forbidden", NOT_YOURS);
             if (now.access === "view") return no("forbidden", viewOnlyWords(now.model.name));
             const asked = await askPerson(server(), extra, person, grant.clientName, { modelId, modelName: now.model.name, summary: commandSummary(command), details: commandDetails(command), kind: "edit", key: null });
-            if (asked.answer === "approved") return send(command, opts);
+            if (asked.answer === "approved") {
+              const result = await send(command, opts);
+              if (asked.item) {
+                const ended = editOutcome(result);
+                approvals.settle(person.id, asked.item.id, ended.applied, ended.words);
+              }
+              return result;
+            }
             if (asked.answer === "declined") return no("not_approved", `${person.display_name} declined it`);
             const landing: Landing = { command, idempotencyKey: opts.idempotencyKey, ...(opts.baseRevision !== undefined ? { baseRevision: opts.baseRevision } : {}) };
             approvals.setLanding(asked.item, landing, personWords);
@@ -413,6 +543,8 @@ export function createAssistantTools(options: AssistantToolsOptions): AssistantT
       },
     };
 
+    const keptScripts = keptScriptsOf(person);
+
     const runner: ScriptRunnerHost = {
       run: (request) => options.scripts.run(person.id, request),
       availability: () => options.scripts.availability(),
@@ -439,45 +571,151 @@ export function createAssistantTools(options: AssistantToolsOptions): AssistantT
         return ready.ok ? { ok: true } : { ok: false, reason: ready.reason };
       },
       approvals: approvalsGate,
+      previews: () => keptScripts,
     };
   }
 
   /** Lands an edit the person approved on the page after its tool call returned (also after a restart). */
   approvals.setLander(async (item) => {
     const person = db.userById(item.userId);
-    if (!person) return "That account is gone, so nothing changed.";
+    const no = (words: string): LandingOutcome => ({ applied: false, words });
+    if (!person) return no("That account is gone, so nothing changed.");
+    if (isForwardLanding(item.landing)) {
+      const { alias, tool, args } = item.landing.forward;
+      const row = options.linked?.byAlias(person.id, alias) ?? null;
+      const provider = row ? options.linked?.provider(row.provider) : null;
+      if (!row || !provider || !options.linked) return no("That linked model isn't available to you any more, so nothing changed.");
+      const hostName = provider.label.replace(/^Log in with /i, "");
+      if (!row.can_edit) return no(`You can only view “${row.label}” in ${hostName}, so nothing changed.`);
+      const linked = options.linked;
+      const result = await inTurn(person.id, () => linked.call(person, row, tool, args, { agentName: item.clientName, runId: `web-approved-${randomUUID().slice(0, 8)}` }).catch((err: unknown) => linkedRefusal(err, alias)));
+      return result.isError ? no(`Approved, but ${hostName} didn't apply it: ${resultText(result)}`) : { applied: true, words: `Approved and applied in ${hostName}.` };
+    }
     if (!isLanding(item.landing)) throw new Error("the approved change wasn't kept in a form that can be applied");
     const found = db.accessTo(person.id, baseModelOf(item.modelId));
-    if (!found) return NOT_YOURS;
-    if (found.access === "view") return viewOnlyWords(found.model.name);
+    if (!found) return no(NOT_YOURS);
+    if (found.access === "view") return no(viewOnlyWords(found.model.name));
     const runId = `web-approved-${randomUUID().slice(0, 8)}`;
     const who = await localCaller({ server: personModelServer(person, agentActorId(person.id, runId)), person: person.id, runId, agentName: item.clientName })({}, "", true);
     const session = await who.open(item.modelId, undefined);
     try {
       const { command, idempotencyKey, baseRevision } = item.landing;
-      return editWords(await session.edit(command, { idempotencyKey, ...(baseRevision !== undefined ? { baseRevision } : {}) }));
+      return editOutcome(await session.edit(command, { idempotencyKey, ...(baseRevision !== undefined ? { baseRevision } : {}) }));
     } finally {
       session.close();
     }
   });
 
-  function newServer(person: UserRow, grant: { readonly grantId: string; readonly clientName: string }, family: string, runId: string, turnedOn: readonly string[]): McpServer {
+  /** One forwarded script run (or landing) at a time per person, like their runs here. */
+  const forwardQueues = new Map<string, Promise<unknown>>();
+  function inTurn<T>(userId: string, work: () => Promise<T>): Promise<T> {
+    const before = forwardQueues.get(userId) ?? Promise.resolve();
+    const next = before.then(work, work);
+    const settled = next.then(
+      () => undefined,
+      () => undefined,
+    );
+    forwardQueues.set(userId, settled);
+    void settled.then(() => {
+      if (forwardQueues.get(userId) === settled) forwardQueues.delete(userId);
+    });
+    return next;
+  }
+
+  /** The words an assistant reads for linked models, or why there are none (never fails the session). */
+  async function linkedLine(person: UserRow): Promise<string> {
+    if (!options.linked) return "";
+    try {
+      return await options.linked.assistantLine(person);
+    } catch (err) {
+      console.error("[mutinybim-web] listing linked models for an assistant failed", { userId: person.id, err });
+      return "Linked projects couldn't be listed just now.";
+    }
+  }
+
+  /** Answers a core tool call that names a linked model; every other call goes on as it is. */
+  function linkedRouter(person: UserRow, grant: { readonly clientName: string }, runId: string, server: () => McpServer): ToolCallWrapper | undefined {
+    const linked = options.linked;
+    if (!linked) return undefined;
+    const refusedLinked = (code: string, message: string, modelId: string) => ({ content: [{ type: "text" as const, text: JSON.stringify({ status: "refused", code, message, element_ids: [], model_id: modelId }) }], isError: true });
+    return (name, next) =>
+      (async (args: unknown, extra: unknown) => {
+        const sent = typeof args === "object" && args !== null ? (args as Record<string, unknown>) : null;
+        const modelId = sent && typeof sent.model_id === "string" ? sent.model_id : null;
+        if (!sent || !modelId || !isLinkedAlias(modelId)) return (next as (a: unknown, e: unknown) => unknown)(args, extra);
+        const given = await withScriptText(person, sent);
+        const row = linked.byAlias(person.id, modelId);
+        const provider = row ? linked.provider(row.provider) : null;
+        const hostName = provider ? provider.label.replace(/^Log in with /i, "") : "the linked host";
+        if (!row || !provider) return refusedLinked("forbidden", `That ${provider?.models.label ?? "linked"} model isn't available to you any more. ${person.display_name} may have lost access, or turned linked projects off on ${origin}/models.`, modelId);
+        if (!LINKED_FORWARDED.has(name) && !LINKED_GATED.has(name)) {
+          return refusedLinked("not_here", `${name} doesn't reach ${hostName} models from here. Use the core tools (a script does almost everything), or open “${row.label}” in ${hostName}${row.open_url ? ` at ${row.open_url}` : ""} for that.`, modelId);
+        }
+        const who = { agentName: grant.clientName, runId };
+        const forward = () => linked.call(person, row, name, given, who).catch((err: unknown) => linkedRefusal(err, modelId));
+        if (LINKED_FORWARDED.has(name)) return name === "bim_run_script" || name === "bim_check_output" ? inTurn(person.id, forward) : forward();
+        if (!row.can_edit) return refusedLinked("forbidden", `You can only view “${row.label}” in ${hostName}, so nothing was changed. Ask a project lead there for edit access.`, modelId);
+        const asked = await askPerson(server(), extra, person, grant.clientName, { modelId, modelName: row.label, summary: linkedChangeSummary(name, given), details: linkedChangeDetails(given), kind: "edit", key: null });
+        if (asked.answer === "declined") return refusedLinked("not_approved", `${person.display_name} declined it. Nothing changed.`, modelId);
+        if (asked.answer === "waiting") {
+          const landing: ForwardLanding = { forward: { alias: row.alias_id, tool: name, args: given } };
+          approvals.setLanding(asked.item, landing);
+          return refusedLinked("awaiting_approval", `Waiting for ${person.display_name} to approve it at ${origin}/approvals/${asked.item.id}. Tell them to open that link: it lands the moment they press Approve (within 30 minutes), so don't send it again. Nothing changed yet.`, modelId);
+        }
+        return inTurn(person.id, forward);
+      }) as never;
+  }
+
+  function newServer(person: UserRow, grant: { readonly grantId: string; readonly clientName: string }, family: string, runId: string, turnedOn: readonly string[], linkedWords = ""): McpServer {
     let made: McpServer | null = null;
     const host = makeHost(person, grant, runId, () => {
       if (!made) throw new Error("the tool server isn't ready yet");
       return made;
     });
+    const aroundTool = linkedRouter(person, grant, runId, () => {
+      if (!made) throw new Error("the tool server isn't ready yet");
+      return made;
+    });
     const instructions =
-      `Hosted MutinyBIM at ${origin}, signed in as ${person.display_name}. ${modelsLine(person)} This app has no projects: leave project_id out where you can, and where a tool needs one pass ${HOSTED_PROJECT_ID}. ` +
+      `Hosted MutinyBIM at ${origin}, signed in as ${person.display_name}. ${modelsLine(person)}${linkedWords ? ` ${linkedWords}` : ""} This app has no projects: leave project_id out where you can, and where a tool needs one pass ${HOSTED_PROJECT_ID}. ` +
       `Scripts run ${options.scripts.where}: preview with bim_run_script, then land the result with bim_apply_output. ` +
       `Every change asks ${person.display_name} first: in your approval box if you have one, otherwise on ${origin}/approvals. Models shared view-only can be read, never changed.`;
+    const linkedTool = aroundTool;
+    // Not every assistant shows its model the instructions above, so the model list is also one call away.
+    const withModelList: ToolCallWrapper = (name, next) => {
+      const routed = linkedTool ? linkedTool(name, next) : next;
+      // A change approved on the approvals page while this call waited is marked applied (or not) when the call ends.
+      const inner = async (args: unknown, extra: unknown): Promise<unknown> => {
+        const approved = new Set<string>();
+        const settle = (why: string | null) => {
+          for (const id of approved) approvals.settle(person.id, id, why === null, why === null ? "Approved and applied by your assistant." : `Approved, but it wasn't applied: ${why.replace(/\.$/, "")}. Ask your assistant again.`);
+        };
+        try {
+          const result: unknown = await approvedInCall.run(approved, () => (routed as (a: unknown, e: unknown) => unknown)(args, extra));
+          settle(notApplied(result));
+          return result;
+        } catch (err) {
+          if (approved.size > 0) console.error("[mutinybim-web] a tool call failed after its change was approved", { tool: name, userId: person.id, err });
+          settle(err instanceof Error ? err.message : String(err));
+          throw err;
+        }
+      };
+      return (async (args: unknown, extra: unknown) => {
+        const given = typeof args === "object" && args !== null ? (args as Record<string, unknown>) : null;
+        const asked = given && typeof given.model_id === "string" ? given.model_id.trim().toLowerCase() : null;
+        if (asked !== LIST_MODELS_WORD) return inner(args, extra);
+        const linkedNow = await linkedLine(person);
+        return { content: [{ type: "text" as const, text: `${modelsLine(person)}${linkedNow ? ` ${linkedNow}` : ""} Call again with one of these model ids. New models are made under My models at ${origin}/models.` }] };
+      }) as never;
+    };
     made = createBimToolServer({
       host,
-      schemas: LOCAL_SCHEMAS,
+      schemas: HOSTED_SCHEMAS,
       runsWhere: options.scripts.where,
       instructions,
       families: [...new Set([family, ...turnedOn].filter((f) => f.length > 0))],
       packs: [localToolPacks(host, path.join(options.dataDir, "assistant-files", person.id))],
+      aroundTool: withModelList,
     });
     return made;
   }
@@ -519,7 +757,7 @@ export function createAssistantTools(options: AssistantToolsOptions): AssistantT
     const row = db.assistantSession(id);
     if (!row || row.user_id !== signedIn.user.id || row.grant_id !== signedIn.grantId || !isInitializeRequest(row.init)) return null;
     await roomFor(signedIn.user.id);
-    const server = newServer(signedIn.user, signedIn, row.family, row.run_id, row.families);
+    const server = newServer(signedIn.user, signedIn, row.family, row.run_id, row.families, await linkedLine(signedIn.user));
     const live: { session: Session | null } = { session: null };
     const transport = sessionTransport(() => row.id, live);
     const now = Date.now();
@@ -592,7 +830,7 @@ export function createAssistantTools(options: AssistantToolsOptions): AssistantT
     if (!isInitializeRequest(body)) return rpcError(res, 400, -32000, "No session: start with an initialize request (or the session ended; reconnect).");
     await roomFor(signedIn.user.id);
     const runId = `web-${randomUUID().slice(0, 12)}`;
-    const server = newServer(signedIn.user, signedIn, family, runId, []);
+    const server = newServer(signedIn.user, signedIn, family, runId, [], await linkedLine(signedIn.user));
     const live: { session: Session | null } = { session: null };
     const newId = randomUUID();
     const transport = sessionTransport(() => newId, live);
@@ -662,7 +900,7 @@ export function createAssistantTools(options: AssistantToolsOptions): AssistantT
         }
         const form = new URLSearchParams(raw);
         if (pathname === "/oauth/token") {
-          const answer = exchangeToken(form, auth);
+          const answer = exchangeToken(form, auth, req.headers.authorization);
           sendJson(res, answer.status, answer.body, answer.status === 401 ? { "www-authenticate": 'Basic realm="mutinybim"' } : {});
           return true;
         }

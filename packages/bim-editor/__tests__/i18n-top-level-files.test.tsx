@@ -139,6 +139,9 @@ const SITES: Readonly<Record<string, number>> = {
   'linkedModels.liningUpWhat': 2,
   'linkedModels.liningUpDone': 2,
   'linkedModels.thisProjectRevitModel': 2,
+  // The dialog's tab and the Linked models button's tooltip say the same words
+  // (`linkButtonHint`, which names the upload when the host serves no Revit file).
+  'linkModel.tabUpload': 2,
 }
 
 /** The prefixes this file owns. A key under one of them must have Turkish. */

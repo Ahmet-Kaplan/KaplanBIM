@@ -147,6 +147,7 @@ import { ConnectionStatusChip } from './connection-status/ConnectionStatusChip'
 import { ViewerStatsFeed, ViewerStatsReadout } from './ViewerStatsReadout'
 import { CropBoxOverlay } from './views-sheets/CropBoxOverlay'
 import { useCrop3d } from './views-sheets/use-crop-3d'
+import { linkDescription, linkSourcesOf, linkUnavailableReason } from './linked-api'
 import { useLinkedDisplay } from './linked-display/use-linked-display'
 import { useLinkedReferenceLoader } from './linked-reference/use-linked-reference'
 import { clipOf, copiedHint, currentClip, pasteBlocked, pasteIds, pasteNear, rememberClip, subscribeClip, typingIn } from './views-sheets/draft/copy-paste'
@@ -325,6 +326,8 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
   const { openConfig: openModelConfig, getAccessToken } = host.session
   const referencesPort = host.data.references
   const hostCapabilities = host.capabilities
+  const linkedModelsPort = host.data.linkedModels
+  const linkSources = useMemo(() => linkSourcesOf(linkedModelsPort), [linkedModelsPort])
   const firmLibraryPort = host.data.firmLibrary
   const sheetTitle = useMemo<SheetTitle>(() => ({ projectName, projectNumber: projectNumber ?? '', firmName: SHEET_FIRM_NAME }), [projectName, projectNumber])
   const canvasRef = useRef<HTMLDivElement | null>(null)
@@ -3073,6 +3076,8 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
     },
     canLink,
     openLink: () => setLinkOpen(true),
+    linkDescription: linkDescription(linkSources, t),
+    linkUnavailableReason: linkUnavailableReason(linkSources, hostCapabilities.hostName, t),
     openConnectAgent: () => setConnectAgentOpen(true),
     addLevel: () => setLevelRequest('add'),
     addMountingPlane: () => setPlaneDialogOpen(true),

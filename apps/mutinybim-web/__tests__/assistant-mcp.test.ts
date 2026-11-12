@@ -17,6 +17,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { ElicitRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { CORE_TOOLS, CORE_TOOL_BUDGET, PACK_CONTROL_TOOL, toolFamily } from "@permitzip/bim-mcp";
 import { createApp, type App } from "../src/app";
+import { approvalTitle } from "../src/assistant-approvals";
 import { HOSTED_PROJECT_ID } from "../src/assistant-tools";
 import type { WebConfig } from "../src/config";
 
@@ -77,6 +78,8 @@ async function signInAssistant(cookie: string, resource = `${base}/mcp`): Promis
   const consent = await fetch(`${base}/oauth/authorize?${params}`, { headers: { cookie } });
   expect(consent.status).toBe(200);
   expect(await consent.text()).toContain("Let “Test Assistant” use your models?");
+  // The browser checks form-action on every redirect after Allow, and an assistant's callback can go on to its app scheme.
+  expect(consent.headers.get("content-security-policy")).not.toContain("form-action");
   const allowed = await post("/oauth/authorize", { request: params.toString(), decision: "allow" }, cookie);
   expect(allowed.status).toBe(303);
   const back = new URL(allowed.headers.get("location") ?? "");
@@ -102,11 +105,11 @@ async function signInAssistant(cookie: string, resource = `${base}/mcp`): Promis
   return { clientId: registered.client_id, access: tokens.access_token, refresh: tokens.refresh_token };
 }
 
-async function connect(access: string, pathname = "/mcp", elicit?: (message: string) => "accept" | "decline"): Promise<Client> {
+async function connect(access: string, pathname = "/mcp", elicit?: (message: string) => "accept" | "decline" | Promise<"accept" | "decline">): Promise<Client> {
   const client = new Client({ name: "test-assistant", version: "1.0.0" }, elicit ? { capabilities: { elicitation: {} } } : {});
   if (elicit) {
     client.setRequestHandler(ElicitRequestSchema, async (request) => {
-      const said = elicit(String(request.params.message));
+      const said = await elicit(String(request.params.message));
       return said === "accept" ? { action: "accept", content: { approve: true } } : { action: "decline" };
     });
   }
@@ -148,7 +151,7 @@ test("discovery: /mcp asks for sign-in and names its metadata, which names this 
     token_endpoint: `${base}/oauth/token`,
     registration_endpoint: `${base}/oauth/register`,
     code_challenge_methods_supported: ["S256"],
-    token_endpoint_auth_methods_supported: ["none"],
+    token_endpoint_auth_methods_supported: ["none", "client_secret_post", "client_secret_basic"],
     client_id_metadata_document_supported: true,
     authorization_response_iss_parameter_supported: true,
   });
@@ -242,11 +245,21 @@ test("every change asks first: the assistant's own box, or the approvals page; a
   expect(await levels()).toBe(2);
   await withBox.close();
 
-  const declining = await connect(access, `/packs/${EDIT_FAMILY}/mcp`, () => "decline");
+  // A person who reads the box and says no: declined, nothing changes.
+  const declining = await connect(access, `/packs/${EDIT_FAMILY}/mcp`, () => new Promise((r) => setTimeout(() => r("decline"), 1_700)));
   const refused = await declining.callTool({ name: "bim_create_level", arguments: { project_id: HOSTED_PROJECT_ID, model_id: modelId, name: "Level 3", elevation_ft: 24 } });
   expect(textOf(refused)).toContain("declined");
   expect(await levels()).toBe(2);
   await declining.close();
+
+  // An assistant that says no at once never showed the box: the change waits on the approvals page instead.
+  const hasty = await connect(access, `/packs/${EDIT_FAMILY}/mcp`, () => "decline");
+  const hastyCall = textOf(await hasty.callTool({ name: "bim_create_level", arguments: { project_id: HOSTED_PROJECT_ID, model_id: modelId, name: "Hasty", elevation_ft: 50 } }));
+  expect(hastyCall).toContain("awaiting_approval");
+  const hastyId = hastyCall.match(/\/approvals\/([0-9a-f-]{36})/)?.[1];
+  expect((await post(`/approvals/${hastyId}`, { decision: "decline" }, cookie)).status).toBe(200);
+  expect(await levels()).toBe(2);
+  await hasty.close();
 
   // No approval box: the change waits on the approvals page; approving it there lands it.
   const plain = await connect(access, `/packs/${EDIT_FAMILY}/mcp`);
@@ -274,6 +287,81 @@ test("every change asks first: the assistant's own box, or the approvals page; a
   await plain.close();
 }, 30_000);
 
+test("a waiting change shows on every signed-in page and to the editor, only to its person, and reads Applied once it landed", async () => {
+  const sam = await signUp("sam@example.com", "Sam Example");
+  const pat = await signUp("pat@example.com", "Pat Example");
+  const modelId = await makeModel(sam, "Sample Warehouse");
+  const { access } = await signInAssistant(sam);
+  const pageOf = async (pathname: string, cookie: string) => (await fetch(`${base}${pathname}`, { headers: { cookie } })).text();
+  const waitingOf = (cookie: string) => fetch(`${base}/api/hosted/approvals/waiting`, { headers: cookie ? { cookie } : {} });
+  type Waiting = { waiting: { id: string; assistant: string; modelId: string; modelName: string; title: string; href: string }[] };
+
+  // Nothing waiting: the Approvals link is there with no count, and no notice.
+  const quiet = await pageOf("/models", sam);
+  expect(quiet).toContain('data-testid="nav-approvals"');
+  expect(quiet).toMatch(/hidden=""[^>]*data-testid="nav-approvals-count">0</);
+  expect(quiet).not.toContain('data-testid="approval-notice"');
+  expect(quiet).toContain("<title>My models");
+  expect(await (await waitingOf(sam)).json()).toEqual({ waiting: [] });
+
+  const plain = await connect(access, `/packs/${EDIT_FAMILY}/mcp`);
+  const call = plain.callTool({ name: "bim_create_level", arguments: { project_id: HOSTED_PROJECT_ID, model_id: modelId, name: "Level 2", elevation_ft: 12 } });
+  let waiting: Waiting["waiting"] = [];
+  for (let i = 0; i < 40 && waiting.length === 0; i += 1) {
+    await new Promise((r) => setTimeout(r, 50));
+    waiting = ((await (await waitingOf(sam)).json()) as Waiting).waiting;
+  }
+  expect(waiting).toHaveLength(1);
+  const id = waiting[0]?.id ?? "";
+  expect(waiting[0]).toMatchObject({ assistant: "Test Assistant", modelId, modelName: "Sample Warehouse", title: "Create level “Level 2”, in “Sample Warehouse”", href: `/approvals/${id}` });
+
+  // Only its person: someone else and a signed-out caller see nothing, and can't answer it.
+  expect(await (await waitingOf(pat)).json()).toEqual({ waiting: [] });
+  expect((await waitingOf("")).status).toBe(401);
+  expect(await pageOf("/models", pat)).not.toContain('data-testid="approval-notice"');
+  expect((await post(`/approvals/${id}`, { decision: "approve" }, pat)).status).toBe(404);
+  const elsewhere = await fetch(`${base}/approvals/${id}`, { method: "POST", headers: { origin: "https://elsewhere.example", cookie: sam, "content-type": "application/x-www-form-urlencoded" }, body: "decision=approve" });
+  expect(elsewhere.status).toBe(403);
+  expect((await post(`/approvals/${id}`, {}, sam)).status).toBe(400);
+  expect(((await (await waitingOf(sam)).json()) as Waiting).waiting).toHaveLength(1);
+
+  // My models (and the other signed-in pages) say so: the count, who, which model by name, and Approve / Decline.
+  for (const pathname of ["/models", "/connect", "/settings"]) {
+    const shown = await pageOf(pathname, sam);
+    expect(shown).toMatch(/data-testid="nav-approvals-count">1</);
+    expect(shown).toContain('data-testid="approval-notice"');
+    expect(shown).toContain("Test Assistant is waiting for your approval to change “Sample Warehouse”");
+    expect(shown).toContain(`action="/approvals/${id}"`);
+    expect(shown).toContain("<title>(1) ");
+    expect(shown).toContain('src="/static/approvals.js"');
+  }
+  expect((await fetch(`${base}/static/approvals.js`)).status).toBe(200);
+
+  // Approved from the editor's notice (a background post that reads JSON) while the assistant's call still waits.
+  const answered = await fetch(`${base}/approvals/${id}`, { method: "POST", headers: { origin: base, cookie: sam, accept: "application/json", "content-type": "application/x-www-form-urlencoded" }, body: "decision=approve" });
+  expect(answered.status).toBe(200);
+  expect(await answered.json()).toMatchObject({ id, state: "approved" });
+  expect(textOf(await call)).toContain('"saved"');
+
+  // The assistant applied it, so the page must not go on saying "applying it now".
+  const item = await pageOf(`/approvals/${id}`, sam);
+  expect(item).toContain("Approved and applied (model revision");
+  expect(item).toContain(">Applied<");
+  expect(item).not.toContain("applying it now");
+  expect(await (await waitingOf(sam)).json()).toEqual({ waiting: [] });
+  const after = await pageOf("/models", sam);
+  expect(after).not.toContain('data-testid="approval-notice"');
+  expect(after).toMatch(/hidden=""[^>]*data-testid="nav-approvals-count">0</);
+  await plain.close();
+}, 30_000);
+
+test("an approval's title names the model and what changes, never the model's id", () => {
+  const modelId = "m-0123456789abcdef0123";
+  expect(approvalTitle({ summary: `land "Mechanical: supply ductwork" in model ${modelId} as one undo step: 319 new, 0 changed, 0 deleted`, modelId, modelName: "Sample Project" })).toBe("Mechanical: supply ductwork — 319 new, 0 changed, 0 deleted, in “Sample Project”");
+  expect(approvalTitle({ summary: `make the edit "create_level" in model ${modelId}`, modelId, modelName: "Sample Project" })).toBe("Make the edit \"create_level\" in “Sample Project”");
+  expect(approvalTitle({ summary: "save 2 part types (Fan, Coil) and the script version to the library", modelId: "", modelName: "your script library" })).toBe("Save 2 part types (Fan, Coil) and the script version to the library");
+});
+
 test("a model shared view-only: the assistant reads it but can't change it, and is never asked to approve", async () => {
   const sam = await signUp("sam@example.com", "Sam Example");
   const modelId = await makeModel(sam, "Sample Warehouse");
@@ -294,6 +382,13 @@ test("a model shared view-only: the assistant reads it but can't change it, and 
   const notShared = await client.callTool({ name: "bim_model_summary", arguments: { model_id: strangerModel } });
   expect(notShared.isError).toBe(true);
   expect(textOf(notShared)).toContain("isn't in your account or shared with you");
+  // An assistant that was never shown the sign-in instructions can still find the person's models.
+  const tools = await client.listTools();
+  expect(JSON.stringify(tools.tools.find((t) => t.name === "bim_model_summary")?.inputSchema)).toContain('Pass \\"list\\"');
+  const listed = await client.callTool({ name: "bim_model_summary", arguments: { model_id: "list" } });
+  expect(listed.isError).toBeFalsy();
+  expect(textOf(listed)).toContain(`Sample Warehouse (model_id ${modelId}, view only, shared by Sam Example)`);
+  expect(textOf(listed)).not.toContain(strangerModel);
   await client.close();
 }, 30_000);
 
@@ -326,4 +421,86 @@ test("an assistant can name itself by a client metadata address instead of regis
   expect(inside.status).toBe(400);
   expect(await inside.text()).toContain("private address");
   expect(fetched).toEqual([clientId]);
+});
+
+/** A confidential client: registers for a secret, the person allows, then the code (with PKCE) and the secret for tokens. */
+async function signInConfidential(cookie: string, method: "client_secret_post" | "client_secret_basic"): Promise<void> {
+  const registration = await fetch(`${base}/oauth/register`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ client_name: "Secret Assistant", redirect_uris: [REDIRECT], token_endpoint_auth_method: method, grant_types: ["authorization_code", "refresh_token"], response_types: ["code"] }) });
+  expect(registration.status).toBe(201);
+  const registered = (await registration.json()) as { client_id: string; client_secret?: string; token_endpoint_auth_method: string; client_secret_expires_at?: number };
+  expect(registered.token_endpoint_auth_method).toBe(method);
+  expect(registered.client_secret_expires_at).toBe(0);
+  const secret = registered.client_secret ?? "";
+  expect(secret.length).toBeGreaterThan(30);
+  const { verifier, challenge } = pkce();
+  const params = new URLSearchParams({ response_type: "code", client_id: registered.client_id, redirect_uri: REDIRECT, code_challenge: challenge, code_challenge_method: "S256", state: "s-2", scope: "models offline_access" });
+  const consent = await fetch(`${base}/oauth/authorize?${params}`, { headers: { cookie } });
+  expect(consent.status).toBe(200);
+  const allow = async () => new URL((await post("/oauth/authorize", { request: params.toString(), decision: "allow" }, cookie)).headers.get("location") ?? "").searchParams.get("code") ?? "";
+  const basic = (id: string, s: string) => `Basic ${Buffer.from(`${encodeURIComponent(id)}:${encodeURIComponent(s)}`).toString("base64")}`;
+  const token = (form: Record<string, string>, secretUsed: string | null) => {
+    const headers: Record<string, string> = { "content-type": "application/x-www-form-urlencoded" };
+    const body: Record<string, string> = { ...form };
+    if (secretUsed !== null && method === "client_secret_basic") headers.authorization = basic(registered.client_id, secretUsed);
+    else body.client_id = registered.client_id;
+    if (secretUsed !== null && method === "client_secret_post") body.client_secret = secretUsed;
+    return fetch(`${base}/oauth/token`, { method: "POST", headers, body: new URLSearchParams(body).toString() });
+  };
+  const missing = await token({ grant_type: "authorization_code", code: await allow(), redirect_uri: REDIRECT, code_verifier: verifier }, null);
+  expect(missing.status).toBe(401);
+  expect(((await missing.json()) as { error: string }).error).toBe("invalid_client");
+  const wrong = await token({ grant_type: "authorization_code", code: await allow(), redirect_uri: REDIRECT, code_verifier: verifier }, "mbs_not-the-secret");
+  expect(wrong.status).toBe(401);
+  const noPkce = await token({ grant_type: "authorization_code", code: await allow(), redirect_uri: REDIRECT, code_verifier: pkce().verifier }, secret);
+  expect(noPkce.status).toBe(400);
+  const ok = await token({ grant_type: "authorization_code", code: await allow(), redirect_uri: REDIRECT, code_verifier: verifier }, secret);
+  expect(ok.status).toBe(200);
+  const tokens = (await ok.json()) as { access_token: string; refresh_token: string };
+  const refreshed = await token({ grant_type: "refresh_token", refresh_token: tokens.refresh_token }, secret);
+  expect(refreshed.status).toBe(200);
+  const fresh = (await refreshed.json()) as { access_token: string };
+  const client = await connect(fresh.access_token);
+  expect((await client.listTools()).tools.length).toBeGreaterThan(0);
+  await client.close();
+}
+
+test("a confidential assistant (client_secret_post) gets a secret at registration and must send it, with PKCE, for tokens", async () => {
+  await signInConfidential(await signUp("pat@example.com", "Pat Example"), "client_secret_post");
+}, 30_000);
+
+test("a confidential assistant (client_secret_basic) proves its secret with HTTP Basic", async () => {
+  await signInConfidential(await signUp("lee@example.com", "Lee Example"), "client_secret_basic");
+}, 30_000);
+
+test("a metadata document that prefers private_key_jwt but supports none signs in as a public client; one without none is refused", async () => {
+  await app?.close();
+  const both = "https://assistant.example/oauth/client-both.json";
+  const keyOnly = "https://assistant.example/oauth/client-key-only.json";
+  const probe = createApp(config(0), { editor: false });
+  await new Promise<void>((resolve) => probe.server.listen(0, "127.0.0.1", resolve));
+  const address = probe.server.address();
+  if (!address || typeof address === "string") throw new Error("no port");
+  await probe.close();
+  app = createApp(config(address.port), {
+    editor: false,
+    resolveHost: async () => ["203.0.113.7"],
+    fetchImpl: async (url) => {
+      const methods = url === both ? ["none", "private_key_jwt"] : ["private_key_jwt"];
+      return new Response(JSON.stringify({ client_id: url, client_name: "Key Assistant", redirect_uris: [REDIRECT], token_endpoint_auth_method: "private_key_jwt", token_endpoint_auth_methods_supported: methods, jwks_uri: "https://assistant.example/oauth/jwks.json" }), { status: 200 });
+    },
+  });
+  await app.listen();
+  base = `http://127.0.0.1:${address.port}`;
+  const cookie = await signUp("kim@example.com", "Kim Example");
+  const { verifier, challenge } = pkce();
+  const params = new URLSearchParams({ response_type: "code", client_id: both, redirect_uri: REDIRECT, code_challenge: challenge, code_challenge_method: "S256", scope: "models", resource: `${base}/mcp` });
+  const consent = await fetch(`${base}/oauth/authorize?${params}`, { headers: { cookie } });
+  expect(consent.status).toBe(200);
+  expect(await consent.text()).toContain("Key Assistant");
+  const allowed = await post("/oauth/authorize", { request: params.toString(), decision: "allow" }, cookie);
+  const code = new URL(allowed.headers.get("location") ?? "").searchParams.get("code") ?? "";
+  const ok = await fetch(`${base}/oauth/token`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ grant_type: "authorization_code", code, redirect_uri: REDIRECT, client_id: both, code_verifier: verifier }).toString() });
+  expect(ok.status).toBe(200);
+  const refused = await fetch(`${base}/oauth/authorize?${new URLSearchParams({ response_type: "code", client_id: keyOnly, redirect_uri: REDIRECT, code_challenge: challenge, code_challenge_method: "S256" })}`, { headers: { cookie } });
+  expect(refused.status).toBe(400);
 });

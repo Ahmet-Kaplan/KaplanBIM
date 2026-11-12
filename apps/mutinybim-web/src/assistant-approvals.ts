@@ -58,8 +58,40 @@ export interface PendingApproval {
   readonly landing: unknown;
 }
 
-/** Lands an approved edit whose call already returned; the outcome in words. */
-export type Lander = (item: PendingApproval) => Promise<string>;
+/** What the app shows about a request that is waiting for the person: only words they read, and where to answer. */
+export interface WaitingApproval {
+  readonly id: string;
+  readonly assistant: string;
+  /** The model as its base id (to tell "this model" in the editor); empty for a library save. */
+  readonly modelId: string;
+  readonly modelName: string;
+  readonly title: string;
+  readonly askedAt: number;
+  readonly href: string;
+}
+
+/** The request as one line a person reads: what changes and in which model by name, never a model id. */
+export function approvalTitle(item: Pick<PendingApproval, "summary" | "modelId" | "modelName">): string {
+  const where = `in “${item.modelName}”`;
+  const landing = /^land "([\s\S]*)" in model \S+ as one undo step: ([\s\S]+)$/.exec(item.summary);
+  if (landing) return `${landing[1] ?? ""} — ${landing[2] ?? ""}, ${where}`;
+  const named = item.modelId ? item.summary.split(` in model ${item.modelId}`).join(` ${where}`) : item.summary;
+  const text = !item.modelId || named.includes(where) ? named : `${named}, ${where}`;
+  return `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
+}
+
+export function toWaiting(item: PendingApproval): WaitingApproval {
+  return { id: item.id, assistant: item.clientName, modelId: item.modelId.split("~")[0] ?? item.modelId, modelName: item.modelName, title: approvalTitle(item), askedAt: item.createdAt, href: `/approvals/${item.id}` };
+}
+
+/** How an approved change ended: whether it is in the model now, and the words the person reads. */
+export interface LandingOutcome {
+  readonly applied: boolean;
+  readonly words: string;
+}
+
+/** Lands an approved edit whose call already returned. */
+export type Lander = (item: PendingApproval) => Promise<LandingOutcome>;
 
 function toItem(row: AssistantApprovalRow): PendingApproval {
   return {
@@ -101,6 +133,8 @@ export class ApprovalBook {
   private readonly listeners = new Set<(userId: string) => void>();
   /** Tool calls still waiting for an answer (in this process only). */
   private readonly waiters = new Map<string, (answer: "approved" | "declined") => void>();
+  /** Requests the person approved while the assistant's call was still waiting: that call is applying them now. */
+  private readonly applying = new Set<string>();
   private lander: Lander | null = null;
 
   constructor(private readonly db: Db) {}
@@ -123,15 +157,6 @@ export class ApprovalBook {
   private prune(t: TFunction): void {
     const cutoff = Date.now() - APPROVAL_KEEP_MS;
     this.db.expireAssistantApprovals(cutoff, cutoff - APPROVAL_KEEP_MS, t("approval.outcomeExpired", "Nobody approved it within 30 minutes, so it was dropped. Nothing changed.", { ns: "web" }));
-  }
-
-  /**
-   * The person's own language, for a caller that cannot name one: the header's
-   * waiting count prunes as it counts, and the header has the person, not the
-   * request, at hand. The account's language is the one that travels with them.
-   */
-  private personTranslator(userId: string): TFunction {
-    return tFor(this.db.userById(userId)?.language ?? "en");
   }
 
   private save(item: PendingApproval): PendingApproval {
@@ -159,8 +184,12 @@ export class ApprovalBook {
     return this.db.assistantApprovalsOf(userId).map(toItem);
   }
 
-  waitingCount(userId: string, t: TFunction = this.personTranslator(userId)): number {
-    return this.of(userId, t).filter((i) => i.state === "waiting").length;
+  /** What is waiting for this person's answer, oldest first. */
+  waiting(userId: string): readonly WaitingApproval[] {
+    return this.of(userId)
+      .filter((i) => i.state === "waiting")
+      .map(toWaiting)
+      .reverse();
   }
 
   get(userId: string, id: string, t: TFunction = english): PendingApproval | null {
@@ -197,12 +226,14 @@ export class ApprovalBook {
       waiter?.("declined");
     } else if (waiter) {
       next = this.save({ ...item, state: "approved", outcome: t("approval.outcomeApplyingNow", "Approved. Your assistant is applying it now.", { ns: "web" }), landing: null });
+      this.applying.add(id);
       waiter("approved");
     } else if (item.landing !== null && this.lander) {
       // Marked first, so a second press while it lands doesn't land it twice.
       this.save({ ...item, state: "approved", outcome: t("approval.outcomeApplying", "Approved. Applying it now.", { ns: "web" }) });
       try {
-        next = this.save({ ...item, state: "landed", outcome: await this.lander(item), landing: null });
+        const ended = await this.lander(item);
+        next = this.save({ ...item, state: ended.applied ? "landed" : "failed", outcome: ended.words, landing: null });
       } catch (err) {
         console.error("[mutinybim-web] an approved change couldn't be applied", { id, err });
         next = this.save({ ...item, state: "failed", outcome: t("approval.outcomeFailed", "Approved, but it couldn't be applied: {{error}}. Nothing changed; ask your assistant again.", { error: err instanceof Error ? err.message : String(err), ns: "web" }), landing: null });
@@ -214,10 +245,24 @@ export class ApprovalBook {
     return next;
   }
 
+  /**
+   * How it ended for a request the person approved while the assistant's call
+   * was still waiting: applied, or not (with why). Without this the page would
+   * say "applying it now" for good.
+   */
+  settle(userId: string, id: string, applied: boolean, outcome: string): void {
+    if (!this.applying.delete(id)) return;
+    const item = this.get(userId, id);
+    if (!item || item.state !== "approved") return;
+    this.save({ ...item, state: applied ? "landed" : "failed", outcome, landing: null });
+    this.changed(userId);
+  }
+
   /** A retry of a request the person already approved on the page: used once. */
   takeApprovedRetry(userId: string, key: string, t: TFunction = english): boolean {
     for (const item of this.of(userId, t)) {
-      if (item.kind === "retry" && item.key === key && item.state === "approved") {
+      // One the assistant's waiting call is applying right now is not a retry to take: it would land twice.
+      if (item.kind === "retry" && item.key === key && item.state === "approved" && !this.applying.has(item.id)) {
         this.save({ ...item, state: "landed", outcome: t("approval.outcomeSentAgain", "Approved and sent again by your assistant.", { ns: "web" }) });
         this.changed(userId);
         return true;

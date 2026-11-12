@@ -34,7 +34,7 @@ account in a private window and share the model with it to edit together.
 | `/settings` | Their name; password; linking a sign-in provider; **Your AI**: their own provider key, kept only in their browser. |
 | `/connect` | The address to paste into Claude, ChatGPT, Grok or Cursor (`<this app>/mcp`), the assistants they have signed in (and Sign out), and agent keys for a tool server on their own computer. |
 | `/oauth/authorize` | "Let “<assistant>” use your models?": Allow or Don't allow. |
-| `/approvals`, `/approvals/<id>` | Changes an assistant proposed when it couldn't ask the person itself: exactly what changes, Approve or Decline. In the header while any wait. |
+| `/approvals`, `/approvals/<id>` | Changes an assistant proposed when it couldn't ask the person itself: exactly what changes, Approve or Decline. The header's Approvals link counts what is waiting; every signed-in page and the editor show a notice with Approve / Decline while any wait (the editor and the header re-check `/api/hosted/approvals/waiting`, the signed-in person's own requests, every few seconds). |
 
 ### Bring your own AI
 
@@ -83,6 +83,10 @@ by address and the person signs in; there is no key to paste.
   its result lands only after the person approves it, as one undo step. Each
   run is in the sealed script box below. An assistant that runs the
   open-source kit itself can still send its output to `bim_apply_output`.
+  A script is sent once: it is kept in the account database for 36 hours
+  under a short id, so the assistant names the id to preview it, to fix it
+  (exact replacements) and to land it, also after a restart. Only the
+  person who sent it can use the id.
 - **Its name.** The assistant's changes, and the editor's list of who is
   here, carry the name it registered with ("Claude", "ChatGPT"), marked as an
   agent.
@@ -138,6 +142,8 @@ All optional; read once at start.
 | `MUTINYBIM_WEB_SCRIPTS` | `sealed` | Where outside assistants' scripts run: `sealed` (the box above; Linux with bubblewrap, as in the image), `off`, or `local` (plain processes on this computer; allowed only when the public address is a loopback address). |
 | `MUTINYBIM_WEB_SCRIPT_RUNNER` | `/usr/local/lib/mutinybim/script-runner` | The runner's two built files (the image builds them there, root-owned). |
 | `MUTINYBIM_WEB_SCRIPT_RUNS` | `2` | Scripts running at once on this machine; each may use about 1.2 GB. |
+| `MUTINYBIM_WEB_LINK_KEY` | none (linked hosts off) | A secret of 32+ characters. The app keeps the passes linked hosts issue (below) encrypted under it (AES-256-GCM). Unset: linked hosts are off, and My models says so. |
+| `MUTINYBIM_WEB_LINK_KEY_PREVIOUS` | none | The key before the current one, while a new key rolls in: passes kept under it still open, and are written back under the current key when read. |
 
 ### Sign-in providers
 
@@ -155,7 +161,33 @@ identity-only scope (name and email, no other access) should be given that
 one, as above.
 
 The provider's access token is used once, to ask UserInfo who signed in, and
-then dropped; it is never stored or logged. A provider account whose email
+then dropped; it is never stored or logged.
+
+### Linked hosts
+
+A provider can also be a *linked host*: a service that keeps building models
+of its own (a firm's project models) and lets the people who sign in with it
+open them from here. Give the provider a `models` object
+([docs/LINKED-HOSTS.md](../../docs/LINKED-HOSTS.md) is the contract the host
+implements):
+
+```bash
+MUTINYBIM_WEB_PROVIDERS='[{"id":"example","label":"Log in with Example","issuer":"https://id.example.com","clientName":"MutinyBIM","scope":"identity",
+  "models":{"label":"Example projects","scope":"models:open","list":"https://id.example.com/api/models","mcp":"https://id.example.com/api/mcp","token":"https://id.example.com/api/models/token","revoke":"https://id.example.com/oauth/revoke"}}]'
+```
+
+Right after someone's first sign-in with that provider, the app asks once
+whether to show their projects too; yes sends them to the host to allow a
+narrow pass (the `models.scope`) that opens building models only. My models
+then lists the host's models under the person's own (each with Open in the
+host, in a new tab), and assistants connected here can read them and propose
+changes. The host decides on every call what the person may see and change;
+changes ask the person here first, exactly as for their own models; scripts on
+those models run on the host's machines; other tool families don't reach
+them. Settings → Ways to log in turns it off (the pass is handed back). The
+pass is kept only as ciphertext under `MUTINYBIM_WEB_LINK_KEY`; nothing from
+the host is copied here but the list. Unlinking, or the host being down,
+never touches the person's own models. A provider account whose email
 already has a password account here is not merged silently: the person logs in
 with the password and links the provider under Settings.
 
@@ -208,8 +240,10 @@ The image starts as root only to give the mounted `/data` to its own user
 ### Fly.io
 
 `fly.toml` is the deployment at `https://app.mutinybim.com`: one machine, one
-volume on `/data`, scripts pinned to `sealed`, no Fly secrets. From the
-repository root:
+volume on `/data`, scripts pinned to `sealed`. The sign-in providers and the
+link key (`MUTINYBIM_WEB_LINK_KEY`, and `_PREVIOUS` while a new key rolls in)
+are Fly secrets set on the app; the operator's own secret tooling should write
+the link key. From the repository root:
 
 ```bash
 fly apps create mutinybim-web
@@ -232,7 +266,7 @@ Operator commands run as the app's user:
 - Sharing is by account email on the same server; there are no emailed
   invitations or links for people without an account.
 - The editor screens that need hosted storage (firm part libraries, stored
-  drawings, linked Revit models, code studies, file storage) say in words that
+  drawings, linked models (IFC or Revit), code studies, file storage) say in words that
   they are not available here; the rest of the editor works.
 - Sign-up has no email confirmation (the app sends no email).
 - A tool call that was waiting for the person when the server restarted
@@ -255,6 +289,7 @@ Operator commands run as the app's user:
 | `src/script-sandbox.ts` | The sealed script box and its queue. |
 | `src/models.ts` | Serving and saving models (bim-sync's in-memory host, saved whole to one file per model). |
 | `src/oauth.ts` | "Log in with …" (OAuth 2.1 with PKCE, dynamic registration, UserInfo). |
+| `src/linked-hosts.ts` | Linked hosts: the narrow pass (kept encrypted), the host's list, and assistants' calls sent to the host's tool server. |
 | `src/secrets.ts` | Password hashing, random tokens and their digests. |
 | `src/pages.tsx`, `src/ui.tsx` | The server-rendered pages, drawn with `@permitzip/bim-ui` components and theme. |
 | `styles/app.css` | Tailwind over the same primitives; no colors of its own. |

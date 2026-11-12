@@ -25,7 +25,7 @@ import {
 } from '../contracts/building-model/linked-contract'
 import { useEditorHost } from '@permitzip/bim-editor/host'
 import { useEditorTranslate } from './i18n/translate'
-import { completeUploadFrom, putFileFrom, startAutodeskExportFrom, startUploadFrom, UploadCancelled, type UploadHandle } from './linked-api'
+import { canLinkFrom, completeUploadFrom, linkSourcesOf, linkUnavailableReason, putFileFrom, startAutodeskExportFrom, startUploadFrom, UploadCancelled, type UploadHandle } from './linked-api'
 
 interface Props {
   projectId: string
@@ -46,8 +46,11 @@ interface Props {
 
 export function LinkModelDialog({ projectId, open, onOpenChange, revitModel, autodeskExport, replacing, onQueued, onOpenDocsPicker, disciplineSet }: Props) {
   const t = useEditorTranslate()
-  const linked = useEditorHost().data.linkedModels
-  const [tab, setTab] = useState<'autodesk' | 'upload'>(replacing ? 'upload' : revitModel ? 'autodesk' : 'upload')
+  const host = useEditorHost()
+  const linked = host.data.linkedModels
+  // Only the sources this host serves are offered: no tab, button or wording for one it doesn't.
+  const sources = linkSourcesOf(linked)
+  const [tab, setTab] = useState<'autodesk' | 'upload'>(replacing ? 'upload' : sources.revitExport && (revitModel || !sources.ifcUpload) ? 'autodesk' : 'upload')
   const [file, setFile] = useState<File | null>(null)
   const [label, setLabel] = useState('')
   const [suppliedByName, setSuppliedByName] = useState('')
@@ -138,7 +141,7 @@ export function LinkModelDialog({ projectId, open, onOpenChange, revitModel, aut
         </DialogHeader>
 
         <Tabs value={tab} onValueChange={(v) => (v === 'autodesk' || v === 'upload') && setTab(v)}>
-          {!replacing && (
+          {!replacing && sources.revitExport && sources.ifcUpload && (
             <TabsList className="w-full">
               <TabsTrigger value="autodesk" disabled={uploading}>
                 <Building2 data-icon="inline-start" />
@@ -151,6 +154,7 @@ export function LinkModelDialog({ projectId, open, onOpenChange, revitModel, aut
             </TabsList>
           )}
 
+          {sources.revitExport && (
           <TabsContent value="autodesk" className="pt-2">
             {revitModel ? (
               <div className="flex flex-col gap-3 text-sm">
@@ -185,7 +189,11 @@ export function LinkModelDialog({ projectId, open, onOpenChange, revitModel, aut
                     <Building2 />
                   </EmptyMedia>
                   <EmptyTitle>{t('linkModel.noRevitModel', 'No Revit model is connected to this project', { ns: 'editor' })}</EmptyTitle>
-                  <EmptyDescription>{t('linkModel.connectFirst', "Connect the project's Revit model in Autodesk Docs first, or upload an IFC file instead.", { ns: 'editor' })}</EmptyDescription>
+                  <EmptyDescription>
+                    {sources.ifcUpload
+                      ? t('linkModel.connectFirstOrUpload', "Connect the project's Revit model in Autodesk Docs first, or upload an IFC file instead.", { ns: 'editor' })
+                      : t('linkModel.connectFirst', "Connect the project's Revit model in Autodesk Docs first.", { ns: 'editor' })}
+                  </EmptyDescription>
                 </EmptyHeader>
                 <EmptyContent>
                   <Button asChild size="sm" variant="outline">
@@ -195,7 +203,9 @@ export function LinkModelDialog({ projectId, open, onOpenChange, revitModel, aut
               </Empty>
             )}
           </TabsContent>
+          )}
 
+          {sources.ifcUpload && (
           <TabsContent value="upload" className="pt-2">
             <FieldGroup>
               <Field data-invalid={problem ? true : undefined}>
@@ -251,7 +261,15 @@ export function LinkModelDialog({ projectId, open, onOpenChange, revitModel, aut
               )}
             </FieldGroup>
           </TabsContent>
+          )}
         </Tabs>
+
+        {!canLinkFrom(sources) && (
+          <Alert data-testid="link-model-unavailable">
+            <AlertTitle>{t('linkModel.nothingCanBeLinked', 'Nothing can be linked from here', { ns: 'editor' })}</AlertTitle>
+            <AlertDescription>{linkUnavailableReason(sources, host.capabilities.hostName, t) ?? t('linkModel.useAddFromDocs', 'Use Add from Autodesk Docs in the Linked models section instead.', { ns: 'editor' })}</AlertDescription>
+          </Alert>
+        )}
 
         {error && (
           <Alert variant="destructive">
@@ -264,12 +282,12 @@ export function LinkModelDialog({ projectId, open, onOpenChange, revitModel, aut
           <Button variant="outline" onClick={() => close(false)}>
             {uploading ? t('linkModel.cancelUpload', 'Cancel upload', { ns: 'editor' }) : t('linkModel.cancel', 'Cancel', { ns: 'editor' })}
           </Button>
-          {tab === 'autodesk' && revitModel ? (
+          {tab === 'autodesk' && sources.revitExport && revitModel ? (
             <Button onClick={() => void exportFromRevit()} disabled={exporting || exportBlockedReason !== null} title={exportBlockedReason ?? undefined}>
               {exporting && <Spinner data-icon="inline-start" />}
               {exportBlockedReason ?? t('linkModel.bringInLinked', 'Bring in its linked models', { ns: 'editor' })}
             </Button>
-          ) : tab === 'upload' ? (
+          ) : tab === 'upload' && sources.ifcUpload ? (
             <Button onClick={() => void upload()} disabled={uploading || uploadBlockedReason !== null} title={uploadBlockedReason ?? undefined}>
               {uploading && <Spinner data-icon="inline-start" />}
               {uploading ? t('linkModel.uploading', 'Uploading…', { ns: 'editor' }) : t('linkModel.uploadAndLink', 'Upload and link', { ns: 'editor' })}

@@ -13,9 +13,10 @@ import type { ComponentProps, ReactNode } from "react";
 import type { TFunction } from "i18next";
 import { Badge, Button, buttonVariants, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle, cn, Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle, Field, FieldHint, Input, Label, NativeSelect, Separator, type MutinyLanguage } from "@permitzip/bim-ui";
 import type { OAuthProviderConfig, QuoteConfig, WebConfig } from "./config";
-import type { PendingApproval } from "./assistant-approvals";
-import type { AgentKeyRow, AssistantGrantRow, ModelRow, SharedModelRow, ShareRow, UserRow } from "./db";
+import { approvalTitle, type PendingApproval } from "./assistant-approvals";
+import type { AgentKeyRow, AssistantGrantRow, LinkedModelRow, ModelRow, SharedModelRow, ShareRow, UserRow } from "./db";
 import { tFor } from "./i18n";
+import type { LinkedProvider, LinkedView } from "./linked-hosts";
 import type { ModelSummary } from "./models";
 import { PASSWORD_MIN } from "./secrets";
 import { formatWhen, LanguageChoice, LANGUAGES, page, waitingApprovalsOf, type Flash, type FrameOptions, type FrameUser } from "./ui";
@@ -463,7 +464,81 @@ function OwnModel({ m, t, language }: { m: ModelRow; t: TFunction; language: Mut
   );
 }
 
-export function modelsPage(config: WebConfig, user: UserRow, models: readonly ModelRow[], shared: readonly SharedModelRow[], flash: Flash, language: MutinyLanguage): string {
+/**
+ * The models a person may open on their linked hosts, and the state of each host (models page).
+ */
+export interface LinkedModelsView {
+  readonly sections: readonly LinkedView[];
+  /** A provider is a linked host but the server has no link key (shown to people who use that provider). */
+  readonly keyMissing: readonly OAuthProviderConfig[];
+}
+
+function LinkedRow({ row, host, t }: { row: LinkedModelRow; host: string; t: TFunction }) {
+  return (
+    <li className="flex flex-wrap items-center gap-3 rounded-(--mutiny-radius) border border-(--mutiny-border) bg-(--mutiny-field) px-3 py-2.5">
+      <span className="min-w-0 flex-1 truncate font-semibold">{row.label}</span>
+      <Badge variant={row.can_edit ? "default" : "secondary"}>{row.can_edit ? t("linked.canEdit", "Can edit", { ns: "web" }) : t("common.viewOnly", "View only", { ns: "web" })}</Badge>
+      {row.open_url ? (
+        <Button asChild size="sm">
+          <a href={row.open_url} target="_blank" rel="noopener noreferrer">
+            {t("linked.openIn", "Open in {{host}}", { host, ns: "web" })}
+          </a>
+        </Button>
+      ) : (
+        <span className="text-xs text-(--mutiny-muted)">{t("linked.openItFrom", "Open it from {{host}}.", { host, ns: "web" })}</span>
+      )}
+    </li>
+  );
+}
+
+function LinkedSection({ view, t }: { view: LinkedView; t: TFunction }) {
+  const { provider, state, rows } = view;
+  const host = providerName(provider);
+  const label = provider.models.label;
+  const start = `/auth/${provider.id}/models/start?return_to=%2Fmodels`;
+  return (
+    <Card data-testid={`linked-${provider.id}`}>
+      <CardHeader>
+        <CardTitle>{label}</CardTitle>
+        <CardDescription>{t("linked.managedIn", "Access and sharing are managed in {{host}}.", { host, ns: "web" })}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {state === "not_linked" ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="flex-1 text-sm">{t("linked.seeYoursHere", "See your {{label}} here, beside your own models.", { label, ns: "web" })}</p>
+            <Button asChild>
+              <a href={start}>{t("linked.showMy", "Show my {{label}}", { label, ns: "web" })}</a>
+            </Button>
+          </div>
+        ) : state === "reconnect" ? (
+          <div className="flex flex-wrap items-center gap-3" role="status">
+            <p className="flex-1 text-sm">{t("linked.needsReconnect", "{{host}} needs you to reconnect. Nothing changed in your own models.", { host, ns: "web" })}</p>
+            <Button asChild>
+              <a href={start}>{t("linked.reconnect", "Reconnect", { ns: "web" })}</a>
+            </Button>
+          </div>
+        ) : state === "down" ? (
+          <div className="flex flex-wrap items-center gap-3" role="status">
+            <p className="flex-1 text-sm">{t("linked.unreachable", "{{host}} can't be reached right now. Your own models are fine.", { host, ns: "web" })}</p>
+            <Button asChild variant="outline">
+              <a href="/models?fresh=1">{t("linked.tryAgain", "Try again", { ns: "web" })}</a>
+            </Button>
+          </div>
+        ) : rows.length === 0 ? (
+          <ModelEmpty title={t("linked.noneToOpen", "No {{label}} to open", { label, ns: "web" })}>{t("linked.onlyProjects", "{{host}} lists only projects with a building model that you can open there.", { host, ns: "web" })}</ModelEmpty>
+        ) : (
+          <ul className="flex flex-col gap-2" data-testid="linked-models">
+            {rows.map((row) => (
+              <LinkedRow key={row.alias_id} row={row} host={host} t={t} />
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+export function modelsPage(config: WebConfig, user: UserRow, models: readonly ModelRow[], shared: readonly SharedModelRow[], flash: Flash | undefined, language: MutinyLanguage, linked: LinkedModelsView = { sections: [], keyMissing: [] }): string {
   const t = tFor(language);
   const atLimit = models.length >= config.modelLimit;
   return pageIn(
@@ -516,6 +591,20 @@ export function modelsPage(config: WebConfig, user: UserRow, models: readonly Mo
           </CardContent>
         </Card>
       ) : null}
+      {linked.sections.map((view) => (
+        <LinkedSection key={view.provider.id} view={view} t={t} />
+      ))}
+      {linked.keyMissing.map((p) => (
+        <Card key={p.id}>
+          <CardDescription>
+            {t(
+              "linked.keyMissing",
+              "Projects from {{provider}} can't be shown on this server yet: its operator hasn't set the key it keeps those connections under. Your own models are fine.",
+              { provider: providerName(p), ns: "web" },
+            )}
+          </CardDescription>
+        </Card>
+      ))}
       {atLimit ? (
         <Card>
           <CardDescription>
@@ -653,7 +742,51 @@ export function sharePage(
   );
 }
 
-export function settingsPage(config: WebConfig, user: UserRow, linked: readonly string[], options: { flash?: Flash; passwordFree?: boolean }, language: MutinyLanguage): string {
+/** Each linked host's switch on the settings page: on, needs reconnecting, or off. */
+export type LinkedSwitch = "on" | "reconnect" | "off";
+
+function LinkedModelsSwitch({ provider, state, t }: { provider: LinkedProvider; state: LinkedSwitch; t: TFunction }) {
+  const label = provider.models.label;
+  const start = `/auth/${provider.id}/models/start?return_to=%2Fsettings`;
+  return (
+    <div className="flex flex-wrap items-center gap-2 pl-4 text-sm">
+      <span>{t("linkedSwitch.show", "Show {{label}}:", { label, ns: "web" })}</span>
+      {state === "on" ? (
+        <>
+          <Badge>{t("linkedSwitch.on", "On", { ns: "web" })}</Badge>
+          <ConfirmForm
+            action={`/settings/linked/${provider.id}/off`}
+            question={t(
+              "linkedSwitch.stopQuestion",
+              "Stop showing {{label}} here? This app and your connected assistants stop seeing them at once. Nothing changes in {{host}} or in your own models.",
+              { label, host: providerName(provider), ns: "web" },
+            )}
+          >
+            <Button type="submit" size="sm" variant="ghost" className="text-(--mutiny-danger)">
+              {t("linkedSwitch.turnOff", "Turn off", { ns: "web" })}
+            </Button>
+          </ConfirmForm>
+        </>
+      ) : state === "reconnect" ? (
+        <>
+          <Badge variant="destructive">{t("linkedSwitch.needsReconnecting", "Needs reconnecting", { ns: "web" })}</Badge>
+          <Button asChild size="sm" variant="outline">
+            <a href={start}>{t("linked.reconnect", "Reconnect", { ns: "web" })}</a>
+          </Button>
+        </>
+      ) : (
+        <>
+          <Badge variant="secondary">{t("linkedSwitch.off", "Off", { ns: "web" })}</Badge>
+          <Button asChild size="sm" variant="outline">
+            <a href={start}>{t("linkedSwitch.showThem", "Show them", { ns: "web" })}</a>
+          </Button>
+        </>
+      )}
+    </div>
+  );
+}
+
+export function settingsPage(config: WebConfig, user: UserRow, linked: readonly string[], options: { flash?: Flash; passwordFree?: boolean; linkedModels?: readonly { readonly provider: LinkedProvider; readonly state: LinkedSwitch }[] } = {}, language: MutinyLanguage): string {
   const t = tFor(language);
   return pageIn(
     <>
@@ -678,21 +811,27 @@ export function settingsPage(config: WebConfig, user: UserRow, linked: readonly 
             <div className="flex flex-col gap-2">
               <h3 className="text-sm">{t("settings.waysToLogIn", "Ways to log in", { ns: "web" })}</h3>
               <ul className="flex flex-col gap-2">
-                {config.providers.map((p) => (
-                  <li key={p.id} className="flex flex-wrap items-center gap-2 text-sm">
-                    <strong>{providerName(p)}</strong>
-                    {linked.includes(p.id) ? (
-                      <Badge>{t("settings.linked", "Linked", { ns: "web" })}</Badge>
-                    ) : (
-                      <>
-                        <Badge variant="secondary">{t("settings.notLinked", "Not linked", { ns: "web" })}</Badge>
-                        <Button asChild size="sm" variant="outline">
-                          <a href={`/auth/${p.id}/start?link=1&return_to=%2Fsettings`}>{t("settings.linkIt", "Link it", { ns: "web" })}</a>
-                        </Button>
-                      </>
-                    )}
-                  </li>
-                ))}
+                {config.providers.map((p) => {
+                  const switchFor = linked.includes(p.id) ? options.linkedModels?.find((m) => m.provider.id === p.id) : undefined;
+                  return (
+                    <li key={p.id} className="flex flex-col gap-1.5">
+                      <div className="flex flex-wrap items-center gap-2 text-sm">
+                        <strong>{providerName(p)}</strong>
+                        {linked.includes(p.id) ? (
+                          <Badge>{t("settings.linked", "Linked", { ns: "web" })}</Badge>
+                        ) : (
+                          <>
+                            <Badge variant="secondary">{t("settings.notLinked", "Not linked", { ns: "web" })}</Badge>
+                            <Button asChild size="sm" variant="outline">
+                              <a href={`/auth/${p.id}/start?link=1&return_to=%2Fsettings`}>{t("settings.linkIt", "Link it", { ns: "web" })}</a>
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                      {switchFor ? <LinkedModelsSwitch provider={switchFor.provider} state={switchFor.state} t={t} /> : null}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           </>
@@ -796,7 +935,7 @@ export function settingsPage(config: WebConfig, user: UserRow, linked: readonly 
         </CardDescription>
       </Card>
     </>,
-    { title: t("settings.title", "Settings", { ns: "web" }), user: frameUser(user), quote: config.quote, current: "settings", flash: options.flash ?? null, scripts: ["/static/settings.js"] },
+    { title: t("settings.title", "Settings", { ns: "web" }), user: frameUser(user), quote: config.quote, current: "settings", flash: options.flash ?? null, scripts: ["/static/settings.js", "/static/confirm.js"] },
     language,
   );
 }
@@ -810,9 +949,11 @@ export interface ConnectView {
   readonly keys: readonly AgentKeyRow[];
   readonly assistants: readonly AssistantGrantRow[];
   readonly newKey: string | null;
+  /** Labels of the linked hosts' models this person has turned on (assistants see those too). */
+  readonly linkedLabels?: readonly string[];
 }
 
-export function connectPage(config: WebConfig, user: UserRow, view: ConnectView, flash: Flash, language: MutinyLanguage): string {
+export function connectPage(config: WebConfig, user: UserRow, view: ConnectView, flash: Flash | undefined, language: MutinyLanguage): string {
   const t = tFor(language);
   const { models, keys, assistants, newKey } = view;
   const mcpUrl = `${config.origin}/mcp`;
@@ -890,6 +1031,7 @@ export function connectPage(config: WebConfig, user: UserRow, view: ConnectView,
             { ns: "web" },
           )}
         </CardDescription>
+        {view.linkedLabels && view.linkedLabels.length > 0 ? <CardDescription>Assistants you connect here also see your {view.linkedLabels.join(" and ")}.</CardDescription> : null}
       </Card>
       <Card>
         <CardHeader>
@@ -1049,7 +1191,7 @@ export function assistantConsentPage(_config: WebConfig, user: UserRow, consent:
 function ApprovalBadge({ state, t }: { state: PendingApproval["state"]; t: TFunction }) {
   const words: Record<PendingApproval["state"], string> = {
     waiting: t("approvals.stateWaiting", "Waiting for you", { ns: "web" }),
-    approved: t("approvals.stateApproved", "Approved", { ns: "web" }),
+    approved: t("approvals.stateApproved", "Approved, not applied yet", { ns: "web" }),
     declined: t("approvals.stateDeclined", "Declined", { ns: "web" }),
     landed: t("approvals.stateApplied", "Applied", { ns: "web" }),
     failed: t("approvals.stateFailed", "Couldn't apply", { ns: "web" }),
@@ -1102,7 +1244,10 @@ export function approvalsPage(config: WebConfig, user: UserRow, items: readonly 
               <Card>
                 <CardHeader>
                   <CardTitle className="flex flex-wrap items-center gap-2 text-base">
-                    <a href={`/approvals/${item.id}`}>{item.summary}</a> <ApprovalBadge state={item.state} t={t} />
+                    <a href={`/approvals/${item.id}`} className="min-w-0 break-words">
+                      {approvalTitle(item)}
+                    </a>{" "}
+                    <ApprovalBadge state={item.state} t={t} />
                   </CardTitle>
                   <CardDescription>
                     {item.clientName} · “{item.modelName}” · {formatWhen(new Date(item.createdAt).toISOString(), language)}
@@ -1123,11 +1268,14 @@ export function approvalsPage(config: WebConfig, user: UserRow, items: readonly 
 
 export function approvalPage(config: WebConfig, user: UserRow, item: PendingApproval, language: MutinyLanguage): string {
   const t = tFor(language);
+  const title = approvalTitle(item);
+  // The request word for word, as the assistant sent it, under the plain title.
+  const details = item.summary === title ? item.details : [item.summary, ...item.details];
   return pageIn(
     <Card>
       <CardHeader>
         <CardTitle className="flex flex-wrap items-center gap-2 text-2xl">
-          {item.summary} <ApprovalBadge state={item.state} t={t} />
+          <span className="min-w-0 break-words">{title}</span> <ApprovalBadge state={item.state} t={t} />
         </CardTitle>
         <CardDescription>
           {t("approval.wantsChange", "{{client}} wants to make this change in", { client: item.clientName, ns: "web" })}{" "}
@@ -1135,9 +1283,9 @@ export function approvalPage(config: WebConfig, user: UserRow, item: PendingAppr
           {t("approval.askedWhen", ", asked {{when}}.", { when: formatWhen(new Date(item.createdAt).toISOString(), language), ns: "web" })}
         </CardDescription>
       </CardHeader>
-      {item.details.length > 0 ? (
-        <pre className="max-h-80 overflow-auto rounded-(--mutiny-radius) border border-(--mutiny-border) bg-(--mutiny-canvas) p-3 text-xs/relaxed" aria-label={t("approval.detailsAria", "Exactly what changes", { ns: "web" })}>
-          <code>{item.details.join("\n")}</code>
+      {details.length > 0 ? (
+        <pre className="max-h-80 overflow-auto rounded-(--mutiny-radius) border border-(--mutiny-border) bg-(--mutiny-canvas) p-3 text-xs/relaxed whitespace-pre-wrap" aria-label={t("approval.detailsAria", "Exactly what changes", { ns: "web" })}>
+          <code>{details.join("\n")}</code>
         </pre>
       ) : null}
       {item.outcome ? (
@@ -1242,6 +1390,45 @@ export function quotePage(config: WebConfig, quote: QuoteConfig, user: UserRow, 
       </Card>
     </>,
     { title: quote.label, user: frameUser(user), quote: config.quote, current: "quote" },
+    language,
+  );
+}
+
+/** Right after a sign-in with a linked host: one question, asked once. */
+export function linkedOfferPage(config: WebConfig, user: UserRow, provider: LinkedProvider, returnTo: string, language: MutinyLanguage): string {
+  const t = tFor(language);
+  const host = providerName(provider);
+  const label = provider.models.label;
+  return pageIn(
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-2xl">{t("linkedOffer.title", "Show your {{label}} too?", { label, ns: "web" })}</CardTitle>
+        <CardDescription>
+          {t(
+            "linkedOffer.lede",
+            "{{host}} can list the projects you can open there, here under your own models, and your connected assistants can work on them too. {{host}} asks you to allow it next.",
+            { host, ns: "web" },
+          )}
+        </CardDescription>
+      </CardHeader>
+      <ul className="flex list-disc flex-col gap-1 pl-5 text-sm">
+        <li>{t("linkedOffer.modelsOnly", "It opens building models only: nothing else in your {{host}} account.", { host, ns: "web" })}</li>
+        <li>{t("linkedOffer.roleStays", "What you can see and change stays up to your role in {{host}}, checked every time.", { host, ns: "web" })}</li>
+        <li>{t("linkedOffer.notCopied", "Nothing is copied here. Turn it off any time under Settings, or in {{host}}.", { host, ns: "web" })}</li>
+      </ul>
+      <div className="flex flex-wrap gap-2">
+        <Button asChild size="lg">
+          <a href={`/auth/${provider.id}/models/start?return_to=${encodeURIComponent(returnTo)}`}>{t("linkedSwitch.showThem", "Show them", { ns: "web" })}</a>
+        </Button>
+        <form method="post" action={`/auth/${provider.id}/models/offer`}>
+          <input type="hidden" name="return_to" value={returnTo} />
+          <Button type="submit" size="lg" variant="outline">
+            {t("linkedOffer.notNow", "Not now", { ns: "web" })}
+          </Button>
+        </form>
+      </div>
+    </Card>,
+    { title: t("linkedOffer.pageTitle", "Show your {{label}}", { label, ns: "web" }), user: frameUser(user), quote: config.quote, narrow: true },
     language,
   );
 }
