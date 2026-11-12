@@ -117,7 +117,10 @@ const STEM_NEIGHBOURS: Readonly<Record<string, readonly string[]>> = {
  * panel with no free poles. So a cause may be asserted only when **every** backing sentence
  * agrees with it; otherwise the sentence has to offer alternatives.
  */
-const CAUSE_WORDS: readonly { readonly turkish: string; readonly english: readonly string[] }[] = [
+const CAUSE_WORDS: readonly {
+  readonly turkish: string;
+  readonly english: readonly string[];
+}[] = [
   { turkish: "kilit", english: ["lock"] },
   { turkish: "sabitlen", english: ["pin"] },
   { turkish: "dolu", english: ["full", "no free", "no room"] },
@@ -126,11 +129,31 @@ const CAUSE_WORDS: readonly { readonly turkish: string; readonly english: readon
     // `kullanım` alone missed every one of those and made this rule decorative — the same
     // mistake the right-hand boundary made two rounds ago.
     turkish: "kullan",
-    english: ["in use", "already used", "already on", "already stands", "spread over", "needs at least one", "use circuit", "already connects"],
+    english: [
+      "in use",
+      "already used",
+      "already on",
+      "already stands",
+      "spread over",
+      "needs at least one",
+      "use circuit",
+      "already connects",
+    ],
   },
   // The relationship `has_dependents` is *defined* by: every one of its four sentences is
   // another thing referring to this element (a pointer, a connector, a group, a pin).
-  { turkish: "bağlı", english: ["depend", "attach", "connect", "pointing at", "filed under", "group", "pin"] },
+  {
+    turkish: "bağlı",
+    english: [
+      "depend",
+      "attach",
+      "connect",
+      "pointing at",
+      "filed under",
+      "group",
+      "pin",
+    ],
+  },
 ];
 
 /** A disjunction: the sentence offers alternatives instead of asserting one cause. */
@@ -155,17 +178,25 @@ function namesWord(text: string, word: string): boolean {
   const escaped = word.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
   // Longest-first over the neighbours the stems collide with, so a shorter neighbour never
   // hides a longer one.
-  const neighbours = ((STEM_NEIGHBOURS as Readonly<Record<string, readonly string[]>>)[word] ?? [])
+  const neighbours = (
+    (STEM_NEIGHBOURS as Readonly<Record<string, readonly string[]>>)[word] ?? []
+  )
     .slice()
     .sort((left, right) => right.length - left.length)
     // Each tail is a word of its own, so it takes the plural and then a right boundary:
     // `fazla`/`fazlalar` are excluded, `fazlar` — the plural the guard exists for — is not;
     // `odak`+`lar` and `panorama`+`lar` are covered too. (`kat`'s old `ı` tail silently
     // dropped `katı`; it is gone, and a bare `katı` is over-reach the other way.)
-    .map((tail) => `${tail.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}(?:lar|ler)?(?![\\p{L}])`)
+    .map(
+      (tail) =>
+        `${tail.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}(?:lar|ler)?(?![\\p{L}])`,
+    )
     .join("|");
   const notANeighbour = neighbours === "" ? "" : `(?!${neighbours})`;
-  return new RegExp(String.raw`(?<![\p{L}])${escaped}${notANeighbour}`, "iu").test(text);
+  return new RegExp(
+    String.raw`(?<![\p{L}])${escaped}${notANeighbour}`,
+    "iu",
+  ).test(text);
 }
 
 const TR = translateFor("tr");
@@ -176,17 +207,27 @@ const EN = translateFor("en");
  * it: a name and a count in the middle of the English.
  */
 const KERNEL_WORD_SENTENCES = {
-  has_dependents: '2 elements are in "Level 1". Choose a group to move them to, then delete.',
-  undo_refused: "You can only undo your own changes; Ada Lovelace made revision 12",
-  conflict: 'Level 1 changed since your edit; undoing would overwrite that work.',
+  has_dependents:
+    '2 elements are in "Level 1". Choose a group to move them to, then delete.',
+  undo_refused:
+    "You can only undo your own changes; Ada Lovelace made revision 12",
+  conflict:
+    "Level 1 changed since your edit; undoing would overwrite that work.",
   already_exists: '"Level 1" already exists; choose a new id',
   in_use: '"Level 1" is locked. Unlock it before deleting it.',
-  locked: "This element is locked so it can't slide while you trace. Unlock it first",
+  locked:
+    "This element is locked so it can't slide while you trace. Unlock it first",
 } as const;
 
 test("the six codes the session shows verbatim come out Turkish", () => {
   const english = Object.entries(KERNEL_WORD_SENTENCES).filter(
-    ([code, message]) => refusalWords(code as keyof typeof KERNEL_WORD_SENTENCES, message, "tr", TR) === message,
+    ([code, message]) =>
+      refusalWords(
+        code as keyof typeof KERNEL_WORD_SENTENCES,
+        message,
+        "tr",
+        TR,
+      ) === message,
   );
   expect(english).toEqual([]);
 });
@@ -194,26 +235,48 @@ test("the six codes the session shows verbatim come out Turkish", () => {
 test("a sentence a template can key is preferred to the generic one", () => {
   // `Revision {0} is not in the recent history…` is in the map: the person gets the
   // kernel's meaning *and* the revision number, not the shorter generic sentence.
-  const shown = refusalWords("undo_refused", "Revision 12 is not in the recent history, so it can't be undone here", "tr", TR);
-  expect(shown).toBe("Revizyon 12 son geçmişte yok, bu yüzden burada geri alınamaz");
-  expect(shown).not.toBe(refusalWords("undo_refused", "an older kernel sentence", "tr", TR));
+  const shown = refusalWords(
+    "undo_refused",
+    "Revision 12 is not in the recent history, so it can't be undone here",
+    "tr",
+    TR,
+  );
+  expect(shown).toBe(
+    "Revizyon 12 son geçmişte yok, bu yüzden burada geri alınamaz",
+  );
+  expect(shown).not.toBe(
+    refusalWords("undo_refused", "an older kernel sentence", "tr", TR),
+  );
 });
 
 test("a sentence no template can key falls back to the translated code, never to English", () => {
-  const shown = refusalWords("has_dependents", '2 elements are in "Level 1". Choose a group to move them to, then delete.', "tr", TR);
+  const shown = refusalWords(
+    "has_dependents",
+    '2 elements are in "Level 1". Choose a group to move them to, then delete.',
+    "tr",
+    TR,
+  );
   // The generic sentence says less — and says it in Turkish, which is the point.
   expect(shown).toContain("Buna bağlı başka şeyler var");
   expect(shown).not.toContain("elements");
 });
 
 test("English is answered with the kernel's own sentence, unchanged", () => {
-  const message = "Revision 12 is not in the recent history, so it can't be undone here";
+  const message =
+    "Revision 12 is not in the recent history, so it can't be undone here";
   expect(refusalWords("undo_refused", message, "en", EN)).toBe(message);
 });
 
 test("no raw slot or placeholder reaches the screen", () => {
   const leaked = Object.entries(KERNEL_WORD_SENTENCES)
-    .map(([code, message]) => refusalWords(code as keyof typeof KERNEL_WORD_SENTENCES, message, "tr", TR))
+    .map(([code, message]) =>
+      refusalWords(
+        code as keyof typeof KERNEL_WORD_SENTENCES,
+        message,
+        "tr",
+        TR,
+      ),
+    )
     .filter((shown) => /\{\{|\}\}|\{\d+\}/u.test(shown));
   expect(leaked).toEqual([]);
 });
@@ -236,7 +299,9 @@ const NOT_CONNECTED = /isn(?:'|&#39;|&apos;|\u2019)t\s+connected/iu;
  * Sentences in `files` (`id` → source) that say "isn't connected" without being inside a
  * `t('session.…', '…')` call. Split out of its test so the guard can be proven to fire.
  */
-function bareConnectedSentences(files: Readonly<Record<string, string>>): string[] {
+function bareConnectedSentences(
+  files: Readonly<Record<string, string>>,
+): string[] {
   const bare: string[] = [];
   for (const [id, text] of Object.entries(files)) {
     for (const line of text.split("\n")) {
@@ -246,18 +311,28 @@ function bareConnectedSentences(files: Readonly<Record<string, string>>): string
       if (/^\s*(?:\*|\/\*|\/\/)/u.test(line)) continue;
       // The key has to be on the same line, before the sentence: `t('session.…', "…"`
       // with any options after it (on this line or the next).
-      if (/t\(\s*'session\.[A-Za-z]+',\s*"[^"]*$/u.test(line.slice(0, found.index))) continue;
+      if (
+        /t\(\s*'session\.[A-Za-z]+',\s*"[^"]*$/u.test(
+          line.slice(0, found.index),
+        )
+      )
+        continue;
       bare.push(`${id}: ${line.trim()}`);
     }
   }
   return bare;
 }
 
-const OWNED_FILES = ["packages/bim-editor/src/editor/model-session.ts", "packages/bim-editor/src/editor/BuildingModelSurface.tsx"];
+const OWNED_FILES = [
+  "packages/bim-editor/src/editor/model-session.ts",
+  "packages/bim-editor/src/editor/BuildingModelSurface.tsx",
+];
 
 /** The two files' sources, read once. */
 function ownedSources(): Record<string, string> {
-  return Object.fromEntries(OWNED_FILES.map((id) => [id, readFileSync(join(REPO_ROOT, id), "utf8")]));
+  return Object.fromEntries(
+    OWNED_FILES.map((id) => [id, readFileSync(join(REPO_ROOT, id), "utf8")]),
+  );
 }
 
 test("the session and the surface say why editing is off in a translated sentence", () => {
@@ -284,12 +359,14 @@ test("the isn't-connected guard fires on a bare JSX sentence and passes the keye
   // The exact shape of a revert of the read-only alert: JSX text, `&apos;`, no `t()`.
   expect(
     bareConnectedSentences({
-      "surface.tsx": '                <AlertDescription>Live editing isn&apos;t connected for this project yet.</AlertDescription>',
+      "surface.tsx":
+        "                <AlertDescription>Live editing isn&apos;t connected for this project yet.</AlertDescription>",
     }),
   ).toHaveLength(1);
   expect(
     bareConnectedSentences({
-      "surface.tsx": '                <AlertDescription>{t(\'session.viewOnlyBody\', "Live editing isn&apos;t connected for this project yet.", { ns: \'editor\' })}</AlertDescription>',
+      "surface.tsx":
+        "                <AlertDescription>{t('session.viewOnlyBody', \"Live editing isn&apos;t connected for this project yet.\", { ns: 'editor' })}</AlertDescription>",
     }),
   ).toEqual([]);
 });
@@ -297,11 +374,16 @@ test("the isn't-connected guard fires on a bare JSX sentence and passes the keye
 test("every keyed sentence in those two files has a Turkish string, and the count is pinned", () => {
   // A site added without its Turkish, or a site quietly reverted to a bare literal,
   // has to fail here rather than in review.
-  const turkish = JSON.parse(readFileSync(join(REPO_ROOT, "packages/bim-editor/locales/tr/editor.json"), "utf8")) as Record<
-    string,
-    Record<string, string> | string
-  >;
-  const files = ["packages/bim-editor/src/editor/model-session.ts", "packages/bim-editor/src/editor/BuildingModelSurface.tsx"];
+  const turkish = JSON.parse(
+    readFileSync(
+      join(REPO_ROOT, "packages/bim-editor/locales/tr/editor.json"),
+      "utf8",
+    ),
+  ) as Record<string, Record<string, string> | string>;
+  const files = [
+    "packages/bim-editor/src/editor/model-session.ts",
+    "packages/bim-editor/src/editor/BuildingModelSurface.tsx",
+  ];
   const used = new Map<string, number>();
   for (const id of files) {
     const text = readFileSync(join(REPO_ROOT, id), "utf8");
@@ -321,16 +403,93 @@ test("every keyed sentence in those two files has a Turkish string, and the coun
   // "couldn't select" toasts and the rest of the family this task keyed. Changing a
   // count means changing a call site — update it deliberately.
   expect(Object.fromEntries([...used].sort())).toEqual({
+    "session.aRun": 1,
+    "session.alreadyPassesClear": 1,
+    "session.axisLockOffSteps": 1,
+    "session.axisLockedTo": 1,
+    "session.axisLockedToZNote": 1,
+    "session.backWhereItWas": 1,
     "session.boxDragCount": 1,
     "session.boxNothingInside": 1,
     "session.boxSelectedInside": 1,
     "session.boxSelectedTouching": 1,
     "session.boxTouchesNothing": 1,
+    "session.branchCannotLeaveSide": 1,
+    "session.branchingOffFace": 1,
+    "session.branchingOffSide": 1,
     "session.changeNotSaved": 1,
+    "session.chooseLevelToPlace": 1,
+    "session.chooseLevelToPlaceIt": 1,
+    "session.chooseLevelToRoute": 3,
+    "session.chooseWhatToRoute": 4,
+    "session.chooseWhatToRouteInPanel": 1,
+    "session.clickNextOrEnter": 1,
+    "session.clickNextPoint": 3,
+    "session.clickOneMorePoint": 1,
+    "session.clickSecondPoint": 1,
+    "session.clickWhereRouteStarts": 1,
+    "session.connectOtherWayFailed": 1,
+    "session.connectWorkedOut": 1,
+    "session.continuingFrom": 1,
+    "session.crossingsUnchecked": 1,
+    "session.down": 1,
+    "session.downWord": 1,
+    "session.dragAlong": 1,
+    "session.dragCancelled": 1,
+    "session.dragElbowFlipped": 1,
+    "session.dragGroupTogether": 1,
+    "session.dragInProgress": 1,
+    "session.dragStopped": 1,
+    "session.dragToMove": 1,
+    "session.dragToNextPoint": 1,
+    "session.dragWholeGroup": 1,
+    "session.drawTowardsObstacle": 1,
+    "session.drawingFrom": 1,
+    "session.droppingLeg": 1,
+    "session.east": 1,
+    "session.editWasNotSaved": 1,
+    "session.editsCount": 1,
+    "session.editsWereNotSaved": 1,
+    "session.elbowChanged": 1,
+    "session.existingMep": 1,
+    "session.faceBottom": 1,
+    "session.faceTop": 1,
+    "session.finishOnRoute": 1,
+    "session.fittingCountMany": 1,
+    "session.fittingCountOne": 1,
+    "session.flipLetGo": 1,
+    "session.flipRefused": 1,
+    "session.geometryEngineFailed": 1,
+    "session.groupOne": 1,
+    "session.groupWhole": 1,
+    "session.heightAt": 1,
+    "session.holdShiftUpDown": 2,
     "session.inheritCancelled": 1,
     "session.inheritHint": 1,
+    "session.inheritTakes": 1,
+    "session.joinEndToEndWith": 1,
+    "session.joinedEndToEndWith": 1,
+    "session.joinedLegToFace": 1,
+    "session.labelAway": 1,
+    "session.labelNewBranch": 1,
+    "session.lastChange": 1,
+    "session.lengthMustBePositive": 1,
+    "session.lengthNow": 1,
     "session.levelNotAdded": 1,
-    "session.modelNotOpen": 1,
+    "session.linkedModel": 2,
+    "session.loadingReference": 1,
+    "session.lowAngleUpDown": 1,
+    "session.measureAnswer": 1,
+    "session.modelNotLoaded": 1,
+    "session.modelNotLoadedYet": 1,
+    "session.modelNotOpen": 3,
+    "session.modelStillOpening": 1,
+    "session.movePreview": 1,
+    "session.noAirflowYet": 1,
+    "session.noFreeConnector": 1,
+    "session.noGlobalId": 1,
+    "session.noRoomForRise": 1,
+    "session.north": 1,
     "session.notConnected": 7,
     "session.notConnectedDeleted": 1,
     "session.notConnectedDuct": 1,
@@ -342,12 +501,142 @@ test("every keyed sentence in those two files has a Turkish string, and the coun
     "session.notConnectedSaved": 5,
     "session.notConnectedSplit": 1,
     "session.notConnectedUndone": 1,
+    "session.nothingMovesOnItsOwn": 1,
+    "session.nothingPicked": 1,
+    "session.nothingToFinish": 1,
+    "session.nothingToInherit": 1,
     "session.nothingToRedo": 1,
-    "session.nothingToUndo": 1,
+    "session.nothingToUndo": 2,
+    "session.nothingUnderPointer": 1,
+    "session.nudgeDirection": 1,
+    "session.nudged": 1,
+    "session.obstacleSizeUnknown": 1,
+    "session.offsetDoesNotFit": 1,
+    "session.offsetRises": 1,
+    "session.offsetsLevelLegOnly": 1,
+    "session.offsetsOnPlanLegs": 1,
+    "session.onMountingPlane": 1,
+    "session.oneEdit": 1,
+    "session.onePart": 1,
+    "session.oneStraightPiece": 1,
+    "session.partAlreadyPlaced": 1,
+    "session.partConnector": 2,
+    "session.partHasNoType": 1,
+    "session.partNoLongerInModel": 1,
+    "session.partTypeNotLoaded": 1,
+    "session.partsCouldNotBePlaced": 1,
+    "session.partsCount": 1,
+    "session.pickedNotInTheWay": 1,
+    "session.placeHint": 1,
+    "session.pointAtFloorRoof": 1,
+    "session.pointAtSomethingToStart": 1,
+    "session.referencesUnavailable": 1,
+    "session.reloadedAtRevision": 1,
+    "session.reloadedDroppedEdits": 1,
+    "session.remoteSavedRevision": 1,
+    "session.revitLoadFailed": 1,
+    "session.riseAtThisPoint": 1,
+    "session.riserKeys": 1,
+    "session.risingLeg": 1,
+    "session.routeAddPoint": 1,
+    "session.routeAxisKeys": 1,
+    "session.routeCheck": 1,
+    "session.routeCheckMore": 1,
+    "session.routeClickOpenEndSideOrPoint": 1,
+    "session.routeClickToStart": 1,
+    "session.routeDrops": 1,
+    "session.routeHeightNeedsPoint": 1,
+    "session.routePlaneLockedBadge": 1,
+    "session.routeReadout": 1,
+    "session.routeReadoutTail": 1,
+    "session.routeRises": 1,
+    "session.routeStartHere": 1,
+    "session.routeStartOn": 1,
+    "session.routeSummaryAt": 1,
+    "session.routeUnchecked": 1,
+    "session.routeWithCrossings": 1,
+    "session.routed": 1,
+    "session.routedAndConnectedTo": 1,
+    "session.runChanged": 3,
+    "session.savePartTypes": 1,
     "session.selectFailed": 1,
     "session.selectHint": 1,
+    "session.selectSomethingFirst": 1,
+    "session.shiftKey": 1,
+    "session.sizesTableNotSaved": 1,
+    "session.south": 1,
+    "session.splitClickOnPiece": 1,
+    "session.splitClickToSplit": 1,
+    "session.splitDone": 1,
+    "session.splitPointAtPiece": 1,
+    "session.standingOn": 1,
+    "session.startOnContinueHere": 1,
+    "session.startRouteFirst": 1,
+    "session.startedHere": 1,
+    "session.startedOn": 2,
+    "session.startedOnPressOrDrag": 1,
+    "session.startingThreeDView": 1,
+    "session.straightPieces": 1,
+    "session.switchWaitsForSave": 1,
+    "session.tabWholeRun": 1,
+    "session.tapHeightDrops": 1,
+    "session.tapHeightRises": 1,
+    "session.tapOffBranchHere": 1,
+    "session.tapRefused": 1,
+    "session.tapRelease": 1,
+    "session.thatEndConnected": 1,
+    "session.thatPart": 1,
+    "session.theLevel": 1,
+    "session.theOpenEndOf": 3,
+    "session.theSelection": 2,
+    "session.theSlab": 1,
+    "session.thisApp": 1,
+    "session.tooManyToMove": 1,
+    "session.transitionAdded": 1,
+    "session.typedLengthsNeedOpenEnd": 1,
+    "session.unavailableNextHint": 1,
+    "session.unavailableNextPlain": 1,
+    "session.undid": 1,
+    "session.undoAddLevel": 1,
+    "session.undoBranchSlide": 1,
+    "session.undoChange": 1,
+    "session.undoCopy": 1,
+    "session.undoDelete": 1,
+    "session.undoEdits": 1,
+    "session.undoElement": 1,
+    "session.undoItems": 1,
+    "session.undoJoinEndToEnd": 1,
+    "session.undoLevelChange": 1,
+    "session.undoLevelsFromLinked": 1,
+    "session.undoLinkedLevelCleared": 1,
+    "session.undoLinkedLevelSet": 1,
+    "session.undoMove": 1,
+    "session.undoPlace": 1,
+    "session.undoRenameLevel": 1,
+    "session.undoResizePieces": 1,
+    "session.undoRotate": 1,
+    "session.undoTypeChange": 1,
+    "session.undoWouldOverwrite": 1,
+    "session.unplacedLoadFailed": 1,
+    "session.up": 1,
+    "session.upWord": 1,
     "session.viewOnlyBody": 1,
     "session.viewOnlyTitle": 1,
+    "session.wayAlong": 1,
+    "session.wayAtEnd": 1,
+    "session.wayCorner": 1,
+    "session.wayDown": 1,
+    "session.waySquare": 1,
+    "session.wayUp": 1,
+    "session.west": 1,
+    "session.whatFarEnd": 1,
+    "session.whatNearEnd": 1,
+    "session.whatThe": 2,
+    "session.whereFloorPlane": 1,
+    "session.wherePlaneLocked": 1,
+    "session.wordOfLabelNewBranch": 1,
+    "session.workPlaneLocked": 1,
+    "session.workPlaneUnlocked": 1,
   });
 });
 
@@ -371,26 +660,42 @@ function genericSentenceDefects(
   // A cause may be asserted only when every backing sentence agrees with it; otherwise the
   // sentence has to present alternatives. This is the rule the round-2 `in_use` sentence
   // broke, and the one `SCREEN_NOUNS` alone could not see.
-  const alternativesOffered = DISJUNCTION_TR.test(generic) || DISJUNCTION_EN.test(genericEnglish);
+  const alternativesOffered =
+    DISJUNCTION_TR.test(generic) || DISJUNCTION_EN.test(genericEnglish);
   for (const cause of CAUSE_WORDS) {
-    const named = namesWord(generic, cause.turkish) || cause.english.some((signal) => namesWord(genericEnglish, signal));
+    const named =
+      namesWord(generic, cause.turkish) ||
+      cause.english.some((signal) => namesWord(genericEnglish, signal));
     if (!named) continue;
-    const everySentenceAgrees = backing.length > 0 && backing.every((row) => cause.english.some((signal) => namesWord(row.template, signal)));
+    const everySentenceAgrees =
+      backing.length > 0 &&
+      backing.every((row) =>
+        cause.english.some((signal) => namesWord(row.template, signal)),
+      );
     if (everySentenceAgrees || alternativesOffered) continue;
-    const howMany = backing.filter((row) => cause.english.some((signal) => namesWord(row.template, signal))).length;
+    const howMany = backing.filter((row) =>
+      cause.english.some((signal) => namesWord(row.template, signal)),
+    ).length;
     defects.push(
       `${code}: "${generic}" asserts the cause "${cause.turkish}" but only ${howMany} of ${backing.length} of its sentences are about it, and it offers no alternative ("ya da"/"or")`,
     );
   }
 
   for (const [turkish, english] of SCREEN_NOUNS) {
-    const said = namesWord(generic, turkish) || namesWord(genericEnglish, english);
+    const said =
+      namesWord(generic, turkish) || namesWord(genericEnglish, english);
     if (!said) continue;
     // "Every sentence agrees" means: there is at least one, and all of them name it.
-    const everySentenceSaysIt = backing.length > 0 && backing.every((row) => namesWord(row.template, english));
+    const everySentenceSaysIt =
+      backing.length > 0 &&
+      backing.every((row) => namesWord(row.template, english));
     if (everySentenceSaysIt) continue;
-    const howMany = backing.filter((row) => namesWord(row.template, english)).length;
-    defects.push(`${code}: "${generic}" names "${turkish}" but only ${howMany} of ${backing.length} of its sentences mention "${english}"`);
+    const howMany = backing.filter((row) =>
+      namesWord(row.template, english),
+    ).length;
+    defects.push(
+      `${code}: "${generic}" names "${turkish}" but only ${howMany} of ${backing.length} of its sentences mention "${english}"`,
+    );
   }
   return defects;
 }
@@ -411,18 +716,34 @@ test("the cause-neutrality guard sees Turkish suffixes, so it can fire at all", 
   // Turkish attaches suffixes on the right. A boundary-strict matcher reported the old
   // `in_use` sentence as naming no sheet, which is why two rounds of review found this
   // and the guard did not.
-  expect(namesWord("Bu hâlâ bir paftada kullanımda. Önce paftadan kaldırın.", "pafta")).toBe(true);
-  expect(namesWord('"Level 1" is locked, so new elements can\'t go in it.', "grupta")).toBe(false);
-  expect(namesWord("Kilitli bir grupta. Gruplar ve fazlar.", "grup")).toBe(true);
+  expect(
+    namesWord(
+      "Bu hâlâ bir paftada kullanımda. Önce paftadan kaldırın.",
+      "pafta",
+    ),
+  ).toBe(true);
+  expect(
+    namesWord(
+      '"Level 1" is locked, so new elements can\'t go in it.',
+      "grupta",
+    ),
+  ).toBe(false);
+  expect(namesWord("Kilitli bir grupta. Gruplar ve fazlar.", "grup")).toBe(
+    true,
+  );
   expect(namesWord("Görünümünüz güncellendi.", "görünüm")).toBe(true);
   expect(namesWord("Karışık fazlar", "faz")).toBe(true);
   // Quiet where there is genuinely no such noun.
-  expect(namesWord("Bu değer geçerli değil. Kontrol edip tekrar deneyin.", "pafta")).toBe(false);
+  expect(
+    namesWord("Bu değer geçerli değil. Kontrol edip tekrar deneyin.", "pafta"),
+  ).toBe(false);
   expect(namesWord("Kilitli olduğu için değiştirilemedi.", "grup")).toBe(false);
 });
 
 test("the cause rule fires on a sentence that asserts one cause over many", () => {
-  const inUse = catalogue.templates.filter((row) => row.codes.includes("in_use"));
+  const inUse = catalogue.templates.filter((row) =>
+    row.codes.includes("in_use"),
+  );
 
   // The round-2 sentence. It passed the screen-noun rule with the fixed matcher only
   // because it named no screen — and it is still wrong, because "still used somewhere
@@ -430,31 +751,71 @@ test("the cause rule fires on a sentence that asserts one cause over many", () =
   // assertion the guard was missing.
   // The *kind* is asserted, not merely "something was wrong": a future screen-noun defect on
   // the same sentence must not be able to stand in for the cause defect.
-  const oldSentence = "Bu hâlâ başka bir yerde kullanıldığı için işlem yapılmadı. Hiçbir şey değişmedi.";
-  const oldDefects = genericSentenceDefects("in_use", oldSentence, "That is still used somewhere else, so nothing was changed.", inUse);
-  expect(oldDefects.filter((defect) => defect.includes('asserts the cause'))).toHaveLength(1);
-  expect(oldDefects.every((defect) => defect.includes('asserts the cause'))).toBe(true);
+  const oldSentence =
+    "Bu hâlâ başka bir yerde kullanıldığı için işlem yapılmadı. Hiçbir şey değişmedi.";
+  const oldDefects = genericSentenceDefects(
+    "in_use",
+    oldSentence,
+    "That is still used somewhere else, so nothing was changed.",
+    inUse,
+  );
+  expect(
+    oldDefects.filter((defect) => defect.includes("asserts the cause")),
+  ).toHaveLength(1);
+  expect(
+    oldDefects.every((defect) => defect.includes("asserts the cause")),
+  ).toBe(true);
 
   // A hypothetical single-cause sentence fails the same way, and for the same reason.
-  const singleCause = genericSentenceDefects("in_use", "Kilitli olduğu için yapılamadı.", "That couldn't be done because it is locked.", inUse);
-  expect(singleCause.filter((defect) => defect.includes('asserts the cause "kilit"'))).toHaveLength(1);
+  const singleCause = genericSentenceDefects(
+    "in_use",
+    "Kilitli olduğu için yapılamadı.",
+    "That couldn't be done because it is locked.",
+    inUse,
+  );
+  expect(
+    singleCause.filter((defect) =>
+      defect.includes('asserts the cause "kilit"'),
+    ),
+  ).toHaveLength(1);
 
   // What ships offers the alternatives instead, and passes.
-  expect(genericSentenceDefects("in_use", operatorMessage("in_use", TR), operatorMessage("in_use", EN), inUse)).toEqual([]);
+  expect(
+    genericSentenceDefects(
+      "in_use",
+      operatorMessage("in_use", TR),
+      operatorMessage("in_use", EN),
+      inUse,
+    ),
+  ).toEqual([]);
 });
 
 test("the cause rule allows a cause every sentence agrees with", () => {
   // `locked` asserts a lock and may: its only sentence is about a lock. The disjunction is
   // not needed when the whole family really is one cause.
-  const locked = catalogue.templates.filter((row) => row.codes.includes("locked"));
+  const locked = catalogue.templates.filter((row) =>
+    row.codes.includes("locked"),
+  );
   expect(locked.length).toBeGreaterThan(0);
-  expect(genericSentenceDefects("locked", operatorMessage("locked", TR), operatorMessage("locked", EN), locked)).toEqual([]);
-  // The same sentence over a family with other causes is refused.
-  const inUse = catalogue.templates.filter((row) => row.codes.includes("in_use"));
   expect(
-    genericSentenceDefects("in_use", "Kilitli olduğu için değiştirilemedi. Kilidi açıp tekrar deneyin.", "That is locked, so it couldn't be changed.", inUse).filter(
-      (defect) => defect.includes('asserts the cause "kilit"'),
+    genericSentenceDefects(
+      "locked",
+      operatorMessage("locked", TR),
+      operatorMessage("locked", EN),
+      locked,
     ),
+  ).toEqual([]);
+  // The same sentence over a family with other causes is refused.
+  const inUse = catalogue.templates.filter((row) =>
+    row.codes.includes("in_use"),
+  );
+  expect(
+    genericSentenceDefects(
+      "in_use",
+      "Kilitli olduğu için değiştirilemedi. Kilidi açıp tekrar deneyin.",
+      "That is locked, so it couldn't be changed.",
+      inUse,
+    ).filter((defect) => defect.includes('asserts the cause "kilit"')),
   ).toHaveLength(1);
 });
 
@@ -489,7 +850,8 @@ test("the cause-neutrality guard fires on the sentence from the Turkish side alo
 });
 
 test("the cause-neutrality guard fires on the two sentences the review found", () => {
-  const backing = (code: string): readonly { template: string }[] => catalogue.templates.filter((row) => row.codes.includes(code));
+  const backing = (code: string): readonly { template: string }[] =>
+    catalogue.templates.filter((row) => row.codes.includes(code));
 
   // Before this fix: `locked` sent the reader to `Manage › Groups & phases` while its
   // only sentence is an element lock during a trace.
@@ -515,12 +877,24 @@ test("the cause-neutrality guard fires on the two sentences the review found", (
 
   // The sentences that ship now are clean, and a noun every sentence agrees with is
   // allowed: `undo_refused` says only what all five of its sentences say.
-  expect(genericSentenceDefects("locked", operatorMessage("locked", TR), operatorMessage("locked", EN), backing("locked"))).toEqual([]);
   expect(
-    genericSentenceDefects("min_straight_length", "Bir parça çok kısa kalır.", "A piece would be too short.", [
-      { template: "A piece would be too short" },
-      { template: "A piece would be too short here" },
-    ]),
+    genericSentenceDefects(
+      "locked",
+      operatorMessage("locked", TR),
+      operatorMessage("locked", EN),
+      backing("locked"),
+    ),
+  ).toEqual([]);
+  expect(
+    genericSentenceDefects(
+      "min_straight_length",
+      "Bir parça çok kısa kalır.",
+      "A piece would be too short.",
+      [
+        { template: "A piece would be too short" },
+        { template: "A piece would be too short here" },
+      ],
+    ),
   ).toEqual([]);
 });
 
@@ -535,16 +909,43 @@ test("no placeholder reaches the screen through englishOnly", () => {
   // defect that has slipped through this project twice (a queued-edit count printed
   // as `{{n}}`).
   const sentences = [
-    ["session.changeNotSaved", "Your change wasn't saved. {{reason}}", { reason: "That end is already connected" }],
-    ["session.levelNotAdded", "Level 1 wasn't added: {{reason}}", { reason: "That end is already connected" }],
-    ["session.boxSelectedInside", "{{count}} selected: {{mode}} the box.", { count: 3, mode: "fully inside" }],
-    ["session.boxSelectedTouching", "{{count}} selected: {{mode}} the box.", { count: 1, mode: "touching" }],
-    ["session.selectFailed", "Couldn't select {{label}}: live editing isn't connected.", { label: "Fan 3" }],
-    ["session.selectHint", "Couldn't select {{label}}. It may have nothing drawn yet; find it in the Loads list.", { label: "Fan 3" }],
+    [
+      "session.changeNotSaved",
+      "Your change wasn't saved. {{reason}}",
+      { reason: "That end is already connected" },
+    ],
+    [
+      "session.levelNotAdded",
+      "Level 1 wasn't added: {{reason}}",
+      { reason: "That end is already connected" },
+    ],
+    [
+      "session.boxSelectedInside",
+      "{{count}} selected: {{mode}} the box.",
+      { count: 3, mode: "fully inside" },
+    ],
+    [
+      "session.boxSelectedTouching",
+      "{{count}} selected: {{mode}} the box.",
+      { count: 1, mode: "touching" },
+    ],
+    [
+      "session.selectFailed",
+      "Couldn't select {{label}}: live editing isn't connected.",
+      { label: "Fan 3" },
+    ],
+    [
+      "session.selectHint",
+      "Couldn't select {{label}}. It may have nothing drawn yet; find it in the Loads list.",
+      { label: "Fan 3" },
+    ],
     ["session.boxDragCount", "{{count}} in the box.", { count: 2 }],
   ] as const;
   const leaked = sentences
-    .map(([key, english, values]) => ({ key, shown: withValues(englishOnly(key, english), values) }))
+    .map(([key, english, values]) => ({
+      key,
+      shown: withValues(englishOnly(key, english), values),
+    }))
     .filter(({ shown }) => /\{\{|\}\}/u.test(shown));
   expect(leaked).toEqual([]);
 });
@@ -553,9 +954,16 @@ test("the two placeholder sentences are wrapped in withValues, not handed to a b
   // `englishOnly` returns its English argument verbatim, `{{reason}}` and all, so a
   // call site that loses `withValues` leaks braces. Nothing asserted it before: reverting
   // either line stayed green.
-  const source = readFileSync(join(REPO_ROOT, "packages/bim-editor/src/editor/model-session.ts"), "utf8");
+  const source = readFileSync(
+    join(REPO_ROOT, "packages/bim-editor/src/editor/model-session.ts"),
+    "utf8",
+  );
   const unwrapped = ["session.changeNotSaved", "session.levelNotAdded"].filter(
-    (key) => !new RegExp(String.raw`withValues\(\s*this\.t\(\s*'${key.replace(".", "\\.")}'`, "u").test(source),
+    (key) =>
+      !new RegExp(
+        String.raw`withValues\(\s*this\.t\(\s*'${key.replace(".", "\\.")}'`,
+        "u",
+      ).test(source),
   );
   expect(unwrapped).toEqual([]);
 });

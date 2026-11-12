@@ -117,6 +117,14 @@ const NOT_CAPTIONS = new Set([
   "Promise",
   // `window.open(…, '_blank', 'noopener,noreferrer')`: a browser feature list.
   "noopener,noreferrer",
+  // The model server's wording for "this project has no live model yet"
+  // (`NO_SUCH_MODEL` in `@permitzip/bim-sync`). Compared against a denial, never
+  // shown: the person reads `connection.no_model.*` instead. Translating it would
+  // stop it matching the wire.
+  "No such model",
+  // The fallback inside a thrown `Error` (`HTTP 500: no message`): a developer's
+  // words, on no screen. The same reason `new Error(…)` is skipped above.
+  "no message",
 ]);
 
 /** The calls whose string arguments a person reads. */

@@ -7,16 +7,15 @@
  * chunk loads (three.js and That Open never reach first load).
  */
 import { FLEX_DOMAIN, ROUTING_PLUS_EVERY_RUN_FEATURE, branchClosedMessage, elementEntries, elementsOfKind, hostName, isPitchedOrLevel, type BranchRef, type PartHost } from '@permitzip/bim-kernel'
-import type { Actor, BimElement, Command, CommandRequest, Connection, DisplayContext, DuctInsulation, ElementId, FittingChoice, FittingSlot, IntakeChoice, Level, ModelState, ParamDef, ParamValue, PartInstance, PartMount, PartTypeDefinition, PartTypeElement, RouteEndpoint, RouteJoin, RunFitting, RunPoint, RunSegment, RunSize, SelectionScopeKind, SystemKind, Vec2, WorkFrame, ReferenceSnapCandidates } from '@permitzip/bim-kernel'
+import type { Actor, BimElement, Command, CommandError, CommandRequest, Connection, DisplayContext, DuctInsulation, ElementId, FittingChoice, FittingSlot, IntakeChoice, Level, ModelState, ParamDef, ParamValue, PartInstance, PartMount, PartTypeDefinition, PartTypeElement, RouteEndpoint, RouteJoin, RunFitting, RunPoint, RunSegment, RunSize, SelectionScopeKind, SystemKind, Vec2, WorkFrame, ReferenceSnapCandidates } from '@permitzip/bim-kernel'
 import type { DesignLimitSources } from '@permitzip/bim-kernel/policy'
 import type { CommitOutcome, ConnectionStatus, Presence, SaveState, ScheduleClientPort, ServerMessage, SyncClient } from '@permitzip/bim-sync'
 import type { CategoryView, LoadedReference, ModelViewer3D, Pick, ReferenceItemProperties, ViewerColors, ViewerStats } from '@permitzip/bim-viewer-3d'
 import type { EditorHostCapabilities, EditorReferencesPort } from '@permitzip/bim-editor-host'
-import { unavailableWords } from '@permitzip/bim-editor/host/unavailable'
 import type { RevitElementParameters, RevitParametersResponse, UnplacedElementsResponse, UnplacedElementView } from '../contracts/building-model/revit-parameters-contract'
 import type { MutinyLanguage } from '@permitzip/bim-ui'
 import { connectionProblem, editsPausedMessage, problemForDenied, refusalWords, type ConnectionProblem } from './operator-messages'
-import { withValues, type Translate } from './i18n/translate'
+import { englishOnly, withValues, type Translate } from './i18n/translate'
 import { ALIGN_SNAP_MM, GRID_MM, MM_PER_FT, MM_PER_IN, POINT_SNAP_MM, defaultHeightMm, describeElement, feetInches, newElementId, partLabel, snapHint, snapPoint, snapTargets, type SnapTarget } from './placement'
 import { linkedSnapNear } from './linked-reference/linked-reference-store'
 import { isStarterLevelRace, starterLevelCommand } from './levels/starter-level'
@@ -73,10 +72,6 @@ export type UnplacedState =
   | { readonly status: 'unavailable' }
   | { readonly status: 'error'; readonly message: string }
 
-const REVIT_LOAD_FAILED = "Revit's parameters for this element couldn't be loaded. Select it again; if it keeps happening, reload the page."
-const UNPLACED_LOAD_FAILED = "The symbols for devices without a 3D shape couldn't be loaded. Reload the page to try again."
-const NO_GLOBAL_ID = "This element has no IFC GlobalId, so its Revit parameters can't be matched to it."
-
 export interface SessionEvents {
   onPhase(phase: string): void
   onReferenceLoaded(info: LoadedReference & { readonly bytes: number }): void
@@ -120,8 +115,11 @@ export interface RouteCheck {
 }
 
 /** Why a branch switch waits: edits still saving would be lost with the line they were sent on. */
-export function switchWaitsWords(pending: number): string {
-  return `Wait for your ${pending === 1 ? 'edit' : `${pending} edits`} to save before switching branch. The 3D view stays as it is.`
+export function switchWaitsWords(pending: number, t: Translate = englishOnly): string {
+  return t('session.switchWaitsForSave', 'Wait for your {{edits}} to save before switching branch. The 3D view stays as it is.', {
+    ns: 'editor',
+    edits: pending === 1 ? t('session.oneEdit', 'edit', { ns: 'editor', count: pending }) : t('session.editsCount', '{{count}} edits', { ns: 'editor', count: pending }),
+  })
 }
 
 /**
@@ -215,39 +213,45 @@ interface UndoEntry {
 }
 
 /** Plain words for an edit, used on the undo / redo buttons. */
-export function describeCommand(view: ModelState | null, command: Command): string {
+export function describeCommand(view: ModelState | null, command: Command, t: Translate = englishOnly): string {
   const name = (id: string) => {
     const el = view?.elements[id]
-    return el ? describeElement(view, el) : 'element'
+    return el ? describeElement(view, el, t) : t('session.undoElement', 'element', { ns: 'editor' })
   }
-  const many = (ids: readonly string[]) => (ids.length === 1 && ids[0] ? name(ids[0]) : `${ids.length} items`)
+  const many = (ids: readonly string[]) => (ids.length === 1 && ids[0] ? name(ids[0]) : t('session.undoItems', '{{count}} items', { ns: 'editor', count: ids.length }))
   switch (command.type) {
     case 'place_part':
-      return `place ${command.partType?.typeName ?? name(command.typeId)}`
+      return t('session.undoPlace', 'place {{what}}', { ns: 'editor', what: command.partType?.typeName ?? name(command.typeId) })
     case 'move_elements':
-      return `move ${many(command.ids)}`
+      return t('session.undoMove', 'move {{what}}', { ns: 'editor', what: many(command.ids) })
     case 'rotate_elements':
-      return `rotate ${many(command.ids)}`
+      return t('session.undoRotate', 'rotate {{what}}', { ns: 'editor', what: many(command.ids) })
     case 'copy_elements':
-      return `copy ${many(command.ids)}`
+      return t('session.undoCopy', 'copy {{what}}', { ns: 'editor', what: many(command.ids) })
     case 'delete_elements':
-      return `delete ${many(command.ids)}`
+      return t('session.undoDelete', 'delete {{what}}', { ns: 'editor', what: many(command.ids) })
     case 'set_parameters':
-      return command.scope === 'type' ? `type change on ${name(command.id)}` : `change to ${name(command.id)}`
+      return command.scope === 'type'
+        ? t('session.undoTypeChange', 'type change on {{what}}', { ns: 'editor', what: name(command.id) })
+        : t('session.undoChange', 'change to {{what}}', { ns: 'editor', what: name(command.id) })
     case 'create_level':
-      return `add level ${command.name}`
+      return t('session.undoAddLevel', 'add level {{name}}', { ns: 'editor', name: command.name })
     case 'update_level':
-      return command.name !== undefined && command.elevationMm === undefined ? `rename level to ${command.name}` : `level change`
+      return command.name !== undefined && command.elevationMm === undefined
+        ? t('session.undoRenameLevel', 'rename level to {{name}}', { ns: 'editor', name: command.name })
+        : t('session.undoLevelChange', 'level change', { ns: 'editor' })
     case 'sync_levels':
-      return `levels from the linked model (${command.storeys.length})`
+      return t('session.undoLevelsFromLinked', 'levels from the linked model ({{count}})', { ns: 'editor', count: command.storeys.length })
     case 'set_level_linked_storey':
-      return command.storeyName === null ? 'linked level choice cleared' : `linked level set to ${command.storeyName}`
+      return command.storeyName === null
+        ? t('session.undoLinkedLevelCleared', 'linked level choice cleared', { ns: 'editor' })
+        : t('session.undoLinkedLevelSet', 'linked level set to {{name}}', { ns: 'editor', name: command.storeyName })
     case 'ensure_starter_level':
       return 'starter Level 1'
     case 'undo':
       return 'undo'
     case 'slide_branch':
-      return 'branch slide'
+      return t('session.undoBranchSlide', 'branch slide', { ns: 'editor' })
     case 'resize_run':
       return 'resize'
     case 'route_run':
@@ -255,17 +259,17 @@ export function describeCommand(view: ModelState | null, command: Command): stri
     case 'connect_runs':
       return 'connect'
     case 'join_parts':
-      return 'join end to end'
+      return t('session.undoJoinEndToEnd', 'join end to end', { ns: 'editor' })
     case 'disconnect_run':
       return 'disconnect'
     case 'split_run':
       return 'split'
     case 'resize_stretch':
-      return command.segmentIds.length === 1 ? 'resize' : `resize ${command.segmentIds.length} pieces`
+      return command.segmentIds.length === 1 ? 'resize' : t('session.undoResizePieces', 'resize {{count}} pieces', { ns: 'editor', count: command.segmentIds.length })
     case 'drag_run':
       return `drag ${name(command.elementId)}`
     case 'batch_edits':
-      return command.label ? command.label.charAt(0).toLowerCase() + command.label.slice(1) : `${command.commands.length} edits`
+      return command.label ? command.label.charAt(0).toLowerCase() + command.label.slice(1) : t('session.undoEdits', '{{count}} edits', { ns: 'editor', count: command.commands.length })
     default:
       return 'edit'
   }
@@ -352,19 +356,28 @@ export { angleLock } from './route-axis'
  * Move form, a drag in a plan, section or sheet viewport): the movable pieces,
  * the plan move and the rise. A string is the reason nothing can move.
  */
-export function moveCommandFor(view: { readonly elements: ModelState['elements'] }, ids: readonly string[], delta: Vec2, dzMm = 0): Extract<Command, { type: 'move_elements' }> | string {
+export function moveCommandFor(
+  view: { readonly elements: ModelState['elements'] },
+  ids: readonly string[],
+  delta: Vec2,
+  dzMm = 0,
+  t: Translate = englishOnly,
+): Extract<Command, { type: 'move_elements' }> | string {
   const movable = ids.filter((id) => {
     const k = view.elements[id]?.kind
     return k === 'part' || k === 'run_segment' || k === 'run_fitting' || k === 'equipment' || k === 'wall' || k === 'component'
   })
-  if (movable.length === 0) return 'Nothing in this selection moves on its own; legacy duct moves with its unit.'
-  if (movable.length > 500) return `That is ${movable.length} pieces; move at most 500 at once. Select a branch or a smaller box.`
+  if (movable.length === 0) return t('session.nothingMovesOnItsOwn', 'Nothing in this selection moves on its own; legacy duct moves with its unit.', { ns: 'editor' })
+  if (movable.length > 500)
+    return t('session.tooManyToMove', 'That is {{count}} pieces; move at most 500 at once. Select a branch or a smaller box.', { ns: 'editor', count: movable.length })
   return { type: 'move_elements', ids: movable, delta: { x: delta.x, y: delta.y }, ...(dzMm !== 0 ? { dzMm } : {}) }
 }
 
 /** A dragged group in words: "the whole run (6 pieces)", or "the AHU-1" when it is one part. */
-function groupWords(group: { readonly ids: readonly string[]; readonly word: string }): string {
-  return group.ids.length > 1 ? `the whole ${group.word} (${group.ids.length} pieces)` : `the ${group.word}`
+function groupWords(group: { readonly ids: readonly string[]; readonly word: string }, t: Translate): string {
+  return group.ids.length > 1
+    ? t('session.groupWhole', 'the whole {{word}} ({{count}} pieces)', { ns: 'editor', word: group.word, count: group.ids.length })
+    : t('session.groupOne', 'the {{word}}', { ns: 'editor', word: group.word })
 }
 
 /** Where along a straight piece a split goes: on the 3" grid, never at an end. */
@@ -649,9 +662,22 @@ export class ModelSession {
     private readonly capabilities?: EditorHostCapabilities | null,
   ) {}
 
-  /** Why linked models can't be shown here, in words a person can act on. */
+  /**
+   * Why linked models can't be shown here, in words a person can act on.
+   *
+   * The sentence `src/host/unavailable.ts` writes for the contracts layer is English by
+   * design (that package has no translator and dozens of callers in `src/contracts/**`),
+   * so the editor says it in its own words rather than splicing the host's English frame
+   * into a Turkish screen. Same English, character for character.
+   */
   private referencesUnavailable(): string {
-    return unavailableWords('Linked models', this.capabilities)
+    const where = this.capabilities?.hostName ?? this.t('session.thisApp', 'this app', { ns: 'editor' })
+    const connectHint = this.capabilities?.connectHint
+    const next =
+      connectHint === undefined || connectHint === null
+        ? this.t('session.unavailableNextPlain', ' Open this model in an app that has it set up.', { ns: 'editor' })
+        : this.t('session.unavailableNextHint', ' Connect it in {{where}}, or open this model where it is set up.', { ns: 'editor', where: connectHint })
+    return `${this.t('session.referencesUnavailable', "Linked models: not available here, because {{where}} doesn't provide it.", { ns: 'editor', where })}${next}`
   }
 
   /** A new language was picked while the model is open: the next refusal comes out in it. */
@@ -672,7 +698,7 @@ export class ModelSession {
   }
 
   async open(config: SessionConfig): Promise<void> {
-    this.events.onPhase('Starting the 3D view…')
+    this.events.onPhase(this.t('session.startingThreeDView', 'Starting the 3D view…', { ns: 'editor' }))
     const [viewerModule, kernel, sync, powerPack, airPack, ratedRoutes]: [ViewerModule, KernelModule, SyncModule, PowerPackModule, AirPackModule, RatedRoutesModule] = await Promise.all([
       import('@permitzip/bim-viewer-3d'),
       import('@permitzip/bim-kernel'),
@@ -740,7 +766,17 @@ export class ModelSession {
     let index = 0
     for (const ref of toLoad) {
       index += 1
-      this.events.onPhase(`Loading ${ref.discipline === 'architecture' ? "the architect's model" : 'existing MEP'} (${index} of ${toLoad.length})…`)
+      this.events.onPhase(
+        this.t('session.loadingReference', 'Loading {{what}} ({{index}} of {{count}})…', {
+          ns: 'editor',
+          what:
+            ref.discipline === 'architecture'
+              ? this.t('placement.architectsModel', "the architect's model", { ns: 'editor' })
+              : this.t('session.existingMep', 'existing MEP', { ns: 'editor' }),
+          index,
+          count: toLoad.length,
+        }),
+      )
       const res = await port.bytes({ url: ref.url })
       if (!res.ok) throw new Error(`Couldn't load ${ref.label} (HTTP ${res.status})`)
       const bytes = await res.arrayBuffer()
@@ -796,7 +832,7 @@ export class ModelSession {
       this.events.onUnplaced?.(ref.id, { status: 'ready', count: body.elements.length })
     } catch (err) {
       console.error('[ModelSession] loading the unplaced devices failed', { referenceId: ref.id, err })
-      this.events.onUnplaced?.(ref.id, { status: 'error', message: UNPLACED_LOAD_FAILED })
+      this.events.onUnplaced?.(ref.id, { status: 'error', message: this.t('session.unplacedLoadFailed', "The symbols for devices without a 3D shape couldn't be loaded. Reload the page to try again.", { ns: 'editor' }) })
     }
   }
 
@@ -818,7 +854,7 @@ export class ModelSession {
       state = body.available ? { status: 'ready', parameters: body.parameters } : { status: 'unavailable', message: body.message }
     } catch (err) {
       console.error('[ModelSession] loading Revit parameters failed', { referenceId: ref.id, key, err })
-      state = { status: 'error', message: REVIT_LOAD_FAILED }
+      state = { status: 'error', message: this.t('session.revitLoadFailed', "Revit's parameters for this element couldn't be loaded. Select it again; if it keeps happening, reload the page.", { ns: 'editor' }) }
     }
     if (token === this.selectionToken && !this.disposed) emit(state)
   }
@@ -931,7 +967,8 @@ export class ModelSession {
           else this.people.delete(connectionId)
           this.events.onPresence(new Map(this.people))
         },
-        onRemoteChange: (revision, actor) => this.events.onActivity(`${actor.name} saved revision ${revision}`),
+        onRemoteChange: (revision, actor) =>
+          this.events.onActivity(this.t('session.remoteSavedRevision', '{{name}} saved revision {{revision}}', { ns: 'editor', name: actor.name, revision })),
         onOutcome: (request, outcome) => this.settleOutcome(request, outcome),
         onModelReset: (info) => {
           // The client dropped every unsaved edit without answering them one by one.
@@ -939,8 +976,15 @@ export class ModelSession {
           this.emitted = null
           this.events.onActivity(
             info.droppedEdits > 0
-              ? `The model was reloaded at revision ${info.toRevision}. Your last ${info.droppedEdits === 1 ? 'edit was' : `${info.droppedEdits} edits were`} not saved.`
-              : `The model was reloaded at revision ${info.toRevision}.`,
+              ? this.t('session.reloadedDroppedEdits', 'The model was reloaded at revision {{revision}}. Your last {{edits}} not saved.', {
+                  ns: 'editor',
+                  revision: info.toRevision,
+                  edits:
+                    info.droppedEdits === 1
+                      ? this.t('session.editWasNotSaved', 'edit was', { ns: 'editor' })
+                      : this.t('session.editsWereNotSaved', '{{count}} edits were', { ns: 'editor', count: info.droppedEdits }),
+                })
+              : this.t('session.reloadedAtRevision', 'The model was reloaded at revision {{revision}}.', { ns: 'editor', revision: info.toRevision }),
           )
         },
         onBranchState: (branch) => {
@@ -1008,7 +1052,7 @@ export class ModelSession {
       this.deviceOffline = true
       console.error('[building-model] the browser went offline; live editing paused', { modelId: this.authority?.modelId })
       this.events.onProblem(connectionProblem('device_offline', this.t))
-      this.dropSocket('browser offline')
+      this.dropSocket('offline')
     }
     const online = () => {
       if (!this.deviceOffline) return
@@ -1031,7 +1075,7 @@ export class ModelSession {
     const quietMs = Date.now() - this.askedSince
     if (quietMs <= STALE_CONNECTION_MS) return
     console.error('[building-model] the model server stopped answering; reconnecting', { modelId: this.authority?.modelId, quietMs, status: this.status })
-    this.dropSocket('no answer')
+    this.dropSocket('quiet')
   }
 
   /** Treat the current socket as gone: show it, keep the queued edits, and reconnect. */
@@ -1184,7 +1228,13 @@ export class ModelSession {
         },
         (err: unknown) => {
           console.error('[model-session] geometry engine failed to load', err)
-          if (!this.disposed) this.events.onActivity(`Modeled parts show as boxes: the geometry engine didn't load (${err instanceof Error ? err.message : String(err)}). Reload the page to try again.`)
+          if (!this.disposed)
+            this.events.onActivity(
+              this.t('session.geometryEngineFailed', "Modeled parts show as boxes: the geometry engine didn't load ({{reason}}). Reload the page to try again.", {
+                ns: 'editor',
+                reason: err instanceof Error ? err.message : String(err),
+              }),
+            )
         },
       )
   }
@@ -1334,7 +1384,7 @@ export class ModelSession {
       this.events.onSelection(element ? { kind: 'authored', element } : null)
       return pick
     }
-    const referenceLabel = this.referenceLabels.get(pick.referenceId) ?? 'Linked model'
+    const referenceLabel = this.referenceLabels.get(pick.referenceId) ?? this.t('session.linkedModel', 'Linked model', { ns: 'editor' })
     const ref = this.referenceInfo.get(pick.referenceId)
     const hasRevit = !!(ref?.parametersSource && this.revitParametersUrl)
     if (pick.source === 'marker') {
@@ -1358,7 +1408,7 @@ export class ModelSession {
     if (!hasRevit || !ref || !properties) {
       this.events.onSelection({ ...base, revit: null })
     } else if (!globalId) {
-      this.events.onSelection({ ...base, revit: { status: 'unavailable', message: NO_GLOBAL_ID } })
+      this.events.onSelection({ ...base, revit: { status: 'unavailable', message: this.t('session.noGlobalId', "This element has no IFC GlobalId, so its Revit parameters can't be matched to it.", { ns: 'editor' }) } })
     } else {
       this.events.onSelection({ ...base, revit: { status: 'loading' } })
       void this.loadRevit(ref, { globalId }, token, (revit) => this.events.onSelection({ ...base, revit }))
@@ -1410,8 +1460,9 @@ export class ModelSession {
       this.notifyHover()
     }
     const selection = hit && !this.hoverGrab && this.canEdit() ? this.selectionToDrag(hit.elementId) : null
-    if (selection) return `Drag to move ${groupWords(selection)}; while dragging, hold Shift to go up or down.`
-    return this.withGrabCue(tabHint(next))
+    if (selection)
+      return this.t('session.dragToMove', 'Drag to move {{what}}; while dragging, hold Shift to go up or down.', { ns: 'editor', what: groupWords(selection, this.t) })
+    return this.withGrabCue(tabHint(next, this.t))
   }
 
   /**
@@ -1423,16 +1474,22 @@ export class ModelSession {
     const h = this.hoverGrab
     if (!h || !hint) return hint
     const scope = currentScope(this.preHighlight)
-    if (scope && scope.kind !== 'element') return `Drag to move the whole ${scopeWord(scope.kind)} (${scope.ids.length} pieces) together. ${hint}`
+    if (scope && scope.kind !== 'element')
+      return this.t('session.dragWholeGroup', 'Drag to move the whole {{word}} ({{count}} pieces) together. {{hint}}', {
+        ns: 'editor',
+        word: scopeWord(scope.kind, this.t),
+        count: scope.ids.length,
+        hint,
+      })
     let tip = ''
     if (h.grab.kind !== 'end' && this.preHighlight?.scopes.some((s) => s.kind !== 'element')) {
       if (this.tabTipFor !== h.grab.id) {
         this.tabTipFor = h.grab.id
         this.tabTipHovers += 1
       }
-      if (this.tabTipHovers <= 3) tip = ' Tab selects the whole run to move it together.'
+      if (this.tabTipHovers <= 3) tip = this.t('session.tabWholeRun', ' Tab selects the whole run to move it together.', { ns: 'editor' })
     }
-    return `${grabHint(h.grab.kind, h.label, this.lowView())}${tip} ${hint}`
+    return `${grabHint(h.grab.kind, h.label, this.lowView(), this.t)}${tip} ${hint}`
   }
 
   /** Hover by id, for a plan or section drawing that picked it itself: the same pre-highlight and Tab scopes as the 3D view. */
@@ -1448,7 +1505,7 @@ export class ModelSession {
       this.viewer?.setHighlight(scope ? new Set(scope.ids) : null)
       this.notifyHover()
     }
-    return tabHint(next)
+    return tabHint(next, this.t)
   }
 
   /** Hear what the pointer is over (the pre-highlight's ids, null when nothing); returns the unsubscribe. */
@@ -1550,7 +1607,7 @@ export class ModelSession {
     this.preHighlight = cycle(this.preHighlight, direction)
     const scope = currentScope(this.preHighlight)
     this.viewer?.setHighlight(scope ? new Set(scope.ids) : null)
-    return this.withGrabCue(tabHint(this.preHighlight))
+    return this.withGrabCue(tabHint(this.preHighlight, this.t))
   }
 
   hovering(): boolean {
@@ -1584,7 +1641,7 @@ export class ModelSession {
     const viewer = this.viewer
     const view = this.view
     const viewerModule = this.viewerModule
-    if (!viewer || !view || !viewerModule) return "The model isn't open yet."
+    if (!viewer || !view || !viewerModule) return this.t('session.modelNotOpen', "The model isn't open yet.", { ns: 'editor' })
     const mode = viewerModule.boxModeOf(start, end)
     const ids = viewerModule.boxSelect(viewer.authoredScreenBoxes(), viewerModule.dragRect(start, end), mode, (id) => boxAccepts(view.elements[id], categories))
     return this.finishBoxSelect(ids, mode)
@@ -1593,7 +1650,7 @@ export class ModelSession {
   /** A box selection a plan or section drawing made (it found the ids itself), kept to the same filter as the 3D view's. */
   async selectBoxIds(ids: readonly string[], mode: 'window' | 'crossing', categories: ReadonlySet<BoxCategory>): Promise<string> {
     const view = this.view
-    if (!view) return "The model isn't open yet."
+    if (!view) return this.t('session.modelNotOpen', "The model isn't open yet.", { ns: 'editor' })
     return this.finishBoxSelect(ids.filter((id) => boxAccepts(view.elements[id], categories)), mode)
   }
 
@@ -1675,18 +1732,30 @@ export class ModelSession {
   }
 
   private splitPreviewText(t: { seg: RunSegment; s: number } | null): string {
-    if (!t || !this.kernel || !this.view) return 'Point at a straight duct or pipe where it should be split.'
+    if (!t || !this.kernel || !this.view)
+      return this.t('session.splitPointAtPiece', 'Point at a straight duct or pipe where it should be split.', { ns: 'editor' })
     const res = this.kernel.executeCommand(this.view, { type: 'split_run', idPrefix: 'split-preview', segmentId: t.seg.id, atMm: t.s })
     const name = this.kernel.runLabel(this.view.elements, t.seg)
-    return res.ok ? `Click to split the ${name} at ${feetInches(t.s)}. Esc to stop.` : `${res.error.message}.`
+    // A refusal here names the piece it can't split, so it goes through `refusalWords`:
+    // the kernel's sentence is translated by template, or the code's own sentence stands
+    // in for it — never the kernel's English on a Turkish screen.
+    return res.ok
+      ? this.t('session.splitClickToSplit', 'Click to split the {{name}} at {{at}}. Esc to stop.', { ns: 'editor', name, at: feetInches(t.s) })
+      : `${refusalWords(res.error.code, res.error.message, this.language, this.t)}.`
   }
 
   private splitAt(t: { seg: RunSegment; s: number } | null): string {
-    if (!t) return 'Click on a straight duct or pipe to split it.'
+    if (!t) return this.t('session.splitClickOnPiece', 'Click on a straight duct or pipe to split it.', { ns: 'editor' })
     const paused = this.refusePaused()
     if (paused) return paused
     const refused = this.submit({ type: 'split_run', idPrefix: newElementId('split'), segmentId: t.seg.id, atMm: t.s })
-    return refused ?? `Split at ${feetInches(t.s)}. Click to split again, or select a piece and Resize it to change just that stretch.`
+    return (
+      refused ??
+      this.t('session.splitDone', 'Split at {{at}}. Click to split again, or select a piece and Resize it to change just that stretch.', {
+        ns: 'editor',
+        at: feetInches(t.s),
+      })
+    )
   }
 
   previewSplit(clientX: number, clientY: number): string {
@@ -1732,7 +1801,7 @@ export class ModelSession {
     if (!h || !viewer || !viewerModule || !this.canEdit()) return null
     const floor = this.levelElevation(h.levelId) ?? 0
     const p = viewer.screenPointOf(viewerModule.kernelToScene(h.grab.at.x, h.grab.at.y, floor + h.grab.at.z))
-    return p ? { ...p, kind: h.grab.kind, hint: grabHint(h.grab.kind, h.label, this.lowView()) } : null
+    return p ? { ...p, kind: h.grab.kind, hint: grabHint(h.grab.kind, h.label, this.lowView(), this.t) } : null
   }
 
   /** Start dragging the straight piece, end or elbow under the pointer; null when there is none (the camera moves instead). */
@@ -1779,18 +1848,20 @@ export class ModelSession {
   private selectionToDrag(id: string): { ids: readonly string[]; word: string } | null {
     const view = this.view
     if (!view) return null
-    if (this.groupIds && this.groupIds.length > 1 && this.groupIds.includes(id)) return { ids: this.groupIds, word: 'selection' }
+    const selection = this.t('session.theSelection', 'selection', { ns: 'editor' })
+    if (this.groupIds && this.groupIds.length > 1 && this.groupIds.includes(id)) return { ids: this.groupIds, word: selection }
     const only = this.groupIds?.length === 1 ? this.groupIds[0] : this.selectedId
     const el = only === id ? view.elements[id] : undefined
     if (!el || el.kind === 'run_segment' || el.kind === 'run_fitting') return null
-    return { ids: [id], word: el.kind === 'part' ? partLabel(view, el) : 'selection' }
+    return { ids: [id], word: el.kind === 'part' ? partLabel(view, el) : selection }
   }
 
   /** The Tab-widened pre-highlight (or the selected group) the pressed piece belongs to: it moves whole. */
   private groupToDrag(id: string): { ids: readonly string[]; word: string } | null {
     const scope = currentScope(this.preHighlight)
-    if (scope && scope.kind !== 'element' && scope.ids.some((x) => x === id)) return { ids: scope.ids, word: scopeWord(scope.kind) }
-    if (this.groupIds && this.groupIds.length > 1 && this.groupIds.includes(id)) return { ids: this.groupIds, word: 'selection' }
+    if (scope && scope.kind !== 'element' && scope.ids.some((x) => x === id)) return { ids: scope.ids, word: scopeWord(scope.kind, this.t) }
+    if (this.groupIds && this.groupIds.length > 1 && this.groupIds.includes(id))
+      return { ids: this.groupIds, word: this.t('session.theSelection', 'selection', { ns: 'editor' }) }
     return null
   }
 
@@ -1820,9 +1891,18 @@ export class ModelSession {
 
   private startRunDrag(grab: RunGrab, label: string, from: Vec2, fromClient: Vec2 | null, plane: number, group: { ids: readonly string[]; word: string } | null, facing: RunPoint | null): string {
     this.runDrag = { id: grab.id, kind: grab.kind, grip: grab.grip, axis: grab.axis, from, fromClient, plane, facing, delta: null, reroute: false, connectTo: null, label, group }
-    if (group) return `Dragging ${groupWords(group)}. Release to save, Esc to cancel.`
-    const what = grab.grip ? `the ${grab.grip === 'start' ? 'near' : 'far'} end of the ${label}` : `the ${label}`
-    return `Dragging ${what}. Release to save, Esc to cancel.`
+    if (group) return this.dragWords(groupWords(group, this.t))
+    const what = grab.grip
+      ? grab.grip === 'start'
+        ? this.t('session.whatNearEnd', 'the near end of the {{label}}', { ns: 'editor', label })
+        : this.t('session.whatFarEnd', 'the far end of the {{label}}', { ns: 'editor', label })
+      : this.t('session.whatThe', 'the {{label}}', { ns: 'editor', label })
+    return this.dragWords(what)
+  }
+
+  /** "Dragging the run. Release to save, Esc to cancel." — every drag says it, whichever end began it. */
+  private dragWords(what: string): string {
+    return this.t('session.dragInProgress', 'Dragging {{what}}. Release to save, Esc to cancel.', { ns: 'editor', what })
   }
 
   /** The model as the drag in progress would leave it (for a drawing's live preview); null when nothing would change yet. */
@@ -1893,20 +1973,20 @@ export class ModelSession {
     if (Math.hypot(snapped.delta.x, snapped.delta.y, snapped.delta.z) < 1) {
       d.delta = null
       this.clearRoutePreview()
-      return `Dragging the ${d.label}. Release to save, Esc to cancel.`
+      return this.dragWords(this.t('session.whatThe', 'the {{label}}', { ns: 'editor', label: d.label }))
     }
     const cmd = { type: 'drag_run' as const, elementId: d.id, delta: snapped.delta, ...(d.grip ? { grip: d.grip } : {}) }
     let res = kernel.executeCommand(view, cmd)
     let delta = snapped.delta
     let rerouted = false
-    let rerouteRefusal: string | null = null
+    let rerouteRefusal: { readonly code: CommandError['code']; readonly message: string } | null = null
     let stopped: { message: string; canFlip: boolean } | null = null
     if (!res.ok && !strict) {
       const flipped = kernel.executeCommand(view, { ...cmd, reroute: true })
       if (flipped.ok) {
         res = flipped
         rerouted = true
-      } else rerouteRefusal = flipped.error.message
+      } else rerouteRefusal = { code: flipped.error.code, message: flipped.error.message }
     }
     if (!res.ok) {
       const limit = kernel.dragLimit(view, cmd)
@@ -1920,7 +2000,7 @@ export class ModelSession {
     if (!res.ok) {
       d.delta = null
       this.clearRoutePreview()
-      return `${res.error.message}.`
+      return `${refusalWords(res.error.code, res.error.message, this.language, this.t)}.`
     }
     d.delta = delta
     d.reroute = rerouted
@@ -1936,27 +2016,81 @@ export class ModelSession {
         const end = view.elements[d.id]
         const z = heightUnder(onto, end?.kind === 'run_segment' ? (d.grip === 'start' ? end.start : end.end) : onto.start)
         const endZ = end?.kind === 'run_segment' ? (d.grip === 'start' ? end.start.z : end.end.z) : z
-        const height = Math.abs(endZ - z) > 1 ? `; it ${z > endZ ? 'rises' : 'drops'} to ${feetInches(z)} on the way` : ''
-        return `Release to tap into the ${kernel.runLabel(view.elements, onto)} at its height and system${height}. Esc to cancel.`
+        const height =
+          Math.abs(endZ - z) > 1
+            ? z > endZ
+              ? this.t('session.tapHeightRises', '; it rises to {{height}} on the way', { ns: 'editor', height: feetInches(z) })
+              : this.t('session.tapHeightDrops', '; it drops to {{height}} on the way', { ns: 'editor', height: feetInches(z) })
+            : ''
+        return this.t('session.tapRelease', 'Release to tap into the {{label}} at its height and system{{height}}. Esc to cancel.', {
+          ns: 'editor',
+          label: kernel.runLabel(view.elements, onto),
+          height,
+        })
       }
       this.preview = res.model
       if (this.accepted) this.viewer?.setAuthored(this.accepted, this.preview)
-      return `It can't tap into the ${kernel.runLabel(view.elements, onto)} here: ${tap.error.message}. Release to just stretch it, Esc to cancel.`
+      return this.t('session.tapRefused', "It can't tap into the {{label}} here: {{reason}}. Release to just stretch it, Esc to cancel.", {
+        ns: 'editor',
+        label: kernel.runLabel(view.elements, onto),
+        reason: refusalWords(tap.error.code, tap.error.message, this.language, this.t),
+      })
     }
     this.preview = res.model
     if (this.accepted) this.viewer?.setAuthored(this.accepted, this.preview)
     const distance = feetInches(Math.hypot(delta.x, delta.y, delta.z))
     if (stopped) {
-      const flip = !stopped.canFlip ? '' : strict ? ' Let go of Alt (Option) to flip the elbow and keep going.' : rerouteRefusal ? ` The elbow can't flip here: ${rerouteRefusal}.` : ''
-      return `Stopped at ${distance}: ${stopped.message}.${flip} Release to keep it here, Esc to cancel.`
+      const flip = !stopped.canFlip
+        ? ''
+        : strict
+          ? this.t('session.flipLetGo', ' Let go of Alt (Option) to flip the elbow and keep going.', { ns: 'editor' })
+          : rerouteRefusal
+            ? this.t('session.flipRefused', " The elbow can't flip here: {{reason}}.", {
+                ns: 'editor',
+                reason: refusalWords(rerouteRefusal.code, rerouteRefusal.message, this.language, this.t),
+              })
+            : ''
+      return this.t('session.dragStopped', 'Stopped at {{distance}}: {{reason}}.{{flip}} Release to keep it here, Esc to cancel.', {
+        ns: 'editor',
+        distance,
+        reason: stopped.message,
+        flip,
+      })
     }
-    if (rerouted) return `${distance}; elbow flips, so the leg runs the other way. Release to apply, Esc to cancel, hold Alt (Option) to stop at the elbow instead.`
+    if (rerouted)
+      return this.t(
+        'session.dragElbowFlipped',
+        '{{distance}}; elbow flips, so the leg runs the other way. Release to apply, Esc to cancel, hold Alt (Option) to stop at the elbow instead.',
+        { ns: 'editor', distance },
+      )
     const level = Math.abs(delta.x) < 1 && Math.abs(delta.y) < 1
-    const how = level ? (delta.z > 0 ? 'up' : 'down') : snapped.mode === 'along' ? 'along itself' : snapped.mode === 'square' ? 'square to itself' : d.grip ? 'at the end' : 'the corner'
+    const how = level
+      ? delta.z > 0
+        ? this.t('session.wayUp', 'up', { ns: 'editor' })
+        : this.t('session.wayDown', 'down', { ns: 'editor' })
+      : snapped.mode === 'along'
+        ? this.t('session.wayAlong', 'along itself', { ns: 'editor' })
+        : snapped.mode === 'square'
+          ? this.t('session.waySquare', 'square to itself', { ns: 'editor' })
+          : d.grip
+            ? this.t('session.wayAtEnd', 'at the end', { ns: 'editor' })
+            : this.t('session.wayCorner', 'the corner', { ns: 'editor' })
     const length = d.kind === 'end' ? this.runDragLength() : null
-    const now = length === null ? '' : `, now ${feetInches(length)} long (type a length and press Enter for an exact one)`
-    const upDown = !shiftTip || (level && !d.facing) ? '' : d.facing ? ' From this low angle, drag up or down to raise or lower it; Shift keeps it to up and down.' : ' Hold Shift to drag up or down.'
-    return `${distance} ${how}${now}; what it meets follows. Release to save, Esc to cancel.${upDown}`
+    const now =
+      length === null ? '' : this.t('session.lengthNow', ', now {{length}} long (type a length and press Enter for an exact one)', { ns: 'editor', length: feetInches(length) })
+    const upDown =
+      !shiftTip || (level && !d.facing)
+        ? ''
+        : d.facing
+          ? this.t('session.lowAngleUpDown', ' From this low angle, drag up or down to raise or lower it; Shift keeps it to up and down.', { ns: 'editor' })
+          : this.t('session.holdShiftUpDown', ' Hold Shift to drag up or down.', { ns: 'editor' })
+    return this.t('session.dragAlong', '{{distance}} {{how}}{{now}}; what it meets follows. Release to save, Esc to cancel.{{extra}}', {
+      ns: 'editor',
+      distance,
+      how,
+      now,
+      extra: upDown,
+    })
   }
 
   /** A Tab-widened run (or a selected group) moves rigidly: one `move_elements`, nothing stretches. */
@@ -1970,9 +2104,9 @@ export class ModelSession {
     if (Math.hypot(snapped.x, snapped.y, snapped.z) < 1) {
       d.delta = null
       this.clearRoutePreview()
-      return `Dragging ${groupWords(group)}. Release to save, Esc to cancel.`
+      return this.dragWords(groupWords(group, this.t))
     }
-    const move = moveCommandFor(view, group.ids, { x: snapped.x, y: snapped.y }, snapped.z)
+    const move = moveCommandFor(view, group.ids, { x: snapped.x, y: snapped.y }, snapped.z, this.t)
     if (typeof move === 'string') {
       d.delta = null
       this.clearRoutePreview()
@@ -1982,13 +2116,24 @@ export class ModelSession {
     if (!res.ok) {
       d.delta = null
       this.clearRoutePreview()
-      return `${res.error.message}.`
+      return `${refusalWords(res.error.code, res.error.message, this.language, this.t)}.`
     }
     d.delta = snapped
     this.preview = res.model
     if (this.accepted) this.viewer?.setAuthored(this.accepted, this.preview)
-    const way = Math.hypot(snapped.x, snapped.y) < 1 ? (snapped.z > 0 ? ' up' : ' down') : ''
-    return `${feetInches(Math.hypot(snapped.x, snapped.y, snapped.z))}${way}; ${groupWords(group)} moves together. Release to save, Esc to cancel.${way || d.facing ? '' : ' Hold Shift to drag up or down.'}`
+    const way =
+      Math.hypot(snapped.x, snapped.y) < 1
+        ? snapped.z > 0
+          ? this.t('session.up', ' up', { ns: 'editor' })
+          : this.t('session.down', ' down', { ns: 'editor' })
+        : ''
+    return this.t('session.dragGroupTogether', '{{distance}}{{way}}; {{what}} moves together. Release to save, Esc to cancel.{{extra}}', {
+      ns: 'editor',
+      distance: feetInches(Math.hypot(snapped.x, snapped.y, snapped.z)),
+      way,
+      what: groupWords(group, this.t),
+      extra: way || d.facing ? '' : this.t('session.holdShiftUpDown', ' Hold Shift to drag up or down.', { ns: 'editor' }),
+    })
   }
 
   /** The dragged straight piece's length as the preview leaves it; null when it isn't a straight piece. */
@@ -2005,8 +2150,9 @@ export class ModelSession {
   runDragToLength(lengthMm: number): string | null {
     const d = this.runDrag
     const el = d ? this.view?.elements[d.id] : undefined
-    if (!d || d.group || d.kind !== 'end' || !d.grip || !d.axis || el?.kind !== 'run_segment') return 'Typed lengths work while dragging an open end of a straight piece.'
-    if (!(lengthMm > 0)) return 'Type a length longer than zero, like 12\'6" or 12.5.'
+    if (!d || d.group || d.kind !== 'end' || !d.grip || !d.axis || el?.kind !== 'run_segment')
+      return this.t('session.typedLengthsNeedOpenEnd', 'Typed lengths work while dragging an open end of a straight piece.', { ns: 'editor' })
+    if (!(lengthMm > 0)) return this.t('session.lengthMustBePositive', 'Type a length longer than zero, like 12\'6" or 12.5.', { ns: 'editor' })
     const len = Math.hypot(el.end.x - el.start.x, el.end.y - el.start.y, el.end.z - el.start.z)
     const k = (lengthMm - len) * (d.grip === 'end' ? 1 : -1)
     return this.previewRunDragBy({ x: d.axis.x * k, y: d.axis.y * k, z: d.axis.z * k }, true, false, true)
@@ -2016,7 +2162,7 @@ export class ModelSession {
     const d = this.runDrag
     this.runDrag = null
     this.clearRoutePreview()
-    if (!d || !commit) return d ? 'Drag cancelled; nothing changed.' : null
+    if (!d || !commit) return d ? this.t('session.dragCancelled', 'Drag cancelled; nothing changed.', { ns: 'editor' }) : null
     if (!d.delta) return null
     const paused = this.refusePaused()
     if (paused) return paused
@@ -2040,7 +2186,7 @@ export class ModelSession {
     if (!view || !kernel || !this.client) return this.t('session.notConnectedNudged', "Live editing isn't connected, so nothing can be nudged.", { ns: 'editor' })
     const paused = this.refusePaused()
     if (paused) return paused
-    if (ids.length === 0) return 'Select something first; arrow keys nudge the selection.'
+    if (ids.length === 0) return this.t('session.selectSomethingFirst', 'Select something first; arrow keys nudge the selection.', { ns: 'editor' })
     if (this.nudge && (this.nudge.ids.length !== ids.length || this.nudge.ids.some((id, i) => id !== ids[i]))) this.flushNudge()
     const step = big ? MM_PER_FT : MM_PER_IN
     const dir = key === 'PageUp' ? { x: 0, y: 0, z: 1 } : key === 'PageDown' ? { x: 0, y: 0, z: -1 } : { ...this.screenAxis(ids, key), z: 0 }
@@ -2054,7 +2200,7 @@ export class ModelSession {
     this.nudge = { ids: [...ids], delta, command, timer: setTimeout(() => this.flushNudge(), NUDGE_SETTLE_MS) }
     this.preview = res.model
     if (this.accepted) this.viewer?.setAuthored(this.accepted, this.preview)
-    return `Nudged ${nudgeWords(delta)}. It saves as one move when you pause; Esc puts it back, Ctrl+Z undoes it after.`
+    return this.t('session.nudged', 'Nudged {{what}}. It saves as one move when you pause; Esc puts it back, Ctrl+Z undoes it after.', { ns: 'editor', what: nudgeWords(delta, this.t) })
   }
 
   /** Save a nudge burst now (the keys paused, or the selection changed). Returns the refusal, or null. */
@@ -2302,7 +2448,7 @@ export class ModelSession {
       const res = this.undoDocumentEdit()
       this.emitUndoState()
       if (res.ok) {
-        this.events.onActivity(`Undid ${res.label}.`)
+        this.events.onActivity(this.t('session.undid', 'Undid {{label}}.', { ns: 'editor', label: res.label }))
         return null
       }
       this.events.onRefused?.(res.message)
@@ -2360,15 +2506,15 @@ export class ModelSession {
    */
   armPlannedPlacement(partId: string, at: { readonly levelId?: string; readonly heightMm?: number; readonly rotationDeg?: number } = {}): string | null {
     const view = this.view
-    if (!view) return "The model hasn't loaded yet."
+    if (!view) return this.t('session.modelNotLoadedYet', "The model hasn't loaded yet.", { ns: 'editor' })
     const part = view.elements[partId]
-    if (part?.kind !== 'part') return 'That part is no longer in the model.'
-    const name = part.mark.trim() || 'That part'
-    if (part.planned === undefined) return `${name} is already placed; move it instead.`
+    if (part?.kind !== 'part') return this.t('session.partNoLongerInModel', 'That part is no longer in the model.', { ns: 'editor' })
+    const name = part.mark.trim() || this.t('session.thatPart', 'That part', { ns: 'editor' })
+    if (part.planned === undefined) return this.t('session.partAlreadyPlaced', '{{name}} is already placed; move it instead.', { ns: 'editor', name })
     const type = view.elements[part.typeId]
-    if (type?.kind !== 'part_type') return `${name} has no part type in this model, so there is nothing to draw.`
+    if (type?.kind !== 'part_type') return this.t('session.partHasNoType', '{{name}} has no part type in this model, so there is nothing to draw.', { ns: 'editor', name })
     const levelId = [at.levelId, part.planned.levelHint].find((id) => id !== undefined && view.elements[id]?.kind === 'level')
-    if (!levelId) return 'Choose a level to place it on; this model has no level for it yet.'
+    if (!levelId) return this.t('session.chooseLevelToPlaceIt', 'Choose a level to place it on; this model has no level for it yet.', { ns: 'editor' })
     this.armPlacement({
       typeId: type.id,
       definition: type.definition,
@@ -2480,7 +2626,7 @@ export class ModelSession {
     const kernel = this.kernel
     if (!spec || !viewer || !kernel) return null
     const elevation = this.levelElevation(spec.levelId)
-    if (elevation === null) return 'Choose a level to place on.'
+    if (elevation === null) return this.t('session.chooseLevelToPlace', 'Choose a level to place on.', { ns: 'editor' })
     const hit = this.surfacesOff() ? null : viewer.pickSurface(clientX, clientY, (id) => this.view?.elements[id] !== undefined)
     const onSurface = hit ? placementOnSurface(hit, this.levels(), spec.heightMm, spec.levelId) : null
     const picked = hit?.elementId ? this.view?.elements[hit.elementId] : undefined
@@ -2491,7 +2637,14 @@ export class ModelSession {
     let target: { levelId: string; raw: Vec2; offsetMm: number; where: string; reference: Vec2 | null; planeId?: string }
     if (plane) {
       // On a mounting plane: at its height, and it moves with the plane.
-      target = { levelId: plane.plane.levelId, raw: plane.point, offsetMm: plane.plane.heightMm, where: `On mounting plane ${plane.plane.name}, ${feetInches(plane.plane.heightMm)} up`, reference: null, planeId: plane.plane.id }
+      target = {
+        levelId: plane.plane.levelId,
+        raw: plane.point,
+        offsetMm: plane.plane.heightMm,
+        where: this.t('session.onMountingPlane', 'On mounting plane {{name}}, {{height}} up', { ns: 'editor', name: plane.plane.name, height: feetInches(plane.plane.heightMm) }),
+        reference: null,
+        planeId: plane.plane.id,
+      }
     } else if (onSurface) {
       target = { levelId: onSurface.levelId, raw: onSurface.position, offsetMm: onSurface.offsetMm, where: onSurface.where, reference: null }
     } else {
@@ -2500,12 +2653,19 @@ export class ModelSession {
       if (!raw) {
         this.viewer?.setGhost(null)
         this.pendingPlacement = null
-        return 'Point at a floor, a roof or the model to place it.'
+        return this.t('session.pointAtFloorRoof', 'Point at a floor, a roof or the model to place it.', { ns: 'editor' })
       }
       this.probeReference(clientX, clientY)
       const level = this.view?.elements[spec.levelId]
-      const levelName = level?.kind === 'level' ? level.name : 'the level'
-      const where = this.planeLocked ? `Work plane locked (L unlocks): ${feetInches(spec.heightMm)} above ${levelName}` : `${this.shiftHeld ? 'Shift' : 'Nothing under the pointer'}: on ${levelName}'s floor plane, ${feetInches(spec.heightMm)} up`
+      const levelName = level?.kind === 'level' ? level.name : this.t('session.theLevel', 'the level', { ns: 'editor' })
+      const where = this.planeLocked
+        ? this.t('session.wherePlaneLocked', 'Work plane locked (L unlocks): {{height}} above {{level}}', { ns: 'editor', height: feetInches(spec.heightMm), level: levelName })
+        : this.t('session.whereFloorPlane', "{{what}}: on {{level}}'s floor plane, {{height}} up", {
+            ns: 'editor',
+            what: this.shiftHeld ? this.t('session.shiftKey', 'Shift', { ns: 'editor' }) : this.t('session.nothingUnderPointer', 'Nothing under the pointer', { ns: 'editor' }),
+            level: levelName,
+            height: feetInches(spec.heightMm),
+          })
       target = { levelId: spec.levelId, raw, offsetMm: spec.heightMm, where, reference: this.referenceNear(clientX, clientY, raw) }
     }
     const snapped = snapPoint(target.raw, this.snapTargetsFor(target.levelId, []), target.reference, this.workFrame ?? undefined, this.linkedNear(target.levelId, target.raw))
@@ -2524,9 +2684,23 @@ export class ModelSession {
       values: {},
     }
     this.ghostFor(part, type, this.levelElevation(target.levelId) ?? elevation)
-    const hosted = !target.planeId && onSurface && hit ? hostForPlacement(hit, spec.heightMm, spec.definition.category, (id) => this.view?.elements[id]?.kind === 'slab', (ref) => this.referenceLabels.get(ref) ?? 'Linked model') : null
+    const hosted =
+      !target.planeId && onSurface && hit
+        ? hostForPlacement(
+            hit,
+            spec.heightMm,
+            spec.definition.category,
+            (id) => this.view?.elements[id]?.kind === 'slab',
+            (ref) => this.referenceLabels.get(ref) ?? this.t('session.linkedModel', 'Linked model', { ns: 'editor' }),
+          )
+        : null
     this.pendingPlacement = { position: snapped.point, levelId: target.levelId, offsetMm: target.offsetMm, hosted, ...(target.planeId ? { planeId: target.planeId } : {}) }
-    return `${target.where}${hosted ? `, standing on ${this.hostLabel(hosted.host)}` : ''} (${snapHint(snapped).toLowerCase()}). Click to place, R or Space to rotate, L to lock the work plane, Esc to stop.`
+    return this.t('session.placeHint', '{{where}}{{hosted}} ({{snap}}). Click to place, R or Space to rotate, L to lock the work plane, Esc to stop.', {
+      ns: 'editor',
+      where: target.where,
+      hosted: hosted ? this.t('session.standingOn', ', standing on {{host}}', { ns: 'editor', host: this.hostLabel(hosted.host) }) : '',
+      snap: snapHint(snapped, this.t).toLowerCase(),
+    })
   }
 
   private pendingPlacement: { readonly position: Vec2; readonly levelId: string; readonly offsetMm: number; readonly hosted: ReturnType<typeof hostForPlacement>; readonly planeId?: string } | null = null
@@ -2547,7 +2721,7 @@ export class ModelSession {
   }
 
   private hostLabel(host: PartHost): string {
-    if (host.kind === 'slab') return 'the slab'
+    if (host.kind === 'slab') return this.t('session.theSlab', 'the slab', { ns: 'editor' })
     if (host.kind === 'linked') return host.name
     return this.view ? hostName(this.view, host) : host.elementId
   }
@@ -2693,7 +2867,11 @@ export class ModelSession {
     const snapped = snapPoint(raw, this.snapTargetsFor(moving.levelId, moving.ids), null, this.workFrame ?? undefined)
     moving.delta = { x: snapped.point.x - part.position.x, y: snapped.point.y - part.position.y }
     this.ghostFor({ ...part, position: snapped.point }, type, moving.elevationMm)
-    return `${snapHint(snapped)}, ${feetInches(Math.hypot(moving.delta.x, moving.delta.y))} from where it was. Release to save, Esc to cancel.`
+    return this.t('session.movePreview', '{{snap}}, {{distance}} from where it was. Release to save, Esc to cancel.', {
+      ns: 'editor',
+      snap: snapHint(snapped, this.t),
+      distance: feetInches(Math.hypot(moving.delta.x, moving.delta.y)),
+    })
   }
 
   endMove(commit: boolean): string | null {
@@ -2714,13 +2892,18 @@ export class ModelSession {
     if (!p) return null
     if (!this.measureFrom) {
       this.measureFrom = p
-      return 'Click the second point.'
+      return this.t('session.clickSecondPoint', 'Click the second point.', { ns: 'editor' })
     }
     const from = this.measureFrom
     this.measureFrom = null
     const dx = p.x - from.x
     const dy = p.y - from.y
-    return `${feetInches(Math.hypot(dx, dy))} (${feetInches(Math.abs(dx))} east-west, ${feetInches(Math.abs(dy))} north-south). Click to measure again.`
+    return this.t('session.measureAnswer', '{{distance}} ({{eastWest}} east-west, {{northSouth}} north-south). Click to measure again.', {
+      ns: 'editor',
+      distance: feetInches(Math.hypot(dx, dy)),
+      eastWest: feetInches(Math.abs(dx)),
+      northSouth: feetInches(Math.abs(dy)),
+    })
   }
 
   resetMeasure() {
@@ -2747,9 +2930,14 @@ export class ModelSession {
       const last = this.routing.points[this.routing.points.length - 1]
       if (last) {
         this.routing.points[this.routing.points.length - 1] = { ...last, elevationMm: spec.elevationMm }
-        hint = `${spec.elevationMm > fromMm ? 'Rises' : 'Drops'} to ${feetInches(spec.elevationMm)} at the last point (${riseHint(spec.riseStyle)}).`
+        hint =
+          spec.elevationMm > fromMm
+            ? this.t('session.routeRises', 'Rises to {{height}} at the last point ({{style}}).', { ns: 'editor', height: feetInches(spec.elevationMm), style: riseHint(spec.riseStyle, this.t) })
+            : this.t('session.routeDrops', 'Drops to {{height}} at the last point ({{style}}).', { ns: 'editor', height: feetInches(spec.elevationMm), style: riseHint(spec.riseStyle, this.t) })
       } else {
-        hint = 'Click a first point along the run before changing its height; the run leaves a connector at the connector\'s height.'
+        hint = this.t('session.routeHeightNeedsPoint', "Click a first point along the run before changing its height; the run leaves a connector at the connector's height.", {
+          ns: 'editor',
+        })
       }
       // The route keeps the height it started at; the change is the rise just added.
       this.routeSpec = { ...spec, elevationMm: old.elevationMm }
@@ -2782,7 +2970,13 @@ export class ModelSession {
 
   setAxisLock(lock: AxisLock): string {
     this.axisLock = this.axisLock === lock ? 'auto' : lock
-    return this.axisLock === 'auto' ? 'Axis lock off: 45° steps, and vertical near the last point.' : `Locked to ${this.axisLock.toUpperCase()}${this.axisLock === 'z' ? ': move up or down to rise or drop' : ''}. Press it again to unlock.`
+    return this.axisLock === 'auto'
+      ? this.t('session.axisLockOffSteps', 'Axis lock off: 45° steps, and vertical near the last point.', { ns: 'editor' })
+      : this.t('session.axisLockedTo', 'Locked to {{axis}}{{note}}. Press it again to unlock.', {
+          ns: 'editor',
+          axis: this.axisLock.toUpperCase(),
+          note: this.axisLock === 'z' ? this.t('session.axisLockedToZNote', ': move up or down to rise or drop', { ns: 'editor' }) : '',
+        })
   }
 
   axisLockState(): AxisLock {
@@ -2801,8 +2995,8 @@ export class ModelSession {
   togglePlaneLock(): string {
     this.planeLocked = !this.planeLocked
     return this.planeLocked
-      ? 'Work plane locked: placing and routing stay at the height you typed, whatever is under the pointer. L unlocks.'
-      : 'Work plane unlocked: placing and routing follow the floor, ceiling or wall under the pointer again.'
+      ? this.t('session.workPlaneLocked', 'Work plane locked: placing and routing stay at the height you typed, whatever is under the pointer. L unlocks.', { ns: 'editor' })
+      : this.t('session.workPlaneUnlocked', 'Work plane unlocked: placing and routing follow the floor, ceiling or wall under the pointer again.', { ns: 'editor' })
   }
 
   planeLockOn(): boolean {
@@ -2816,7 +3010,9 @@ export class ModelSession {
 
   /** The badge at the cursor while routing: which axis the next leg runs along. */
   routeAxisBadge(): string | null {
-    return this.routing ? `${axisBadge(this.lastAxis, this.axisLock)}${this.planeLocked ? ' · plane locked' : ''}` : null
+    return this.routing
+      ? `${axisBadge(this.lastAxis, this.axisLock, this.t)}${this.planeLocked ? this.t('session.routePlaneLockedBadge', ' · plane locked', { ns: 'editor' }) : ''}`
+      : null
   }
 
   /**
@@ -2866,10 +3062,10 @@ export class ModelSession {
     const viewer = this.viewer
     const view = this.view
     const kernel = this.kernel
-    if (!viewer || !view || !kernel) return 'The model is still opening; try again in a moment.'
+    if (!viewer || !view || !kernel) return this.t('session.modelStillOpening', 'The model is still opening; try again in a moment.', { ns: 'editor' })
     const hit = viewer.pickNative(clientX, clientY, (id) => view.elements[id] !== undefined)
     const el = hit ? view.elements[hit.elementId] : undefined
-    if (!el) return 'Nothing to inherit from there: click a pipe, a fitting or a part.'
+    if (!el) return this.t('session.nothingToInherit', 'Nothing to inherit from there: click a pipe, a fitting or a part.', { ns: 'editor' })
     const floor = this.levelElevation(el.kind === 'run_segment' || el.kind === 'run_fitting' || el.kind === 'part' ? el.levelId : '') ?? 0
     if (el.kind === 'run_segment') {
       const mid = (el.start.z + el.end.z) / 2
@@ -2884,7 +3080,7 @@ export class ModelSession {
     if (el.kind === 'run_fitting') return { label: kernel.runLabel(view.elements, el), levelId: el.levelId, elevationMm: el.position.z, element: el }
     if (el.kind === 'part') {
       const type = view.elements[el.typeId]
-      if (type?.kind !== 'part_type') return "That part's type isn't loaded; reload and try again."
+      if (type?.kind !== 'part_type') return this.t('session.partTypeNotLoaded', "That part's type isn't loaded; reload and try again.", { ns: 'editor' })
       const domain = this.routeSpec ? kernel.connectorDomainOf(this.routeSpec.domain) : null
       const at = viewer.planPointAt(clientX, clientY, floor + el.offsetMm)
       const near = kernel
@@ -2892,10 +3088,16 @@ export class ModelSession {
         .filter((c) => (!domain || c.domain === domain) && !el.links?.[c.id])
         .map((c) => ({ c, w: kernel.worldConnector(el, c) }))
         .sort((a, b) => (at ? Math.hypot(a.w.position.x - at.x, a.w.position.y - at.y) - Math.hypot(b.w.position.x - at.x, b.w.position.y - at.y) : 0))[0]
-      if (!near) return `${kernel.partLabelOf(view.elements, el)} has no free connector of this kind to inherit from.`
-      return { label: `${kernel.partLabelOf(view.elements, el)}'s ${near.c.label.toLowerCase()}`, levelId: el.levelId, elevationMm: Math.round(near.w.position.z * 1000) / 1000, element: null }
+      if (!near)
+        return this.t('session.noFreeConnector', '{{part}} has no free connector of this kind to inherit from.', { ns: 'editor', part: kernel.partLabelOf(view.elements, el) })
+      return {
+        label: this.t('session.partConnector', "{{part}}'s {{connector}}", { ns: 'editor', part: kernel.partLabelOf(view.elements, el), connector: near.c.label.toLowerCase() }),
+        levelId: el.levelId,
+        elevationMm: Math.round(near.w.position.z * 1000) / 1000,
+        element: null,
+      }
     }
-    return 'Inherit takes a pipe or other run, a fitting or a part: click one of those.'
+    return this.t('session.inheritTakes', 'Inherit takes a pipe or other run, a fitting or a part: click one of those.', { ns: 'editor' })
   }
 
   /** The "+" on a sloped pipe's side: begin the armed route as a branch off it there (the next click picks the side for good). */
@@ -2903,16 +3105,20 @@ export class ModelSession {
     const spec = this.routeSpec
     const view = this.view
     const kernel = this.kernel
-    if (!spec || !view || !kernel) return 'Choose what to route first.'
+    if (!spec || !view || !kernel) return this.t('session.chooseWhatToRoute', 'Choose what to route first.', { ns: 'editor' })
     const el = view.elements[elementId]
-    if (el?.kind !== 'run_segment' || el.domain !== spec.domain) return 'That run has changed; select it again.'
+    if (el?.kind !== 'run_segment' || el.domain !== spec.domain) return this.t('session.runChanged', 'That run has changed; select it again.', { ns: 'editor' })
     const len = Math.hypot(el.end.x - el.start.x, el.end.y - el.start.y)
-    if (len < 1) return 'That run has changed; select it again.'
+    if (len < 1) return this.t('session.runChanged', 'That run has changed; select it again.', { ns: 'editor' })
     const t = Math.min(1, Math.max(0, s / len))
     const target = this.branchTarget(el, { x: el.start.x + (el.end.x - el.start.x) * t, y: el.start.y + (el.end.y - el.start.y) * t }, spec)
-    if (!target) return `A branch can't leave the ${kernel.runLabel(view.elements, el)} from its side.`
+    if (!target) return this.t('session.branchCannotLeaveSide', "A branch can't leave the {{label}} from its side.", { ns: 'editor', label: kernel.runLabel(view.elements, el) })
     this.routing = this.startOn(target)
-    return `Branching off ${target.label}. Click the next point on the side it leaves; the branch falls toward the ${kernel.runLabel(view.elements, el)}. Esc cancels.`
+    return this.t('session.branchingOffSide', 'Branching off {{label}}. Click the next point on the side it leaves; the branch falls toward the {{trunk}}. Esc cancels.', {
+      ns: 'editor',
+      label: target.label,
+      trunk: kernel.runLabel(view.elements, el),
+    })
   }
 
   /**
@@ -2943,30 +3149,42 @@ export class ModelSession {
     const spec = this.routeSpec
     const view = this.view
     const kernel = this.kernel
-    if (!spec || !view || !kernel) return 'Choose what to route first.'
+    if (!spec || !view || !kernel) return this.t('session.chooseWhatToRoute', 'Choose what to route first.', { ns: 'editor' })
     const el = view.elements[h.elementId]
-    if (el?.kind !== 'run_segment' || el.domain !== spec.domain || Math.abs(el.start.z - el.end.z) > 1) return 'That run has changed; select it again.'
+    if (el?.kind !== 'run_segment' || el.domain !== spec.domain || Math.abs(el.start.z - el.end.z) > 1)
+      return this.t('session.runChanged', 'That run has changed; select it again.', { ns: 'editor' })
     const offset = tapOffsetFor(this.serverFeatures() ?? [], 2 * kernel.hostHalfWidth(el.size), t)
     const { branch } = kernel.hostedPoints(el, h.s, 1, undefined, h.face, offset ?? 0)
-    const word = h.face === 'top' ? 'top' : 'bottom'
+    const word = h.face === 'top' ? this.t('session.faceTop', 'top', { ns: 'editor' }) : this.t('session.faceBottom', 'bottom', { ns: 'editor' })
     const target = this.withHeight({
       endpoint: { kind: 'run_branch', segmentId: el.id, face: h.face, ...(offset !== undefined ? { t: offset } : {}) },
       point: { x: branch.x, y: branch.y },
       label: '',
       systemId: el.systemId,
     })
-    this.routing = this.startOn({ ...target, label: `the ${word} of the ${kernel.runLabel(view.elements, el)} (a new branch)` })
-    return `Branching off the ${word} of the ${kernel.runLabel(view.elements, el)}. Click the next point; Esc cancels.`
+    this.routing = this.startOn({
+      ...target,
+      label: this.t('session.wordOfLabelNewBranch', 'the {{word}} of the {{label}} (a new branch)', { ns: 'editor', word, label: kernel.runLabel(view.elements, el) }),
+    })
+    return this.t('session.branchingOffFace', 'Branching off the {{word}} of the {{label}}. Click the next point; Esc cancels.', {
+      ns: 'editor',
+      word,
+      label: kernel.runLabel(view.elements, el),
+    })
   }
 
   /** Start the armed route on an open end (the "+" past it): continue it from there. */
   startRouteOn(elementId: string, port: string): string {
     const spec = this.routeSpec
-    if (!spec) return 'Choose what to route first.'
+    if (!spec) return this.t('session.chooseWhatToRoute', 'Choose what to route first.', { ns: 'editor' })
     const target = this.openEndTarget(elementId, port)
-    if (!target) return 'That end is connected now, or is another kind of run; pick an open end.'
+    if (!target) return this.t('session.thatEndConnected', 'That end is connected now, or is another kind of run; pick an open end.', { ns: 'editor' })
     this.routing = this.startOn(target)
-    return `Continuing from ${target.label}${this.transitionNote(target, spec)}. Click the next point; change the size in the Route panel first to continue at another size.`
+    return this.t('session.continuingFrom', 'Continuing from {{label}}{{transition}}. Click the next point; change the size in the Route panel first to continue at another size.', {
+      ns: 'editor',
+      label: target.label,
+      transition: this.transitionNote(target, spec),
+    })
   }
 
   /** The "+" on an elbow's side: the elbow becomes a tee and the leg through `through` runs on past the corner. The open end to route on from, or the refusal. */
@@ -2978,15 +3196,24 @@ export class ModelSession {
     const view = this.view
     const el = view?.elements[elbowId]
     const link = el?.kind === 'run_fitting' ? el.ports.find((p) => p.id === through)?.link : undefined
-    if (!view || !link || (link.port !== 'start' && link.port !== 'end')) return { refused: 'That elbow has changed; select it again.' }
+    if (!view || !link || (link.port !== 'start' && link.port !== 'end')) return { refused: this.t('session.elbowChanged', 'That elbow has changed; select it again.', { ns: 'editor' }) }
     const level = view.elements[link.elementId]
-    const name = level?.kind === 'run_segment' && this.kernel ? this.kernel.runLabel(view.elements, level) : 'run'
+    const name = level?.kind === 'run_segment' && this.kernel ? this.kernel.runLabel(view.elements, level) : this.t('session.aRun', 'run', { ns: 'editor' })
     const refused = this.submit({ type: 'elbow_to_tee', fittingId: elbowId, through, idPrefix: newElementId('tee'), ...(face ? { face } : {}) })
     if (refused) return { refused }
     // At the base of a stack the drain ran on back through the corner: route on from its new open end.
     const system = level?.kind === 'run_segment' ? view.elements[level.systemId] : undefined
     const drain = level?.kind === 'run_segment' && level.domain === 'pipe' && system?.kind === 'mep_system' && (this.kernel ? isDrainService(this.kernel, system.systemKind) : false)
-    if (face && !drain) return { joined: true, hint: `Joined the ${face === 'top' ? 'rising' : 'dropping'} leg to the ${face} of the ${name}` }
+    if (face && !drain)
+      return {
+        joined: true,
+        hint: this.t('session.joinedLegToFace', 'Joined the {{direction}} leg to the {{face}} of the {{name}}', {
+          ns: 'editor',
+          direction: face === 'top' ? this.t('session.risingLeg', 'rising', { ns: 'editor' }) : this.t('session.droppingLeg', 'dropping', { ns: 'editor' }),
+          face,
+          name,
+        }),
+      }
     return { open: { elementId: link.elementId, port: link.port } }
   }
 
@@ -3041,7 +3268,15 @@ export class ModelSession {
       const near = (q: { x: number; y: number }) => (at ? Math.hypot(q.x - at.x, q.y - at.y) : 0)
       const best = candidates.sort((a, b) => near(a.w.position) - near(b.w.position))[0]
       if (!best) return null
-      return this.withHeight({ endpoint: { kind: 'part', partId: el.id, connectorId: best.c.id }, point: { x: best.w.position.x, y: best.w.position.y }, label: `${kernel.partLabelOf(view.elements, el)}'s ${best.c.label.toLowerCase()}`, systemId: null }, spec.levelId)
+      return this.withHeight(
+        {
+          endpoint: { kind: 'part', partId: el.id, connectorId: best.c.id },
+          point: { x: best.w.position.x, y: best.w.position.y },
+          label: this.t('session.partConnector', "{{part}}'s {{connector}}", { ns: 'editor', part: kernel.partLabelOf(view.elements, el), connector: best.c.label.toLowerCase() }),
+          systemId: null,
+        },
+        spec.levelId,
+      )
     }
     if (el.kind === 'run_segment' || el.kind === 'run_fitting') {
       const z = el.kind === 'run_segment' ? (el.start.z + el.end.z) / 2 : el.position.z
@@ -3057,7 +3292,16 @@ export class ModelSession {
       const end = open.map((o) => ({ ...o, d: Math.hypot(o.p.x - at.x, o.p.y - at.y) })).sort((a, b) => a.d - b.d)[0]
       const label = kernel.runLabel(view.elements, el)
       if (end && (el.kind === 'run_fitting' || end.d <= RUN_END_SNAP_MM)) {
-        return this.withHeight({ endpoint: { kind: 'run_end', elementId: el.id, port: end.port }, point: { x: end.p.x, y: end.p.y }, label: `the open end of the ${label}`, systemId: el.systemId, join: { kind: 'run_end', elementId: el.id, port: end.port } }, spec.levelId)
+        return this.withHeight(
+          {
+            endpoint: { kind: 'run_end', elementId: el.id, port: end.port },
+            point: { x: end.p.x, y: end.p.y },
+            label: this.t('session.theOpenEndOf', 'the open end of the {{label}}', { ns: 'editor', label }),
+            systemId: el.systemId,
+            join: { kind: 'run_end', elementId: el.id, port: end.port },
+          },
+          spec.levelId,
+        )
       }
       return el.kind === 'run_segment' ? this.branchTarget(el, at, spec) : null
     }
@@ -3089,8 +3333,11 @@ export class ModelSession {
     const side: 1 | -1 = (at.x - el.start.x) * -ay + (at.y - el.start.y) * ax >= 0 ? 1 : -1
     const s = Math.hypot(point.x - el.start.x, point.y - el.start.y)
     const target = this.withHeight({ endpoint: { kind: 'run_branch', segmentId: el.id }, point, label: '', systemId: el.systemId, join: { kind: 'run_branch', segmentId: el.id, s, side, size: spec.size } })
-    const height = target.elevationMm === undefined ? '' : ` at ${feetInches(target.elevationMm)}`
-    return { ...target, label: `the ${kernel.runLabel(view.elements, el)}${height} (a new branch)` }
+    const height = target.elevationMm === undefined ? '' : this.t('session.heightAt', ' at {{height}}', { ns: 'editor', height: feetInches(target.elevationMm) })
+    return {
+      ...target,
+      label: this.t('session.labelNewBranch', 'the {{label}}{{height}} (a new branch)', { ns: 'editor', label: kernel.runLabel(view.elements, el), height }),
+    }
   }
 
   /** The target with the height a route started on it takes, read by the kernel's own rule (the one a route with no height follows). */
@@ -3137,7 +3384,13 @@ export class ModelSession {
     }
     if (!best) return null
     const { el, port, p } = best
-    return this.withHeight({ endpoint: { kind: 'run_end', elementId: el.id, port }, point: { x: p.x, y: p.y }, label: `the open end of the ${kernel.runLabel(view.elements, el)}`, systemId: el.systemId, join: { kind: 'run_end', elementId: el.id, port } })
+    return this.withHeight({
+      endpoint: { kind: 'run_end', elementId: el.id, port },
+      point: { x: p.x, y: p.y },
+      label: this.t('session.theOpenEndOf', 'the open end of the {{label}}', { ns: 'editor', label: kernel.runLabel(view.elements, el) }),
+      systemId: el.systemId,
+      join: { kind: 'run_end', elementId: el.id, port },
+    })
   }
 
   /** While routing, mark the face a click would join (or clear it). */
@@ -3276,8 +3529,16 @@ export class ModelSession {
       if (el?.kind === 'run_segment' && el.version === 0) segments += 1
       if (el?.kind === 'run_fitting' && el.version === 0) counts.set(el.label, (counts.get(el.label) ?? 0) + 1)
     }
-    const fittings = [...counts.entries()].map(([label, n]) => `${n} ${label.toLowerCase()}${n === 1 ? '' : 's'}`)
-    return [`${segments} straight piece${segments === 1 ? '' : 's'}`, ...fittings].join(', ')
+    const fittings = [...counts.entries()].map(([label, n]) =>
+      n === 1
+        ? this.t('session.fittingCountOne', '{{count}} {{label}}', { ns: 'editor', count: n, label: label.toLowerCase() })
+        : this.t('session.fittingCountMany', '{{count}} {{label}}s', { ns: 'editor', count: n, label: label.toLowerCase() }),
+    )
+    const straight =
+      segments === 1
+        ? this.t('session.oneStraightPiece', '1 straight piece', { ns: 'editor', count: segments })
+        : this.t('session.straightPieces', '{{count}} straight pieces', { ns: 'editor', count: segments })
+    return [straight, ...fittings].join(', ')
   }
 
   /** Velocity, friction and the straight-duct loss of the route being drawn, in plain words. */
@@ -3291,8 +3552,14 @@ export class ModelSession {
     const r = airPack.runReadout(view, fresh)
     if (!r) return null
     if (!r.calculable) return r.reason ?? null
-    if (r.flowCfm <= 0) return 'No airflow yet: finish on an air device or a run to see velocity and friction'
-    return `${r.flowCfm} CFM, ${r.velocityFpm} fpm, ${r.frictionInPer100Ft.toFixed(3)} in. w.c./100 ft, this run ${r.straightLossInWc.toFixed(3)} in. w.c. straight`
+    if (r.flowCfm <= 0) return this.t('session.noAirflowYet', 'No airflow yet: finish on an air device or a run to see velocity and friction', { ns: 'editor' })
+    return this.t('session.routeReadout', '{{flow}} CFM, {{velocity}} fpm, {{friction}} in. w.c./100 ft, this run {{loss}} in. w.c. straight', {
+      ns: 'editor',
+      flow: r.flowCfm,
+      velocity: r.velocityFpm,
+      friction: r.frictionInPer100Ft.toFixed(3),
+      loss: r.straightLossInWc.toFixed(3),
+    })
   }
 
   /** Live preview of the route with the pointer as its next point (or finishing on what is under it). Nothing is sent. */
@@ -3302,7 +3569,7 @@ export class ModelSession {
     const view = this.view
     if (!spec || !kernel || !view || !this.viewer) return null
     this.routePointer = { x: clientX, y: clientY }
-    if (this.routeElevation(spec) === null) return 'Choose a level to route on.'
+    if (this.routeElevation(spec) === null) return this.t('session.chooseLevelToRoute', 'Choose a level to route on.', { ns: 'editor' })
     const target = this.routeTarget(clientX, clientY, spec)
     this.showRouteJoin(target)
     if (!this.routing) {
@@ -3310,16 +3577,16 @@ export class ModelSession {
         const start = this.routeStartAt(clientX, clientY, spec)
         this.showRouteStart(start, spec)
         return start
-          ? `${start.where}. Click to start here, or press and drag from a connector or run. Shift: the typed height.`
-          : 'Click (or press and drag from) a connector, a run, or a point to start the route.'
+          ? this.t('session.routeStartHere', '{{where}}. Click to start here, or press and drag from a connector or run. Shift: the typed height.', { ns: 'editor', where: start.where })
+          : this.t('session.routeClickToStart', 'Click (or press and drag from) a connector, a run, or a point to start the route.', { ns: 'editor' })
       }
       this.showRouteStart(null, spec)
       const transition = target.endpoint.kind === 'run_end' ? this.transitionNote(target, spec) : ''
-      return `Start on ${target.label}${transition}. Click, or press and drag to draw.`
+      return this.t('session.routeStartOn', 'Start on {{label}}{{transition}}. Click, or press and drag to draw.', { ns: 'editor', label: target.label, transition })
     }
     this.showRouteStart(null, spec)
     const point = target ? null : this.routePoint(clientX, clientY, spec)
-    return this.previewRouteWith(spec, point, target, 'Z or Shift: up and down; X / Y lock.')
+    return this.previewRouteWith(spec, point, target, this.t('session.routeAxisKeys', 'Z or Shift: up and down; X / Y lock.', { ns: 'editor' }))
   }
 
   /** What the model server this model is open on advertised (none before it answers); undefined when no server is attached. */
@@ -3339,7 +3606,7 @@ export class ModelSession {
     const view = this.view
     if (!kernel || !view) return null
     const command = this.routeCommand(spec, point, target, 'route-preview')
-    if (!command) return 'Click the next point.'
+    if (!command) return this.t('session.clickNextPoint', 'Click the next point.', { ns: 'editor' })
     let res = this.decideLikeServer(kernel, view, command)
     let worked = false
     let auto: Command | null = null
@@ -3348,25 +3615,56 @@ export class ModelSession {
       const joined = auto ? this.decideLikeServer(kernel, view, auto) : null
       if (!joined?.ok) {
         this.clearRoutePreview()
-        return `${res.error.message}.${joined ? ` Connecting the two ends another way didn't fit either: ${joined.error.message}.` : ''}`
+        const refused = refusalWords(res.error.code, res.error.message, this.language, this.t)
+        const alsoRefused = joined
+          ? this.t('session.connectOtherWayFailed', " Connecting the two ends another way didn't fit either: {{reason}}.", {
+              ns: 'editor',
+              reason: refusalWords(joined.error.code, joined.error.message, this.language, this.t),
+            })
+          : ''
+        return `${refused}.${alsoRefused}`
       }
       res = joined
       worked = true
     }
     this.preview = res.model
     if (this.accepted) this.viewer?.setAuthored(this.accepted, this.preview)
-    const what = `${this.routeSummary(res.model, res.changedIds)} at ${feetInches(point?.elevationMm ?? this.currentRouteElevation(spec))}`
+    const summary = this.routeSummary(res.model, res.changedIds)
+    const what = this.t('session.routeSummaryAt', '{{summary}} at {{height}}', {
+      ns: 'editor',
+      summary,
+      height: feetInches(point?.elevationMm ?? this.currentRouteElevation(spec)),
+    })
     const readout = this.routeReadout(res.model, res.changedIds)
-    const tail = readout ? ` ${readout}.` : ''
+    const tail = readout ? this.t('session.routeReadoutTail', ' {{readout}}.', { ns: 'editor', readout }) : ''
     const checks = this.checkRoute(res.model, res.changedIds)
-    const along = checks === null
-      ? " The rules along this route couldn't be checked; the Checklist checks it once it lands."
-      : checks[0] ? ` ${checks[0].message}${checks.length > 1 ? ` (and ${checks.length - 1} more along this route)` : ''}` : ''
-    if (worked && target && auto?.type === 'join_parts') return `Join end to end with ${target.label}.${along} Click to join, Esc to cancel.`
-    if (worked && target) return `Connect to ${target.label}: the ends don't meet face to face, so a route is worked out between them (${this.routeSummary(res.model, res.changedIds)}).${along} Click to connect, Esc to cancel.`
+    const along =
+      checks === null
+        ? this.t('session.routeUnchecked', " The rules along this route couldn't be checked; the Checklist checks it once it lands.", { ns: 'editor' })
+        : checks[0]
+          ? this.t('session.routeCheck', ' {{message}}{{more}}', {
+              ns: 'editor',
+              message: checks[0].message,
+              more: checks.length > 1 ? this.t('session.routeCheckMore', ' (and {{count}} more along this route)', { ns: 'editor', count: checks.length - 1 }) : '',
+            })
+          : ''
+    if (worked && target && auto?.type === 'join_parts')
+      return this.t('session.joinEndToEndWith', 'Join end to end with {{label}}.{{along}} Click to join, Esc to cancel.', { ns: 'editor', label: target.label, along })
+    if (worked && target)
+      return this.t(
+        'session.connectWorkedOut',
+        "Connect to {{label}}: the ends don't meet face to face, so a route is worked out between them ({{summary}}).{{along}} Click to connect, Esc to cancel.",
+        { ns: 'editor', label: target.label, summary, along },
+      )
     return target
-      ? `Finish on ${target.label}: ${what}.${tail}${along} Click to connect, Esc to cancel.`
-      : `${what}.${tail}${along} Click to add a point, Enter to finish here, Esc to cancel.${keys ? ` ${keys}` : ''}`
+      ? this.t('session.finishOnRoute', 'Finish on {{label}}: {{what}}.{{tail}}{{along}} Click to connect, Esc to cancel.', { ns: 'editor', label: target.label, what, tail, along })
+      : this.t('session.routeAddPoint', '{{what}}.{{tail}}{{along}} Click to add a point, Enter to finish here, Esc to cancel.{{keys}}', {
+          ns: 'editor',
+          what,
+          tail,
+          along,
+          keys: keys ? ` ${keys}` : '',
+        })
   }
 
   /** The firm's and the project's design limits for route checks (clearances): the surface reads them from the library. */
@@ -3437,7 +3735,7 @@ export class ModelSession {
           return d.ok ? d.model : { refused: d.error.message }
         },
       })
-      const batch = rated.routeFinishBatch(route, plan, 'Route, with the parts at its crossings')
+      const batch = rated.routeFinishBatch(route, plan, this.t('session.routeWithCrossings', 'Route, with the parts at its crossings', { ns: 'editor' }))
       return batch ? { batch, words: rated.routeFinishWords(decided.model, plan) } : null
     } catch (err) {
       console.error('[model-session] route finish plan failed; sending the route alone', err)
@@ -3457,7 +3755,7 @@ export class ModelSession {
       plan = rated.routeFinishPlan(decided.model, decided.changedIds, newElementId('crossing'), { limits: this.designLimits })
     } catch (err) {
       console.error('[model-session] route finish plan failed', err)
-      return "The rules along this route couldn't be checked, so nothing was placed at its crossings: open the Checklist to see them."
+      return this.t('session.crossingsUnchecked', "The rules along this route couldn't be checked, so nothing was placed at its crossings: open the Checklist to see them.", { ns: 'editor' })
     }
     const refused: string[] = []
     for (const command of plan.commands) {
@@ -3465,7 +3763,14 @@ export class ModelSession {
       if (why) refused.push(why)
     }
     const words = rated.routeFinishWords(decided.model, plan)
-    const notPlaced = refused.length > 0 ? `${refused.length === 1 ? 'One part' : `${refused.length} parts`} couldn't be placed: ${refused[0]}` : null
+    const notPlaced =
+      refused.length > 0
+        ? this.t('session.partsCouldNotBePlaced', "{{what}} couldn't be placed: {{reason}}", {
+            ns: 'editor',
+            what: refused.length === 1 ? this.t('session.onePart', 'One part', { ns: 'editor', count: refused.length }) : this.t('session.partsCount', '{{count}} parts', { ns: 'editor', count: refused.length }),
+            reason: refused[0] ?? '',
+          })
+        : null
     return [words, notPlaced].filter((w): w is string => !!w).join(' ') || null
   }
 
@@ -3480,7 +3785,16 @@ export class ModelSession {
     if (!view || !kernel || !spec || (el?.kind !== 'run_segment' && el?.kind !== 'run_fitting') || el.domain !== spec.domain) return null
     const p = el.kind === 'run_segment' ? (port === 'start' && !el.links.start ? el.start : port === 'end' && !el.links.end ? el.end : null) : (el.ports.find((q) => q.id === port && !q.link)?.position ?? null)
     if (!p) return null
-    return this.withHeight({ endpoint: { kind: 'run_end', elementId: el.id, port }, point: { x: p.x, y: p.y }, label: `the open end of the ${kernel.runLabel(view.elements, el)}`, systemId: el.systemId, join: { kind: 'run_end', elementId: el.id, port } }, spec.levelId)
+    return this.withHeight(
+      {
+        endpoint: { kind: 'run_end', elementId: el.id, port },
+        point: { x: p.x, y: p.y },
+        label: this.t('session.theOpenEndOf', 'the open end of the {{label}}', { ns: 'editor', label: kernel.runLabel(view.elements, el) }),
+        systemId: el.systemId,
+        join: { kind: 'run_end', elementId: el.id, port },
+      },
+      spec.levelId,
+    )
   }
 
   /**
@@ -3523,22 +3837,32 @@ export class ModelSession {
 
   /** Why Route can't start yet, named for the cause: no level is the usual one on a fresh plan. */
   private routeUnarmedReason(): string {
-    return this.levels().length === 0 ? ROUTE_NEEDS_LEVEL : 'Choose what to route in the Route panel first.'
+    return this.levels().length === 0 ? ROUTE_NEEDS_LEVEL : this.t('session.chooseWhatToRouteInPanel', 'Choose what to route in the Route panel first.', { ns: 'editor' })
   }
 
   /** Hover with Route on a drawing: what a click would do there (start on or finish at an open end, or tap off a run's side), previewed. */
   previewRouteOnDrawing(p: { readonly x: number; readonly y: number; readonly z?: number }, vertical: boolean, end: { readonly elementId: string; readonly port: string } | null, side: DrawingRouteSide | null = null): string | null {
     const spec = this.routeSpec
     if (!spec) return this.routeUnarmedReason()
-    if (this.routeElevation(spec) === null) return 'Choose a level to route on.'
+    if (this.routeElevation(spec) === null) return this.t('session.chooseLevelToRoute', 'Choose a level to route on.', { ns: 'editor' })
     const target = this.drawingTarget(end, side, spec)
     if (!this.routing) {
-      if (!target) return 'Click an open end of a duct or pipe to continue it, the side of a run to tap off it, or a point to start a new run.'
+      if (!target)
+        return this.t(
+          'session.routeClickOpenEndSideOrPoint',
+          'Click an open end of a duct or pipe to continue it, the side of a run to tap off it, or a point to start a new run.',
+          { ns: 'editor' },
+        )
       return target.endpoint.kind === 'run_branch'
-        ? `Tap off ${target.label}. Click to start the branch here.`
-        : `Start on ${target.label}${this.transitionNote(target, spec)}. Click to continue it from here.`
+        ? this.t('session.tapOffBranchHere', 'Tap off {{label}}. Click to start the branch here.', { ns: 'editor', label: target.label })
+        : this.t('session.startOnContinueHere', 'Start on {{label}}{{transition}}. Click to continue it from here.', { ns: 'editor', label: target.label, transition: this.transitionNote(target, spec) })
     }
-    return this.previewRouteWith(spec, target ? null : this.routeDrawingPoint(p, vertical), target, 'Straight up or down from the last point in a section: a riser.')
+    return this.previewRouteWith(
+      spec,
+      target ? null : this.routeDrawingPoint(p, vertical),
+      target,
+      this.t('session.riserKeys', 'Straight up or down from the last point in a section: a riser.', { ns: 'editor' }),
+    )
   }
 
   /** A click with Route on a drawing: start (on an open end, a run's side, or a free point), add a point or rise, or finish on an open end or a run's side. */
@@ -3548,17 +3872,17 @@ export class ModelSession {
     const paused = this.refusePaused()
     if (paused) return paused
     const floor = this.levelElevation(spec.levelId)
-    if (floor === null) return 'Choose a level to route on.'
+    if (floor === null) return this.t('session.chooseLevelToRoute', 'Choose a level to route on.', { ns: 'editor' })
     const target = this.drawingTarget(end, side, spec)
     if (!this.routing) {
       if (target) {
         this.routing = this.startOn(target)
-        return `Started on ${target.label}${this.transitionNote(target, spec)}. Click the next point.`
+        return this.t('session.startedOn', 'Started on {{label}}{{transition}}. Click the next point.', { ns: 'editor', label: target.label, transition: this.transitionNote(target, spec) })
       }
       const point = this.routeDrawingPoint(p, false)
       if (!point) return null
       this.routing = { from: null, points: [point], ...(p.z !== undefined ? { startElevationMm: Math.round((p.z - floor) / GRID_MM) * GRID_MM } : {}) }
-      return 'Click the next point.'
+      return this.t('session.clickNextPoint', 'Click the next point.', { ns: 'editor' })
     }
     if (target) return this.commitRoute(target)
     const point = this.routeDrawingPoint(p, vertical)
@@ -3567,15 +3891,15 @@ export class ModelSession {
 
   private addRoutePoint(point: Vec2 & { elevationMm?: number }): string {
     const r = this.routing
-    if (!r) return 'Click where the route starts first.'
+    if (!r) return this.t('session.clickWhereRouteStarts', 'Click where the route starts first.', { ns: 'editor' })
     if (point.elevationMm !== undefined) {
       const last = r.points[r.points.length - 1]
       if (last && Math.hypot(last.x - point.x, last.y - point.y) < 1) r.points[r.points.length - 1] = { ...last, elevationMm: point.elevationMm }
       else r.points.push(point)
-      return `${feetInches(point.elevationMm)} at this point. Click the next point along, or Enter to finish here.`
+      return this.t('session.riseAtThisPoint', '{{height}} at this point. Click the next point along, or Enter to finish here.', { ns: 'editor', height: feetInches(point.elevationMm) })
     }
     r.points.push(point)
-    return 'Click the next point, a connector or a run to finish there, or press Enter to finish here.'
+    return this.t('session.clickNextOrEnter', 'Click the next point, a connector or a run to finish there, or press Enter to finish here.', { ns: 'editor' })
   }
 
   /**
@@ -3601,31 +3925,35 @@ export class ModelSession {
     if (!kernel || !view || target.endpoint.kind !== 'run_end') return ''
     const info = kernel.portInfo(view.elements, { elementId: target.endpoint.elementId as ElementId, port: target.endpoint.port })
     if (!info?.size || kernel.sameSize(info.size, spec.size)) return ''
-    return `; a transition from ${kernel.sizeLabel(info.size)} to ${kernel.sizeLabel(spec.size)} is added there`
+    return this.t('session.transitionAdded', '; a transition from {{from}} to {{to}} is added there', {
+      ns: 'editor',
+      from: kernel.sizeLabel(info.size),
+      to: kernel.sizeLabel(spec.size),
+    })
   }
 
   /** A click with the Route tool: start, add a point, or finish on a connector or run. Returns the hint (or the plain refusal). */
   clickRoute(clientX: number, clientY: number): string | null {
     const spec = this.routeSpec
-    if (!spec) return 'Choose what to route first.'
+    if (!spec) return this.t('session.chooseWhatToRoute', 'Choose what to route first.', { ns: 'editor' })
     const paused = this.refusePaused()
     if (paused) return paused
     const target = this.routeTarget(clientX, clientY, spec)
     if (!this.routing) {
       if (target) {
         this.routing = this.startOn(target)
-        return `Started on ${target.label}${this.transitionNote(target, spec)}. Click the next point.`
+        return this.t('session.startedOn', 'Started on {{label}}{{transition}}. Click the next point.', { ns: 'editor', label: target.label, transition: this.transitionNote(target, spec) })
       }
       const start = this.routeStartAt(clientX, clientY, spec)
       if (start) {
         this.viewer?.setGhost(null)
         this.routing = { from: null, points: [start.point], startElevationMm: start.elevationMm }
-        return `Started: ${start.where}. Click the next point.`
+        return this.t('session.startedHere', 'Started: {{where}}. Click the next point.', { ns: 'editor', where: start.where })
       }
       const point = this.routePoint(clientX, clientY, spec)
-      if (!point) return 'Point at a floor, a ceiling, a wall or the model to start.'
+      if (!point) return this.t('session.pointAtSomethingToStart', 'Point at a floor, a ceiling, a wall or the model to start.', { ns: 'editor' })
       this.routing = { from: null, points: [point] }
-      return 'Click the next point.'
+      return this.t('session.clickNextPoint', 'Click the next point.', { ns: 'editor' })
     }
     if (target) return this.commitRoute(target)
     const point = this.routePoint(clientX, clientY, spec)
@@ -3649,19 +3977,33 @@ export class ModelSession {
       const at = viewer.canvasPointOf(last.x, last.y, floor + this.currentRouteElevation(spec))
       const rect = this.container.getBoundingClientRect()
       if (!at || Math.hypot(rect.left + at.x - clientX, rect.top + at.y - clientY) > 24) return null
-      return { started: false, hint: 'Drag to the next point and release to place it.' }
+      return { started: false, hint: this.t('session.dragToNextPoint', 'Drag to the next point and release to place it.', { ns: 'editor' }) }
     }
     const target = this.routeTarget(clientX, clientY, spec)
     if (!target) return null
     this.routing = this.startOn(target)
-    return { started: true, hint: `Drawing from ${target.label}${this.transitionNote(target, spec)}. Release where the next point goes.` }
+    return {
+      started: true,
+      hint: this.t('session.drawingFrom', 'Drawing from {{label}}{{transition}}. Release where the next point goes.', {
+        ns: 'editor',
+        label: target.label,
+        transition: this.transitionNote(target, spec),
+      }),
+    }
   }
 
   /** Release after a press with the Route tool: place the point (or finish on what is under it). */
   endRouteDrag(clientX: number, clientY: number, moved: boolean, started: boolean): string | null {
     const spec = this.routeSpec
     const from = this.routing?.from
-    if (started && !moved) return from && spec ? `Started on ${from.label}${this.transitionNote(from, spec)}. Click the next point, or press and drag to it.` : null
+    if (started && !moved)
+      return from && spec
+        ? this.t('session.startedOnPressOrDrag', 'Started on {{label}}{{transition}}. Click the next point, or press and drag to it.', {
+            ns: 'editor',
+            label: from.label,
+            transition: this.transitionNote(from, spec),
+          })
+        : null
     return this.clickRoute(clientX, clientY)
   }
 
@@ -3672,9 +4014,9 @@ export class ModelSession {
 
   private commitRoute(to: RouteTarget | null): string | null {
     const spec = this.routeSpec
-    if (!spec || !this.routing) return 'Nothing to finish yet: click where the route starts.'
+    if (!spec || !this.routing) return this.t('session.nothingToFinish', 'Nothing to finish yet: click where the route starts.', { ns: 'editor' })
     const command = this.routeCommand(spec, null, to, newElementId('run'))
-    if (!command) return 'Click at least one more point before finishing.'
+    if (!command) return this.t('session.clickOneMorePoint', 'Click at least one more point before finishing.', { ns: 'editor' })
     const before = this.view
     const together = before ? this.routeWithCrossings(before, command) : null
     const batched = together !== null && this.submit(together.batch) === null
@@ -3692,7 +4034,12 @@ export class ModelSession {
     this.publishRouteChecks([])
     this.redraw()
     const crossings = batched && together ? together.words : before && landed ? this.finishCrossings(before, landed) : null
-    const done = to && auto?.type === 'join_parts' ? `Joined end to end with ${to.label}.` : to ? `Routed and connected to ${to.label}.` : 'Routed.'
+    const done =
+      to && auto?.type === 'join_parts'
+        ? this.t('session.joinedEndToEndWith', 'Joined end to end with {{label}}.', { ns: 'editor', label: to.label })
+        : to
+          ? this.t('session.routedAndConnectedTo', 'Routed and connected to {{label}}.', { ns: 'editor', label: to.label })
+          : this.t('session.routed', 'Routed.', { ns: 'editor' })
     return crossings ? `${done} ${crossings}` : done
   }
 
@@ -3706,22 +4053,24 @@ export class ModelSession {
     const viewer = this.viewer
     const spec = this.routeSpec
     const r = this.routing
-    if (!viewer || !spec || !r) return 'Start a route first, then pick what is in its way.'
+    if (!viewer || !spec || !r) return this.t('session.startRouteFirst', 'Start a route first, then pick what is in its way.', { ns: 'editor' })
     const prev = r.points[r.points.length - 1] ?? r.from?.point
     const pointer = this.routePointer
-    if (!prev || !pointer) return 'Draw towards the obstacle first, so the leg it is in the way of is known.'
+    if (!prev || !pointer) return this.t('session.drawTowardsObstacle', 'Draw towards the obstacle first, so the leg it is in the way of is known.', { ns: 'editor' })
     const ahead = this.routePoint(pointer.x, pointer.y, spec)
-    if (!ahead || ahead.elevationMm !== undefined) return 'Offsets go around obstacles on a level leg; this leg is going up or down.'
+    if (!ahead || ahead.elevationMm !== undefined)
+      return this.t('session.offsetsLevelLegOnly', 'Offsets go around obstacles on a level leg; this leg is going up or down.', { ns: 'editor' })
     const pick = await viewer.pick(clientX, clientY)
-    if (!pick) return 'Nothing was picked. Click the beam, pipe or wall in the way.'
+    if (!pick) return this.t('session.nothingPicked', 'Nothing was picked. Click the beam, pipe or wall in the way.', { ns: 'editor' })
     const box = await viewer.pickBoxMm(pick)
     const floor = this.levelElevation(spec.levelId)
-    if (!box || floor === null) return "That element's size couldn't be read, so the route can't go around it automatically. Add the rise with Z instead."
+    if (!box || floor === null)
+      return this.t('session.obstacleSizeUnknown', "That element's size couldn't be read, so the route can't go around it automatically. Add the rise with Z instead.", { ns: 'editor' })
     const dx = ahead.x - prev.x
     const dy = ahead.y - prev.y
     const alongX = Math.abs(dy) < 0.5
     const alongY = Math.abs(dx) < 0.5
-    if (!alongX && !alongY) return 'Automatic offsets work on east-west or north-south legs. Lock the leg with X or Y, then pick again.'
+    if (!alongX && !alongY) return this.t('session.offsetsOnPlanLegs', 'Automatic offsets work on east-west or north-south legs. Lock the leg with X or Y, then pick again.', { ns: 'editor' })
     const lo = alongX ? box.min.x : box.min.y
     const hi = alongX ? box.max.x : box.max.y
     const across = alongX ? prev.y : prev.x
@@ -3729,17 +4078,20 @@ export class ModelSession {
     const crossHi = alongX ? box.max.y : box.max.x
     const from = alongX ? prev.x : prev.y
     const to = alongX ? ahead.x : ahead.y
-    if (across < crossLo || across > crossHi || Math.max(from, to) < lo || Math.min(from, to) > hi) return "The picked element isn't in the way of the leg being drawn. Point the leg through it, then pick it."
+    if (across < crossLo || across > crossHi || Math.max(from, to) < lo || Math.min(from, to) > hi)
+      return this.t('session.pickedNotInTheWay', "The picked element isn't in the way of the leg being drawn. Point the leg through it, then pick it.", { ns: 'editor' })
     const run = this.currentRouteElevation(spec) + floor
     const half = spec.size.shape === 'rect' || spec.size.shape === 'oval' ? spec.size.height / 2 : spec.size.shape === 'round' ? spec.size.diameter / 2 : spec.size.shape === 'pipe' ? spec.size.nominalMm / 2 : spec.size.tradeSizeMm / 2
-    if (run + half < box.min.z || run - half > box.max.z) return "The run already passes above or below that element; no offset is needed."
+    if (run + half < box.min.z || run - half > box.max.z)
+      return this.t('session.alreadyPassesClear', 'The run already passes above or below that element; no offset is needed.', { ns: 'editor' })
     const clearance = 2 * 25.4
     const over = Math.ceil((box.max.z + clearance + half - floor) / GRID_MM) * GRID_MM
     const dir = Math.sign(to - from)
     const margin = Math.max(GRID_MM, half * 2)
     const enter = dir > 0 ? lo - margin : hi + margin
     const leave = dir > 0 ? hi + margin : lo - margin
-    if ((enter - from) * dir < this.minStraight() || (to - leave) * dir < 0) return 'There is no room before the obstacle for the rise; start the leg further back, or route around it by hand.'
+    if ((enter - from) * dir < this.minStraight() || (to - leave) * dir < 0)
+      return this.t('session.noRoomForRise', 'There is no room before the obstacle for the rise; start the leg further back, or route around it by hand.', { ns: 'editor' })
     const at = (v: number): Vec2 => (alongX ? { x: v, y: prev.y } : { x: prev.x, y: v })
     const back = this.currentRouteElevation(spec)
     r.points.push({ ...at(enter), elevationMm: over }, { ...at(leave), elevationMm: back })
@@ -3750,10 +4102,17 @@ export class ModelSession {
       const res = kernel.executeCommand(view, command)
       if (!res.ok) {
         r.points.splice(r.points.length - 2, 2)
-        return `The offset doesn't fit: ${res.error.message}. Route around it by hand.`
+        return this.t('session.offsetDoesNotFit', "The offset doesn't fit: {{reason}}. Route around it by hand.", {
+          ns: 'editor',
+          reason: refusalWords(res.error.code, res.error.message, this.language, this.t),
+        })
       }
     }
-    return `Rises to ${feetInches(over)} over it and back to ${feetInches(back)} past it. Click the next point, or Enter to finish.`
+    return this.t('session.offsetRises', 'Rises to {{over}} over it and back to {{back}} past it. Click the next point, or Enter to finish.', {
+      ns: 'editor',
+      over: feetInches(over),
+      back: feetInches(back),
+    })
   }
 
   private minStraight(): number {
@@ -3852,7 +4211,13 @@ export class ModelSession {
         if (!info || info.size?.shape !== 'round' || Math.abs(info.size.diameter - (neck.connector.diameter ?? -1)) > 0.5) continue
         const abs = (this.levelElevation(el.levelId) ?? 0) + info.position.z
         const d = Math.hypot(info.position.x - neck.position.x, info.position.y - neck.position.y, abs - neckAbs)
-        if (d <= FLEX_REACH_MM) out.push({ elementId: el.id, port, label: `${kernel.runLabel(view.elements, el)} (${feetInches(d)} away)`, distanceMm: d })
+        if (d <= FLEX_REACH_MM)
+          out.push({
+            elementId: el.id,
+            port,
+            label: this.t('session.labelAway', '{{label}} ({{distance}} away)', { ns: 'editor', label: kernel.runLabel(view.elements, el), distance: feetInches(d) }),
+            distanceMm: d,
+          })
       }
     }
     return out.sort((a, b) => a.distanceMm - b.distanceMm)
@@ -3973,15 +4338,16 @@ export class ModelSession {
   /** Save a part definition (every size in its types table) to the project library. */
   savePartDefinition(definition: PartTypeDefinition): string | null {
     const kernel = this.kernel
-    if (!kernel) return "The model isn't loaded yet."
+    if (!kernel) return this.t('session.modelNotLoaded', "The model isn't loaded yet.", { ns: 'editor' })
     let types: ReturnType<KernelModule['definitionTypes']>
     try {
       types = kernel.definitionTypes(definition)
     } catch (err) {
       console.error('[model-session] part definition sizes', err)
-      return err instanceof Error ? err.message : 'The sizes table can’t be saved'
+      return err instanceof Error ? err.message : this.t('session.sizesTableNotSaved', 'The sizes table can’t be saved', { ns: 'editor' })
     }
-    return this.submitCommand({ type: 'save_part_types', label: `Save ${kernel.partGroupName(definition)}`, types }, `Save ${kernel.partGroupName(definition)}`)
+    const label = this.t('session.savePartTypes', 'Save {{name}}', { ns: 'editor', name: kernel.partGroupName(definition) })
+    return this.submitCommand({ type: 'save_part_types', label, types }, label)
   }
 
   submitCommand(command: Command, undoLabel?: string): string | null {
@@ -3993,7 +4359,7 @@ export class ModelSession {
     const res = this.sendToClient(client, command, predicted?.ok ? touchedIds(predicted.changedIds, predicted) : null)
     if (!res.ok) return refusalWords(res.error.code, res.error.message, this.language, this.t)
     if (before && predicted?.ok && isDocumentCommand(kernel, command) && command.type !== 'restore_document_elements') {
-      const entry: DocumentUndo = { label: undoLabel ?? 'last change', seq: ++this.undoSeq, before: {}, after: {} }
+      const entry: DocumentUndo = { label: undoLabel ?? this.t('session.lastChange', 'last change', { ns: 'editor' }), seq: ++this.undoSeq, before: {}, after: {} }
       for (const id of predicted.changedIds) {
         entry.before[id] = before.elements[id] ?? null
         const after = predicted.model.elements[id]
@@ -4020,14 +4386,14 @@ export class ModelSession {
     const view = this.client?.view()
     const entry = this.documentUndoStack[this.documentUndoStack.length - 1]
     if (!kernel || !view) return { ok: false, message: this.t('session.notConnectedUndone', "Live editing isn't connected, so nothing can be undone.", { ns: 'editor' }) }
-    if (!entry) return { ok: false, message: 'Nothing to undo.' }
+    if (!entry) return { ok: false, message: this.t('session.nothingToUndo', 'Nothing to undo.', { ns: 'editor' }) }
     const strip = (el: BimElement) => kernel.canonicalJson({ ...el, version: 0, authoredRev: {} })
     const items = []
     for (const [id, after] of Object.entries(entry.after)) {
       const current = view.elements[id]
       if (!current || strip(current) !== strip(after)) {
         this.documentUndoStack.pop()
-        return { ok: false, message: `Someone changed this since your edit, so undo would overwrite their work. Nothing was undone.` }
+        return { ok: false, message: this.t('session.undoWouldOverwrite', 'Someone changed this since your edit, so undo would overwrite their work. Nothing was undone.', { ns: 'editor' }) }
       }
       const prior = entry.before[id] ?? null
       items.push({ elementId: id, before: prior ? kernel.toDocumentRecord(prior) : null, expectedVersion: current.version })
@@ -4110,12 +4476,13 @@ export function isNudgeKey(key: string): key is NudgeKey {
 const NUDGE_SETTLE_MS = 700
 
 /** "3" east, 1'-0" up" for a nudge so far. */
-export function nudgeWords(d: RunPoint): string {
+export function nudgeWords(d: RunPoint, t: Translate = englishOnly): string {
+  const direction = (distance: number, word: string) => t('session.nudgeDirection', '{{distance}} {{direction}}', { ns: 'editor', distance: feetInches(distance), direction: word })
   const parts: string[] = []
-  if (Math.abs(d.x) >= 0.5) parts.push(`${feetInches(Math.abs(d.x))} ${d.x > 0 ? 'east' : 'west'}`)
-  if (Math.abs(d.y) >= 0.5) parts.push(`${feetInches(Math.abs(d.y))} ${d.y > 0 ? 'north' : 'south'}`)
-  if (Math.abs(d.z) >= 0.5) parts.push(`${feetInches(Math.abs(d.z))} ${d.z > 0 ? 'up' : 'down'}`)
-  return parts.length > 0 ? parts.join(', ') : 'back where it was'
+  if (Math.abs(d.x) >= 0.5) parts.push(direction(Math.abs(d.x), d.x > 0 ? t('session.east', 'east', { ns: 'editor' }) : t('session.west', 'west', { ns: 'editor' })))
+  if (Math.abs(d.y) >= 0.5) parts.push(direction(Math.abs(d.y), d.y > 0 ? t('session.north', 'north', { ns: 'editor' }) : t('session.south', 'south', { ns: 'editor' })))
+  if (Math.abs(d.z) >= 0.5) parts.push(direction(Math.abs(d.z), d.z > 0 ? t('session.upWord', 'up', { ns: 'editor' }) : t('session.downWord', 'down', { ns: 'editor' })))
+  return parts.length > 0 ? parts.join(', ') : t('session.backWhereItWas', 'back where it was', { ns: 'editor' })
 }
 
 /** Where an element sits, for reading screen directions (mm; z above its level). */

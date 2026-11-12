@@ -1,4 +1,5 @@
 import { MODEL_FRAME, elementsOfKind, fromWorkFrame, mountingPlaneUnder, paperToModelPoint, toWorkFrame, viewModelLevel, type BimElement, type Command, type Level, type ModelState, type PartCategory, type PartInstance, type PartTypeDefinition, type ReferenceSnapCandidates, type Vec2, type ViewOnPaper, type WorkFrame } from '@permitzip/bim-kernel'
+import { englishOnly, type Translate } from './i18n/translate'
 
 /**
  * Placement helpers for the Building Model tools: where a part lands under
@@ -54,7 +55,14 @@ function round(n: number, step: number): number {
  * the grid work in the work frame (`work-frame.ts`): on a building with a
  * working angle the grid and the "lined up" axes run along its walls.
  */
-export function snapPoint(raw: Vec2, targets: readonly SnapTarget[], reference: Vec2 | null = null, frame: WorkFrame = MODEL_FRAME, linked: ReferenceSnapCandidates | null = null): Snapped {
+export function snapPoint(
+  raw: Vec2,
+  targets: readonly SnapTarget[],
+  reference: Vec2 | null = null,
+  frame: WorkFrame = MODEL_FRAME,
+  linked: ReferenceSnapCandidates | null = null,
+  t: Translate = englishOnly,
+): Snapped {
   let nearest: SnapTarget | null = null
   let best = POINT_SNAP_MM
   for (const t of targets) {
@@ -67,7 +75,7 @@ export function snapPoint(raw: Vec2, targets: readonly SnapTarget[], reference: 
   if (nearest) return { point: nearest.point, kind: 'part', label: nearest.label }
   const onLinked = linked ? linkedSnap(raw, linked) : null
   if (onLinked) return onLinked
-  if (reference) return { point: { x: Math.round(reference.x), y: Math.round(reference.y) }, kind: 'reference', label: "the architect's model" }
+  if (reference) return { point: { x: Math.round(reference.x), y: Math.round(reference.y) }, kind: 'reference', label: t('placement.architectsModel', "the architect's model", { ns: 'editor' }) }
   const q = toWorkFrame(frame, raw)
   let x = round(q.x, GRID_MM)
   let y = round(q.y, GRID_MM)
@@ -98,8 +106,13 @@ export function snapPoint(raw: Vec2, targets: readonly SnapTarget[], reference: 
     if (ay.at !== ax?.at) labels.push(ay.label)
   }
   const point = fromWorkFrame(frame, { x, y })
-  if (labels.length > 0) return { point, kind: 'align', label: labels.join(' and ') }
-  return { point, kind: 'grid', label: frame.angleDeg === 0 ? '6" grid' : '6" grid along the working angle' }
+  // The two axes a part lines up with, joined the way the language joins two nouns.
+  if (labels.length > 0) return { point, kind: 'align', label: labels.join(t('placement.andJoin', ' and ', { ns: 'editor' })) }
+  return {
+    point,
+    kind: 'grid',
+    label: frame.angleDeg === 0 ? t('placement.grid', '6" grid', { ns: 'editor' }) : t('placement.gridAlongAngle', '6" grid along the working angle', { ns: 'editor' }),
+  }
 }
 
 /** A linked model's end or corner within the point reach, else the nearest face or centre line within the line-up reach. */
@@ -131,18 +144,18 @@ function linkedSnap(raw: Vec2, linked: ReferenceSnapCandidates): Snapped | null 
   return line
 }
 
-export function snapHint(s: Snapped): string {
+export function snapHint(s: Snapped, t: Translate = englishOnly): string {
   switch (s.kind) {
     case 'linked':
       return s.label
     case 'part':
-      return `On ${s.label}`
+      return t('placement.onPart', 'On {{label}}', { ns: 'editor', label: s.label })
     case 'align':
-      return `Lined up with ${s.label}`
+      return t('placement.linedUpWith', 'Lined up with {{label}}', { ns: 'editor', label: s.label })
     case 'reference':
-      return `On ${s.label}`
+      return t('placement.onPart', 'On {{label}}', { ns: 'editor', label: s.label })
     case 'grid':
-      return `On the ${s.label}`
+      return t('placement.onTheGrid', 'On the {{label}}', { ns: 'editor', label: s.label })
   }
 }
 
@@ -181,23 +194,55 @@ export function partLabel(model: ModelState, part: PartInstance): string {
 }
 
 /** Things that would be removed or cut with a delete, in words, for the confirmation. */
-export function describeElement(model: ModelState, el: BimElement): string {
+export function describeElement(model: ModelState, el: BimElement, t: Translate = englishOnly): string {
   switch (el.kind) {
     case 'part':
       return partLabel(model, el)
     case 'tag':
-      return `Tag "${el.text}"`
+      return t('placement.tagLabel', 'Tag "{{text}}"', { ns: 'editor', text: el.text })
     case 'dimension':
-      return 'Dimension'
+      return t('placement.dimensionLabel', 'Dimension', { ns: 'editor' })
     case 'level':
-      return `Level ${el.name}`
+      return t('placement.levelLabel', 'Level {{name}}', { ns: 'editor', name: el.name })
     case 'part_type':
       return el.definition.typeName
     case 'terminal':
     case 'equipment':
       return el.mark
     default:
-      return el.kind.replace(/_/g, ' ')
+      return elementKindWords(el.kind, t)
+  }
+}
+
+/**
+ * A kind the switch above doesn't name, in the language of the screen: "run
+ * segment" is a word a person reads in a delete confirmation. Anything with no
+ * entry is an element, which is what §2.1 calls every model object anyway.
+ */
+function elementKindWords(kind: string, t: Translate): string {
+  switch (kind) {
+    case 'duct_segment':
+      return t('placement.kindDuctSegment', 'duct segment', { ns: 'editor' })
+    case 'run_segment':
+      return t('placement.kindRunSegment', 'run segment', { ns: 'editor' })
+    case 'run_fitting':
+      return t('placement.kindRunFitting', 'fitting', { ns: 'editor' })
+    case 'mounting_plane':
+      return t('placement.kindMountingPlane', 'mounting plane', { ns: 'editor' })
+    case 'reference_plane':
+      return t('placement.kindReferencePlane', 'reference plane', { ns: 'editor' })
+    case 'wall':
+      return t('placement.kindWall', 'wall', { ns: 'editor' })
+    case 'slab':
+      return t('placement.kindSlab', 'slab', { ns: 'editor' })
+    case 'component':
+      return t('placement.kindComponent', 'component', { ns: 'editor' })
+    case 'tap':
+      return t('placement.kindTap', 'tap', { ns: 'editor' })
+    case 'elbow':
+      return t('placement.kindElbow', 'elbow', { ns: 'editor' })
+    default:
+      return t('placement.kindElement', 'element', { ns: 'editor' })
   }
 }
 
@@ -260,37 +305,88 @@ export type DrawingPlacement = { readonly ok: true; readonly target: DrawingPlac
  * the level (the highest one at or below it) and the height above it; the plan
  * point is on the cut line. Never switches view.
  */
-export function drawingPlacementTarget(model: ModelState, vop: ViewOnPaper, paper: Vec2, heightMm: number, frame: WorkFrame = MODEL_FRAME, opts: { readonly ignorePlanes?: boolean; /** A linked model's snap candidates near a plan point on a level. */ readonly linked?: (levelId: string, at: Vec2) => ReferenceSnapCandidates | null } = {}): DrawingPlacement {
+export function drawingPlacementTarget(
+  model: ModelState,
+  vop: ViewOnPaper,
+  paper: Vec2,
+  heightMm: number,
+  frame: WorkFrame = MODEL_FRAME,
+  opts: {
+    readonly ignorePlanes?: boolean
+    /** A linked model's snap candidates near a plan point on a level. */
+    readonly linked?: (levelId: string, at: Vec2) => ReferenceSnapCandidates | null
+    /** The language the hint is shown in; the drawing layer passes the editor's. */
+    readonly t?: Translate
+  } = {},
+): DrawingPlacement {
+  const t = opts.t ?? englishOnly
   const mapping = vop.mapping
   if (mapping.modelReason) return { ok: false, reason: mapping.modelReason }
   const levels = levelsOf(model)
-  if (levels.length === 0) return { ok: false, reason: 'This model has no levels yet; add a level before placing parts.' }
+  const noLevels = t('placement.noLevelsYet', 'This model has no levels yet; add a level before placing parts.', { ns: 'editor' })
+  if (levels.length === 0) return { ok: false, reason: noLevels }
+  const pointInside = t('placement.pointInsideView', 'Point inside the view to place it.', { ns: 'editor' })
   if (mapping.kind === 'plan') {
     const level = viewModelLevel(model, vop.view.props?.level, vop.view.props?.levelElevationMm) ?? levels.find((l) => Math.abs(l.elevationMm - mapping.floorMm) < 1)
-    if (!level) return { ok: false, reason: `This plan's level (${vop.view.props?.level ?? 'none'}) isn't in the model; set the view's level in View properties.` }
+    if (!level)
+      return {
+        ok: false,
+        reason: t('placement.planLevelGone', "This plan's level ({{level}}) isn't in the model; set the view's level in View properties.", {
+          ns: 'editor',
+          level: vop.view.props?.level ?? t('placement.noneWord', 'none', { ns: 'editor' }),
+        }),
+      }
     const at = paperToModelPoint(vop, paper, { elevationMm: level.elevationMm + heightMm })
-    if (!at) return { ok: false, reason: 'Point inside the view to place it.' }
+    if (!at) return { ok: false, reason: pointInside }
     // A mounting plane on this level under the pointer is where the part goes (Shift: the level instead).
     const under = opts.ignorePlanes ? null : mountingPlaneUnder(model, (mm) => paperToModelPoint(vop, paper, { elevationMm: mm }), new Set([level.id]))
     if (under) {
-      const onPlane = snapPoint(under.point, snapTargets(model, level.id), null, frame)
+      const onPlane = snapPoint(under.point, snapTargets(model, level.id), null, frame, null, t)
       return {
         ok: true,
-        target: { levelId: level.id, position: onPlane.point, offsetMm: Math.round(under.plane.heightMm), planeId: under.plane.id, where: `On mounting plane ${under.plane.name}, ${feetInches(under.plane.heightMm)} up, ${snapHint(onPlane).toLowerCase()} (Shift: on ${level.name} instead)` },
+        target: {
+          levelId: level.id,
+          position: onPlane.point,
+          offsetMm: Math.round(under.plane.heightMm),
+          planeId: under.plane.id,
+          where: t('placement.whereMountingPlane', 'On mounting plane {{name}}, {{height}} up, {{snap}} (Shift: on {{level}} instead)', {
+            ns: 'editor',
+            name: under.plane.name,
+            height: feetInches(under.plane.heightMm),
+            snap: snapHint(onPlane, t).toLowerCase(),
+            level: level.name,
+          }),
+        },
       }
     }
-    const snapped = snapPoint({ x: at.x, y: at.y }, snapTargets(model, level.id), null, frame, opts.linked?.(level.id, { x: at.x, y: at.y }) ?? null)
-    return { ok: true, target: { levelId: level.id, position: snapped.point, offsetMm: Math.round(heightMm), where: `On ${level.name}, ${feetInches(heightMm)} up, ${snapHint(snapped).toLowerCase()}` } }
+    const snapped = snapPoint({ x: at.x, y: at.y }, snapTargets(model, level.id), null, frame, opts.linked?.(level.id, { x: at.x, y: at.y }) ?? null, t)
+    return {
+      ok: true,
+      target: {
+        levelId: level.id,
+        position: snapped.point,
+        offsetMm: Math.round(heightMm),
+        where: t('placement.whereOnLevel', 'On {{level}}, {{height}} up, {{snap}}', { ns: 'editor', level: level.name, height: feetInches(heightMm), snap: snapHint(snapped, t).toLowerCase() }),
+      },
+    }
   }
   if (mapping.kind === 'section') {
     const at = paperToModelPoint(vop, paper, { depthMm: 0 })
-    if (!at) return { ok: false, reason: 'Point inside the view to place it.' }
+    if (!at) return { ok: false, reason: pointInside }
     const below = [...levels].reverse().find((l) => l.elevationMm <= at.z + 1) ?? levels[0]
-    if (!below) return { ok: false, reason: 'This model has no levels yet; add a level before placing parts.' }
+    if (!below) return { ok: false, reason: noLevels }
     const offsetMm = Math.round((at.z - below.elevationMm) / 25.4) * 25.4
-    return { ok: true, target: { levelId: below.id, position: { x: Math.round(at.x), y: Math.round(at.y) }, offsetMm: Math.round(offsetMm), where: `On ${below.name}, ${feetInches(offsetMm)} up, on the section's cut line` } }
+    return {
+      ok: true,
+      target: {
+        levelId: below.id,
+        position: { x: Math.round(at.x), y: Math.round(at.y) },
+        offsetMm: Math.round(offsetMm),
+        where: t('placement.whereSectionCutLine', "On {{level}}, {{height}} up, on the section's cut line", { ns: 'editor', level: below.name, height: feetInches(offsetMm) }),
+      },
+    }
   }
-  return { ok: false, reason: 'Parts are placed in a plan or a section; this view has no model point under the pointer.' }
+  return { ok: false, reason: t('placement.planOrSectionOnly', 'Parts are placed in a plan or a section; this view has no model point under the pointer.', { ns: 'editor' }) }
 }
 
 /** What is being placed: a new part of a type, or a part that exists and isn't placed yet. */

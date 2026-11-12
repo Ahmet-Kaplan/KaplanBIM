@@ -1,4 +1,5 @@
 import type { SelectionScope, SelectionScopeKind } from '@permitzip/bim-kernel'
+import { englishOnly, type Translate } from './i18n/translate'
 
 /**
  * "Tab to select more": hovering pre-highlights the piece under the pointer;
@@ -30,24 +31,45 @@ export function currentScope(state: PreHighlight | null): SelectionScope | null 
   return state ? (state.scopes[state.level] ?? null) : null
 }
 
-const WORD: Readonly<Record<SelectionScopeKind, string>> = { element: 'this piece', stretch: 'stretch', run: 'run', branch: 'branch', system: 'system' }
-
-function count(n: number): string {
-  return `${n} element${n === 1 ? '' : 's'}`
+/** One scope's word, in the language the hint is drawn in (`session.scope*`). */
+function word(kind: SelectionScopeKind, t: Translate): string {
+  switch (kind) {
+    case 'element':
+      return t('session.scopeElement', 'this piece', { ns: 'editor' })
+    case 'stretch':
+      return t('session.scopeStretch', 'stretch', { ns: 'editor' })
+    case 'run':
+      return t('session.scopeRun', 'run', { ns: 'editor' })
+    case 'branch':
+      return t('session.scopeBranch', 'branch', { ns: 'editor' })
+    case 'system':
+      return t('session.scopeSystem', 'system', { ns: 'editor' })
+  }
 }
 
-export function scopeWord(kind: SelectionScopeKind): string {
-  return WORD[kind]
+/** "1 element" / "3 elements": English splits at one, Turkish does not (§8). */
+function count(n: number, t: Translate): string {
+  return n === 1 ? t('session.oneElement', '1 element', { ns: 'editor', count: n }) : t('session.countElements', '{{count}} elements', { ns: 'editor', count: n })
+}
+
+export function scopeWord(kind: SelectionScopeKind, t: Translate = englishOnly): string {
+  return word(kind, t)
 }
 
 /** The status line: what a click selects now and what Tab would select next. */
-export function tabHint(state: PreHighlight | null): string | null {
+export function tabHint(state: PreHighlight | null, t: Translate = englishOnly): string | null {
   const now = currentScope(state)
   if (!state || !now) return null
-  const click = now.kind === 'element' ? 'Click to select it' : `Click to select the ${WORD[now.kind]} (${count(now.ids.length)})`
+  const click =
+    now.kind === 'element'
+      ? t('session.tabClickIt', 'Click to select it', { ns: 'editor' })
+      : t('session.tabClickScope', 'Click to select the {{word}} ({{count}})', { ns: 'editor', word: word(now.kind, t), count: count(now.ids.length, t) })
   if (state.scopes.length < 2) return `${click}.`
   const next = state.scopes[(state.level + 1) % state.scopes.length]
   if (!next) return `${click}.`
-  const tab = next.kind === 'element' ? 'Tab: back to this piece' : `Tab: select ${WORD[next.kind]} (${count(next.ids.length)})`
-  return `${tab} · ${click}${state.level > 0 ? ' · Shift+Tab: back' : ''}.`
+  const tab =
+    next.kind === 'element'
+      ? t('session.tabBackToThisPiece', 'Tab: back to this piece', { ns: 'editor' })
+      : t('session.tabSelectScope', 'Tab: select {{word}} ({{count}})', { ns: 'editor', word: word(next.kind, t), count: count(next.ids.length, t) })
+  return `${tab} · ${click}${state.level > 0 ? t('session.tabShiftBack', ' · Shift+Tab: back', { ns: 'editor' }) : ''}.`
 }

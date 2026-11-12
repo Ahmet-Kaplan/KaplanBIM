@@ -122,8 +122,9 @@ export function refusalWords(code: CommandError['code'], message: string, langua
   return sentences === message ? operatorMessage(code, t) : sentences
 }
 
-// The model server's wording (bim-sync NO_SUCH_MODEL) when a project you can see has no live model yet.
-// Editors never get it: their first opening creates the model.
+// The model server's wording (`NO_SUCH_MODEL` in `@permitzip/bim-sync`'s `authorization.ts`) when a
+// project you can see has no live model yet. Editors never get it: their first opening creates the
+// model. Compared against a denial, never shown — the person reads `connection.no_model.*`.
 const NO_SUCH_MODEL = 'No such model'
 
 export type ConnectionProblemKind = 'unreachable' | 'device_offline' | 'quiet' | 'signed_out' | 'sign_in_refused' | 'no_model' | 'no_access'

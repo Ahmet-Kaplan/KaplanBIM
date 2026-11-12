@@ -430,6 +430,33 @@ burada karara bağlandı; §4.1 ve §4.2'de zaten karara bağlı olanlar tekrar 
 > başına alındı (`{{kind}} ölçüsü çiz`): Türkçede **nesne fiilden önce** gelir, bu
 > yüzden İngilizce sırası birebir çevrilmez. Bu bir sapma değil, §0.2'nin sonucudur.
 
+### 4.3 Aşama 4'ün üst düzey dosyalarında eklenen sözcükler (2026-11-10)
+
+`packages/bim-editor/src/editor/*.ts|tsx` — yani kabuk (`BuildingModelSurface`), oturum
+(`model-session`), yerleştirme (`placement`), güzergâh yardımcıları (`route-*`) ve
+sekmeyle seçim (`tab-select`) — çevrilirken bu sözcüklerin sözlükte hiç olmadığı görüldü.
+§0.1 gereği her kavram tek Türkçeye indi:
+
+| EN | TR | Not |
+|----|----|-----|
+| Slab | **döşeme** | §2.2 *Part* = parça; döşeme bir ev sahibi elemandır |
+| Riser (düşey boru/kanal) | **düşey hat** | §2.8 *Run* = **hat**; düşey olanı |
+| Elbow | **dirsek** | §2.8 *Fitting* = bağlantı parçası; dirsek onun bir türü |
+| Offset (bir engelin çevresinden dolanma) | **kaydırma** | Güzergâh komutu; §3'teki *Move* = taşı ile karışmaz |
+| Stretch (Tab'ın seçtiği düz kesim) | **düz parça** | §2.1: *piece* = eleman; bu, bir hattın tek düz kesimi |
+| Duct segment / Run segment | **kanal parçası** / **hat parçası** | §2.8 ve §9/Ç17 |
+| Segment (silme onayındaki genel ad) | **eleman** | §2.1: kullanıcıya görünen metinde *piece*/*segment* sözcüğü kullanılmaz |
+| Tap off / Branch off (fiil) | **ayrım çıkar** / **branşman çıkar** | §2.8 *Tap* = **ayrım**; *çıkmak* fiiliyle |
+| Mounting plane | **montaj düzlemi** | §2.3'te vardı; burada yalnız doğrulandı |
+| Work plane | **çalışma düzlemi** | §2.3 *Reference plane* = referans düzlemi ile karışmaz |
+| Axis lock | **eksen kilidi** | §2.3 *Axis* = eksen |
+| Linear feet / slope | **doğrusal fit** / **eğim** | §7 birim sembolleri çevrilmez (`in. w.c.`, `CFM`, `fpm`) |
+
+> **Ölçü birimi notu.** `session.measureAnswer` ve `session.routeReadout` gibi satırlarda
+> birim sembolleri (`CFM`, `fpm`, `in. w.c./100 ft`) §7 gereği çevrilmez; yalnızca
+> cümle Türkçedir. Yön adları (**kuzey/güney/doğu/batı**) çevrilir, çünkü bunlar birim
+> değil sözcüktür.
+
 ---
 
 ## 5. Çizelgeler ve metraj

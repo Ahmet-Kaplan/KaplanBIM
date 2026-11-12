@@ -1,5 +1,6 @@
 import { MODEL_FRAME, directionFromWorkFrame, directionToWorkFrame, fromWorkFrame, routeSnapHeadings, toWorkFrame, type Vec2, type WorkFrame } from '@permitzip/bim-kernel'
 import { GRID_MM } from './placement'
+import { englishOnly, type Translate } from './i18n/translate'
 
 /**
  * Where the next route point goes, and which axis it is locked to.
@@ -116,22 +117,28 @@ export function resolveRoutePoint(input: RoutePointInput): RoutePointResult | nu
 }
 
 /** What the axis lock does now, in the tool hint. */
-export function axisLockHint(lock: AxisLock): string {
+export function axisLockHint(lock: AxisLock, t: Translate = englishOnly): string {
   switch (lock) {
     case 'auto':
-      return 'Axis lock off: duct snaps to 15°, 22.5°, 30°, 45°, 60° and 90° from the working angle (pipe to 45°), and vertical near the last point. Hold Alt (Option) for any angle.'
+      return t(
+        'session.axisLockOff',
+        'Axis lock off: duct snaps to 15°, 22.5°, 30°, 45°, 60° and 90° from the working angle (pipe to 45°), and vertical near the last point. Hold Alt (Option) for any angle.',
+        { ns: 'editor' },
+      )
     case 'free':
-      return 'Any angle: the next leg goes where the pointer is, and its elbow is made to that angle. Press it again (or let go of Alt) to snap again.'
+      return t('session.axisLockFree', 'Any angle: the next leg goes where the pointer is, and its elbow is made to that angle. Press it again (or let go of Alt) to snap again.', {
+        ns: 'editor',
+      })
     case 'z':
-      return 'Locked to Z: move up or down to rise or drop. Press it again to unlock.'
+      return t('session.axisLockZ', 'Locked to Z: move up or down to rise or drop. Press it again to unlock.', { ns: 'editor' })
     default:
-      return `Locked to ${lock.toUpperCase()}. Press it again to unlock.`
+      return t('session.axisLocked', 'Locked to {{axis}}. Press it again to unlock.', { ns: 'editor', axis: lock.toUpperCase() })
   }
 }
 
 /** The badge shown at the cursor while routing. */
-export function axisBadge(axis: RouteAxis, lock: AxisLock): string {
-  const locked = lock !== 'auto' && lock !== 'free' ? ' (locked)' : ''
+export function axisBadge(axis: RouteAxis, lock: AxisLock, t: Translate = englishOnly): string {
+  const locked = lock !== 'auto' && lock !== 'free' ? t('session.axisBadgeLocked', ' (locked)', { ns: 'editor' }) : ''
   if (axis.endsWith('°')) return axis
   switch (axis) {
     case 'x':
@@ -139,11 +146,11 @@ export function axisBadge(axis: RouteAxis, lock: AxisLock): string {
     case 'y':
       return `Y${locked}`
     case 'z':
-      return `Z${locked || ' (vertical)'}`
+      return `Z${locked || t('session.axisBadgeVertical', ' (vertical)', { ns: 'editor' })}`
     case '45':
       return '45°'
     case 'free':
-      return lock === 'free' ? 'Any angle' : 'Free'
+      return lock === 'free' ? t('session.axisBadgeAnyAngle', 'Any angle', { ns: 'editor' }) : t('session.axisBadgeFree', 'Free', { ns: 'editor' })
   }
   return axis
 }

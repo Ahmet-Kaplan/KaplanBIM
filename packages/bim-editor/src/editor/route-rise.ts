@@ -6,6 +6,8 @@
  * anything else rises at 45° or straight.
  */
 
+import { englishOnly, type Translate } from './i18n/translate'
+
 export type RiseStyle = 'vertical' | '45' | '60' | '22.5'
 
 /** Every style, in the order the Route tool lists them. */
@@ -25,8 +27,8 @@ function deg(a: number): string {
 }
 
 /** The words for a style: "Straight (90°)", "60° slope". */
-export function riseStyleLabel(s: RiseStyle): string {
-  return s === 'vertical' ? 'Straight (90°)' : `${deg(riseAngle(s))} slope`
+export function riseStyleLabel(s: RiseStyle, t: Translate = englishOnly): string {
+  return s === 'vertical' ? t('session.riseStraight', 'Straight (90°)', { ns: 'editor' }) : t('session.riseSlope', '{{angle}} slope', { ns: 'editor', angle: deg(riseAngle(s)) })
 }
 
 /** The styles a run whose elbows turn `angles` can rise with; straight is always one. Empty `angles`: straight and 45°. */
@@ -36,6 +38,8 @@ export function riseStylesFor(angles: readonly number[]): readonly RiseStyle[] {
 }
 
 /** The hint while drawing: "60° elbows; click the next point to slope towards" or "straight up or down". */
-export function riseHint(s: RiseStyle): string {
-  return s === 'vertical' ? 'straight up or down' : `${deg(riseAngle(s))} elbows; click the next point to slope towards`
+export function riseHint(s: RiseStyle, t: Translate = englishOnly): string {
+  return s === 'vertical'
+    ? t('session.riseStraightUpDown', 'straight up or down', { ns: 'editor' })
+    : t('session.riseElbowsSlope', '{{angle}} elbows; click the next point to slope towards', { ns: 'editor', angle: deg(riseAngle(s)) })
 }

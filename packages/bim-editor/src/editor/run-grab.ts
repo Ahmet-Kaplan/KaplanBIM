@@ -1,4 +1,5 @@
 import type { BimElement, RunPoint } from '@permitzip/bim-kernel'
+import { englishOnly, type Translate } from './i18n/translate'
 
 /** What a press on a routed run grabs: a straight piece whole, one end of it, or an elbow's corner. */
 export interface RunGrab {
@@ -44,19 +45,35 @@ export function grabFor(elements: Readonly<Record<string, BimElement>>, el: BimE
 /** Below this camera pitch (degrees under level) a plain drag goes up and down as well as sideways: the view is looking at the run from the side. */
 export const LOW_VIEW_DEG = 35
 
-/** How a drag goes up or down from this view, said before the drag starts. */
-function upDownWords(lowView: boolean): string {
-  return lowView ? 'From this low angle, dragging up or down raises or lowers it (Shift: only up or down).' : 'Hold Shift while dragging to go up or down.'
+/**
+ * How a drag goes up or down from this view, said before the drag starts.
+ *
+ * `translate` defaults to `englishOnly` — the shape `buildingModelRibbon` uses: a
+ * caller that has no translator (a test, a host without a language) reads the
+ * English the call site carries, and the surface passes `useEditorTranslate()`.
+ */
+function upDownWords(lowView: boolean, t: Translate): string {
+  return lowView
+    ? t('session.grabUpDownLowView', 'From this low angle, dragging up or down raises or lowers it (Shift: only up or down).', { ns: 'editor' })
+    : t('session.grabUpDown', 'Hold Shift while dragging to go up or down.', { ns: 'editor' })
 }
 
 /** What the handle says, in operator words. `lowView`: the camera looks at the run from the side (see LOW_VIEW_DEG). */
-export function grabHint(kind: RunGrab['kind'], label: string, lowView = false): string {
+export function grabHint(kind: RunGrab['kind'], label: string, lowView = false, t: Translate = englishOnly): string {
   switch (kind) {
     case 'segment':
-      return `Drag the middle to move the ${label}; what it meets follows. ${upDownWords(lowView)}`
+      return t('session.grabSegment', 'Drag the middle to move the {{label}}; what it meets follows. {{direction}}', {
+        ns: 'editor',
+        label,
+        direction: upDownWords(lowView, t),
+      })
     case 'corner':
-      return `Drag to move this corner of the ${label}; both legs keep their direction. ${upDownWords(lowView)}`
+      return t('session.grabCorner', 'Drag to move this corner of the {{label}}; both legs keep their direction. {{direction}}', {
+        ns: 'editor',
+        label,
+        direction: upDownWords(lowView, t),
+      })
     case 'end':
-      return `Drag this end to make the ${label} longer or shorter.`
+      return t('session.grabEnd', 'Drag this end to make the {{label}} longer or shorter.', { ns: 'editor', label })
   }
 }
