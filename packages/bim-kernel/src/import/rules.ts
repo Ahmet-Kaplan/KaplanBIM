@@ -1,6 +1,7 @@
 import { asElementId } from "../types";
 import { GLOBAL_PARTITION } from "../partition";
 import type { Beam, Column, Component, ElementId, Level, MepSystem, Opening, PartInstance, PartTypeElement, Room, RunDomain, RunSegment, RunSize, Slab, Wall } from "../types";
+import type { ElementCoreKind } from "../elements/feature";
 import { RUN_DOMAINS } from "../routing/types";
 import { connectorDomainOf, sizeFitsDomain } from "../routing/rules";
 import { activeServiceRegistry } from "../services/registry";
@@ -19,18 +20,28 @@ import type { ImportProduct, ImportRuleResult } from "./types";
 
 const fail = (reason: string): ImportRuleResult => ({ ok: false, reason });
 
+/**
+ * Why the geometry didn't fit the kind: what the reader couldn't read exactly
+ * when that is why (the rule then had nothing to work with), otherwise the
+ * kind's own words. A solid read with its cuts left in is measured, so the
+ * cut isn't the reason it wasn't this shape.
+ */
+const whyNot = (p: ImportProduct, otherwise: string, noun = "shape"): string => (p.geometry.unread !== null && p.geometry.cutsLeftIn !== true ? `its ${noun} is ${p.geometry.unread}` : otherwise);
+
 const nameOf = (p: ImportProduct): string => p.name?.trim() || p.tag?.trim() || p.sourceId;
 const typeNameOf = (p: ImportProduct, fallback: string): string => (p.typeName?.trim() || p.objectType?.trim() || fallback).slice(0, 200);
 const round = (n: number): number => Math.round(n * 10) / 10;
 
-function base(ctx: ImportRuleContext, p: ImportProduct, level: Level, suffix?: string) {
+function base(ctx: ImportRuleContext, p: ImportProduct, level: Level, kind?: ElementCoreKind, suffix?: string) {
   const values = ctx.values(p);
+  const type = kind === undefined ? null : ctx.typeFor(p, kind);
   return {
     id: ctx.idFor(p.sourceId, suffix),
     version: 0,
     authoredRev: {},
     partition: ctx.partition(level),
     provenance: ctx.provenance(p),
+    ...(type ? { typeId: type.id } : {}),
     ...(ctx.cls.source === "builtin" ? {} : { classId: ctx.cls.id }),
     ...(Object.keys(values).length > 0 ? { values } : {}),
   };
@@ -48,11 +59,11 @@ const wall: ImportRuleDef = {
     const level = needLevel(ctx, p);
     if (typeof level === "string") return fail(level);
     const prism = verticalPrism(p.geometry);
-    if (!prism) return fail(p.geometry.unread ? `its shape is ${p.geometry.unread}` : "it isn't one straight, upright piece");
+    if (!prism) return fail(whyNot(p, "it isn't one straight, upright piece"));
     const axis = rectangleAxis(prism.outline);
     if (!axis) return fail("its footprint isn't a rectangle (curved, tapered or angled ends)");
     const record: Wall = {
-      ...base(ctx, p, level),
+      ...base(ctx, p, level, "wall"),
       kind: "wall",
       start: roundPlan(axis.start),
       end: roundPlan(axis.end),
@@ -72,8 +83,8 @@ const slab: ImportRuleDef = {
     const level = needLevel(ctx, p);
     if (typeof level === "string") return fail(level);
     const prism = verticalPrism(p.geometry);
-    if (!prism) return fail(p.geometry.unread ? `its shape is ${p.geometry.unread}` : "it isn't flat (sloped or shaped)");
-    const record: Slab = { ...base(ctx, p, level), kind: "slab", outline: prism.outline.map(roundPlan), thickness: round(prism.top - prism.bottom) };
+    if (!prism) return fail(whyNot(p, "it isn't flat (sloped or shaped)"));
+    const record: Slab = { ...base(ctx, p, level, "slab"), kind: "slab", outline: prism.outline.map(roundPlan), thickness: round(prism.top - prism.bottom) };
     return { ok: true, records: [record] };
   },
 };
@@ -86,10 +97,10 @@ const room: ImportRuleDef = {
     const level = needLevel(ctx, p);
     if (typeof level === "string") return fail(level);
     const prism = verticalPrism(p.geometry);
-    if (!prism) return fail(p.geometry.unread ? `its outline is ${p.geometry.unread}` : "its outline couldn't be read as a floor plan");
+    if (!prism) return fail(whyNot(p, "its outline couldn't be read as a floor plan", "outline"));
     const outline = prism.outline.map(roundPlan);
     const record: Room = {
-      ...base(ctx, p, level),
+      ...base(ctx, p, level, "room"),
       kind: "room",
       number: (p.name?.trim() || p.sourceId).slice(0, 40),
       name: (p.longName?.trim() || p.name?.trim() || "Room").slice(0, 120),
@@ -108,14 +119,14 @@ const column: ImportRuleDef = {
     const level = needLevel(ctx, p);
     if (typeof level === "string") return fail(level);
     const prism = verticalPrism(p.geometry);
-    if (!prism) return fail(p.geometry.unread ? `its shape is ${p.geometry.unread}` : "it isn't one straight, upright piece");
+    if (!prism) return fail(whyNot(p, "it isn't one straight, upright piece"));
     if (prism.outline.length !== 4 || !rectangleAxis(prism.outline)) return fail("its section isn't a rectangle");
     if (!axisAligned(prism.outline)) return fail("it is turned off the plan's axes, which a column here can't be");
     const xs = prism.outline.map((q) => q.x);
     const ys = prism.outline.map((q) => q.y);
     const material = (p.material ?? "").trim().toLowerCase();
     const record: Column = {
-      ...base(ctx, p, level),
+      ...base(ctx, p, level, "column"),
       kind: "column",
       material: material ? (material.match(/[a-z]+/)?.[0] ?? material).slice(0, 40) : "unspecified",
       position: roundPlan(outlineCentre(prism.outline)),
@@ -133,10 +144,10 @@ const beam: ImportRuleDef = {
     const level = needLevel(ctx, p);
     if (typeof level === "string") return fail(level);
     const sweep = straightSweep(p.geometry);
-    if (!sweep) return fail(p.geometry.unread ? `its shape is ${p.geometry.unread}` : "it isn't one straight piece with a constant section");
+    if (!sweep) return fail(whyNot(p, "it isn't one straight piece with a constant section"));
     if (Math.abs(sweep.end.z - sweep.start.z) > 1) return fail("it slopes");
     const record: Beam = {
-      ...base(ctx, p, level),
+      ...base(ctx, p, level, "beam"),
       kind: "beam",
       sectionName: typeNameOf(p, sweep.section.shape === "round" ? `Ø${Math.round(sweep.section.diameter)}` : `${Math.round(sweep.section.width)}×${Math.round(sweep.section.height)}`),
       start: roundPlan(sweep.start),
@@ -173,7 +184,7 @@ const opening: ImportRuleDef = {
     if (!(width > 0) || !(height > 0)) return fail("its size couldn't be read");
     if (offset - width / 2 < -1 || offset + width / 2 > length + 1) return fail("it doesn't fit on the wall it is in");
     const record: Opening = {
-      ...base(ctx, p, level),
+      ...base(ctx, p, level, "opening"),
       kind: "opening",
       openingType,
       mark: (p.tag?.trim() || p.name?.trim() || "").slice(0, 40),
@@ -237,7 +248,7 @@ const runSegment: ImportRuleDef = {
     const domain = ctx.fields.domain;
     if (!isRunDomain(domain)) return fail(`${ctx.cls.label} doesn't say what kind of run it is`);
     const sweep = straightSweep(p.geometry);
-    if (!sweep) return fail(p.geometry.unread ? `its shape is ${p.geometry.unread}` : "it isn't one straight piece with a constant section");
+    if (!sweep) return fail(whyNot(p, "it isn't one straight piece with a constant section"));
     const size: RunSize = sweep.section.shape === "round" ? { shape: "round", diameter: round(sweep.section.diameter) } : { shape: "rect", width: round(sweep.section.width), height: round(sweep.section.height) };
     if (!sizeFitsDomain(size, domain)) return fail("its size needs the add-on that owns these runs' sizes (nominal size and material) to come in");
     const system = systemFor(ctx, p, domain);
@@ -279,7 +290,7 @@ const part: ImportRuleDef = {
     const category = ctx.cls.recognize?.partCategories?.[0] ?? ctx.options.category;
     if (!isPartCategory(category)) return fail(`${ctx.cls.label} doesn't say which part category it is`);
     const b = p.geometry.bounds;
-    if (!b) return fail(p.geometry.unread ? `its shape is ${p.geometry.unread}` : "its size couldn't be read");
+    if (!b) return fail(whyNot(p, "its size couldn't be read"));
     const size = { x: round(b.max.x - b.min.x), y: round(b.max.y - b.min.y), z: round(b.max.z - b.min.z) };
     if (size.x < 1 || size.y < 1 || size.z < 1) return fail("it has no size");
     const typeName = typeNameOf(p, nameOf(p));
@@ -330,7 +341,7 @@ const component: ImportRuleDef = {
     const b = p.geometry.bounds;
     if (!b) return fail("its size couldn't be read");
     const record: Component = {
-      ...base(ctx, p, level),
+      ...base(ctx, p, level, "component"),
       kind: "component",
       category,
       typeName: typeNameOf(p, nameOf(p)),

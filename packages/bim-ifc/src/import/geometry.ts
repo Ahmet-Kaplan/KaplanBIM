@@ -52,6 +52,12 @@ export interface ShapeReading {
   readonly extrusions: ImportExtrusion[];
   readonly points: ImportPoint[];
   unread: string | null;
+  /** What was read is the whole solid with a cut left in it (`ImportGeometry.cutsLeftIn`). */
+  cutsLeftIn: true | undefined;
+  /** A boolean difference was read (its first operand is the whole solid). */
+  sawDifference?: true;
+  /** Readings that aren't the whole shape for another reason (a mesh, a box, an unread section). */
+  unclean?: number;
 }
 
 /** Reads entity graph geometry in file units times `scale` (mm per file unit). */
@@ -121,11 +127,19 @@ export class GeometryReader {
 
   /** Read a product's (or a type's) representation items under `frame`. */
   readShape(representation: StepToken | undefined, frame: Frame): ShapeReading {
-    const out: ShapeReading = { extrusions: [], points: [], unread: null };
+    const out: ShapeReading = { extrusions: [], points: [], unread: null, cutsLeftIn: undefined };
     const shape = this.entity(representation);
     if (!shape) return out;
     const reps = shape.args[2]?.kind === "list" ? shape.args[2].items : [];
     for (const rep of this.bodyFirst(reps)) this.readRepresentation(rep, frame, out);
+    return this.finish(out);
+  }
+
+  /** Settle whether what was read holds the whole solid, once every item is in. */
+  finish(out: ShapeReading): ShapeReading {
+    // A difference's first operand holds the whole solid only when nothing else
+    // went partly read: a mesh beside it would be dropped, and that measures less.
+    if (out.sawDifference === true && !out.unclean) out.cutsLeftIn = true;
     return out;
   }
 
@@ -160,9 +174,13 @@ export class GeometryReader {
         const profile = this.profile(e.args[0]);
         if (!profile) {
           out.unread ??= "a section that couldn't be read";
+          out.unclean = (out.unclean ?? 0) + 1;
           return;
         }
-        if (profile.unread) out.unread ??= profile.unread;
+        if (profile.unread) {
+          out.unread ??= profile.unread;
+          out.unclean = (out.unclean ?? 0) + 1;
+        }
         const base = profile.points.map((p) => apply(local, { x: p.x, y: p.y, z: 0 }));
         const along = rotate(local, mul(dir, length));
         const extrusion: ImportExtrusion = {
@@ -177,8 +195,20 @@ export class GeometryReader {
       }
       case "IFCBOOLEANCLIPPINGRESULT":
       case "IFCBOOLEANRESULT": {
-        this.item(e.args[1] ?? { kind: "null" }, frame, out, depth + 1);
-        out.unread ??= "cut by another shape";
+        // A subtraction's first operand is the shape with the cut left in it: it
+        // over-measures, never under-measures, so it is read and reported as cut.
+        // A union or intersection's first operand isn't the shape at all, so it
+        // is left unread (and the product stays on the linked model).
+        const op = e.args[0]?.kind === "enum" ? e.args[0].value.toUpperCase() : "";
+        const difference = op === "DIFFERENCE" || (op === "" && e.type === "IFCBOOLEANCLIPPINGRESULT");
+        if (difference) {
+          out.sawDifference = true;
+          this.item(e.args[1] ?? { kind: "null" }, frame, out, depth + 1);
+          out.unread ??= "cut by another shape";
+          return;
+        }
+        out.unread ??= op === "UNION" ? "a union of two shapes" : op === "INTERSECTION" ? "an intersection of two shapes" : "a combination of two shapes";
+        out.unclean = (out.unclean ?? 0) + 1;
         return;
       }
       case "IFCMAPPEDITEM": {
@@ -197,6 +227,7 @@ export class GeometryReader {
         const [dx, dy, dz] = [1, 2, 3].map((i) => (this.num(e.args[i]) ?? 0) * this.scale);
         for (const sx of [0, 1]) for (const sy of [0, 1]) for (const sz of [0, 1]) out.points.push(apply(frame, { x: c.x + sx * (dx ?? 0), y: c.y + sy * (dy ?? 0), z: c.z + sz * (dz ?? 0) }));
         out.unread ??= "a box only";
+        out.unclean = (out.unclean ?? 0) + 1;
         return;
       }
       case "IFCTRIANGULATEDFACESET":
@@ -209,15 +240,18 @@ export class GeometryReader {
           out.points.push(apply(frame, { x: x ?? 0, y: y ?? 0, z: z ?? 0 }));
         }
         out.unread ??= "a mesh";
+        out.unclean = (out.unclean ?? 0) + 1;
         return;
       }
       case "IFCFACETEDBREP": {
         this.brepPoints(e.args[0], frame, out);
         out.unread ??= "a mesh";
+        out.unclean = (out.unclean ?? 0) + 1;
         return;
       }
       default:
         out.unread ??= `a ${e.type.replace(/^IFC/, "").toLowerCase()} shape`;
+        out.unclean = (out.unclean ?? 0) + 1;
     }
   }
 

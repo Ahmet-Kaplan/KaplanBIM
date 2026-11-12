@@ -1,4 +1,4 @@
-import type { ImportGroup, ImportPort, ImportProduct, ImportSource, ImportStorey, ParamValue } from "@permitzip/bim-kernel";
+import type { ImportClassification, ImportGroup, ImportPort, ImportProduct, ImportSource, ImportStorey, ParamValue } from "@permitzip/bim-kernel";
 import { readStep, type ReadEntity, type StepFile, type StepToken } from "../read";
 import { ifcEntityName, ownAttributes } from "../schema-ifc4x3";
 import { GeometryReader, apply, boundsOf, compose, hostFrame, type Frame } from "./geometry";
@@ -160,6 +160,13 @@ export function readIfcSource(text: string, opts: IfcReadOptions): ImportSource 
     const t = file.entities.get(refs(r.args[5])[0] ?? -1);
     if (t) for (const o of refs(r.args[4])) typeOf.set(o, t);
   }
+  // The codes a type carries (`IfcRelAssociatesClassification`), for its instances' `element_type`.
+  const classified = new Map<number, ImportClassification[]>();
+  for (const r of all("IFCRELASSOCIATESCLASSIFICATION")) {
+    const code = classificationOf(file, refs(r.args[5])[0] ?? -1);
+    if (!code) continue;
+    for (const o of refs(r.args[4])) classified.set(o, [...(classified.get(o) ?? []), code]);
+  }
   const psetsOf = new Map<number, number[]>();
   for (const r of all("IFCRELDEFINESBYPROPERTIES")) for (const o of refs(r.args[4])) psetsOf.set(o, [...(psetsOf.get(o) ?? []), ...refs(r.args[5])]);
   const voidHost = new Map<number, number>();
@@ -256,8 +263,14 @@ export function readIfcSource(text: string, opts: IfcReadOptions): ImportSource 
         const map = file.entities.get(m);
         if (map) geo.readRepresentation(map.args[1], compose(frame, geo.axis2(map.args[0])), shape);
       }
+      geo.finish(shape);
     }
-    if (placementRef && file.entities.get(placementRef.id)?.type !== "IFCLOCALPLACEMENT") shape.unread ??= "placed on a grid or alignment";
+    if (placementRef && file.entities.get(placementRef.id)?.type !== "IFCLOCALPLACEMENT") {
+      // Not placed by a local placement: where it sits isn't read exactly, so the
+      // solid is reported and refused, cuts left in or not.
+      shape.unread ??= "placed on a grid or alignment";
+      shape.cutsLeftIn = undefined;
+    }
     const hasShape = shape.extrusions.length > 0 || shape.points.length > 0;
     if (!hasShape && e.args[6]?.kind !== "ref") {
       const key = entity;
@@ -289,9 +302,10 @@ export function readIfcSource(text: string, opts: IfcReadOptions): ImportSource 
       storeyId: storeyOf(e.id),
       typeId: type ? globalIdOf(type) : null,
       typeName: type ? str(type.args[2]) : null,
+      ...(type && classified.has(type.id) ? { typeClassification: classified.get(type.id) ?? [] } : {}),
       hostId: hostId !== undefined ? gid(hostId) : null,
       groupIds: groupsOf.get(e.id) ?? [],
-      geometry: { extrusions: shape.extrusions, bounds: boundsOf(shape.points), unread: shape.unread },
+      geometry: { extrusions: shape.extrusions, bounds: boundsOf(shape.points), unread: shape.unread, ...(shape.cutsLeftIn ? { cutsLeftIn: true as const } : {}) },
       properties: properties(e.id, type),
       overall: {
         width: widthIndex !== null ? numberOf(e.args[widthIndex], scale) : null,
@@ -307,6 +321,28 @@ export function readIfcSource(text: string, opts: IfcReadOptions): ImportSource 
 function numberOf(t: StepToken | undefined, scale: number): number | null {
   const v = value(t);
   return typeof v === "number" && v > 0 ? v * scale : null;
+}
+
+/**
+ * One code from the file's classification: `IfcClassificationReference`'s
+ * Identification under the classification it points to (its `Name`), or an
+ * `IfcClassification` itself. Text only, so a code list the model doesn't have
+ * is still named on the type rather than dropped.
+ */
+function classificationOf(file: StepFile, id: number, depth = 0): ImportClassification | null {
+  const c = file.entities.get(id);
+  if (!c || depth > 4) return null;
+  if (c.type === "IFCCLASSIFICATIONREFERENCE") {
+    const code = str(c.args[1]) ?? str(c.args[0]);
+    if (!code) return null;
+    const source = classificationOf(file, refs(c.args[3])[0] ?? -1, depth + 1);
+    return { system: source?.system ?? "ifc", code };
+  }
+  if (c.type === "IFCCLASSIFICATION") {
+    const name = str(c.args[2]);
+    return name ? { system: name, code: name } : null;
+  }
+  return null;
 }
 
 function materialName(file: StepFile, id: number, depth = 0): string | null {

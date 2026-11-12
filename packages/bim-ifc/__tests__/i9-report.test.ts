@@ -45,16 +45,23 @@ describe("i9-unconverted-stay-linked", () => {
     // Round 14: roofs and stairs convert through the Architecture add-on's import rules (round 13 left both linked).
     for (const classId of ["arch.roof", "arch.stair"]) expect(plan.report.classes.find((c) => c.classId === classId)).toMatchObject({ converted: 1, linked: [] });
     const imported = plan.records.filter((r) => typeof Reflect.get(r, "provenance") === "object");
-    expect(imported).toHaveLength(9);
+    // Level 2, the wall type the file gives Wall A, and the eight records of the classes above.
+    expect(imported).toHaveLength(10);
   });
 
-  it("a wall that isn't one straight upright piece stays linked with the shape named, and its door with it", () => {
+  it("a wall cut by another shape is measured from its uncut solid and reported, and its door comes in with it", () => {
     // A wall clipped by another shape (under a sloped roof) and a door in it.
     const text = architectureAndStructure()
       .text.replace(/#(\d+)=IFCSHAPEREPRESENTATION\(#(\d+),'Body','SweptSolid',\(#(\d+)\)\);/, (_all, rep: string, ctx: string, item: string) => `#${rep}=IFCSHAPEREPRESENTATION(#${ctx},'Body','Clipping',(#9999));\n#9999=IFCBOOLEANCLIPPINGRESULT(.DIFFERENCE.,#${item},#${item});`);
     const plan = importIfc(text, opts("Shell", ["architecture"]));
-    const walls = plan.report.classes.find((c) => c.classId === "arch.wall");
-    expect(walls).toMatchObject({ converted: 1, linked: [{ reason: "its shape is cut by another shape", count: 1 }] });
-    expect(plan.report.classes.find((c) => c.classId === "arch.door")).toMatchObject({ converted: 0, linked: [{ reason: "the wall it is in stays on the linked model", count: 1 }] });
+    // Both walls convert (the clipped one is measured from the solid the file cut, not refused), so the door in it does too.
+    expect(plan.report.classes.find((c) => c.classId === "arch.wall")).toMatchObject({ converted: 2, linked: [] });
+    expect(plan.report.classes.find((c) => c.classId === "arch.door")).toMatchObject({ converted: 1, linked: [] });
+    // The report still says what was measured: the cut isn't subtracted.
+    expect(plan.report.notes).toEqual([
+      "Stair: the file doesn't say which end is its foot; check its UP arrow",
+      "D-101: its swing and leaf style weren't brought in",
+      "1 element was measured from its uncut solid (the file gives its shape as cut by another shape), so what was cut out isn't subtracted. Check it against the source model.",
+    ]);
   });
 });

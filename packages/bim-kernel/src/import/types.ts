@@ -32,6 +32,22 @@ export interface ImportGeometry {
   readonly bounds: { readonly min: ImportPoint; readonly max: ImportPoint } | null;
   /** Why the shape couldn't be read exactly ("a curved surface", "a boolean cut"), when it couldn't. */
   readonly unread: string | null;
+  /**
+   * Set when `extrusions` is the product's own solid with its cuts left in (a
+   * boolean difference's first operand). It measures what the model holds or
+   * more, never less, so an import rule converts it and the report says that
+   * what was cut out isn't subtracted; `unread` still names the cut. Absent for
+   * any other reading that isn't exact (a mesh, a box, a shape on a grid),
+   * which holds the product on the linked model: measuring less than the model
+   * holds is worse than refusing.
+   */
+  readonly cutsLeftIn?: true;
+}
+
+/** A code from the file's own classification (Uniclass, OmniClass, a firm's list), as text. */
+export interface ImportClassification {
+  readonly system: string;
+  readonly code: string;
 }
 
 /** A connection point on a product (an IFC port), for the report and for joins. */
@@ -62,6 +78,8 @@ export interface ImportProduct {
   readonly typeName: string | null;
   /** The element whose opening it fills (doors, windows). */
   readonly hostId: string | null;
+  /** Codes the file gives the type itself, for the `element_type` its instances get. */
+  readonly typeClassification?: readonly ImportClassification[];
   /** Groups it is assigned to (distribution systems), by `sourceId`. */
   readonly groupIds: readonly string[];
   readonly geometry: ImportGeometry;

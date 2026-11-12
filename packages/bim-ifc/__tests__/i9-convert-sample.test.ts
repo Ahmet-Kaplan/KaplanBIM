@@ -10,9 +10,11 @@
  *
  * Fails on round 8b's code: bim-ifc had no reader and the kernel no import.
  */
-import { type BimElement, type Wall } from "@permitzip/bim-kernel";
+import { type BimElement, type ModelState, type Wall, landImport, takeoffTotals } from "@permitzip/bim-kernel";
 import { PackSet, bindModelPacks, unbindModelPacks } from "@permitzip/bim-kernel/packs";
-import { importIfc } from "../src";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { importIfc, readIfcSource } from "../src";
 import { FIRE_PROTECTION_TEST_PACK, HEAD_CLASS } from "./fixtures/i9-fire-protection-pack";
 import { architectureAndStructure, hostModel, mechanicalAndSprinkler } from "./i9-fixtures";
 
@@ -20,6 +22,21 @@ const ofKind = <K extends BimElement["kind"]>(records: readonly BimElement[], ki
 
 function arch(units: "mm" | "ft" = "mm") {
   return importIfc(architectureAndStructure(units).text, { model: hostModel(), referenceId: "ref-arch", sourceKey: "v1", sourceId: "ver-arch-1", label: "Main St shell", disciplines: ["architecture", "structure"] });
+}
+
+/** The repo's own sample model: IfcOpenHouse (CC0-1.0), 34 products, 4 cut or plain walls, 1 door, footings, members and plates. */
+function openHouse() {
+  const text = readFileSync(join(__dirname, "../../../sample-models/IfcOpenHouse_IFC4.ifc"), "utf8");
+  const input = { model: hostModel(), referenceId: "ref-house", sourceKey: "v1", sourceId: "ver-house-1", label: "IfcOpenHouse", disciplines: ["architecture", "structure"] } as const;
+  return { text, input, source: readIfcSource(text, input), plan: importIfc(text, input) };
+}
+
+/** Takeoff lines of the landed model, as `<group kind>|<label>|<elements>`, by measure. */
+function takeoffLines(model: ModelState, measure = "qto.count"): string[] {
+  return takeoffTotals(model.elements)
+    .filter((t) => t.measure.key === measure)
+    .map((t) => `${t.group.kind}|${t.group.label}|${t.elementCount}`)
+    .sort();
 }
 
 describe("i9-convert-sample", () => {
@@ -113,5 +130,48 @@ describe("i9-convert-sample", () => {
     } finally {
       unbindModelPacks(model.modelId);
     }
+  });
+
+  describe("the repo's own sample model (IfcOpenHouse)", () => {
+    it("converts every wall, cut or plain, and the door in one of them", () => {
+      const { source, plan } = openHouse();
+      expect(source.products).toHaveLength(34);
+      // 4 walls and 1 door convert (it was 2 walls before a cut solid was measured
+      // rather than refused) and the footing is a component; the 25 members and
+      // plates, the two roof decks, the roof, the stair and the windows stay linked
+      // for reasons this slice doesn't touch.
+      expect(ofKind(plan.records, "wall")).toHaveLength(4);
+      expect(ofKind(plan.records, "opening")).toHaveLength(1);
+      expect(plan.report.converted).toBe(6);
+      expect(plan.report.classes.find((c) => c.classId === "arch.wall")).toMatchObject({ converted: 4, linked: [] });
+      expect(plan.report.classes.find((c) => c.classId === "arch.door")).toMatchObject({ converted: 1, linked: [] });
+      // The door is in the south wall, which converts: it comes in with its host.
+      const [door] = ofKind(plan.records, "opening");
+      expect(ofKind(plan.records, "wall").some((w) => w.id === door?.hostId)).toBe(true);
+      expect(plan.report.summary).toBe("Converted 4 walls, 1 door and 1 footing. Left 20 members, 5 plates, 2 roof decks, 1 roof, 1 stair flight and 5 windows as the linked model.");
+    });
+
+    it("still reports the two walls whose shape the file cuts, without refusing them", () => {
+      const { source, plan } = openHouse();
+      const cut = source.products.filter((p) => p.geometry.cutsLeftIn === true);
+      expect(cut.map((p) => p.name).sort()).toEqual(["East wall", "West wall"]);
+      // `unread` keeps naming the cut: the reading is honest about what it doesn't subtract.
+      expect(cut.every((p) => p.geometry.unread === "cut by another shape")).toBe(true);
+      expect(plan.report.notes.join(" | ")).toMatch(/2 elements were measured from its uncut solid \(the file gives their shape as cut by another shape\)/);
+      // Nothing is refused for the cut any more.
+      expect(plan.report.classes.flatMap((c) => c.linked).map((r) => r.reason)).not.toContain("its shape is cut by another shape");
+    });
+
+    it("is measured, not merely converted: four walls in one line, no type to split them by", () => {
+      const { plan } = openHouse();
+      // The sample carries no `IfcRelDefinesByType` at all, so its walls have no type to group by
+      // and stay one line (i9-import-types shows the typed case).
+      expect(ofKind(plan.records, "element_type")).toHaveLength(0);
+      const model = landImport(hostModel(), plan.records);
+      expect(model.dropped).toEqual([]);
+      expect(takeoffLines(model.model).filter((l) => l.includes("Walls"))).toEqual(["class|Walls|4"]);
+      const length = takeoffTotals(model.model.elements).find((t) => t.measure.key === "qto.length");
+      expect(Math.round(length?.value ?? 0)).toBe(30);
+    });
   });
 });

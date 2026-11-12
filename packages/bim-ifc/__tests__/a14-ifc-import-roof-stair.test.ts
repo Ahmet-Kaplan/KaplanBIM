@@ -95,6 +95,7 @@ describe("a14 ifc import roof and stair", () => {
       converted: () => null,
       group: () => null,
       shared: (_key, make) => make(),
+      typeFor: () => null,
       values: () => ({}),
       provenance: (p) => ({ ifcGlobalId: p.sourceId, source: "ver-1" }),
       note: () => {},

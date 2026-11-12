@@ -1,8 +1,10 @@
 import { activeClassRegistry } from "../registry";
 import type { Registry } from "../registry/types";
+import type { ElementCoreKind } from "../elements/feature";
 import { activePackSet, withModelStatePacks } from "../packs/scope";
+import { GLOBAL_PARTITION } from "../partition";
 import { elementsOfKind } from "../store";
-import type { BimElement, ElementId, Level, ModelState, ParamValue } from "../types";
+import type { BimElement, ElementId, ElementTypeElement, Level, ModelState, ParamValue } from "../types";
 import { IFC_IMPORT_RULE_POINT, type ImportRuleContext, type ImportRuleDef } from "./rule-point";
 import { reverseClassMap } from "./reverse-map";
 import { importElementId } from "./rules";
@@ -73,6 +75,12 @@ function planInScope(source: ImportSource, opts: PlanImportOptions): IfcImportPl
     records.push(r);
     byId.set(r.id, r);
   };
+  /** The same planned record, changed (a type widened to a second kind): the plan holds one copy of it. */
+  const replace = (was: BimElement, now: BimElement) => {
+    const at = records.indexOf(was);
+    if (at >= 0) records[at] = now;
+    byId.set(now.id, now);
+  };
 
   // Levels: the file's storeys matched to Main's levels (by the storey they came from, then name, then height), new ones made.
   const levels = elementsOfKind(opts.model.elements, "level");
@@ -139,6 +147,45 @@ function planInScope(source: ImportSource, opts: PlanImportOptions): IfcImportPl
   }
   chosen.sort((a, b) => (a.choice.rule.order ?? 10) - (b.choice.rule.order ?? 10));
 
+  // The file's types become real `element_type` records, one per type, made
+  // when the first product of that type converts (a type nothing converted
+  // leaves no empty record behind). Instances name it through `typeId`, so the
+  // takeoff groups by the file's own type name (`qtoGroupOf`) instead of
+  // collapsing a whole trade into one line.
+  const types = new Map<string, ElementTypeElement>();
+  const typeFor = (product: ImportProduct, kind: ElementCoreKind): ElementTypeElement | null => {
+    const typeId = product.typeId?.trim() ?? "";
+    const name = product.typeName?.trim() ?? "";
+    if (typeId === "" || name === "") return null;
+    const have = types.get(typeId);
+    if (have) {
+      // One type used by two kinds (a file that reuses a type): it admits both.
+      if (have.forKinds && !have.forKinds.includes(kind)) {
+        const widened: ElementTypeElement = { ...have, forKinds: [...have.forKinds, kind] };
+        types.set(typeId, widened);
+        replace(have, widened);
+        return widened;
+      }
+      return have;
+    }
+    const record: ElementTypeElement = {
+      id: importElementId(opts.sourceKey, typeId, "type"),
+      kind: "element_type",
+      version: 0,
+      authoredRev: {},
+      partition: GLOBAL_PARTITION,
+      name: name.slice(0, 120),
+      forKinds: [kind],
+      provenance: { ifcGlobalId: typeId, source: source.id },
+      ...(product.typeClassification && product.typeClassification.length > 0 ? { classification: product.typeClassification.map((c) => ({ system: c.system, code: c.code })) } : {}),
+    };
+    types.set(typeId, record);
+    push(record);
+    return record;
+  };
+  /** Records read with their cuts left in, by the cut the reader named. */
+  const cutLeftIn = new Map<string, number>();
+
   for (const { product, choice } of chosen) {
     const { cls } = choice;
     const ctx: ImportRuleContext = {
@@ -161,6 +208,7 @@ function planInScope(source: ImportSource, opts: PlanImportOptions): IfcImportPl
         shared.set(key, made);
         return made;
       },
+      typeFor,
       values: (p) => mappedValues(registry, cls.id, p),
       provenance: (p) => ({ ifcGlobalId: p.sourceId, source: source.id }),
       note: (text) => {
@@ -181,9 +229,16 @@ function planInScope(source: ImportSource, opts: PlanImportOptions): IfcImportPl
     for (const r of result.records) push(r);
     const own = result.records[result.records.length - 1];
     if (own) converted.set(product.sourceId, own.id);
+    // A solid read with its cuts left in converts, and the report says what it measured (a wall's openings aren't subtracted, so it reads long).
+    if (product.geometry.cutsLeftIn) cutLeftIn.set(product.geometry.unread ?? "cut", (cutLeftIn.get(product.geometry.unread ?? "cut") ?? 0) + 1);
     line(cls.id, cls.id, cls.label).converted += 1;
   }
   for (const u of source.unreadable) stay(u.entity, null, entityWords(u.entity), u.reason, u.count);
+  for (const [cut, count] of cutLeftIn) {
+    if (notes.size >= 200) break;
+    const one = count === 1;
+    notes.add(`${count} ${one ? "element was" : "elements were"} measured from its uncut solid (the file gives ${one ? "its" : "their"} shape as ${cut}), so what was cut out isn't subtracted. Check ${one ? "it" : "them"} against the source model.`);
+  }
 
   const classes: ImportClassLine[] = [...lines.values()]
     .map((l) => ({ classId: l.classId, label: l.label, converted: l.converted, linked: [...l.linked].map(([reason, count]) => ({ reason, count })).sort((a, b) => b.count - a.count) }))

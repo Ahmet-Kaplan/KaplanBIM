@@ -151,6 +151,13 @@ export class IfcText {
     const set = this.add("IFCPROPERTYSET", `${this.guid()},$,'${name}',$,(${ids.join(",")})`);
     this.add("IFCRELDEFINESBYPROPERTIES", `${this.guid()},$,$,$,(${products.map((p) => `#${p}`).join(",")}),#${set}`);
   }
+
+  /** A code from a classification library, on products or on their type (`IfcRelAssociatesClassification`). */
+  classify(objects: readonly number[], library: string, code: string): void {
+    const source = this.add("IFCCLASSIFICATION", `'${library}','First edition','${library}',$,$,$`);
+    const reference = this.add("IFCCLASSIFICATIONREFERENCE", `$,'${code}',$,#${source},$`);
+    this.add("IFCRELASSOCIATESCLASSIFICATION", `${this.guid()},$,$,$,(${objects.map((o) => `#${o}`).join(",")}),#${reference}`);
+  }
 }
 
 function f(n: number): string {

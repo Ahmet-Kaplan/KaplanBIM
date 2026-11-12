@@ -13,6 +13,18 @@ const VERTICAL_TOLERANCE = 0.02;
 
 const len = (p: ImportPoint): number => Math.hypot(p.x, p.y, p.z);
 
+/**
+ * Whether a reading the reader couldn't make exact still says the whole shape.
+ *
+ * A boolean difference leaves its cuts in (the reader says so with
+ * `cutsLeftIn`): that reading is a superset of the product, so a rule measures
+ * the product and its report says the cuts weren't subtracted. Any other
+ * reading that isn't exact (a mesh plus a box, a shape placed on a grid) could
+ * measure less than the model holds, and that is worse than refusing: those
+ * stay on the linked model with `unread` as the reason.
+ */
+const holdsWholeShape = (geometry: ImportGeometry): boolean => geometry.unread === null || geometry.cutsLeftIn === true;
+
 export interface VerticalPrism {
   readonly outline: readonly Vec2[];
   /** Bottom and top heights, mm. */
@@ -23,7 +35,7 @@ export interface VerticalPrism {
 /** The solid as one footprint pushed straight up (or down), or null. */
 export function verticalPrism(geometry: ImportGeometry): VerticalPrism | null {
   const [only, ...rest] = geometry.extrusions;
-  if (!only || rest.length > 0 || geometry.unread) return null;
+  if (!only || rest.length > 0 || !holdsWholeShape(geometry)) return null;
   const l = len(only.along);
   if (l <= 0 || Math.hypot(only.along.x, only.along.y) / l > VERTICAL_TOLERANCE) return null;
   const zs = only.base.map((p) => p.z);
@@ -47,7 +59,7 @@ export interface StraightSweep {
 /** The solid as a rectangle or circle pushed along a straight line (its centre line), or null. */
 export function straightSweep(geometry: ImportGeometry): StraightSweep | null {
   const [only, ...rest] = geometry.extrusions;
-  if (!only || rest.length > 0 || geometry.unread) return null;
+  if (!only || rest.length > 0 || !holdsWholeShape(geometry)) return null;
   const centre = only.circle?.centre ?? centroid3(only.base);
   const end = { x: centre.x + only.along.x, y: centre.y + only.along.y, z: centre.z + only.along.z };
   if (len(only.along) < 1) return null;

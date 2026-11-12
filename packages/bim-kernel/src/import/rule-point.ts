@@ -1,6 +1,7 @@
 import { defineExtensionPoint } from "../packs/contract";
+import type { ElementCoreKind } from "../elements/feature";
 import type { ObjectClass } from "../registry/types";
-import type { BimElement, ElementId, Level, ParamValue, Partition } from "../types";
+import type { BimElement, ElementId, ElementTypeElement, Level, ParamValue, Partition } from "../types";
 import { KERNEL_IMPORT_RULES } from "./rules";
 import type { ImportGroup, ImportProduct, ImportRuleResult } from "./types";
 
@@ -34,6 +35,14 @@ export interface ImportRuleContext {
   group(sourceId: string): ImportGroup | null;
   /** A record several products share (their type, their system), made once per key. */
   shared<T extends BimElement>(key: string, make: () => T | string): T | string;
+  /**
+   * The `element_type` a product's file type becomes for a record of `kind`,
+   * made once per type in this import (null when the file states no type for
+   * it, or the kind can't name one: a run segment, a part with its own
+   * `part_type`). `base()` stamps its id on the record, so the takeoff groups
+   * by the file's type (`qtoGroupOf`).
+   */
+  typeFor(product: ImportProduct, kind: ElementCoreKind): ElementTypeElement | null;
   /** Values the registry maps from the product's property sets (`ifc` homes on the class's fields), by parameter key. */
   values(product: ImportProduct): Readonly<Record<string, ParamValue>>;
   /** What every record remembers: the GlobalId and the linked model version. */
