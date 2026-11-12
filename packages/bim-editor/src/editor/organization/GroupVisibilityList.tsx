@@ -5,7 +5,8 @@ import { GROUP_VISIBILITIES, organizationOf, type GroupVisibility, type ModelSta
 import { Field, FieldContent, FieldDescription, FieldLabel } from '../../ui/field'
 import { ToggleGroup, ToggleGroupItem } from '../../ui/toggle-group'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip'
-import { GROUP_VISIBILITY_LABEL } from './labels'
+import { useEditorTranslate } from '../i18n/translate'
+import { groupVisibilityLabel } from './labels'
 
 const ICON = { show: Eye, halftone: Contrast, hide: EyeOff } as const
 
@@ -17,12 +18,13 @@ interface Props {
   readonly onChange: (groupId: string, visibility: GroupVisibility) => string | null
   /** Why the toggles are read-only (a saved view you can't edit), or null. */
   readonly blockedReason: string | null
-  /** "this view" or "the 3D model". */
+  /** "this view" or "the 3D model" — already in the reader's language by the caller. */
   readonly scope: string
 }
 
 /** The model's groups with show / halftone / hide for what is open. */
 export function GroupVisibilityList({ model, visibility, onChange, blockedReason, scope }: Props) {
+  const t = useEditorTranslate()
   const org = organizationOf(model)
   return (
     <div className="flex flex-col gap-2" data-testid="group-visibility">
@@ -37,9 +39,9 @@ export function GroupVisibilityList({ model, visibility, onChange, blockedReason
                 {g.entry.locked && (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Lock className="size-3 shrink-0 text-muted-foreground" aria-label="Locked" />
+                      <Lock className="size-3 shrink-0 text-muted-foreground" aria-label={t('org.lockedAria', 'Locked', { ns: 'editor' })} />
                     </TooltipTrigger>
-                    <TooltipContent>Locked: its elements can&apos;t be changed until someone unlocks it</TooltipContent>
+                    <TooltipContent>{t('org.lockedWhy', "Locked: its elements can't be changed until someone unlocks it", { ns: 'editor' })}</TooltipContent>
                   </Tooltip>
                 )}
               </FieldLabel>
@@ -50,7 +52,7 @@ export function GroupVisibilityList({ model, visibility, onChange, blockedReason
               variant="outline"
               value={value}
               disabled={blockedReason !== null}
-              aria-label={`How ${g.entry.name} shows in ${scope}`}
+              aria-label={t('org.group.showsIn', 'How {{name}} shows in {{scope}}', { ns: 'editor', name: g.entry.name, scope })}
               onValueChange={(v) => {
                 const next = GROUP_VISIBILITIES.find((x) => x === v)
                 if (next && next !== value) onChange(g.id, next)
@@ -61,11 +63,18 @@ export function GroupVisibilityList({ model, visibility, onChange, blockedReason
                 return (
                   <Tooltip key={v}>
                     <TooltipTrigger asChild>
-                      <ToggleGroupItem value={v} aria-label={`${GROUP_VISIBILITY_LABEL[v]} ${g.entry.name}`} data-testid={`group-${g.id}-${v}`}>
+                      <ToggleGroupItem
+                        value={v}
+                        aria-label={t('org.group.visibilityOf', '{{word}} {{name}}', { ns: 'editor', word: groupVisibilityLabel(v, t), name: g.entry.name })}
+                        data-testid={`group-${g.id}-${v}`}
+                      >
                         <Icon />
                       </ToggleGroupItem>
                     </TooltipTrigger>
-                    <TooltipContent>{blockedReason ?? `${GROUP_VISIBILITY_LABEL[v]} ${g.entry.name} in ${scope}`}</TooltipContent>
+                    <TooltipContent>
+                      {blockedReason ??
+                        t('org.group.visibilityIn', '{{word}} {{name}} in {{scope}}', { ns: 'editor', word: groupVisibilityLabel(v, t), name: g.entry.name, scope })}
+                    </TooltipContent>
                   </Tooltip>
                 )
               })}

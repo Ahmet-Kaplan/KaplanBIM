@@ -222,9 +222,11 @@ const VALUES: Readonly<Record<string, { readonly tr?: Values; readonly en?: Valu
   "status.notSavedRetryingCount": { tr: { n: 2 }, en: { n: 2 } },
   "status.editsMany": { tr: { n: 3 }, en: { n: 3 } },
   "status.chipAria": { tr: { label: "Bağlandı. Tüm değişiklikler kaydedildi" }, en: { label: "Connected. All changes saved" } },
-  // The path the app passes is `MANAGE_PATH` in `organization/labels.ts` — a fixed
-  // English breadcrumb, the same string in both languages until Stage 4 keys it.
-  "status.groupTooltip": { tr: { path: "Manage › Groups & phases" }, en: { path: "Manage › Groups & phases" } },
+  // The path the app passes is `managePath()` in `organization/labels.ts` — the
+  // same breadcrumb, drawn in each language: §2.3 makes *Manage* **Yönet** and
+  // *Groups & phases* **Gruplar ve fazlar**, so a Turkish sentence no longer
+  // carries an English place inside it.
+  "status.groupTooltip": { tr: { path: "Yönet › Gruplar ve fazlar" }, en: { path: "Manage › Groups & phases" } },
 };
 
 const TR: Translate = translateFor("tr");

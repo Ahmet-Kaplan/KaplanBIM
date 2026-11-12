@@ -73,6 +73,10 @@ const OWNED_DIRS = [
   "levels",
   "ifc-import",
   "ifc-export",
+  // Stage 4 · Task 4.6 — groups, phases, phase filters, typicals and tag styles:
+  // the "Groups & phases" surface a person meets in the rail, the status strip and
+  // the Properties panel's Group/phase fields.
+  "organization",
   // Stage 4 · Task 4.5 — every ribbon tooltip, which `tooltipFor()` shows on hover.
   "ribbon",
   // Outside stage 4 — the chrome every screen hangs on: the saved layout (one row
@@ -146,7 +150,6 @@ const OUTSIDE_STAGE_4 = [
   "graphics",
   "inspector",
   "loads-policy",
-  "organization",
   "part-editor",
   "planned",
   "responsibilities",

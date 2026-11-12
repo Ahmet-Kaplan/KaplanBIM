@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip'
 import { useEditorTranslate } from '../i18n/translate'
 import type { SubmitCommand } from '../views-sheets/types'
-import { MANAGE_PATH } from './labels'
+import { managePath } from './labels'
 
 interface Props {
   readonly model: ModelState | null
@@ -34,7 +34,9 @@ export function OrganizationStatusBar({ model, canEdit, blockedReason, submit, o
             <Select
               value={org.activeGroupId}
               disabled={!canEdit}
-              onValueChange={(id) => send(submit({ type: 'set_active_group', groupId: id }, `make ${org.groupById.get(id)?.entry.name ?? 'that group'} active`))}
+              onValueChange={(id) =>
+                send(submit({ type: 'set_active_group', groupId: id }, t('org.undo.makeActive', 'make {{name}} active', { ns: 'editor', name: org.groupById.get(id)?.entry.name ?? t('org.thatGroup', 'that group', { ns: 'editor' }) })))
+              }
             >
               <SelectTrigger size="sm" className="h-7 gap-1.5 text-xs" aria-label={t('status.activeGroup', 'Active group', { ns: 'editor' })} data-testid="active-group">
                 <span aria-hidden className="size-2.5 rounded-full border" style={{ backgroundColor: group?.entry.color }} />
@@ -53,7 +55,7 @@ export function OrganizationStatusBar({ model, canEdit, blockedReason, submit, o
             </Select>
           </div>
         </TooltipTrigger>
-        <TooltipContent>{canEdit ? t('status.groupTooltip', 'New ducts, pipes and parts go in this group. Edit groups in {{path}}.', { path: MANAGE_PATH, ns: 'editor' }) : blockedReason}</TooltipContent>
+        <TooltipContent>{canEdit ? t('status.groupTooltip', 'New ducts, pipes and parts go in this group. Edit groups in {{path}}.', { path: managePath(t), ns: 'editor' }) : blockedReason}</TooltipContent>
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
@@ -62,7 +64,7 @@ export function OrganizationStatusBar({ model, canEdit, blockedReason, submit, o
             <Select
               value={org.activePhaseId}
               disabled={!canEdit}
-              onValueChange={(id) => send(submit({ type: 'set_active_phase', phaseId: id }, `work in ${org.phases.find((p) => p.id === id)?.entry.name ?? 'that phase'}`))}
+              onValueChange={(id) => send(submit({ type: 'set_active_phase', phaseId: id }, t('org.undo.workIn', 'work in {{name}}', { ns: 'editor', name: org.phases.find((p) => p.id === id)?.entry.name ?? t('org.thatPhase', 'that phase', { ns: 'editor' }) })))}
             >
               <SelectTrigger size="sm" className="h-7 text-xs" aria-label={t('status.activePhase', 'Active phase', { ns: 'editor' })} data-testid="active-phase">
                 <SelectValue placeholder={phase?.entry.name} />

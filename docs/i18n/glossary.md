@@ -934,6 +934,62 @@ karara bağlı olanlar tekrar yazılmadı (`Eleman`, `Parça`, `Tip`, `Kat`, `Me
 | Discipline (of a linked model) | **disiplin** | §1 disiplinler; `linkedModel.*` |
 | Contributor (company and contact) | **katkı veren** (firma ve ilgili kişi) | *İşveren* (§9/Ç20) değil — bu, modeli paylaşan taraftır |
 
+### 5.14 Aşama 4, Task 4.6: gruplar ve fazlar ağacı sözcükleri (2026-11-10)
+
+`packages/bim-editor/src/editor/organization` (gruplar, fazlar, faz filtreleri,
+"tipik" kopyalar ve etiket stilleri) çevrilirken bunlar gerekti. Yukarıda **zaten**
+karara bağlı olanlar tekrar yazılmadı (`Grup`, `Faz`, `Faz filtresi`, `Filtre`,
+`Etiket`, `Kılavuz`, `Yarım ton`, `İşaret`, `Kat`, `Pafta`, `Mekan`, `Oda`,
+`Eleman`, `Parça`, `İşveren`).
+
+| EN | TR | Not |
+|----|----|-----|
+| Groups & phases (the whole breadcrumb) | **Yönet › Gruplar ve fazlar** | §2.3: *Manage* = **Yönet** (`ribbon.tab.manage`), *Groups & phases* = **Gruplar ve fazlar**. Yol tek anahtardır (`org.managePath`), `Manage › …` diye İngilizce kalmaz |
+| Phase status: New / Existing / Demolished / Temporary | **Yeni / Mevcut / Yıkılan / Geçici** | §8 durum sözlüğü; *Yıkılan*, `ribbon.description.howNewExistingDemolishedAnd` ile aynı sözcük (`Yıkılmış` değil) |
+| Phase display: show / halftone / dashed / hide | **Göster / Yarım ton / Kesikli / Gizle** | §5.2 *halftone* = yarım ton; dördüncü seçenek *kesikli çizgi* |
+| Typical (a repeated unit or bay), typical copies | **tipik**, **tipik kopyalar** | Revit TR *tipik*; tek bir kopya **kopya**dır (§9/Ç10) |
+| Contract covers (the typical cap) | **Sözleşme kapsamı** | 10 tipik varsayılanı; *kontrat* değil (Gündelik: *sözleşme*) |
+| Across / Spacing between rows (a typical's array) | **Yan yana / Satırlar arası aralık** | *Yan yana* = kaç kopya bir satırda |
+| Mirror every other one: left for right / front for back | **Her iki taneden birini aynala: sağ-sol / ön-arka** | Cümle içinde **sağ sola** / **ön arkaya** |
+| Spread copies over the phases | **Kopyaları fazlara dağıt** | §3 *dağıt* (§5.3 *Etiketleri dağıt*) ile aynı fiil |
+| Tag style / Tag styles | **etiket stili / etiket stilleri** | §2.4 *Tag* = etiket (§5.2 *etiket şablonu* ayrı kavram: hazır satırlar) |
+| Tag style: what it says (its lines) | **Ne söylediği** | Etiketin bastığı satırlar |
+| Tag style: outline (none / box / rounded / circle / hexagon / diamond) | **çerçeve**: **çerçevesiz / kutu / yuvarlatılmış kutu / daire / altıgen / eşkenar dörtgen** | *Anahat* değil; çizim terimi *çerçeve* |
+| Tag style: words read (level / along the duct or pipe) | **Sözcüklerin yönü**: **paftada düz / kanal veya boru boyunca** | *okunuş* değil — yön kastediliyor |
+| Tag style: arrow along the run (none / downhill / uphill) | **Hat boyunca ok**: **yok / aşağı eğimli / yukarı eğimli** | §5.2 *ok ucu* = arrowhead; buradaki ok hattın eğimini gösterir |
+| Tag style: it labels / new tags on these use it | **Etiketlediği / Bunlardaki yeni etiketler onu kullanır** | İki onay kutusu kümesi: hangi türleri etiketler, hangilerinde varsayılandır |
+| Leader ends in: dot / arrow / tick / nothing | **Kılavuzun ucu**: **nokta / ok / çentik / hiçbiri** | §5.2 *ok ucu: nokta / ok / çentik* ile aynı sözcükler |
+| Text size on paper | **Kâğıtta metin boyu** | `electrical.textSizeOnPaper` ile **tek** sözcük (§0.1) |
+| Tag style: type it should say, like `{size}` | **… {{token}} gibi** | `{size}` bir alan yazımıdır; sözcüğü çevrilir, süslü parantezli alan adı çevrilmez (§5 alan adları) |
+| Bracket/Prefix and Suffix on a tag | **Öncesi / Sonrası** | ` TYP.` örneği **TİP.** olur (yazılan değer değil, örnek) |
+| Group colour / Group name | **Grup rengi / Grup adı** | |
+| New work goes here (the active group) | **yeni iş buraya girer** | `status.newWorkGoesIn` (*Yeni iş şu gruba girer:*) ile aynı fiil |
+| Locked / Unlock it before deleting it | **Kilitli / Silmeden önce kilidini açın** | §8 *kilitli* |
+| Keep it (decline a delete) | **Kalsın** | §3 *Cancel* = Vazgeç; bu **silmemeyi** seçer |
+| Element count on a group row | **{{n}} eleman** | §8: sayıdan sonra çoğul eki yok; İngilizcedeki `element`/`elements` tek Türkçeye iner |
+| On paper / Dashed in a phase filter | **Kesikli** | Faz filtresinin dördüncü çizimi |
+
+> **`organization/` kapandı (2026-11-10, altıncı tur).** Ağacın tamamı anahtarlı:
+> **195** site (11 dosya) sıfıra indi ve ağaç `NOT_YET_GUARDED`'dan çıkıp
+> `OWNED_DIRS`'a girdi; Türkçesi `i18n-organization.test.tsx` içinde ölçülür
+> (§2.3, §2.4, §5 *işaret*, §7 birim sembolleri, §8 sayı + çoğul, §9/Ç20 işveren).
+> Etiket tabloları artık **erişen** (accessor): `groupVisibilityLabel`,
+> `phaseDisplayLabel`, `phaseStatusLabel`, `tagStyleKindLabel`, `shapeLabel`,
+> `unitsLabel`, `leaderEndLabel`, `TAG_TEXT_SIZES[].label(t)` ve `managePath(t)`
+> bir `Translate` alır — İngilizce bir `Record<…, string>` anahtarlı bir çerçevenin
+> altında kalmadı. `MANAGE_PATH` sabiti kalktı: `{{path}}` artık dile göre yazılır,
+> böylece Türkçe cümlenin içinde İngilizce bir yol durmuyor.
+>
+> **Ertelenen: çekirdek verisi İngilizce kalır.** Etiket stilinin `labelOf(name)`
+> alan adları (`TAG_FIELDS`, `fieldPaths`), hazır stil adları ve açıklamaları
+> (`tagStylePresets()`), grup/faz/filtre adları (`DEFAULT_GROUPS`, `DEFAULT_PHASES`,
+> `DEFAULT_PHASE_FILTERS`) ve `typicalCapStatus().message` **veri**dir; ağaç onları
+> yazmaz. Bir cümleyi çevirmek için uydurmak §0.1'in "tek kavram, tek terim"
+> kuralını kırar. Sahibi: Aşama 5'in alan haritası (çekirdek etiketleri) ve
+> çekirdeğin prose haritası. `typicalCapStatus().message` bu turda **splice'ta**
+> çevrildi: uyarı başlığı artık `org.typicalCap.overTitle` ve `status.count` /
+> `status.cap` ile kurulur, çekirdeğin İngilizce cümlesi gösterilmez.
+
 ---
 
 ## 6. Maliyet ve ticari terimler
