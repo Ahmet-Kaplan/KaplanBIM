@@ -82,3 +82,73 @@ Pascal'ın `packages/ifc-converter/README.md`'deki sezgileri:
 Bizim `import/read-products.ts` ürünleri/portları/sistemleri okuyor ama **bu tür sınıflandırmayı yapmıyor**. Mantığı taşı, paketi taşıma (çıktısı onların şemasına göre şekillenmiş).
 
 **Dürüst maliyet: 3–5 mühendis-haftası**, gerçek Revit export'larıyla doğrulanmak üzere. Parametrik kapsam bizim eksiğimiz değil; **sınıflandırma eksiğimiz**.
+
+---
+
+## Ek — ilk incelemeden sonra bulunanlar
+
+İlk tur "ilk yapılacak"a odaklanmıştı. Derinleştirince **iki şey beklediğimden büyük**, biri de beklemediğim yerde çıktı.
+
+### 1. Walkthrough motoru bir HUD değil, tam bir yürüyüş motoru
+
+İlk hükümde "walkthrough HUD'ını taşı" demiştim. `packages/viewer/src/components/viewer/` altına bakınca bunun bir motor olduğu görülüyor:
+
+| Dosya | Ne yapıyor |
+|-------|-----------|
+| `first-person/build-collider-world.ts` | Modelden çarpışma dünyası kuruyor |
+| `first-person/ground-holes.ts` | Zemin boşlukları (merdiven boşluğu, açıklıklar) |
+| `first-person/terrain-collider.ts` | Arazi çarpışması |
+| `first-person/mechanism-targets.ts` | **Açılabilir mekanizmalar** (kapılar) — hedef tespiti |
+| `bvh-ecctrl.tsx` | BVH hızlandırmalı karakter denetleyicisi |
+| `frame-limiter.tsx` | Kare bütçesi sınırlayıcı |
+| `daylight-atmosphere.tsx` | Gün ışığı atmosferi |
+| `drone-controller.tsx` | Drone/kuş bakışı denetleyici |
+| `batched-mesh-spike.tsx` | Batch'leme performans denemesi |
+
+**Bizim için değeri:** sahibi/müşteri için **bina içinde yürüyüş**, şantiye personeli için **oryantasyon**, ve çarpışma dünyası yeniden kullanılabilir ("buradan geçilebilir mi?" kontrolü). Bu, "1-2 haftalık görselleştirme süsü" değil — **4-6 haftalık gerçek bir modül**. Ticari bir BIM'de Revit bunu vermiyor; fark yaratan bir özellik.
+
+**Önce yapılacak:** `build-collider-world` + `ground-holes` + `frame-limiter` (en küçük anlamlı dilim: modelde yürüyebilmek). `mechanism-targets` (kapı açma) ikinci dilim.
+
+### 2. Performans teknikleri — 250 bin eleman bütçemize doğrudan dokunuyor
+
+`batched-mesh-spike.tsx` ve `frame-limiter.tsx` bir tesadüf değil: büyük modellerde kare bütçesini korumak için yazılmış. Bizim `docs/PERFORMANCE.md`'de ölçülen 250.000 eleman bütçemiz var; onların batch'leme stratejisi ve kare sınırlayıcısı **doğrudan karşılaştırma malzemesi**. Kod alınmasa bile yaklaşım okunmalı.
+
+### 3. Yerleşimi bizde olmayan iki saf algoritma
+
+- **`core/src/lib/polygon-label.ts`** — polylabel: bir poligonun sınırına **en uzak iç nokta** (öncelik kuyruğu + dal-sınır). Oda adı, etiket, ölçü yazısı yerleştirmesi için tam aradığımız şey; bizim etiketlerimiz bugün çakışma çözümü yapmıyor. **Saf geometri, MIT, React yok** — doğrudan taşınabilir.
+- **`core/src/utils/room-zone-migration.ts` + `lib/room-zone-adoption.ts`** — bir poligonu, `share` ve `cover` skorlamasıyla en iyi kapsayan yüze atama. Genel bir "poligonu en iyi kaba yerleştir" algoritması; oda/bölge/mekan işimizde işe yarar.
+
+### 4. i18n'de bizden ileri oldukları üç küçük karar
+
+Onlar kendi i18n'lerini **şu anda** yazıyor (`@experimental Unreleased API`, **Lingui** üzerine). Kütüphane değiştirmeyiz — i18next göçünü yeni bitirdik — ama üç tasarım kararı okunmaya değer:
+
+- **Kapsamlı (scoped) i18n:** global tek örnek yerine **istek/görev yerel kapsam** (`PascalI18nProvider` bir scope bağlıyor). Bizim host-sahipli tek örnek yaklaşımımız tek firmada yeter; çok kiracılığa çıkarsak bu desen gerekir.
+- **`assertSafeMessageKey`:** anahtarlarda `__proto__` reddi (prototype pollution). Bizim anahtarlar geliştirici yazımı olduğu için risk düşük — **ama firma tarafından düzenlenen bir sözlük/çeviri dosyası** bu kapıyı açabilir. Ucuz bir koruma, `i18n-parity` guard'ına bir satır.
+- **`warnedMissingKeys`:** eksik anahtar uyarısını tekilleştirme. Bizde `missingKeyHandler` inert (R5) ve guard parity testine dayanıyor; onlarınki çalışma-anı tamamlayıcısı. İkisi birlikte doğru olurdu.
+
+### 5. `DECISIONS.md` bir pratik olarak
+
+Onların sadakat sıralaması ("geometri → tesisat/MEP → … → render") bir **öncelik sözleşmesi** olarak yazılmış. Bizim `AGENTS.md` + `ROADMAP.md` var ama "neye önce sadık kalınır" tek satırda yazılı değil. Küçük, ucuz, faydalı bir alışkanlık.
+
+### 6. `retired-tools.ts` — bir uyarı
+
+Geri çekmek istedikleri araç adlarına cevap vermek için bir shim tutuyorlar. **159 araç dersimizin** aynısını yaşıyorlar ve **script'lere geri dönüyorlar** (`packages/geometry-script`, `add_object`). Bizim ≤10 araç kuralımızın en iyi dış kanıtı bu.
+
+---
+
+## Güncellenmiş hüküm — ne alınmalı
+
+| Parça | Karar | Efor |
+|-------|-------|------|
+| **IFC import sınıflandırma** | **ALINDI** (adım 1-3 bitti: veto, `element_type`, katmanlar→yüz m²) | ✅ |
+| **Walkthrough motoru** | **Al** — en küçük dilim: çarpışma dünyası + zemin boşlukları + kare sınırlayıcı | **4-6 hafta** (ilk dilim ~2) |
+| **`polygon-label` (polylabel)** | **Al** — etiket/oda adı yerleştirmesi | **1-2 gün** |
+| **`room-zone-adoption` skorlaması** | **Al** — poligon→yüz atama | **2-3 gün** |
+| **Performans (batch + frame limiter)** | **Oku, ödünç al** — 250k eleman bütçemizle karşılaştır | **1-2 gün** |
+| **i18n'den 3 küçük karar** | **Al** — `assertSafeMessageKey` guard'a, `warnedMissingKeys`, scoped deseni not et | **~1 gün** |
+| **`DECISIONS.md` pratiği** | **Al** — sadakat sıralaması | saatler |
+| Giydirme cephe (`IfcPlate`/`IfcMember`) | **Al** — kendi boşluk listemizden; örnekte 34 ürünün 25'i | 1-2 gün |
+| Scan-to-BIM | Deseni al, yapımı ertele | ~1 hafta |
+| Şema, UI kit, CLI, hosted krediler | **Alma** | — |
+
+**Sıralama:** IFC adım 4-5 (kaplamalar, `IfcSpace` kalitesi) → polylabel + room-zone (ucuz, hemen görünür) → walkthrough ilk dilimi → performans okuması.
