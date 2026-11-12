@@ -22,7 +22,7 @@
    *"Plain JSON, so a firm can keep one in a folder, a repository or a database and every
    host reads it the same way"* (`schema.ts:15-17`). That is the point: a file can be
    versioned, diffed, reviewed and handed to a successor. `FileLibraryProvider` reads
-   folders, single files, URLs and in-memory bundles (`PROVIDER.md:7-10`); a host that
+   folders, single files, URLs and in-memory bundles (`PROVIDER.md:8-11`); a host that
    keeps libraries in its own database implements the same interface and runs the same
    conformance suite.
 2. **What it holds.** Display profiles (`units`), object classes (`classes`), shared
@@ -48,7 +48,7 @@
    (`layering.ts:1-9`, `:43-70`). A pin holds the item itself with its hash, so drawing a
    schedule, printing a sheet or evaluating on the authority never calls a provider, an
    issued sheet never changes under a firm edit, and a newer revision is *offered*
-   (`pinUpdates`), never applied (`pin.ts:1-8`, `PROVIDER.md:20-26`).
+   (`pinUpdates`), never applied (`pin.ts:5-8`, `PROVIDER.md:18-28`).
 7. **The editor gets it from the host, and says so when the host has none.**
    `EditorFirmLibraryPort` is an optional port on the host contract
    (`bim-editor-host/src/data.ts:81-112`, `:390`); the editor never reads a folder itself
@@ -70,11 +70,11 @@
 ## How it goes wrong
 
 - **A library only one app version can read.** `version` is `z.literal(1)`
-   (`schema.ts:213`), so a v2 bundle is refused outright — correct in the safe direction,
-   silent in the other: run it, an *unknown top-level section* in a bundle written by a
-   newer app is accepted and dropped (`libraryBundleSchema` does not refuse unknown
-   keys), so a republish from the older app loses it. *Tell:* a section in a bundle that
-   no `ITEM_SECTIONS` entry names.
+  (`schema.ts:213`), so a v2 bundle is refused outright — safe in that direction and
+  silent in the other: an *unknown top-level section*, written by a newer app, is
+  accepted and dropped on load (`libraryBundleSchema` does not refuse unknown keys), so
+  a republish from the older app loses it. Both confirmed by running the schema; neither
+  has a test. *Tell:* a section in a bundle that no `ITEM_SECTIONS` entry names.
 - **A script-made part type with no provenance.** `provenance` is **optional**
    (`items/part-type.ts:49`), so the schema cannot tell a part a script made from one a
    person drew; the honest answer is `not_from_script` at regeneration time
