@@ -157,14 +157,15 @@ const EDITOR_ENTRIES = fs.readdirSync(EDITOR_SRC, { withFileTypes: true });
  *
  * The same shape `NOT_YET_GUARDED` gives the trees, for the same reason: a guard over
  * a half-keyed file reports the half that is honest to report and hides the half
- * nobody has looked at. **Empty since Task 4.7**: every file directly in
- * `src/editor` is keyed, so the discovery below guards them all. The list stays
+ * nobody has looked at. **Empty**: the last eight files closed in the round of
+ * 2026-11-10 — `LinkedElementProperties`, `RunProperties`, `RunMoveForm`,
+ * `PartSpaceProperties`, `GroupProperties`, `LinkModelDialog`, `DocsPickerDialog`
+ * and `LinkedModelsPanel` — so the discovery below now guarantees **every** file
+ * directly in `src/editor` (64 of them, read off the filesystem). The list stays
  * because a file added tomorrow is guarded on the day it appears, and a file that
  * has to wait is named here with its owner rather than silently skipped.
  */
-export const NOT_YET_GUARDED_FILES: readonly string[] = [
-  "LinkedModelsPanel.tsx",
-];
+export const NOT_YET_GUARDED_FILES: readonly string[] = [];
 
 /**
  * The files that sit **directly** in `src/editor`: the shell (`BuildingModelSurface`),
@@ -232,6 +233,17 @@ test("every tree under src/editor is classified, and every guarded name exists",
     unguardedFiles: [],
     staleOwedFiles: [],
   });
+});
+
+test("every file directly in src/editor is inside the scan, and the scan is not empty", () => {
+  // The guarantee `NOT_YET_GUARDED_FILES` is empty buys: the eight files that closed
+  // on 2026-11-10 (`NOT_YET_GUARDED_FILES` was their list) are read by `visibleEnglish`
+  // now, together with the shell, the session, the ribbon and every helper beside them.
+  const scanned = new Set(OWNED.map((entry) => path.basename(entry)));
+  expect(TOP_LEVEL_FILES.filter((file) => !scanned.has(file) && !NOT_YET_GUARDED_FILES.includes(file))).toEqual([]);
+  // Discovery, not a list: the count comes off `fs.readdirSync`, so a file added
+  // tomorrow is in `TOP_LEVEL_FILES` before anyone writes its test.
+  expect(TOP_LEVEL_FILES.length).toBeGreaterThan(40);
 });
 
 test("no user-visible English in the stage-4 trees sits outside a translator", () => {

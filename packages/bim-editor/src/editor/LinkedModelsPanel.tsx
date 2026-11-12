@@ -74,7 +74,6 @@ import { ExportFailureDetails } from './ExportFailureDetails'
 import { LinkModelDialog } from './LinkModelDialog'
 import { LinkedIdentityDialog } from './linked-display/LinkedIdentityDialog'
 import { ProposeChangesDialog } from './ifc-import/ProposeChangesDialog'
-import { PROPOSE_WORDS } from '../contracts/building-model/ifc-import/contract'
 import { useEditorTranslate } from './i18n/translate'
 
 const POLL_MS = 4000
@@ -133,8 +132,13 @@ export function LinkedModelsPanel({ projectId, linkOpen, onLinkOpenChange, onVie
     fetchLinkedModelsFrom(linked, projectId, controller.signal)
       .then((next) => {
         for (const done of finishedUpdates(previousRef.current, next)) {
-          if (done.status === 'ready') toast.success(`${done.label} is updated (version ${done.versionNumber}).`)
-          else toast.error(`${done.label} didn't update${done.error ? `: ${done.error}` : '.'}`)
+          if (done.status === 'ready') {
+            toast.success(t('linkedModels.isUpdated', '{{label}} is updated (version {{version}}).', { ns: 'editor', label: done.label, version: done.versionNumber }))
+          } else if (done.error) {
+            toast.error(t('linkedModels.didNotUpdateWhy', "{{label}} didn't update: {{reason}}", { ns: 'editor', label: done.label, reason: done.error }))
+          } else {
+            toast.error(t('linkedModels.didNotUpdate', "{{label}} didn't update.", { ns: 'editor', label: done.label }))
+          }
         }
         previousRef.current = next
         setData(next)
@@ -148,10 +152,10 @@ export function LinkedModelsPanel({ projectId, linkOpen, onLinkOpenChange, onVie
       .catch((err: unknown) => {
         if (controller.signal.aborted) return
         console.error('[LinkedModelsPanel] load failed', err)
-        setLoadError(err instanceof Error ? err.message : "Couldn't load the linked models.")
+        setLoadError(err instanceof Error ? err.message : t('linkedModels.couldNotLoad', "Couldn't load the linked models.", { ns: 'editor' }))
       })
     return () => controller.abort()
-  }, [linked, projectId, refreshTick, onViewChange, onCanEditChange])
+  }, [linked, projectId, refreshTick, onViewChange, onCanEditChange, t])
 
   const busy = useMemo(
     () =>
@@ -181,16 +185,16 @@ export function LinkedModelsPanel({ projectId, linkOpen, onLinkOpenChange, onVie
       .catch((err: unknown) => {
         if (controller.signal.aborted) return
         console.error('[LinkedModelsPanel] checking for new versions failed', err)
-        setFreshnessError(err instanceof Error ? err.message : "Couldn't check Autodesk Docs for new versions.")
+        setFreshnessError(err instanceof Error ? err.message : t('linkedModels.couldNotCheck', "Couldn't check Autodesk Docs for new versions.", { ns: 'editor' }))
       })
     return () => controller.abort()
-  }, [linked, projectId, hasReferences, busy, freshTick])
+  }, [linked, projectId, hasReferences, busy, freshTick, t])
 
   const canEdit = data?.canEdit ?? false
   const exportRunning = data?.autodeskExport ? isInProgress(data.autodeskExport.status) : false
   const projectModel = data?.references.find((r) => r.isProjectModel) ?? null
   const projectModelReadyAt = projectModel?.versions.find((v) => v.id === projectModel.currentVersionId)?.readyAt ?? null
-  const hostName = data?.revitModel?.name ?? "our Revit model"
+  const hostName = data?.revitModel?.name ?? t('linkedModels.ourRevitModel', 'our Revit model', { ns: 'editor' })
   // The project's Revit model is connected but has never been exported here.
   const hostNeverExported = data !== null && data.revitModel !== null && projectModel === null && data.autodeskExport === null
   const startHostExport = useCallback(async () => {
@@ -198,10 +202,10 @@ export function LinkedModelsPanel({ projectId, linkOpen, onLinkOpenChange, onVie
       await startAutodeskExportFrom(linked, projectId)
     } catch (err) {
       console.error('[LinkedModelsPanel] starting the export of our Revit model failed', err)
-      toast.error(err instanceof Error ? err.message : `${hostName} couldn't be exported.`)
+      toast.error(err instanceof Error ? err.message : t('linkedModels.couldNotBeExported', "{{host}} couldn't be exported.", { ns: 'editor', host: hostName }))
     }
     refresh()
-  }, [linked, projectId, refresh, hostName])
+  }, [linked, projectId, refresh, hostName, t])
   // Bring our own Revit model in by itself the first time the panel sees it
   // connected without ever having been exported (projects linked before the
   // Integrations link started the export). Once per project per mount.
@@ -211,19 +215,33 @@ export function LinkedModelsPanel({ projectId, linkOpen, onLinkOpenChange, onVie
     autoStartedFor.current = projectId
     void startHostExport()
   }, [hostNeverExported, canEdit, projectId, startHostExport])
-  const editReason = canEdit ? null : "You can view linked models. Linking and unlinking need edit access to this project's model."
-  const docsReason = editReason ?? (data && !data.revitModel ? "Connect this project's Revit model first; its Autodesk Docs project is where models are picked from." : null)
+  const editReason = canEdit
+    ? null
+    : t('linkedModels.needEditAccess', "You can view linked models. Linking and unlinking need edit access to this project's model.", { ns: 'editor' })
+  const docsReason = editReason ?? (data && !data.revitModel ? t('linkedModels.connectFirst', "Connect this project's Revit model first; its Autodesk Docs project is where models are picked from.", { ns: 'editor' }) : null)
 
   async function refreshFromDocs(ref: Pick<LinkedReferenceView, 'id' | 'label'>, mode: 'check' | 'relink') {
     try {
       const result = await refreshDocsReferenceFrom(linked, projectId, ref.id, mode)
-      if (result.outcome === 'up_to_date') toast.success(`${ref.label} is up to date${result.versionNumber !== null ? ` (Docs version ${result.versionNumber})` : ''}.`)
-      else if (result.outcome === 'already_running') toast(`${ref.label} is already coming in from Autodesk Docs.`)
-      else toast.success(mode === 'check' ? `A newer version of ${ref.label} is in Docs. Bringing it in…` : `Bringing ${ref.label} in again from Autodesk Docs…`)
+      if (result.outcome === 'up_to_date') {
+        toast.success(
+          result.versionNumber !== null
+            ? t('linkedModels.upToDateWithVersion', '{{label}} is up to date (Docs version {{version}}).', { ns: 'editor', label: ref.label, version: result.versionNumber })
+            : t('linkedModels.upToDate', '{{label}} is up to date.', { ns: 'editor', label: ref.label }),
+        )
+      } else if (result.outcome === 'already_running') {
+        toast(t('linkedModels.alreadyComingIn', '{{label}} is already coming in from Autodesk Docs.', { ns: 'editor', label: ref.label }))
+      } else {
+        toast.success(
+          mode === 'check'
+            ? t('linkedModels.newerVersionInDocs', 'A newer version of {{label}} is in Docs. Bringing it in…', { ns: 'editor', label: ref.label })
+            : t('linkedModels.bringingInAgain', 'Bringing {{label}} in again from Autodesk Docs…', { ns: 'editor', label: ref.label }),
+        )
+      }
       refresh()
     } catch (err) {
       console.error(`[LinkedModelsPanel] Docs ${mode} failed`, err)
-      toast.error(err instanceof Error ? err.message : "Autodesk Docs didn't answer.")
+      toast.error(err instanceof Error ? err.message : t('linkedModels.docsDidNotAnswer', "Autodesk Docs didn't answer.", { ns: 'editor' }))
     }
   }
 
@@ -237,7 +255,7 @@ export function LinkedModelsPanel({ projectId, linkOpen, onLinkOpenChange, onVie
       setFreshTick((t) => t + 1)
     } catch (err) {
       console.error('[LinkedModelsPanel] Update from Revit failed', err)
-      toast.error(err instanceof Error ? err.message : `${ref.label} couldn't be updated.`)
+      toast.error(err instanceof Error ? err.message : t('linkedModels.couldNotBeUpdated', "{{label}} couldn't be updated.", { ns: 'editor', label: ref.label }))
     }
   }
 
@@ -248,7 +266,7 @@ export function LinkedModelsPanel({ projectId, linkOpen, onLinkOpenChange, onVie
       refresh()
     } catch (err) {
       console.error(`[LinkedModelsPanel] ${what} failed`, err)
-      toast.error(err instanceof Error ? err.message : `${what} didn't work.`)
+      toast.error(err instanceof Error ? err.message : t('linkedModels.didNotWork', "{{what}} didn't work.", { ns: 'editor', what }))
     }
   }
 
@@ -262,22 +280,22 @@ export function LinkedModelsPanel({ projectId, linkOpen, onLinkOpenChange, onVie
             <span>
               <Button size="sm" variant="outline" onClick={() => setDocsOpen(true)} disabled={docsReason !== null} data-testid="docs-picker-open">
                 <CloudDownload data-icon="inline-start" />
-                Add from Autodesk Docs…
+                {t('linkedModels.addFromDocs', 'Add from Autodesk Docs…', { ns: 'editor' })}
               </Button>
             </span>
           </TooltipTrigger>
-          <TooltipContent>{docsReason ?? "Pick the architect's (or anyone's) Revit or IFC files in this project's Autodesk Docs"}</TooltipContent>
+          <TooltipContent>{docsReason ?? t('linkedModels.addFromDocsWhy', "Pick the architect's (or anyone's) Revit or IFC files in this project's Autodesk Docs", { ns: 'editor' })}</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
             <span>
               <Button size="sm" variant="outline" onClick={() => onLinkOpenChange(true)} disabled={!canEdit} data-testid="link-model-open">
                 <Link2 data-icon="inline-start" />
-                Link
+                {t('linkedModels.link', 'Link', { ns: 'editor' })}
               </Button>
             </span>
           </TooltipTrigger>
-          <TooltipContent>{editReason ?? 'Bring in the models linked in our Revit file, or upload an IFC file'}</TooltipContent>
+          <TooltipContent>{editReason ?? t('linkedModels.linkWhy', 'Bring in the models linked in our Revit file, or upload an IFC file', { ns: 'editor' })}</TooltipContent>
         </Tooltip>
         </div>
       </div>
@@ -287,7 +305,7 @@ export function LinkedModelsPanel({ projectId, linkOpen, onLinkOpenChange, onVie
           <AlertDescription>
             {loadError}{' '}
             <Button variant="link" size="sm" className="h-auto p-0" onClick={refresh}>
-              Try again
+              {t('linkedModels.tryAgain', 'Try again', { ns: 'editor' })}
             </Button>
           </AlertDescription>
         </Alert>
@@ -297,11 +315,14 @@ export function LinkedModelsPanel({ projectId, linkOpen, onLinkOpenChange, onVie
         <Alert variant={data.autodeskExport.status === 'failed' ? 'destructive' : 'default'} data-testid="linked-models-export-status">
           {isInProgress(data.autodeskExport.status) && <Spinner />}
           <AlertDescription className="text-xs">
-            <span className="block font-medium">{hostName} · this project&apos;s Revit model</span>
+            <span className="block font-medium">{t('linkedModels.hostThisProject', "{{host}} · this project's Revit model", { ns: 'editor', host: hostName })}</span>
             {exportStatusLabel(data.autodeskExport)}
             {data.autodeskExport.status === 'failed' && data.autodeskExport.details && (
               <ExportFailureDetails
-                title={`Export of ${data.revitModel?.name ?? "the project's Revit model"}`}
+                title={t('linkedModels.exportOf', 'Export of {{name}}', {
+                  ns: 'editor',
+                  name: data.revitModel?.name ?? t('linkedModels.theProjectRevitModel', "the project's Revit model", { ns: 'editor' }),
+                })}
                 jobId={data.autodeskExport.id}
                 error={data.autodeskExport.error}
                 details={data.autodeskExport.details}
@@ -313,9 +334,9 @@ export function LinkedModelsPanel({ projectId, linkOpen, onLinkOpenChange, onVie
       {freshnessError && (
         <Alert data-testid="linked-models-freshness-error">
           <AlertDescription className="text-xs">
-            Couldn&apos;t check Autodesk Docs for newer versions: {freshnessError}{' '}
+            {t('linkedModels.couldNotCheckNewer', "Couldn't check Autodesk Docs for newer versions:", { ns: 'editor' })} {freshnessError}{' '}
             <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setFreshTick((t) => t + 1)}>
-              Check again
+              {t('linkedModels.checkAgain', 'Check again', { ns: 'editor' })}
             </Button>
           </AlertDescription>
         </Alert>
@@ -323,8 +344,8 @@ export function LinkedModelsPanel({ projectId, linkOpen, onLinkOpenChange, onVie
       {data?.autodeskExport?.leftLocks && (
         <Alert variant="destructive" data-testid="linked-models-left-locks">
           <AlertDescription className="text-xs">
-            <span className="block font-medium">The last export left elements borrowed in a Revit model</span>
-            {data.autodeskExport.leftLocks} The button is on the Autodesk Revit card: project menu → Setup → Links.
+            <span className="block font-medium">{t('linkedModels.leftLocksTitle', 'The last export left elements borrowed in a Revit model', { ns: 'editor' })}</span>
+            {t('linkedModels.leftLocksWhere', '{{count}} caught. The button is on the Autodesk Revit card: project menu → Setup → Links.', { ns: 'editor', count: data.autodeskExport.leftLocks })}
           </AlertDescription>
         </Alert>
       )}
@@ -336,21 +357,23 @@ export function LinkedModelsPanel({ projectId, linkOpen, onLinkOpenChange, onVie
       {data?.autodeskExport && data.autodeskExport.status === 'done' && data.autodeskExport.foundNoRevitLinks && (
         <Alert data-testid="linked-models-no-revit-links">
           <AlertDescription className="text-xs">
-            {data.revitModel?.name ?? 'The Revit model'} has no Revit links, so only the project&apos;s own model came in. If the
-            architect&apos;s model is a separate file in Autodesk Docs, use Add from Autodesk Docs; otherwise upload its IFC with Link.
+            {t('linkedModels.noRevitLinks', "{{host}} has no Revit links, so only the project's own model came in. If the architect's model is a separate file in Autodesk Docs, use Add from Autodesk Docs; otherwise upload its IFC with Link.", {
+              ns: 'editor',
+              host: data.revitModel?.name ?? t('linkedModels.theRevitModel', 'The Revit model', { ns: 'editor' }),
+            })}
           </AlertDescription>
         </Alert>
       )}
       {data?.autodeskExport && data.autodeskExport.status === 'done' && data.autodeskExport.missingLinks.length > 0 && (
         <Alert data-testid="linked-models-missing-links">
           <AlertDescription className="text-xs">
-            <span className="block font-medium">Not brought in from Revit:</span>
+            <span className="block font-medium">{t('linkedModels.notBroughtIn', 'Not brought in from Revit:', { ns: 'editor' })}</span>
             {data.autodeskExport.missingLinks.map((m) => (
               <span key={m.title} className="block">
                 {m.title}: {m.reason}
                 {m.detail && (
                   <span className="block break-words text-muted-foreground" data-testid="linked-models-missing-detail">
-                    What Revit reported: {m.detail}
+                    {t('linkedModels.whatRevitReported', 'What Revit reported: {{detail}}', { ns: 'editor', detail: m.detail })}
                   </span>
                 )}
               </span>
@@ -368,10 +391,15 @@ export function LinkedModelsPanel({ projectId, linkOpen, onLinkOpenChange, onVie
         >
           {isInProgress(job.status) && <Spinner />}
           <AlertDescription className="text-xs">
-            <span className="block font-medium">{job.label} · from Autodesk Docs</span>
+            <span className="block font-medium">{t('linkedModels.docsImportHeading', '{{label}} · from Autodesk Docs', { ns: 'editor', label: job.label })}</span>
             {job.status === 'done' && job.notice ? <span data-testid="docs-import-notice">{job.notice}</span> : docsImportStatusLabel(job)}
             {job.status === 'failed' && job.details && (
-              <ExportFailureDetails title={`${job.label} (${job.fileName}) from Autodesk Docs`} jobId={job.jobId} error={job.error} details={job.details} />
+              <ExportFailureDetails
+                title={t('linkedModels.docsExportOf', '{{label}} ({{file}}) from Autodesk Docs', { ns: 'editor', label: job.label, file: job.fileName })}
+                jobId={job.jobId}
+                error={job.error}
+                details={job.details}
+              />
             )}
             {job.status === 'failed' && canEdit && (
               <Button
@@ -381,13 +409,17 @@ export function LinkedModelsPanel({ projectId, linkOpen, onLinkOpenChange, onVie
                 onClick={() =>
                   void (job.referenceId
                     ? refreshFromDocs({ id: job.referenceId, label: job.label }, 'relink')
-                    : act('Trying again', async () => {
-                        await addDocsItemsFrom(linked, projectId, [{ itemId: job.itemId, label: job.label, discipline: job.discipline }])
-                      }, `Bringing ${job.label} in again…`))
+                    : act(
+                        t('linkedModels.tryingAgainWhat', 'Trying again', { ns: 'editor' }),
+                        async () => {
+                          await addDocsItemsFrom(linked, projectId, [{ itemId: job.itemId, label: job.label, discipline: job.discipline }])
+                        },
+                        t('linkedModels.bringingInAgain', 'Bringing {{label}} in again from Autodesk Docs…', { ns: 'editor', label: job.label }),
+                      ))
                 }
               >
                 <RefreshCw data-icon="inline-start" />
-                Try again
+                {t('linkedModels.tryAgain', 'Try again', { ns: 'editor' })}
               </Button>
             )}
           </AlertDescription>
@@ -398,12 +430,12 @@ export function LinkedModelsPanel({ projectId, linkOpen, onLinkOpenChange, onVie
         {data === null && !loadError && (
           <span className="flex items-center gap-2 text-xs text-muted-foreground">
             <Spinner className="size-3" />
-            Loading…
+            {t('linkedModels.loading', 'Loading…', { ns: 'editor' })}
           </span>
         )}
         {data?.references.length === 0 && fixtureReferences.length === 0 && (
           <span className="text-xs text-muted-foreground" data-testid="linked-models-empty">
-            None linked yet. Linking is optional: start modeling now and bring in the architect&apos;s model with Link whenever you have it.
+            {t('linkedModels.noneYet', "None linked yet. Linking is optional: start modeling now and bring in the architect's model with Link whenever you have it.", { ns: 'editor' })}
           </span>
         )}
         {data?.revitModel && projectModel === null && (
@@ -411,28 +443,28 @@ export function LinkedModelsPanel({ projectId, linkOpen, onLinkOpenChange, onVie
             <ItemContent>
               <ItemTitle className="text-xs">{data.revitModel.name}</ItemTitle>
               <ItemDescription className="text-xs">
-                This project&apos;s Revit model
+                {t('linkedModels.thisProjectRevitModel', "This project's Revit model", { ns: 'editor' })}
                 {exportRunning ? (
                   <span className="flex items-center gap-1">
                     <Spinner className="size-3" />
-                    Coming in from Revit (usually 2–5 minutes)…
+                    {t('linkedModels.comingInFromRevit', 'Coming in from Revit (usually 2–5 minutes)…', { ns: 'editor' })}
                   </span>
                 ) : data.autodeskExport?.status === 'failed' ? (
-                  <span className="block text-destructive">Not in yet: the last export didn&apos;t finish (details above).</span>
+                  <span className="block text-destructive">{t('linkedModels.notInYet', "Not in yet: the last export didn't finish (details above).", { ns: 'editor' })}</span>
                 ) : data.autodeskExport?.status === 'done' ? (
-                  <span className="block">The last export finished without bringing it in. Export it again.</span>
+                  <span className="block">{t('linkedModels.finishedWithoutIt', 'The last export finished without bringing it in. Export it again.', { ns: 'editor' })}</span>
                 ) : (
-                  <span className="block">Connected but not in the Building Model yet.</span>
+                  <span className="block">{t('linkedModels.connectedNotIn', 'Connected but not in the Building Model yet.', { ns: 'editor' })}</span>
                 )}
               </ItemDescription>
               {canEdit && !exportRunning && (
                 <Button size="sm" className="mt-1 h-7 self-start" data-testid="project-model-export" onClick={() => void startHostExport()}>
                   <RefreshCw data-icon="inline-start" />
-                  {data.autodeskExport ? 'Export it again' : 'Bring it in'}
+                  {data.autodeskExport ? t('linkedModels.exportItAgain', 'Export it again', { ns: 'editor' }) : t('linkedModels.bringItIn', 'Bring it in', { ns: 'editor' })}
                 </Button>
               )}
               {!canEdit && !exportRunning && (
-                <span className="text-xs text-muted-foreground">Someone with edit access to this project&apos;s model can bring it in.</span>
+                <span className="text-xs text-muted-foreground">{t('linkedModels.needsEditAccess', "Someone with edit access to this project's model can bring it in.", { ns: 'editor' })}</span>
               )}
             </ItemContent>
           </Item>
@@ -442,7 +474,7 @@ export function LinkedModelsPanel({ projectId, linkOpen, onLinkOpenChange, onVie
             <ItemContent>
               <ItemTitle className="text-xs">{ref.label}</ItemTitle>
               {displayControl?.(ref)}
-              <ItemDescription className="text-xs">From this project&apos;s test export · read-only here</ItemDescription>
+              <ItemDescription className="text-xs">{t('linkedModels.fixtureFrom', "From this project's test export · read-only here", { ns: 'editor' })}</ItemDescription>
             </ItemContent>
           </Item>
         ))}
@@ -475,13 +507,19 @@ export function LinkedModelsPanel({ projectId, linkOpen, onLinkOpenChange, onVie
                 <ItemTitle className="text-xs">{ref.label}</ItemTitle>
                 {current && isUsable(current) && displayControl?.(ref)}
                 <ItemDescription className="text-xs">
-                  {ref.isProjectModel ? "This project's Revit model" : linkedDisciplinesLabel(disciplinesOf(ref), disciplines)}
-                  {!ref.isProjectModel && linkedContributorLabel(ref.contributor ?? null) ? ` · from ${linkedContributorLabel(ref.contributor ?? null)}` : ''}
-                  {current ? ` · version ${current.number}` : ''}
+                  {ref.isProjectModel
+                    ? t('linkedModels.thisProjectRevitModel', "This project's Revit model", { ns: 'editor' })
+                    : linkedDisciplinesLabel(disciplinesOf(ref), disciplines)}
+                  {!ref.isProjectModel && linkedContributorLabel(ref.contributor ?? null)
+                    ? t('linkedModels.fromContributor', ' · from {{who}}', { ns: 'editor', who: linkedContributorLabel(ref.contributor ?? null) ?? '' })
+                    : ''}
+                  {current ? t('linkedModels.versionNumber', ' · version {{number}}', { ns: 'editor', number: current.number }) : ''}
                   {ref.docsItem && (
                     <span className="block" data-testid="linked-model-docs">
-                      From Autodesk Docs · {ref.docsItem.fileName}
-                      {ref.docsItem.versionNumber !== null ? ` · Docs version ${ref.docsItem.versionNumber}` : ''}
+                      {t('linkedModels.fromDocs', 'From Autodesk Docs · {{file}}', { ns: 'editor', file: ref.docsItem.fileName })}
+                      {ref.docsItem.versionNumber !== null
+                        ? t('linkedModels.docsVersionNumber', ' · Docs version {{version}}', { ns: 'editor', version: ref.docsItem.versionNumber })
+                        : ''}
                     </span>
                   )}
                   {current?.placementBasis && !ref.isProjectModel && <span className="block">{PLACEMENT_BASIS_LABEL[current.placementBasis]}</span>}
@@ -493,7 +531,13 @@ export function LinkedModelsPanel({ projectId, linkOpen, onLinkOpenChange, onVie
                   )}
                   {current && (
                     <span className="block">
-                      From {current.suppliedBy.organization ? `${current.suppliedBy.organization} (via ${current.suppliedBy.name})` : current.suppliedBy.name} · {current.originalFileName}
+                      {t('linkedModels.fromWhoAndFile', 'From {{who}} · {{file}}', {
+                        ns: 'editor',
+                        who: current.suppliedBy.organization
+                          ? t('linkedModels.orgViaPerson', '{{organization}} (via {{name}})', { ns: 'editor', organization: current.suppliedBy.organization, name: current.suppliedBy.name })
+                          : current.suppliedBy.name,
+                        file: current.originalFileName,
+                      })}
                     </span>
                   )}
                   {shown && !isUsable(shown) && (
@@ -512,7 +556,7 @@ export function LinkedModelsPanel({ projectId, linkOpen, onLinkOpenChange, onVie
                     </span>
                   )}
                   {!fresh && kind !== 'upload' && freshness === null && !freshnessError && (
-                    <span className="block text-muted-foreground">Checking Autodesk Docs for a newer version…</span>
+                    <span className="block text-muted-foreground">{t('linkedModels.checkingDocs', 'Checking Autodesk Docs for a newer version…', { ns: 'editor' })}</span>
                   )}
                 </ItemDescription>
                 {canEdit && kind !== 'upload' && (
@@ -522,11 +566,15 @@ export function LinkedModelsPanel({ projectId, linkOpen, onLinkOpenChange, onVie
                     className="mt-1 h-7 self-start"
                     disabled={updating}
                     data-testid="linked-model-update"
-                    title={kind === 'docs_item' ? `Brings in ${ref.label}'s newest version from Autodesk Docs` : `Exports ${hostName} from Revit; it and every model linked in it update together`}
+                    title={
+                      kind === 'docs_item'
+                        ? t('linkedModels.bringNewest', "Brings in {{label}}'s newest version from Autodesk Docs", { ns: 'editor', label: ref.label })
+                        : t('linkedModels.exportsFromRevit', 'Exports {{host}} from Revit; it and every model linked in it update together', { ns: 'editor', host: hostName })
+                    }
                     onClick={() => void updateModel(ref, false)}
                   >
                     {updating ? <Spinner data-icon="inline-start" /> : <RefreshCw data-icon="inline-start" />}
-                    {updating ? 'Updating…' : 'Update from Revit'}
+                    {updating ? t('linkedModels.updating', 'Updating…', { ns: 'editor' }) : t('linkedModels.updateFromRevit', 'Update from Revit', { ns: 'editor' })}
                   </Button>
                 )}
                 {canEdit && (waitingOnOurModel || offerLineUp || needsAttention) && (
@@ -534,7 +582,7 @@ export function LinkedModelsPanel({ projectId, linkOpen, onLinkOpenChange, onVie
                     {waitingOnOurModel && exportRunning && (
                       <span className="flex items-center gap-1 text-xs text-muted-foreground" data-testid="linked-model-waiting-host">
                         <Spinner className="size-3" />
-                        Waiting for {hostName} to finish exporting; then choose Line up with the project model.
+                        {t('linkedModels.waitingForHost', 'Waiting for {{host}} to finish exporting; then choose Line up with the project model.', { ns: 'editor', host: hostName })}
                       </span>
                     )}
                     {waitingOnOurModel && !exportRunning && (
@@ -542,17 +590,17 @@ export function LinkedModelsPanel({ projectId, linkOpen, onLinkOpenChange, onVie
                         size="sm"
                         className="h-7"
                         data-testid="linked-model-reexport-host"
-                        title={`Exports ${hostName} (this project's model), not ${ref.label}`}
+                        title={t('linkedModels.exportsHostNotLabel', "Exports {{host}} (this project's model), not {{label}}", { ns: 'editor', host: hostName, label: ref.label })}
                         onClick={() =>
                           void act(
-                            'Re-exporting our Revit model',
+                            t('linkedModels.reexportingWhat', 'Re-exporting our Revit model', { ns: 'editor' }),
                             () => startAutodeskExportFrom(linked, projectId),
-                            `Exporting ${hostName}… When it's in, choose Line up with the project model on ${ref.label}.`,
+                            t('linkedModels.reexportingDone', "Exporting {{host}}… When it's in, choose Line up with the project model on {{label}}.", { ns: 'editor', host: hostName, label: ref.label }),
                           )
                         }
                       >
                         <RefreshCw data-icon="inline-start" />
-                        Re-export {hostName} to line this up
+                        {t('linkedModels.reexportToLineUp', 'Re-export {{host}} to line this up', { ns: 'editor', host: hostName })}
                       </Button>
                     )}
                     {offerLineUp && (
@@ -561,16 +609,22 @@ export function LinkedModelsPanel({ projectId, linkOpen, onLinkOpenChange, onVie
                         className="h-7"
                         disabled={converting}
                         data-testid="linked-model-line-up"
-                        onClick={() => void act('Lining up', () => lineUpDocsReferenceFrom(linked, projectId, ref.id), `Lining ${ref.label} up with the project model…`)}
+                        onClick={() =>
+                          void act(
+                            t('linkedModels.liningUpWhat', 'Lining up', { ns: 'editor' }),
+                            () => lineUpDocsReferenceFrom(linked, projectId, ref.id),
+                            t('linkedModels.liningUpDone', 'Lining {{label}} up with the project model…', { ns: 'editor', label: ref.label }),
+                          )
+                        }
                       >
                         {converting ? <Spinner data-icon="inline-start" /> : <Link2 data-icon="inline-start" />}
-                        {converting ? 'Lining up…' : 'Line up with the project model'}
+                        {converting ? t('linkedModels.liningUp', 'Lining up…', { ns: 'editor' }) : t('linkedModels.lineUp', 'Line up with the project model', { ns: 'editor' })}
                       </Button>
                     )}
                     {needsAttention && (
                       <Button size="sm" variant="outline" className="h-7" onClick={() => setAdjusting(ref)}>
                         <Move data-icon="inline-start" />
-                        Adjust position
+                        {t('linkedModels.adjustPosition', 'Adjust position', { ns: 'editor' })}
                       </Button>
                     )}
                   </div>
@@ -586,7 +640,7 @@ export function LinkedModelsPanel({ projectId, linkOpen, onLinkOpenChange, onVie
                     }}
                   >
                     <Upload data-icon="inline-start" />
-                    Upload again
+                    {t('linkedModels.uploadAgain', 'Upload again', { ns: 'editor' })}
                   </Button>
                 )}
                 {shown?.status === 'failed' && canEdit && (
@@ -594,17 +648,23 @@ export function LinkedModelsPanel({ projectId, linkOpen, onLinkOpenChange, onVie
                     size="sm"
                     variant="outline"
                     className="mt-1 h-7 self-start"
-                    onClick={() => void act('Trying again', () => retryVersionFrom(linked, projectId, shown.id), 'Trying the conversion again…')}
+                    onClick={() =>
+                      void act(
+                        t('linkedModels.tryingAgainWhat', 'Trying again', { ns: 'editor' }),
+                        () => retryVersionFrom(linked, projectId, shown.id),
+                        t('linkedModels.tryingConversionAgain', 'Trying the conversion again…', { ns: 'editor' }),
+                      )
+                    }
                   >
                     <RefreshCw data-icon="inline-start" />
-                    Try again
+                    {t('linkedModels.tryAgain', 'Try again', { ns: 'editor' })}
                   </Button>
                 )}
               </ItemContent>
               <ItemActions>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="size-7" aria-label={`Options for ${ref.label}`}>
+                    <Button variant="ghost" size="icon" className="size-7" aria-label={t('linkedModels.optionsFor', 'Options for {{label}}', { ns: 'editor', label: ref.label })}>
                       <MoreHorizontal />
                     </Button>
                   </DropdownMenuTrigger>
@@ -612,58 +672,73 @@ export function LinkedModelsPanel({ projectId, linkOpen, onLinkOpenChange, onVie
                     <DropdownMenuLabel className="text-xs">{ref.label}</DropdownMenuLabel>
                     <DropdownMenuSub>
                       <DropdownMenuSubTrigger disabled={readyVersions.length < 2 || !canEdit}>
-                        {readyVersions.length < 2 ? 'Only one version so far' : 'Show version'}
+                        {readyVersions.length < 2
+                          ? t('linkedModels.onlyOneVersion', 'Only one version so far', { ns: 'editor' })
+                          : t('linkedModels.showVersion', 'Show version', { ns: 'editor' })}
                       </DropdownMenuSubTrigger>
                       <DropdownMenuSubContent>
                         <DropdownMenuRadioGroup
                           value={ref.currentVersionId ?? ''}
                           onValueChange={(versionId) =>
                             void act(
-                              'Switching version',
+                              t('linkedModels.switchingVersionWhat', 'Switching version', { ns: 'editor' }),
                               () =>
                                 updateLinkedReferenceFrom(linked, projectId, ref.id, {
                                   currentVersionId: versionId,
                                 }),
-                              'Switched version',
+                              t('linkedModels.switchedVersion', 'Switched version', { ns: 'editor' }),
                             )
                           }
                         >
                           {readyVersions.map((v) => (
                             <DropdownMenuRadioItem key={v.id} value={v.id}>
-                              Version {v.number} · {new Date(v.createdAt).toLocaleDateString()} · {v.originalFileName}
+                              {t('linkedModels.versionOption', 'Version {{number}} · {{date}} · {{file}}', {
+                                ns: 'editor',
+                                number: v.number,
+                                date: new Date(v.createdAt).toLocaleDateString(),
+                                file: v.originalFileName,
+                              })}
                             </DropdownMenuRadioItem>
                           ))}
                         </DropdownMenuRadioGroup>
                       </DropdownMenuSubContent>
                     </DropdownMenuSub>
                     <DropdownMenuItem disabled={!canEdit || !current} onSelect={() => setAdjusting(ref)}>
-                      Adjust position…
+                      {t('linkedModels.adjustPositionEllipsis', 'Adjust position…', { ns: 'editor' })}
                     </DropdownMenuItem>
                     {!ref.isProjectModel && (
                       <DropdownMenuItem disabled={!canEdit} onSelect={() => setIdentifying(ref)} data-testid="linked-model-identity">
-                        What it shows and who sent it…
+                        {t('linkedModels.identity', 'What it shows and who sent it…', { ns: 'editor' })}
                       </DropdownMenuItem>
                     )}
                     {!ref.isProjectModel && (
                       <DropdownMenuItem disabled={current?.status !== 'ready'} onSelect={() => setProposing(ref)} data-testid="linked-model-propose">
-                        {current?.status === 'ready' ? `${PROPOSE_WORDS.button}…` : `${PROPOSE_WORDS.button} (once this version is ready)`}
+                        {current?.status === 'ready'
+                          ? t('linkedModels.propose', 'Propose changes to this model…', { ns: 'editor' })
+                          : t('linkedModels.proposeWhenReady', 'Propose changes to this model (once this version is ready)', { ns: 'editor' })}
                       </DropdownMenuItem>
                     )}
                     {ref.source === 'autodesk_docs_item' ? (
                       <>
                         <DropdownMenuItem
                           disabled={!canEdit || !current || converting}
-                          onSelect={() => void act('Lining up', () => lineUpDocsReferenceFrom(linked, projectId, ref.id), `Lining ${ref.label} up with the project model…`)}
+                          onSelect={() =>
+                            void act(
+                              t('linkedModels.liningUpWhat', 'Lining up', { ns: 'editor' }),
+                              () => lineUpDocsReferenceFrom(linked, projectId, ref.id),
+                              t('linkedModels.liningUpDone', 'Lining {{label}} up with the project model…', { ns: 'editor', label: ref.label }),
+                            )
+                          }
                         >
-                          {converting ? 'Lining up…' : 'Line up with the project model'}
+                          {converting ? t('linkedModels.liningUp', 'Lining up…', { ns: 'editor' }) : t('linkedModels.lineUp', 'Line up with the project model', { ns: 'editor' })}
                         </DropdownMenuItem>
                         <DropdownMenuItem disabled={!canEdit} onSelect={() => void refreshFromDocs(ref, 'relink')}>
-                          Export again from Autodesk Docs (even if nothing changed)
+                          {t('linkedModels.exportAgainFromDocs', 'Export again from Autodesk Docs (even if nothing changed)', { ns: 'editor' })}
                         </DropdownMenuItem>
                       </>
                     ) : ref.source === 'autodesk_docs' ? (
                       <DropdownMenuItem disabled={!canEdit || updating} onSelect={() => void updateModel(ref, true)} data-testid="linked-model-force-update">
-                        Export {hostName} again (even if nothing changed)
+                        {t('linkedModels.exportHostAgain', 'Export {{host}} again (even if nothing changed)', { ns: 'editor', host: hostName })}
                       </DropdownMenuItem>
                     ) : (
                       <DropdownMenuItem
@@ -673,12 +748,12 @@ export function LinkedModelsPanel({ projectId, linkOpen, onLinkOpenChange, onVie
                           onLinkOpenChange(true)
                         }}
                       >
-                        Upload a new version…
+                        {t('linkedModels.uploadNewVersion', 'Upload a new version…', { ns: 'editor' })}
                       </DropdownMenuItem>
                     )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem className="text-destructive focus:text-destructive" disabled={!canEdit} onSelect={() => setUnlinking(ref)}>
-                      Unlink…
+                      {t('linkedModels.unlinkEllipsis', 'Unlink…', { ns: 'editor' })}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -724,21 +799,27 @@ export function LinkedModelsPanel({ projectId, linkOpen, onLinkOpenChange, onVie
       <AlertDialog open={unlinking !== null} onOpenChange={(open) => !open && setUnlinking(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Unlink {unlinking?.label}?</AlertDialogTitle>
+            <AlertDialogTitle>{t('linkedModels.unlinkQuestion', 'Unlink {{label}}?', { ns: 'editor', label: unlinking?.label ?? '' })}</AlertDialogTitle>
             <AlertDialogDescription>
-              It disappears from this project&apos;s Building Model for everyone. Its files and versions are kept, so linking it again is quick.
+              {t('linkedModels.unlinkBody', "It disappears from this project's Building Model for everyone. Its files and versions are kept, so linking it again is quick.", { ns: 'editor' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep it</AlertDialogCancel>
+            <AlertDialogCancel>{t('linkedModels.keepIt', 'Keep it', { ns: 'editor' })}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => {
                 const target = unlinking
-                if (target) void act('Unlinking', () => unlinkReferenceFrom(linked, projectId, target.id), `${target.label} unlinked`)
+                if (target) {
+                  void act(
+                    t('linkedModels.unlinkingWhat', 'Unlinking', { ns: 'editor' }),
+                    () => unlinkReferenceFrom(linked, projectId, target.id),
+                    t('linkedModels.unlinkedDone', '{{label}} unlinked', { ns: 'editor', label: target.label }),
+                  )
+                }
               }}
             >
-              Unlink
+              {t('linkedModels.unlink', 'Unlink', { ns: 'editor' })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -751,7 +832,11 @@ export function LinkedModelsPanel({ projectId, linkOpen, onLinkOpenChange, onVie
           const target = adjusting
           if (!target) return
           setAdjusting(null)
-          void act('Saving the position', () => updateLinkedReferenceFrom(linked, projectId, target.id, { adjustment }), 'Position saved')
+          void act(
+            t('linkedModels.savingPositionWhat', 'Saving the position', { ns: 'editor' }),
+            () => updateLinkedReferenceFrom(linked, projectId, target.id, { adjustment }),
+            t('linkedModels.positionSaved', 'Position saved', { ns: 'editor' }),
+          )
         }}
       />
       <LinkedIdentityDialog projectId={projectId} reference={identifying} set={disciplines} onClose={() => setIdentifying(null)} onSaved={refresh} />
@@ -777,6 +862,7 @@ function AdjustPositionDialog({
 }
 
 function AdjustPositionForm({ reference, onSave }: { reference: LinkedReferenceView; onSave(adjustment: PlacementAdjustment): void }) {
+  const t = useEditorTranslate()
   const a = reference.adjustment
   const [values, setValues] = useState({
     x: String(a.x),
@@ -794,33 +880,33 @@ function AdjustPositionForm({ reference, onSave }: { reference: LinkedReferenceV
   const fields: { key: keyof typeof values; label: string; hint: string }[] = [
     {
       key: 'x',
-      label: 'Move east (m)',
-      hint: "Along the model's east axis; negative moves west",
+      label: t('linkedModels.moveEastM', 'Move east (m)', { ns: 'editor' }),
+      hint: t('linkedModels.moveEastWhyM', "Along the model's east axis; negative moves west", { ns: 'editor' }),
     },
     {
       key: 'y',
-      label: 'Move north (m)',
-      hint: "Along the model's north axis; negative moves south",
+      label: t('linkedModels.moveNorthM', 'Move north (m)', { ns: 'editor' }),
+      hint: t('linkedModels.moveNorthWhyM', "Along the model's north axis; negative moves south", { ns: 'editor' }),
     },
-    { key: 'z', label: 'Move up (m)', hint: 'Negative moves down' },
+    { key: 'z', label: t('linkedModels.moveUpM', 'Move up (m)', { ns: 'editor' }), hint: t('linkedModels.moveDownWhyM', 'Negative moves down', { ns: 'editor' }) },
     {
       key: 'rotationDeg',
-      label: 'Turn (degrees)',
-      hint: "Counter-clockwise seen from above, about where the file's own origin sits; less than 360",
+      label: t('linkedModels.turnDegrees', 'Turn (degrees)', { ns: 'editor' }),
+      hint: t('linkedModels.turnWhy', "Counter-clockwise seen from above, about where the file's own origin sits; less than 360", { ns: 'editor' }),
     },
   ]
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Adjust {reference.label}</DialogTitle>
+        <DialogTitle>{t('linkedModels.adjustTitle', 'Adjust {{label}}', { ns: 'editor', label: reference.label })}</DialogTitle>
         <DialogDescription>
           {reference.isProjectModel
-            ? "This is the project's own Revit model; its links are placed around it. Only adjust it if it doesn't line up with the new ductwork."
+            ? t('linkedModels.adjustProjectModel', "This is the project's own Revit model; its links are placed around it. Only adjust it if it doesn't line up with the new ductwork.", { ns: 'editor' })
             : reference.source === 'autodesk_docs' || (reference.source === 'autodesk_docs_item' && reference.versions[0]?.placementBasis === 'revit_link')
-            ? "This model already sits where it's linked in Revit. Only adjust it if it still doesn't line up."
-            : reference.source === 'autodesk_docs_item' && reference.versions[0]?.placementBasis === 'revit_shared_coordinates'
-            ? "This model is placed by Revit shared coordinates. Only adjust it if the architect's coordinates don't match ours."
-            : 'Line the uploaded model up with the building. Set everything to 0 to put it back where the file places it.'}
+              ? t('linkedModels.adjustRevitLink', "This model already sits where it's linked in Revit. Only adjust it if it still doesn't line up.", { ns: 'editor' })
+              : reference.source === 'autodesk_docs_item' && reference.versions[0]?.placementBasis === 'revit_shared_coordinates'
+                ? t('linkedModels.adjustSharedCoordinates', "This model is placed by Revit shared coordinates. Only adjust it if the architect's coordinates don't match ours.", { ns: 'editor' })
+                : t('linkedModels.adjustUploaded', 'Line the uploaded model up with the building. Set everything to 0 to put it back where the file places it.', { ns: 'editor' })}
         </DialogDescription>
       </DialogHeader>
       <FieldGroup className="grid grid-cols-2 gap-3">
@@ -839,10 +925,14 @@ function AdjustPositionForm({ reference, onSave }: { reference: LinkedReferenceV
       </FieldGroup>
       <DialogFooter>
         <Button variant="outline" onClick={() => setValues({ x: '0', y: '0', z: '0', rotationDeg: '0' })}>
-          Reset to 0
+          {t('linkedModels.resetToZero', 'Reset to 0', { ns: 'editor' })}
         </Button>
-        <Button onClick={() => onSave(parsed)} disabled={invalid} title={invalid ? 'Enter numbers only; the turn must be less than 360 degrees' : undefined}>
-          Save position
+        <Button
+          onClick={() => onSave(parsed)}
+          disabled={invalid}
+          title={invalid ? t('linkedModels.enterNumbersOnly', 'Enter numbers only; the turn must be less than 360 degrees', { ns: 'editor' }) : undefined}
+        >
+          {t('linkedModels.savePosition', 'Save position', { ns: 'editor' })}
         </Button>
       </DialogFooter>
     </>

@@ -100,6 +100,20 @@ const CAPTIONS: readonly Caption[] = [
   { key: 'docsPicker.cloudModel', english: 'Cloud model', turkish: 'Bulut modeli' },
   { key: 'docsPicker.pickAtLeastOne', english: 'Pick at least one Revit or IFC file', turkish: 'En az bir Revit ya da IFC dosyası seçin' },
   { key: 'docsPicker.cancel', english: 'Cancel', turkish: 'İptal' },
+  // The linked-models panel: the host is *bizim Revit modelimiz*, a version a *sürüm*,
+  // and the read-only/unlink vocabulary is §8's.
+  { key: 'linkedModels.ourRevitModel', english: 'our Revit model', turkish: 'bizim Revit modelimiz' },
+  { key: 'linkedModels.theProjectRevitModel', english: "the project's Revit model", turkish: 'projenin Revit modeli' },
+  { key: 'linkedModels.thisProjectRevitModel', english: "This project's Revit model", turkish: 'Bu projenin Revit modeli' },
+  { key: 'linkedModels.link', english: 'Link', turkish: 'Bağla' },
+  { key: 'linkedModels.unlink', english: 'Unlink', turkish: 'Bağlantıyı kaldır' },
+  { key: 'linkedModels.addFromDocs', english: 'Add from Autodesk Docs…', turkish: "Autodesk Docs'tan ekle…" },
+  { key: 'linkedModels.updateFromRevit', english: 'Update from Revit', turkish: "Revit'ten güncelle" },
+  { key: 'linkedModels.lineUp', english: 'Line up with the project model', turkish: 'Proje modeliyle hizala' },
+  { key: 'linkedModels.adjustPosition', english: 'Adjust position', turkish: 'Konumu ayarla' },
+  { key: 'linkedModels.keepIt', english: 'Keep it', turkish: 'Kalsın' },
+  { key: 'linkedModels.loading', english: 'Loading…', turkish: 'Yükleniyor…' },
+  { key: 'linkedModels.versionNumber', english: ' · version {{number}}', turkish: ' · sürüm {{number}}' },
 ]
 
 /**
@@ -114,10 +128,21 @@ const SITES: Readonly<Record<string, number>> = {
   // "device" is the fallback noun in both unplaced sentences (with and without a level).
   'linkedElement.device': 2,
   'linkedElement.filter': 2,
+  // The panel says “Try again” on a load failure, on a failed conversion and on a failed
+  // Docs import; “Line up”, “Lining up” and their two progress sentences are on the row
+  // button and in the menu; and the project's own model is named twice.
+  'linkedModels.tryAgain': 3,
+  'linkedModels.tryingAgainWhat': 2,
+  'linkedModels.bringingInAgain': 2,
+  'linkedModels.lineUp': 2,
+  'linkedModels.liningUp': 2,
+  'linkedModels.liningUpWhat': 2,
+  'linkedModels.liningUpDone': 2,
+  'linkedModels.thisProjectRevitModel': 2,
 }
 
 /** The prefixes this file owns. A key under one of them must have Turkish. */
-const PREFIXES = ['linkedElement.', 'linkModel.', 'group.', 'partSpace.', 'docsPicker.'] as const
+const PREFIXES = ['linkedElement.', 'linkModel.', 'group.', 'partSpace.', 'docsPicker.', 'linkedModels.'] as const
 
 /** `"{{n}} edits"` with `{ n: 3 }` → `"3 edits"`. The panel never shows a placeholder. */
 function fill(template: string, values: Readonly<Record<string, string | number>> | undefined): string {
@@ -230,8 +255,7 @@ test('§9/Ç9: a run is a hat, never çalıştır', () => {
   expect(TR('group.scopeStretch', 'Stretch', { ns: 'editor' })).not.toContain('çalıştır')
 })
 
-test('§2.8/Ç17: a duct is a kanal and a pipe a boru, never swapped', () => {
-  expect(TR('group.ductShape', 'Duct shape', { ns: 'editor' })).toBe('Kanal biçimi')
+test('§2.8/Ç17: a duct is a kanal and a pipe a boru, never swapped', () => {  expect(TR('group.ductShape', 'Duct shape', { ns: 'editor' })).toBe('Kanal biçimi')
   expect(TR('group.pipeSizeIn', 'Pipe size (in)', { ns: 'editor' })).toBe('Boru boyutu (in)')
   // §7: the unit symbols travel unchanged.
   expect(TR('group.espValue', '{{esp}} in. w.c.', { ns: 'editor', esp: '0.25' })).toBe('0.25 in. w.c.')
