@@ -18,9 +18,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { editorSourceCaptions } from "./helpers/editor-source-captions";
 import { englishOnly } from "../src/editor/i18n/translate";
-import { builtinListBlocked, builtinListLabel } from "../src/editor/schedules/builtin-lists";
+import { builtinListBlocked, builtinListDefinition, builtinListLabel, builtinListStoredName } from "../src/editor/schedules/builtin-lists";
+import { pipeLoadRowLabel, undrawnLoadHint } from "../src/editor/schedules/loads-list";
+import { KernelCellPlanner, childRowsNotEditable, severalCommandsNotYet } from "../src/editor/schedules/schedule-planner";
 import { translateFor } from "./helpers/editor-i18n";
 import { createI18n } from "@permitzip/bim-ui";
+import { PLACEMENT_PLANNED } from "@permitzip/bim-kernel";
 import { schedulesResources } from "../../bim-schedules-ui/src/i18n/resources";
 import { rollUpLabel, scheduleFieldLabel } from "../../bim-schedules-ui/src/i18n/words";
 
@@ -121,6 +124,57 @@ const CAPTIONS: readonly Caption[] = [
   { key: "calc.place", english: "Place", turkish: "Yerleştir" },
   { key: "calc.remove", english: "Remove", turkish: "Kaldır" },
   { key: "calc.insertTitle", english: "Insert a calculation on {{number}}", turkish: "{{number}} paftasına hesap ekle" },
+  // The built-in lists' own headings (§5 field names): a list a person makes is
+  // written in the language they are working in, the way a new part's defaults are.
+  { key: "schedule.list.notPlacedYet", english: "Not placed yet", turkish: "Henüz yerleştirilmedi" },
+  { key: "schedule.list.panelLoads", english: "Panel loads", turkish: "Pano yükleri" },
+  { key: "schedule.list.heading.plannedLevel", english: "PLANNED LEVEL", turkish: "PLANLANAN KAT" },
+  { key: "schedule.list.heading.connectionType", english: "CONNECTION TYPE", turkish: "BAĞLANTI TİPİ" },
+  { key: "schedule.list.heading.cwWsfu", english: "CW WSFU", turkish: "SOĞUK SU WSFU" },
+  { key: "schedule.list.heading.hwWsfu", english: "HW WSFU", turkish: "SICAK SU WSFU" },
+  { key: "schedule.list.heading.totalWsfu", english: "TOTAL WSFU", turkish: "TOPLAM WSFU" },
+  { key: "schedule.list.heading.hwDemand", english: "HW DEMAND", turkish: "SICAK SU TALEBİ" },
+  { key: "schedule.list.heading.gasInput", english: "GAS INPUT", turkish: "GAZ GİRİŞİ" },
+  { key: "schedule.list.heading.gasFlow", english: "GAS FLOW", turkish: "GAZ DEBİSİ" },
+  { key: "schedule.list.heading.elecLoad", english: "ELEC LOAD", turkish: "ELEKTRİK YÜKÜ" },
+  { key: "schedule.list.heading.estimate", english: "ESTIMATE {{unit}}", turkish: "TAHMİN {{unit}}" },
+  { key: "schedule.list.heading.devicesSoFar", english: "DEVICES SO FAR {{unit}}", turkish: "ŞİMDİYE KADARKİ CİHAZLAR {{unit}}" },
+  { key: "schedule.list.heading.counted", english: "COUNTED {{unit}}", turkish: "SAYILAN {{unit}}" },
+  { key: "schedule.list.heading.estimateVsDevices", english: "ESTIMATE VS DEVICES", turkish: "TAHMİN / CİHAZLAR" },
+  // The grid's own refusals.
+  { key: "schedule.planner.modelNotLoaded", english: "The model hasn't loaded yet. Try again in a moment.", turkish: "Model henüz yüklenmedi. Birazdan yeniden deneyin." },
+  { key: "schedule.planner.gone", english: "This schedule is no longer in the model.", turkish: "Bu çizelge artık modelde değil." },
+  {
+    key: "schedule.planner.unreadable",
+    english: "This schedule couldn't be read for editing. Reload the page and try again.",
+    turkish: "Bu çizelge düzenlemek için okunamadı. Sayfayı yenileyip yeniden deneyin.",
+  },
+  {
+    key: "schedule.planner.severalCommands",
+    english: "Changes to several items at once can't be saved as one step yet. Change one cell at a time for now.",
+    turkish: "Birden çok öğedeki değişiklikler henüz tek adımda kaydedilemiyor. Şimdilik her seferinde bir hücre değiştirin.",
+  },
+  { key: "schedule.planner.cellEdit", english: "Schedule cell edit", turkish: "Çizelge hücresi düzenlemesi" },
+  { key: "schedule.planner.batchEdit", english: "Schedule edit ({{count}} cells)", turkish: "Çizelge düzenlemesi ({{count}} hücre)" },
+  // The tree and the saved column widths (§2.4: schedule = çizelge).
+  { key: "schedule.tree.notAllowed", english: "You can't open this project's Building Model schedules, so the tree shows Building Model without them.", turkish: "Bu projenin Building Model çizelgelerini açamıyorsunuz, bu yüzden ağaç Building Model’i onlar olmadan gösteriyor." },
+  { key: "schedule.tree.retry", english: "Retry", turkish: "Yeniden dene" },
+  { key: "schedule.tree.subject", english: "The model’s schedules list", turkish: "Modelin çizelge listesi" },
+  { key: "schedule.prefs.widthsNotLoaded", english: "Your column widths for this schedule couldn't be loaded. It opens with the default widths.", turkish: "Bu çizelgenin sütun genişlikleriniz yüklenemedi. Varsayılan genişliklerle açılıyor." },
+  { key: "schedule.prefs.widthsNotSaved", english: "The new column widths show here, but couldn't be saved for next time.", turkish: "Yeni sütun genişlikleri burada görünüyor ama bir dahaki sefere için kaydedilemedi." },
+  // The loads list's hint and the price table's "whose book".
+  { key: "schedule.pipeLoad.rowLabel", english: "Put a row from the Loads list here", turkish: "Yükler listesinden bir satırı buraya koy" },
+  { key: "schedule.loadsList.andMore", english: "{{shown}} and {{count}} more", turkish: "{{shown}} ve {{count}} tane daha" },
+  {
+    key: "schedule.loadsList.undrawnOne",
+    english: '{{shown}} isn\\\'t drawn yet. To pipe it: draw the pipe with Route, select it, and pick the row under "{{row}}".',
+    turkish: "{{shown}} henüz çizilmedi. Boruya bağlamak için: Boru çiz ile boruyu çizip seçin, sonra “{{row}}” satırını seçin.",
+  },
+  // §2.4/§6: whose price book it is, in one sentence (§9/Ç20 keeps işveren out of it).
+  { key: "schedule.priceWith.anotherCompany", english: "another company", turkish: "başka bir firma" },
+  { key: "schedule.priceWith.basisEstimate", english: "estimate", turkish: "tahmin" },
+  { key: "schedule.priceWith.basisContract", english: "contract", turkish: "sözleşme" },
+  { key: "schedule.priceWith.whose", english: "{{book}}, {{owner}}'s {{basis}} as of {{date}}", turkish: "{{book}}, {{owner}} firmasının {{basis}} fiyatları, {{date}} itibarıyla" },
 ];
 
 /**
@@ -144,6 +198,26 @@ const SITES: Readonly<Record<string, number>> = {
   "titleBlock.unknownError": 2,
   "panel.linkedModels": 2,
   "panel.newViewOrSheet": 2,
+  // The built-in lists: every name is written where it is read and where it is stored.
+  "schedule.list.notPlacedYet": 1,
+  "schedule.list.loads": 1,
+  "schedule.list.spaceLoads": 1,
+  "schedule.list.panelLoads": 1,
+  "schedule.list.equipmentList": 1,
+  // §2.4: the same heading on every list that shows the three sides of a quantity.
+  // One call each, inside `sides()`: the three sides of a quantity are written once
+  // and used for every unit (§7 keeps `(VA)`, `(WSFU)` as they are).
+  "schedule.list.heading.estimate": 1,
+  "schedule.list.heading.devicesSoFar": 1,
+  "schedule.list.heading.counted": 1,
+  "schedule.list.heading.estimateVsDevices": 1,
+  // One refusal, said at every place the grid can reach it.
+  "schedule.planner.severalCommands": 1,
+  "schedule.planner.childRows": 1,
+  "schedule.pipeLoad.rowLabel": 1,
+  "schedule.loadsList.andMore": 1,
+  "schedule.tree.retry": 1,
+  "schedule.priceWith.whose": 1,
 };
 
 const VALUES: Readonly<Record<string, Readonly<Record<string, string | number>>>> = {
@@ -153,6 +227,13 @@ const VALUES: Readonly<Record<string, Readonly<Record<string, string | number>>>
   "calc.insertTitle": { number: "M-101" },
   "schedule.formOnlyTitle": { name: "Pompa çizelgesi" },
   "schedule.formOnlyOnSheet": { number: "M-101", title: "Pompa listesi" },
+  "schedule.list.heading.estimate": { unit: "(VA)" },
+  "schedule.list.heading.devicesSoFar": { unit: "(VA)" },
+  "schedule.list.heading.counted": { unit: "(VA)" },
+  "schedule.planner.batchEdit": { count: 4 },
+  "schedule.loadsList.andMore": { shown: "L-1, L-2, L-3", count: 2 },
+  "schedule.loadsList.undrawnOne": { shown: "L-4", row: "Yükler listesinden bir satırı buraya koy" },
+  "schedule.priceWith.whose": { book: "Acme 2026", owner: "Acme", basis: "tahmin", date: "2026-01-01" },
 };
 
 const fill = (template: string, values: Readonly<Record<string, string | number>> | undefined): string =>
@@ -261,4 +342,70 @@ test("the editor's englishOnly fills its placeholders rather than printing them"
   expect(englishOnly("schedule.listCannotBeMade", "{{name}} can’t be made yet: {{reason}}", { name: "Loads", reason: "no field" })).toBe(
     "Loads can’t be made yet: no field",
   );
+});
+
+// ---------------------------------------------------------------------------
+// The built-in lists: the stored name is an identity, the words are the person's
+// ---------------------------------------------------------------------------
+
+/** An empty model: enough for a list to be built and checked, and for nothing to be found in it. */
+const MODEL = {
+  modelId: "m",
+  revision: 0,
+  elements: {},
+  connections: [],
+  settings: { units: "imperial", precision: 2 },
+} as unknown as Parameters<typeof builtinListDefinition>[0];
+
+test("a built-in list's stored name stays the model's own word, so a list made last week is still found", () => {
+  // `findBuiltinListView` matches a view by this name; translating it would lose the list.
+  expect(builtinListStoredName("not_placed_yet")).toBe("Not placed yet");
+  expect(builtinListStoredName("loads")).toBe("Loads");
+  // What a person reads is the label, and that is Turkish.
+  expect(builtinListLabel("not_placed_yet", TR)).toBe("Henüz yerleştirilmedi");
+  expect(builtinListLabel("loads", TR)).toBe("Yükler");
+  expect(builtinListLabel("loads", EN)).toBe("Loads");
+});
+
+test("a list a Turkish person makes is headed in Turkish, and an English one is unchanged", () => {
+  const turkish = builtinListDefinition(MODEL, "loads", TR);
+  const english = builtinListDefinition(MODEL, "loads", EN);
+  const headings = (def: { columns: readonly { heading?: string }[] }) => def.columns.map((column) => column.heading);
+  expect(headings(english)).toContain("CW WSFU");
+  expect(headings(turkish)).toContain("SOĞUK SU WSFU");
+  expect(headings(turkish)).toContain("TOPLAM WSFU");
+  // §7: `DFU`, `AIRFLOW` and the unit suffixes are symbols, and both languages print them.
+  expect(headings(turkish)).toContain("DFU");
+  // The three sides of a quantity are their own heading on the lists that show them.
+  expect(headings(builtinListDefinition(MODEL, "space_loads", TR))).toContain("TAHMİN (VA)");
+  expect(headings(builtinListDefinition(MODEL, "space_loads", EN))).toContain("ESTIMATE (VA)");
+  expect(turkish.name).toBe("Loads");
+});
+
+test("the Not placed yet list filters on the placement field's own constant, never on a translated word", () => {
+  const turkish = builtinListDefinition(MODEL, "not_placed_yet", TR);
+  const filter = turkish.filters[0] as { value?: string };
+  expect(filter.value).toBe(PLACEMENT_PLANNED);
+  expect(filter.value).toBe("Not placed yet");
+});
+
+test("the grid refuses in the language it was given", () => {
+  expect(severalCommandsNotYet(EN)).toBe("Changes to several items at once can't be saved as one step yet. Change one cell at a time for now.");
+  expect(severalCommandsNotYet(TR)).toBe("Birden çok öğedeki değişiklikler henüz tek adımda kaydedilemiyor. Şimdilik her seferinde bir hücre değiştirin.");
+  expect(childRowsNotEditable(TR)).toBe("Sunulan öğeler kendi satırlarında değiştirilir. Çizelgesini açın ya da modelde seçin.");
+  // The planner says why a model it cannot read has no cell to edit.
+  const planner = new KernelCellPlanner({ model: () => null, t: TR });
+  const refusal = planner.plan({ viewId: "v", revision: 0, rows: [], rowCount: 0, window: null, columns: [] } as never, { edits: [] } as never);
+  expect(refusal.command).toBe(null);
+});
+
+test("how to pipe a load row is said in the language being drawn, with the row's own name inside it", () => {
+  expect(pipeLoadRowLabel(EN)).toBe("Put a row from the Loads list here");
+  expect(pipeLoadRowLabel(TR)).toBe("Yükler listesinden bir satırı buraya koy");
+  const model = { elements: { r1: { id: "r1", kind: "load_point", mark: "L-4", anchor: { kind: "none" } } } } as never;
+  const english = undrawnLoadHint(model, ["r1"], EN);
+  expect(english).toBe('L-4 isn\'t drawn yet. To pipe it: draw the pipe with Route, select it, and pick the row under "Put a row from the Loads list here".');
+  const turkish = undrawnLoadHint(model, ["r1"], TR);
+  expect(turkish).toContain("L-4 henüz çizilmedi. Boruya bağlamak için: Boru çiz ile boruyu çizip seçin");
+  expect(turkish).toContain("Yükler listesinden bir satırı buraya koy");
 });

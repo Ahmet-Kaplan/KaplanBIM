@@ -2,6 +2,7 @@ import { commandSchema, type Command, type ModelState, type ScheduleDefinitionV2
 import { ScheduleDefinitionError, openSchedule, type RowSet, type ScheduleSession } from '@permitzip/bim-kernel/schedules'
 import { viewScheduleDefinition } from '../../contracts/bim/schedules/view-definition'
 import type { CellCommandPlanner, CellEditBatch, CellRef, CellRefusal, TypeScopeImpact } from '@permitzip/bim-sync'
+import { englishOnly, type Translate } from '../i18n/translate'
 
 /**
  * Turns schedule grid edits into model commands for `SyncScheduleConnection`.
@@ -12,9 +13,18 @@ import type { CellCommandPlanner, CellEditBatch, CellRef, CellRefusal, TypeScope
  * as one step.
  */
 
-export const SEVERAL_COMMANDS_NOT_YET =
-  "Changes to several items at once can't be saved as one step yet. Change one cell at a time for now."
-export const CHILD_ROWS_NOT_EDITABLE = "Served items are changed on their own rows. Open their schedule or select them in the model."
+/**
+ * The two refusals the grid says in the editor's own words, rather than the
+ * kernel's English: a batch this kernel cannot save as one step, and a served
+ * item that is changed where it lives.
+ */
+export function severalCommandsNotYet(t: Translate = englishOnly): string {
+  return t('schedule.planner.severalCommands', "Changes to several items at once can't be saved as one step yet. Change one cell at a time for now.", { ns: 'editor' })
+}
+
+export function childRowsNotEditable(t: Translate = englishOnly): string {
+  return t('schedule.planner.childRows', 'Served items are changed on their own rows. Open their schedule or select them in the model.', { ns: 'editor' })
+}
 
 export { viewScheduleDefinition }
 
@@ -59,6 +69,8 @@ function refusal(cell: CellRef, reason: string): CellRefusal {
 export interface KernelPlannerOptions {
   /** The model as this person sees it now (their unsaved edits included). */
   readonly model: () => ModelState | null
+  /** The language the grid refuses in. */
+  readonly t?: Translate
 }
 
 export class KernelCellPlanner implements CellCommandPlanner {
@@ -68,10 +80,11 @@ export class KernelCellPlanner implements CellCommandPlanner {
 
   /** One engine session per model revision and view: preview and save share it. */
   private session(rows: RowSet): ScheduleSession | string {
+    const t = this.options.t ?? englishOnly
     const model = this.options.model()
-    if (!model) return "The model hasn't loaded yet. Try again in a moment."
+    if (!model) return t('schedule.planner.modelNotLoaded', "The model hasn't loaded yet. Try again in a moment.", { ns: 'editor' })
     const definition = viewScheduleDefinition(model, rows.viewId)
-    if (!definition) return 'This schedule is no longer in the model.'
+    if (!definition) return t('schedule.planner.gone', 'This schedule is no longer in the model.', { ns: 'editor' })
     const hit = this.cache
     if (hit && hit.model === model && hit.viewId === rows.viewId && hit.definition === definition) return hit.session
     try {
@@ -81,7 +94,7 @@ export class KernelCellPlanner implements CellCommandPlanner {
     } catch (err) {
       if (err instanceof ScheduleDefinitionError) return err.problems.map((p) => p.message).join(' ')
       console.error('[KernelCellPlanner] opening the schedule for an edit failed', { viewId: rows.viewId, err })
-      return "This schedule couldn't be read for editing. Reload the page and try again."
+      return t('schedule.planner.unreadable', "This schedule couldn't be read for editing. Reload the page and try again.", { ns: 'editor' })
     }
   }
 
@@ -94,7 +107,7 @@ export class KernelCellPlanner implements CellCommandPlanner {
     const typeScope: TypeScopeImpact[] = []
     for (const edit of batch.edits) {
       if (edit.parent) {
-        refusals.push(refusal(edit, CHILD_ROWS_NOT_EDITABLE))
+        refusals.push(refusal(edit, childRowsNotEditable(this.options.t ?? englishOnly)))
         continue
       }
       const plan = session.planEdit({ rowKey: edit.rowKey, columnId: edit.columnId, value: edit.value })
@@ -109,9 +122,13 @@ export class KernelCellPlanner implements CellCommandPlanner {
       }
     }
     if (commands.length === 0) return { command: null, typeScope, refusals }
-    const label = batch.edits.length === 1 ? 'Schedule cell edit' : `Schedule edit (${batch.edits.length} cells)`
+    const t = this.options.t ?? englishOnly
+    const label =
+      batch.edits.length === 1
+        ? t('schedule.planner.cellEdit', 'Schedule cell edit', { ns: 'editor' })
+        : t('schedule.planner.batchEdit', 'Schedule edit ({{count}} cells)', { ns: 'editor', count: batch.edits.length })
     const command = combineCommands(commands, label)
-    if (!command) return { command: null, typeScope, refusals: [...refusals, ...batch.edits.filter((e) => !refusals.some((r) => r.rowKey === e.rowKey && r.columnId === e.columnId)).map((e) => refusal(e, SEVERAL_COMMANDS_NOT_YET))] }
+    if (!command) return { command: null, typeScope, refusals: [...refusals, ...batch.edits.filter((e) => !refusals.some((r) => r.rowKey === e.rowKey && r.columnId === e.columnId)).map((e) => refusal(e, severalCommandsNotYet(t)))] }
     return { command, typeScope, refusals }
   }
 

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import type { EditorDataAnswer, EditorDataHost } from '@permitzip/bim-editor-host'
+import { useEditorTranslate } from '../i18n/translate'
 
 /**
  * How the signed-in person last left a schedule grid (column widths, frozen
@@ -53,6 +54,7 @@ async function refusalText(res: EditorDataAnswer): Promise<string> {
 }
 
 export function useSchedulePrefsFrom(port: EditorDataHost['schedulePrefs'], projectId: string, viewId: string): SchedulePrefs {
+  const t = useEditorTranslate()
   const [state, setState] = useState<{ viewId: string; widths: Readonly<Record<string, number>> } | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -64,13 +66,13 @@ export function useSchedulePrefsFrom(port: EditorDataHost['schedulePrefs'], proj
       .then(async (res) => {
         if (!res.ok) throw new Error(await refusalText(res))
         const body: unknown = await res.json()
-        if (!isSchedulePrefsBody(body)) throw new Error('The saved schedule layout came back in an unexpected shape.')
+        if (!isSchedulePrefsBody(body)) throw new Error(t('schedule.prefs.unexpectedShape', 'The saved schedule layout came back in an unexpected shape.', { ns: 'editor' }))
         setState({ viewId, widths: body.columnWidths })
       })
       .catch((err: unknown) => {
         if (controller.signal.aborted) return
         console.error('[useSchedulePrefs] loading the saved schedule layout failed', { projectId, viewId, err })
-        toast.error("Your column widths for this schedule couldn't be loaded. It opens with the default widths.")
+        toast.error(t('schedule.prefs.widthsNotLoaded', "Your column widths for this schedule couldn't be loaded. It opens with the default widths.", { ns: 'editor' }))
         setState({ viewId, widths: {} })
       })
     // Remember this as the schedule the person last opened.
@@ -84,7 +86,7 @@ export function useSchedulePrefsFrom(port: EditorDataHost['schedulePrefs'], proj
         console.error('[useSchedulePrefs] remembering the opened schedule failed (non-blocking)', { projectId, viewId, err })
       })
     return () => controller.abort()
-  }, [port, projectId, viewId])
+  }, [port, projectId, viewId, t])
 
   useEffect(() => () => {
     if (timer.current) clearTimeout(timer.current)
@@ -102,11 +104,11 @@ export function useSchedulePrefsFrom(port: EditorDataHost['schedulePrefs'], proj
           })
           .catch((err: unknown) => {
             console.error('[useSchedulePrefs] saving column widths failed', { projectId, viewId, err })
-            toast.error("The new column widths show here, but couldn't be saved for next time.")
+            toast.error(t('schedule.prefs.widthsNotSaved', "The new column widths show here, but couldn't be saved for next time.", { ns: 'editor' }))
           })
       }, SAVE_DELAY_MS)
     },
-    [port, projectId, viewId],
+    [port, projectId, viewId, t],
   )
 
   // Without a place to keep it, the grid opens with the default widths and keeps changes for this visit.

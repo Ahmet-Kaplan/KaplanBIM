@@ -4314,7 +4314,22 @@
       "spaceLoads": "Mekan yükleri",
       "spaceLoadsWhy": "Her mekanın tahmini, içine şimdiye kadar yerleştirilen cihazlar ve ne saydığı, her tesisat için (güç, su, tahliye, gaz, hava); içi boş sütunlar gizli kalır",
       "takeoff": "Metraj",
-      "takeoffWhy": "Kodlara göre gruplanmış metraj: her kalemin miktarı, maliyet kodu ve tipi"
+      "takeoffWhy": "Kodlara göre gruplanmış metraj: her kalemin miktarı, maliyet kodu ve tipi",
+      "heading": {
+        "plannedLevel": "PLANLANAN KAT",
+        "connectionType": "BAĞLANTI TİPİ",
+        "cwWsfu": "SOĞUK SU WSFU",
+        "hwWsfu": "SICAK SU WSFU",
+        "totalWsfu": "TOPLAM WSFU",
+        "hwDemand": "SICAK SU TALEBİ",
+        "gasInput": "GAZ GİRİŞİ",
+        "gasFlow": "GAZ DEBİSİ",
+        "elecLoad": "ELEKTRİK YÜKÜ",
+        "estimate": "TAHMİN {{unit}}",
+        "devicesSoFar": "ŞİMDİYE KADARKİ CİHAZLAR {{unit}}",
+        "counted": "SAYILAN {{unit}}",
+        "estimateVsDevices": "TAHMİN / CİHAZLAR"
+      }
     },
     "listCannotBeChecked": "{{name}} denetlenemedi: {{reason}}",
     "listCannotBeMade": "{{name}} henüz oluşturulamıyor: {{reason}}",
@@ -4367,15 +4382,16 @@
       "pickRow": "Önce satırı seçin",
       "put": "Boru ucuna koy",
       "readOnly": "Canlı düzenleme bağlı değil, bu yüzden hiçbir şey taşınamaz",
-      "whichEnd": "Hangi açık uç"
+      "whichEnd": "Hangi açık uç",
+      "rowLabel": "Yükler listesinden bir satırı buraya koy"
     },
     "priceWith": {
       "addInSettings": "Ayarlar › Fiyat kitapları bölümünden bir tane ekleyin",
       "bookDidNotLoad": "Kitap yüklenmedi.",
       "booksFailed": "Fiyat kitapları yüklenmedi: {{message}}",
-      "caption": "Fiyatlar {{whose}} kitabından.",
+      "caption": "Fiyatlar şuradan: {{whose}}.",
       "connectionDropped": "Bağlantı koptu.",
-      "fromWhose": "{{whose}} kitabından",
+      "fromWhose": "Şuradan: {{whose}}",
       "loadingBook": "Kitap yükleniyor",
       "loadingBooks": "Burada kullanabileceğiniz fiyat kitapları yükleniyor…",
       "noCompany": "Henüz fiyat kitabı olan bir şirkette değilsiniz.",
@@ -4392,7 +4408,12 @@
       "thatBookFailed": "O kitap yüklenmedi",
       "title": "Şununla fiyatla",
       "total": "Fiyatlanan satırların toplamı ({{owner}} fiyatları)",
-      "totalSome": "Fiyatlanan satırların toplamı ({{owner}} fiyatları; fiyatı olmayan satırlar dahil değil)"
+      "totalSome": "Fiyatlanan satırların toplamı ({{owner}} fiyatları; fiyatı olmayan satırlar dahil değil)",
+      "anotherCompany": "başka bir firma",
+      "basisEstimate": "tahmin",
+      "basisBudget": "bütçe",
+      "basisContract": "sözleşme",
+      "whose": "{{book}}, {{owner}} firmasının {{basis}} fiyatları, {{date}} itibarıyla"
     },
     "quantity": "Miktar",
     "showInSchedule": "Çizelgede göster",
@@ -4400,7 +4421,33 @@
     "undo": {
       "columnWidth": "{{n}}. sütunun genişliğini değiştirmek için sürükleyin"
     },
-    "unitPrice": "Birim fiyat"
+    "unitPrice": "Birim fiyat",
+    "loadsList": {
+      "andMore": "{{shown}} ve {{count}} tane daha",
+      "undrawnOne": "{{shown}} henüz çizilmedi. Boruya bağlamak için: Boru çiz ile boruyu çizip seçin, sonra “{{row}}” satırını seçin.",
+      "undrawnMany": "{{shown}} henüz çizilmedi. Birini boruya bağlamak için: Boru çiz ile boruyu çizip seçin, sonra “{{row}}” satırını seçin."
+    },
+    "planner": {
+      "modelNotLoaded": "Model henüz yüklenmedi. Birazdan yeniden deneyin.",
+      "gone": "Bu çizelge artık modelde değil.",
+      "unreadable": "Bu çizelge düzenlemek için okunamadı. Sayfayı yenileyip yeniden deneyin.",
+      "severalCommands": "Birden çok öğedeki değişiklikler henüz tek adımda kaydedilemiyor. Şimdilik her seferinde bir hücre değiştirin.",
+      "childRows": "Sunulan öğeler kendi satırlarında değiştirilir. Çizelgesini açın ya da modelde seçin.",
+      "cellEdit": "Çizelge hücresi düzenlemesi",
+      "batchEdit": "Çizelge düzenlemesi ({{count}} hücre)"
+    },
+    "prefs": {
+      "unexpectedShape": "Kaydedilmiş çizelge düzeni beklenmeyen bir biçimde geldi.",
+      "widthsNotLoaded": "Bu çizelgenin sütun genişlikleriniz yüklenemedi. Varsayılan genişliklerle açılıyor.",
+      "widthsNotSaved": "Yeni sütun genişlikleri burada görünüyor ama bir dahaki sefere için kaydedilemedi."
+    },
+    "tree": {
+      "subject": "Modelin çizelge listesi",
+      "notAllowed": "Bu projenin Building Model çizelgelerini açamıyorsunuz, bu yüzden ağaç Building Model’i onlar olmadan gösteriyor.",
+      "loadFailed": "Proje ağacı için Building Model çizelgeleri yüklenemedi. Ağaç, yeniden deneyene kadar Building Model’i onlar olmadan gösteriyor.",
+      "unexpectedShape": "Çizelgeler beklenmeyen bir biçimde geldi.",
+      "retry": "Yeniden dene"
+    }
   },
   "section": {
     "cancel": "Vazgeç",

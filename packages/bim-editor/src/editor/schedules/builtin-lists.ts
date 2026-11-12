@@ -1,5 +1,16 @@
 import { equipmentListDefinition } from '@permitzip/bim-library'
-import { elementsOfKind, fieldProviderRegistry, takeoffScheduleDefinition, TAKEOFF_SCHEDULE_DESCRIPTION, TAKEOFF_SCHEDULE_NAME, type Command, type ModelState, type Registry, type ScheduleColumnDef, type ScheduleDefinitionV2 } from '@permitzip/bim-kernel'
+import {
+  elementsOfKind,
+  fieldProviderRegistry,
+  PLACEMENT_PLANNED,
+  takeoffScheduleDefinition,
+  TAKEOFF_SCHEDULE_DESCRIPTION,
+  type Command,
+  type ModelState,
+  type Registry,
+  type ScheduleColumnDef,
+  type ScheduleDefinitionV2,
+} from '@permitzip/bim-kernel'
 
 import { validateScheduleDefinition } from '@permitzip/bim-kernel/schedules'
 import { englishOnly, type Translate } from '../i18n/translate'
@@ -19,29 +30,36 @@ export const BUILTIN_LIST_IDS: readonly BuiltinListId[] = ['equipment_list', 'no
 /** The one-click load schedules (Views › Schedules › Load schedules, and New schedule…). */
 export const LOAD_SCHEDULE_IDS: readonly BuiltinListId[] = ['space_loads', 'panel_loads', 'loads']
 
-export const BUILTIN_LIST_LABELS: Readonly<Record<BuiltinListId, string>> = {
-  equipment_list: 'Equipment list',
-  not_placed_yet: 'Not placed yet',
-  loads: 'Loads',
-  space_loads: 'Space loads',
-  panel_loads: 'Panel loads',
-  takeoff: TAKEOFF_SCHEDULE_NAME,
-}
-
-export const BUILTIN_LIST_DESCRIPTIONS: Readonly<Record<BuiltinListId, string>> = {
-  equipment_list: 'Every piece of equipment and fixture, planned and placed, with its electrical, gas and water values',
-  not_placed_yet: 'Everything that exists but nobody has drawn yet: panels, rooftop units, kitchen items',
-  loads: 'Every load row, fixture or point, typed or drawn: whether it is piped yet, and what it counts (fixture units, gas, power, air) with a totals row',
-  space_loads: 'Every space with its estimate, the devices placed in it so far, and what it counts, per trade (power, water, drainage, gas, air); columns with nothing in them stay hidden',
-  panel_loads: 'Every panel with the estimates and devices that name it as their source, and what it counts',
-  takeoff: TAKEOFF_SCHEDULE_DESCRIPTION,
-}
+/*
+ * The English of each list lives where it is read — `builtinListLabel` and
+ * `builtinListDescription` below — not in a second table beside them. Two tables
+ * of English was how a name could be fixed in one place and stay wrong in the
+ * other, and it left the built-in definitions carrying a language of their own.
+ */
 
 const PART_CLASSES = ['mep.mechanical_equipment', 'mep.air_terminal', 'mep.duct_accessory', 'mep.pipe_accessory', 'mep.plumbing_fixture', 'mep.electrical_equipment', 'mep.electrical_device', 'mep.lighting_fixture', 'gen.generic_model']
 
 const field = (id: string, heading?: string): ScheduleColumnDef => ({ id, kind: 'field', path: id, ...(heading ? { heading } : {}) })
 const param = (id: string, heading: string): ScheduleColumnDef => ({ id, kind: 'parameter', path: id, heading, hideWhenEmpty: true })
 
+/**
+ * The name a built-in list's view is stored under.
+ *
+ * Not translated: it is the model's own word for that view, and
+ * `findBuiltinListView` finds a list a person made last week by matching it, so
+ * a Turkish model must still answer to the name it was made with. Everything a
+ * person reads — the tree row, the ribbon, the New schedule dialog — says
+ * `builtinListLabel(id, t)` instead.
+ */
+export function builtinListStoredName(id: BuiltinListId): string {
+  return builtinListLabel(id, englishOnly)
+}
+
+/**
+ * A built-in list's skeleton. `NONE` is what an empty cell prints on paper: a
+ * schedule's own convention, never a sentence, and it stays as it is in every
+ * language (§7: a sheet's symbols are not words).
+ */
 const base = (name: string): Pick<ScheduleDefinitionV2, 'name' | 'groups' | 'grandTotals' | 'itemize' | 'presentation' | 'display' | 'filters'> => ({
   name,
   filters: [],
@@ -61,12 +79,22 @@ const base = (name: string): Pick<ScheduleDefinitionV2, 'name' | 'groups' | 'gra
  */
 export const EQUIPMENT_LIST_SCHEDULE: ScheduleDefinitionV2 = equipmentListDefinition()
 
-export const NOT_PLACED_YET_SCHEDULE: ScheduleDefinitionV2 = {
-  ...base('Not placed yet'),
-  source: { kind: 'classes', classes: PART_CLASSES, includeSubclasses: true },
-  filters: [{ path: 'placement', op: 'equals', value: 'Not placed yet' }],
-  columns: [field('mark', 'MARK'), field('family', 'WHAT'), field('type', 'TYPE'), param('description', 'DESCRIPTION'), field('planned_level', 'PLANNED LEVEL')],
-  sort: [{ path: 'mark', direction: 'asc' }],
+export function notPlacedYetSchedule(t: Translate): ScheduleDefinitionV2 {
+  return {
+    ...base(builtinListStoredName('not_placed_yet')),
+    source: { kind: 'classes', classes: PART_CLASSES, includeSubclasses: true },
+    // The placement field's own word, from the kernel: a filter compares a value,
+    // so it is the provider's constant and never a translated word.
+    filters: [{ path: 'placement', op: 'equals', value: PLACEMENT_PLANNED }],
+    columns: [
+      field('mark', 'MARK'),
+      field('family', 'WHAT'),
+      field('type', 'TYPE'),
+      param('description', 'DESCRIPTION'),
+      field('planned_level', t('schedule.list.heading.plannedLevel', 'PLANNED LEVEL', { ns: 'editor' })),
+    ],
+    sort: [{ path: 'mark', direction: 'asc' }],
+  }
 }
 
 /** A quantity column of what each load counts (the loads provider, typed units); the totals row is the project total. */
@@ -78,36 +106,58 @@ const counted = (path: string, heading: string): ScheduleColumnDef => ({ id: pat
  * with a totals row. On 7329: 25.75 / 13.5 / 30.25 WSFU, 79 DFU, 140 gal/h,
  * 859 CFH. Estimate / Devices so far columns are in Fields.
  */
-export const LOADS_SCHEDULE: ScheduleDefinitionV2 = {
-  ...base('Loads'),
-  grandTotals: true,
-  source: { kind: 'classes', classes: ['mep.load_point'], includeSubclasses: true },
-  columns: [
-    field('mark', 'MARK'),
-    { ...field('connection_type.mark', 'CONNECTION TYPE'), hideWhenEmpty: true },
-    field('load.stage', 'STAGE'),
-    field('load.status', 'STATUS'),
-    counted('loads.counted.wsfu_cold', 'CW WSFU'),
-    counted('loads.counted.wsfu_hot', 'HW WSFU'),
-    counted('loads.counted.wsfu_total', 'TOTAL WSFU'),
-    counted('loads.counted.dfu', 'DFU'),
-    counted('loads.counted.gph_demand', 'HW DEMAND'),
-    counted('loads.counted.mbh', 'GAS INPUT'),
-    counted('loads.counted_gas_flow', 'GAS FLOW'),
-    counted('loads.counted.va', 'ELEC LOAD'),
-    counted('loads.counted.cfm', 'AIRFLOW'),
-  ],
-  sort: [{ path: 'mark', direction: 'asc' }],
+export function loadsSchedule(t: Translate): ScheduleDefinitionV2 {
+  return {
+    ...base(builtinListStoredName('loads')),
+    grandTotals: true,
+    source: { kind: 'classes', classes: ['mep.load_point'], includeSubclasses: true },
+    columns: [
+      field('mark', 'MARK'),
+      { ...field('connection_type.mark', t('schedule.list.heading.connectionType', 'CONNECTION TYPE', { ns: 'editor' })), hideWhenEmpty: true },
+      field('load.stage', 'STAGE'),
+      field('load.status', 'STATUS'),
+      counted('loads.counted.wsfu_cold', t('schedule.list.heading.cwWsfu', 'CW WSFU', { ns: 'editor' })),
+      counted('loads.counted.wsfu_hot', t('schedule.list.heading.hwWsfu', 'HW WSFU', { ns: 'editor' })),
+      counted('loads.counted.wsfu_total', t('schedule.list.heading.totalWsfu', 'TOTAL WSFU', { ns: 'editor' })),
+      counted('loads.counted.dfu', 'DFU'),
+      counted('loads.counted.gph_demand', t('schedule.list.heading.hwDemand', 'HW DEMAND', { ns: 'editor' })),
+      counted('loads.counted.mbh', t('schedule.list.heading.gasInput', 'GAS INPUT', { ns: 'editor' })),
+      counted('loads.counted_gas_flow', t('schedule.list.heading.gasFlow', 'GAS FLOW', { ns: 'editor' })),
+      counted('loads.counted.va', t('schedule.list.heading.elecLoad', 'ELEC LOAD', { ns: 'editor' })),
+      counted('loads.counted.cfm', 'AIRFLOW'),
+    ],
+    sort: [{ path: 'mark', direction: 'asc' }],
+  }
 }
 
 /** Estimate, devices so far and counted for one quantity: the loads provider's three sides, hidden when empty, totalled. */
-const sides = (q: string, unitHeading: string): ScheduleColumnDef[] => [
-  { id: `loads.allocated.${q}`, kind: 'field', path: `loads.allocated.${q}`, heading: `ESTIMATE ${unitHeading}`, hideWhenEmpty: true, total: true },
-  { id: `loads.actual.${q}`, kind: 'field', path: `loads.actual.${q}`, heading: `DEVICES SO FAR ${unitHeading}`, hideWhenEmpty: true, total: true },
-  { id: `loads.counted.${q}`, kind: 'field', path: `loads.counted.${q}`, heading: `COUNTED ${unitHeading}`, hideWhenEmpty: true, total: true },
+const sides = (q: string, unitHeading: string, t: Translate): ScheduleColumnDef[] => [
+  { id: `loads.allocated.${q}`, kind: 'field', path: `loads.allocated.${q}`, heading: t('schedule.list.heading.estimate', 'ESTIMATE {{unit}}', { ns: 'editor', unit: unitHeading }), hideWhenEmpty: true, total: true },
+  {
+    id: `loads.actual.${q}`,
+    kind: 'field',
+    path: `loads.actual.${q}`,
+    heading: t('schedule.list.heading.devicesSoFar', 'DEVICES SO FAR {{unit}}', { ns: 'editor', unit: unitHeading }),
+    hideWhenEmpty: true,
+    total: true,
+  },
+  {
+    id: `loads.counted.${q}`,
+    kind: 'field',
+    path: `loads.counted.${q}`,
+    heading: t('schedule.list.heading.counted', 'COUNTED {{unit}}', { ns: 'editor', unit: unitHeading }),
+    hideWhenEmpty: true,
+    total: true,
+  },
 ]
 
-const ESTIMATE_VS_DEVICES: ScheduleColumnDef = { id: 'loads.estimate_vs_devices', kind: 'field', path: 'loads.estimate_vs_devices', heading: 'ESTIMATE VS DEVICES', hideWhenEmpty: true }
+const estimateVsDevices = (t: Translate): ScheduleColumnDef => ({
+  id: 'loads.estimate_vs_devices',
+  kind: 'field',
+  path: 'loads.estimate_vs_devices',
+  heading: t('schedule.list.heading.estimateVsDevices', 'ESTIMATE VS DEVICES', { ns: 'editor' }),
+  hideWhenEmpty: true,
+})
 
 /**
  * Space loads: each space's estimate beside the devices placed in it so far
@@ -115,31 +165,35 @@ const ESTIMATE_VS_DEVICES: ScheduleColumnDef = { id: 'loads.estimate_vs_devices'
  * A trade with nothing in the model hides its columns, so one list reads as
  * the electrical, plumbing, gas or air load study.
  */
-export const SPACE_LOADS_SCHEDULE: ScheduleDefinitionV2 = {
-  ...base('Space loads'),
-  grandTotals: true,
-  source: { kind: 'classes', classes: ['gen.space'], includeSubclasses: true },
-  columns: [
-    field('number', 'NUMBER'),
-    field('name', 'NAME'),
-    { ...field('area', 'AREA'), hideWhenEmpty: true },
-    ...sides('va', '(VA)'),
-    ...sides('wsfu_total', '(WSFU)'),
-    ...sides('dfu', '(DFU)'),
-    ...sides('mbh', '(MBH)'),
-    ...sides('cfm', '(CFM)'),
-    ESTIMATE_VS_DEVICES,
-  ],
-  sort: [{ path: 'number', direction: 'asc' }],
+export function spaceLoadsSchedule(t: Translate): ScheduleDefinitionV2 {
+  return {
+    ...base(builtinListStoredName('space_loads')),
+    grandTotals: true,
+    source: { kind: 'classes', classes: ['gen.space'], includeSubclasses: true },
+    columns: [
+      field('number', 'NUMBER'),
+      field('name', 'NAME'),
+      { ...field('area', 'AREA'), hideWhenEmpty: true },
+      ...sides('va', '(VA)', t),
+      ...sides('wsfu_total', '(WSFU)', t),
+      ...sides('dfu', '(DFU)', t),
+      ...sides('mbh', '(MBH)', t),
+      ...sides('cfm', '(CFM)', t),
+      estimateVsDevices(t),
+    ],
+    sort: [{ path: 'number', direction: 'asc' }],
+  }
 }
 
 /** Panel loads: what names each panel as its source, estimates and devices, and what it counts. */
-export const PANEL_LOADS_SCHEDULE: ScheduleDefinitionV2 = {
-  ...base('Panel loads'),
-  grandTotals: true,
-  source: { kind: 'classes', classes: ['mep.electrical_equipment'], includeSubclasses: true },
-  columns: [field('mark', 'MARK'), field('type', 'TYPE'), ...sides('va', '(VA)'), ESTIMATE_VS_DEVICES],
-  sort: [{ path: 'mark', direction: 'asc' }],
+export function panelLoadsSchedule(t: Translate): ScheduleDefinitionV2 {
+  return {
+    ...base(builtinListStoredName('panel_loads')),
+    grandTotals: true,
+    source: { kind: 'classes', classes: ['mep.electrical_equipment'], includeSubclasses: true },
+    columns: [field('mark', 'MARK'), field('type', 'TYPE'), ...sides('va', '(VA)', t), estimateVsDevices(t)],
+    sort: [{ path: 'mark', direction: 'asc' }],
+  }
 }
 
 /**
@@ -153,13 +207,22 @@ export function builtinListRegistry(): Registry {
   return fieldProviderRegistry()
 }
 
-export const BUILTIN_LISTS: Readonly<Record<BuiltinListId, ScheduleDefinitionV2>> = {
-  equipment_list: EQUIPMENT_LIST_SCHEDULE,
-  not_placed_yet: NOT_PLACED_YET_SCHEDULE,
-  loads: LOADS_SCHEDULE,
-  space_loads: SPACE_LOADS_SCHEDULE,
-  panel_loads: PANEL_LOADS_SCHEDULE,
-  takeoff: takeoffScheduleDefinition(),
+/** One built-in list, written in the language the person is working in. */
+export function builtinList(id: BuiltinListId, t: Translate = englishOnly): ScheduleDefinitionV2 {
+  switch (id) {
+    case 'equipment_list':
+      return EQUIPMENT_LIST_SCHEDULE
+    case 'not_placed_yet':
+      return notPlacedYetSchedule(t)
+    case 'loads':
+      return loadsSchedule(t)
+    case 'space_loads':
+      return spaceLoadsSchedule(t)
+    case 'panel_loads':
+      return panelLoadsSchedule(t)
+    case 'takeoff':
+      return takeoffScheduleDefinition()
+  }
 }
 
 /**
@@ -176,8 +239,8 @@ function problemsOf(model: ModelState, def: ScheduleDefinitionV2, id: BuiltinLis
  * needs the placement field (planned parts); a model whose registry doesn't
  * have it yet gets the list without that one column rather than no list.
  */
-export function builtinListDefinition(model: ModelState, id: BuiltinListId): ScheduleDefinitionV2 {
-  const def = BUILTIN_LISTS[id]
+export function builtinListDefinition(model: ModelState, id: BuiltinListId, t: Translate = englishOnly): ScheduleDefinitionV2 {
+  const def = builtinList(id, t)
   if (id !== 'equipment_list' || problemsOf(model, def, id).length === 0) return def
   return { ...def, columns: def.columns.filter((c) => c.id !== 'placement') }
 }
@@ -236,7 +299,7 @@ export function builtinListBlocked(model: ModelState | null, id: BuiltinListId, 
   let problems: readonly { readonly message: string }[]
   try {
     // As the model server opens it: the built-in registry, else every field provider.
-    const def = builtinListDefinition(model, id)
+    const def = builtinListDefinition(model, id, t)
     const builtin = problemsOf(model, def, id)
     problems = builtin.length === 0 ? builtin : problemsOf(model, def, id, builtinListRegistry())
   } catch (err) {
@@ -256,14 +319,14 @@ export function builtinListBlocked(model: ModelState | null, id: BuiltinListId, 
 
 }
 
-export function builtinListCommand(model: ModelState, viewId: string, name: string, id: BuiltinListId): Command {
-  return { type: 'create_view', viewId, name: name.trim(), viewType: 'schedule', props: { scheduleV2: { ...builtinListDefinition(model, id), name: name.trim() } } }
+export function builtinListCommand(model: ModelState, viewId: string, name: string, id: BuiltinListId, t: Translate = englishOnly): Command {
+  return { type: 'create_view', viewId, name: name.trim(), viewType: 'schedule', props: { scheduleV2: { ...builtinListDefinition(model, id, t), name: name.trim() } } }
 }
 
 /** The model's schedule view made from a built-in list, by its name, so the Equipment list opens the same one each time. */
 export function findBuiltinListView(model: Pick<ModelState, 'elements'> | null, id: BuiltinListId): string | null {
   if (!model) return null
-  const want = BUILTIN_LIST_LABELS[id].toLowerCase()
+  const want = builtinListStoredName(id).toLowerCase()
   for (const el of elementsOfKind(model.elements, 'view')) {
     if (!el.deleted && el.viewType === 'schedule' && el.props?.scheduleV2 && el.name.toLowerCase() === want) return el.id
   }

@@ -18,7 +18,7 @@ import { Button } from '../ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import { undrawnLoadHint } from './schedules/loads-list'
 import {
-  BUILTIN_LIST_LABELS,
+  builtinListStoredName,
   LOAD_SCHEDULE_IDS,
   builtinListBlocked,
   builtinListCommand,
@@ -2836,9 +2836,9 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
     if (!existing) {
 
       // The stored view's name stays the model's own (findBuiltinListView matches it by
-      // name), so the command takes the English label while everything shown is keyed.
+      // name), so the command takes that stored name while everything shown is keyed.
       const refusal = submitWithUndo(
-        builtinListCommand(now, viewId, BUILTIN_LIST_LABELS[id], id),
+        builtinListCommand(now, viewId, builtinListStoredName(id), id, t),
         t('schedule.makeListWhat', 'make the {{name}} schedule', { ns: 'editor', name: builtinListLabel(id, t) }),
       )
       if (refusal) {
@@ -3845,7 +3845,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
                   const first = ids[0]
                   if (!session || !first) return
                   const now = currentModel()
-                  const undrawn = now ? undrawnLoadHint(now, ids) : null
+                  const undrawn = now ? undrawnLoadHint(now, ids, t) : null
                   if (undrawn) {
                     toast.info(undrawn)
                     return

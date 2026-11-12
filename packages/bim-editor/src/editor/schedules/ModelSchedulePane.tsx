@@ -77,14 +77,14 @@ export function ModelSchedulePane({ projectId, session, connected, view, actor, 
   useEffect(() => {
     if (!client) return
     const actorRef: ActorRef = { id: actor.id, name: actor.name, color: presenceColor(actor.id) }
-    const planner = new KernelCellPlanner({ model: () => modelRef.current })
+    const planner = new KernelCellPlanner({ model: () => modelRef.current, t })
     const next = new SyncScheduleConnection(client, actorRef, { planner, onUndo: () => undoRef.current.onUndo(), onRedo: () => undoRef.current.onRedo() })
     setConnection(next)
     return () => {
       next.dispose()
       setConnection(null)
     }
-  }, [client, actor.id, actor.name, modelRef, undoRef])
+  }, [client, actor.id, actor.name, modelRef, undoRef, t])
 
   const gridConnection = useMemo(() => (connection ? toGridConnection(connection) : null), [connection])
   const target = useMemo<GridScheduleTarget>(() => ({ viewId: view.id }), [view.id])

@@ -24,7 +24,7 @@ import { bimFormulaEngine, bimUnitsCatalog } from "@permitzip/bim-library/bim-fo
 import type { AgentSession } from "@permitzip/bim-sync";
 import { formatter, parseToSI, type DisplayOverride, type Measure } from "@permitzip/bim-units";
 import { ensureFirstPartyAddOns, withPinnedPacks } from "@permitzip/bim-editor/contracts/building-model/installed-packs";
-import { BUILTIN_LIST_IDS, BUILTIN_LIST_LABELS, builtinListDefinition, builtinListRegistry, type BuiltinListId } from "@permitzip/bim-editor/editor/schedules/builtin-lists";
+import { BUILTIN_LIST_IDS, builtinListDefinition, builtinListRegistry, builtinListStoredName, type BuiltinListId } from "@permitzip/bim-editor/editor/schedules/builtin-lists";
 import { baseRevision, editIdempotencyKey, editResultBody, explain, failure, notSent, target, text, withSession, type Extra, type ResolveBimCaller } from "../runtime";
 import { findSheet, findView, pointFt, stableId } from "../views/views";
 import type { ScheduleLibrary, ScheduleToolsHost } from "./capabilities";
@@ -651,7 +651,7 @@ export function registerBimScheduleTools(server: McpServer, caller: ResolveBimCa
         }
         const input = args.definition ?? fromTemplate ?? (builtin ? { ...builtinListDefinition(model, builtin) } : null) ?? (current?.kind === "v2" ? { ...current.def } : null);
         if (!input) return { refused: "Give a definition or a library template id." };
-        const name = args.name ?? current?.name ?? (builtin ? BUILTIN_LIST_LABELS[builtin] : undefined) ?? (typeof input.name === "string" ? input.name : undefined);
+        const name = args.name ?? current?.name ?? (builtin ? builtinListStoredName(builtin) : undefined) ?? (typeof input.name === "string" ? input.name : undefined);
         if (!name) return { refused: "Give the schedule a name." };
         const def = completeDefinition(input, name);
         if (!isDefinitionV2(def)) return { refused: "A definition needs source ({kind: classes, classes, includeSubclasses}) and columns." };

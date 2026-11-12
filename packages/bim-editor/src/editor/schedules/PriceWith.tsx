@@ -13,7 +13,7 @@ import { Table, TableBody, TableCaption, TableCell, TableFooter, TableHead, Tabl
 import { useEditorHost } from '@permitzip/bim-editor/host'
 import { priceBooksApiFrom } from '../../contracts/bim/cost-source/client'
 import { priceWithBook } from '../../contracts/bim/cost-source/cost-source'
-import { PRICE_BOOK_BASIS_LABELS, type PriceBookSummary, type ReadablePriceBook } from '../../contracts/bim/cost-source/types'
+import type { PriceBookSummary, ReadablePriceBook } from '../../contracts/bim/cost-source/types'
 
 import { useEditorTranslate, type Translate } from '../i18n/translate'
 
@@ -219,11 +219,36 @@ export function PriceWith({ projectId, model }: { readonly projectId: string; re
 }
 
 
+/**
+ * What a price book's rates are: an estimate, a budget or a contract price.
+ * The contracts layer's `PRICE_BOOK_BASIS_LABELS` is data for the routes; a
+ * sentence that puts one of them mid-sentence says it in the reader's language,
+ * and the English default is already lowercased (it is used after a possessive).
+ */
+function basisWord(basis: PriceBookSummary['basis'], t: Translate): string {
+  switch (basis) {
+    case 'estimate':
+      return t('schedule.priceWith.basisEstimate', 'estimate', { ns: 'editor' })
+    case 'budget':
+      return t('schedule.priceWith.basisBudget', 'budget', { ns: 'editor' })
+    case 'contract':
+      return t('schedule.priceWith.basisContract', 'contract', { ns: 'editor' })
+  }
+}
+
 function PricedTable({ model, readable, priced, t }: { readonly model: ModelState; readonly readable: ReadablePriceBook; readonly priced: PricedTakeoff; readonly t: Translate }) {
   const { book } = readable
 
-  const owner = book.owner.name ?? 'another company'
-  const whose = `${book.name}, ${owner}'s ${PRICE_BOOK_BASIS_LABELS[book.basis].toLowerCase()} as of ${book.effectiveDate}`
+  const owner = book.owner.name ?? t('schedule.priceWith.anotherCompany', 'another company', { ns: 'editor' })
+  // Who the prices belong to, in one sentence: the possessive and "as of" are the
+  // language's, so a Turkish row never reads "Acme's estimate as of 2026-01-01".
+  const whose = t('schedule.priceWith.whose', "{{book}}, {{owner}}'s {{basis}} as of {{date}}", {
+    ns: 'editor',
+    book: book.name,
+    owner,
+    basis: basisWord(book.basis, t),
+    date: book.effectiveDate,
+  })
   const fmt = (minor: number) => formatMoney(money(minor, book.currency))
   if (priced.lines.length === 0 && priced.noRate.length === 0 && priced.unpriced.length === 0) {
 

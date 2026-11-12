@@ -5,7 +5,8 @@ import { toast } from 'sonner'
 import type { EditorDataHost } from '@permitzip/bim-editor-host'
 // Not the host barrel: it re-exports the local host, which loads all of bim-kernel onto the project page.
 import { useOptionalEditorHost } from '../../host/context'
-import { unavailableWords } from '@permitzip/bim-editor/host/unavailable'
+import { englishOnly, useEditorTranslate, type Translate } from '../i18n/translate'
+import { unavailableIn } from '../i18n/unavailable'
 
 export interface ModelScheduleTreeItem {
   readonly id: string
@@ -45,9 +46,10 @@ function isViewsBody(value: unknown): value is { views: { id: string; name: stri
 }
 
 /** What the person reads when the schedules for the project tree didn't load. */
-export function scheduleTreeErrorText(status: number | null): string {
-  if (status === 401 || status === 403) return "You can't open this project's Building Model schedules, so the tree shows Building Model without them."
-  return "Couldn't load the Building Model schedules for the project tree. The tree shows Building Model without them until you retry."
+export function scheduleTreeErrorText(status: number | null, t: Translate = englishOnly): string {
+  if (status === 401 || status === 403)
+    return t('schedule.tree.notAllowed', "You can't open this project's Building Model schedules, so the tree shows Building Model without them.", { ns: 'editor' })
+  return t('schedule.tree.loadFailed', "Couldn't load the Building Model schedules for the project tree. The tree shows Building Model without them until you retry.", { ns: 'editor' })
 }
 
 export interface ModelScheduleTreeState {
@@ -79,6 +81,7 @@ export function useModelScheduleTreeFrom(port: ModelSchedulesPort, projectId: st
 }
 
 export function useModelScheduleTreeStateFrom(port: ModelSchedulesPort, projectId: string, canReadModel: boolean): ModelScheduleTreeState {
+  const t = useEditorTranslate()
   const capabilities = useOptionalEditorHost()?.capabilities ?? null
   const [items, setItems] = useState<{ projectId: string; items: readonly ModelScheduleTreeItem[] } | null>(null)
   const [failure, setFailure] = useState<{ projectId: string; text: string } | null>(null)
@@ -93,7 +96,7 @@ export function useModelScheduleTreeStateFrom(port: ModelSchedulesPort, projectI
       .then(async (res) => {
         if (!res.ok) throw new ScheduleTreeLoadError(res.status, `HTTP ${res.status}`)
         const body: unknown = await res.json()
-        if (!isViewsBody(body)) throw new ScheduleTreeLoadError(null, 'The schedules came back in an unexpected shape.')
+        if (!isViewsBody(body)) throw new ScheduleTreeLoadError(null, t('schedule.tree.unexpectedShape', 'The schedules came back in an unexpected shape.', { ns: 'editor' }))
         setFailure(null)
         toast.dismiss(scheduleTreeToastId(projectId))
         setItems({ projectId, items: body.views.filter((v) => v.listable).map((v) => ({ id: v.id, name: v.name })) })
@@ -101,9 +104,9 @@ export function useModelScheduleTreeStateFrom(port: ModelSchedulesPort, projectI
       .catch((err: unknown) => {
         if (controller.signal.aborted) return
         console.error('[useModelScheduleTree] loading the building model schedules failed; the tree shows Building Model without them', { projectId, err })
-        const text = scheduleTreeErrorText(err instanceof ScheduleTreeLoadError ? err.status : null)
+        const text = scheduleTreeErrorText(err instanceof ScheduleTreeLoadError ? err.status : null, t)
         setFailure({ projectId, text })
-        toast.error(text, { id: scheduleTreeToastId(projectId), action: { label: 'Retry', onClick: retry } })
+        toast.error(text, { id: scheduleTreeToastId(projectId), action: { label: t('schedule.tree.retry', 'Retry', { ns: 'editor' }), onClick: retry } })
       })
     const onAnnounce = (e: Event) => {
       const detail = e instanceof CustomEvent ? e.detail : null
@@ -118,8 +121,8 @@ export function useModelScheduleTreeStateFrom(port: ModelSchedulesPort, projectI
       controller.abort()
       window.removeEventListener(MODEL_SCHEDULES_EVENT, onAnnounce)
     }
-  }, [port, enabled, projectId, attempt, retry])
-  const missing = enabled && !port ? unavailableWords('The model’s schedules list', capabilities) : null
+  }, [port, enabled, projectId, attempt, retry, t])
+  const missing = enabled && !port ? unavailableIn(t('schedule.tree.subject', 'The model’s schedules list', { ns: 'editor' }), capabilities, t) : null
   return {
     items: enabled && items?.projectId === projectId ? items.items : null,
     error: missing ?? (enabled && failure?.projectId === projectId ? failure.text : null),

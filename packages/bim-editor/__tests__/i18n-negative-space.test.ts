@@ -126,6 +126,13 @@ const OWNED_DIRS = [
   // rating and its refusal), the door flips, the sill height and the wall-end
   // grips (177 findings, fifteen files).
   "architecture",
+  // Outside stage 4 — the schedules inside the editor: the built-in lists and
+  // their headings, the grid's refusals and undo labels, the saved column widths,
+  // the project tree's schedule rows and the price table's "whose book" (39
+  // findings, six files). The schedule surfaces' own words live in
+  // `@permitzip/bim-schedules-ui` under its `schedules` namespace; the editor's
+  // chrome around them is the `editor` namespace's `schedule.*`.
+  "schedules",
 ];
 
 /**

@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { ToggleGroup, ToggleGroupItem } from '../../ui/toggle-group'
 import { openEndsForLoadPoint } from '../plumbing/PlaceLoadPoint'
 
-import { PIPE_LOAD_ROW_LABEL, pipeLoadRowCommand } from './loads-list'
+import { pipeLoadRowCommand, pipeLoadRowLabel } from './loads-list'
 import { useEditorTranslate, type Translate } from '../i18n/translate'
 
 /** The two ends of a run and a branch off it, in the language on screen. */
@@ -60,7 +60,7 @@ const why = !canEdit
     <div className="flex flex-col gap-2" data-testid="pipe-load-row">
       <Field>
         <FieldLabel htmlFor={id} className="text-xs">
-          {PIPE_LOAD_ROW_LABEL}
+          {pipeLoadRowLabel(t)}
         </FieldLabel>
         {ends.length > 1 && (
 
