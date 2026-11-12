@@ -1,4 +1,6 @@
-import { datumSnapLines, hostLineOf, joinLinesNear, type BimElement, type ElementId, type ModelState, type ReferenceSnapCandidates, type Vec2 } from '@permitzip/bim-kernel'
+import { datumSnapLines, hostLineOf, joinLinesNear, type BimElement, type ElementId, type ModelState, type ReferenceSnapCandidates, type ReferenceSnapLine, type Vec2 } from '@permitzip/bim-kernel'
+import { englishOnly, type Translate } from '../../i18n/translate'
+import { linkedNounWord } from '../../linked-reference/linked-dimension-anchors'
 
 /**
  * Where an Architecture tool's next point lands for the pointer, and what it
@@ -43,6 +45,34 @@ export interface SnapInput {
   readonly ignoreIds?: readonly string[]
   /** A linked model's faces, centre lines, ends and corners near the pointer (`linkedSnapNear`); absent or null: none loaded. */
   readonly linked?: ReferenceSnapCandidates | null
+  /** The language the marker speaks: "Wall end" is the editor's, a linked model's own noun is the pack's. */
+  readonly t?: Translate
+}
+
+/**
+ * A snap line's own words in the language being drawn: the words are the
+ * editor's, the element's noun is the pack's (`linkedNounWord`), so a Turkish
+ * marker never carries an English `wall` inside it (§2.3).
+ */
+function linkedLineWords(line: ReferenceSnapLine, t: Translate): { readonly perpendicular: string; readonly where: string } {
+  const what = linkedNounWord(line.noun, t)
+  switch (line.kind) {
+    case 'face':
+      return {
+        perpendicular: t('architecture.snap.perpendicularToLinked', 'Perpendicular to the linked {{what}}', { ns: 'editor', what }),
+        where: t('architecture.snap.onLinkedFace', "on the linked {{what}}'s face", { ns: 'editor', what }),
+      }
+    case 'centre':
+      return {
+        perpendicular: t('architecture.snap.perpendicularToLinked', 'Perpendicular to the linked {{what}}', { ns: 'editor', what }),
+        where: t('architecture.snap.onLinkedCentreLine', "on the linked {{what}}'s centre line", { ns: 'editor', what }),
+      }
+    case 'edge':
+      return {
+        perpendicular: t('architecture.snap.perpendicularToLinked', 'Perpendicular to the linked {{what}}', { ns: 'editor', what }),
+        where: t('architecture.snap.onLinkedEdge', "on the linked {{what}}'s edge", { ns: 'editor', what }),
+      }
+  }
 }
 
 /** 6 inches. */
@@ -143,6 +173,7 @@ export function squareOffWall(elements: Readonly<Record<string, BimElement>>, le
 
 export function snapPoint(input: SnapInput): Snap {
   const { model, levelId, raw, toleranceMm: tol, corners } = input
+  const t = input.t ?? englishOnly
   const best = (cands: readonly Snap[]): Snap | null => {
     let hit: Snap | null = null
     let d = tol
@@ -158,16 +189,19 @@ export function snapPoint(input: SnapInput): Snap {
 
   const first = corners[0]
   if (first && corners.length >= 2) {
-    const close = best([{ point: first, kind: 'close', label: 'First corner: closes the loop' }])
+    const close = best([{ point: first, kind: 'close', label: t('architecture.snap.closesLoop', 'First corner: closes the loop', { ns: 'editor' }) }])
     if (close) return close
   }
 
   const ignored = input.ignoreIds
   const walls = ignored && ignored.length > 0 ? wallsNear(model.elements, levelId, raw, tol).filter((w) => !ignored.includes(w.id)) : wallsNear(model.elements, levelId, raw, tol)
   // A linked model's walls snap like ours, and the marker says they are the link's.
-  const linkedLines: Line[] = (input.linked?.lines ?? []).map((l) => ({ start: l.start, end: l.end, label: l.label }))
+  // The linked model's own lines, which snap like ours and say they are the link's.
+  const linkedLines: readonly ReferenceSnapLine[] = input.linked?.lines ?? []
   const linkedPoints: Snap[] = (input.linked?.points ?? []).map((p) => ({ point: p.at, kind: 'end' as const, label: p.label }))
-  const ends = best([...walls.flatMap((w) => [{ point: w.start, kind: 'end' as const, label: 'Wall end' }, { point: w.end, kind: 'end' as const, label: 'Wall end' }]), ...corners.slice(0, -1).map((c) => ({ point: c, kind: 'end' as const, label: 'Corner' })), ...linkedPoints])
+  const wallEnd = t('architecture.snap.wallEnd', 'Wall end', { ns: 'editor' })
+  const corner = t('architecture.snap.corner', 'Corner', { ns: 'editor' })
+  const ends = best([...walls.flatMap((w) => [{ point: w.start, kind: 'end' as const, label: wallEnd }, { point: w.end, kind: 'end' as const, label: wallEnd }]), ...corners.slice(0, -1).map((c) => ({ point: c, kind: 'end' as const, label: corner })), ...linkedPoints])
   if (ends) return { ...ends, point: round(ends.point) }
 
   const datums: Line[] = datumSnapLines(model, levelId as ElementId).map((d) => ({ start: d.start, end: d.end, label: d.label }))
@@ -182,12 +216,12 @@ export function snapPoint(input: SnapInput): Snap {
   }
   for (const d of datums) for (const w of walls) {
     const x = crossing(d, { ...w, label: '' })
-    if (x && dist(closestOn(w, x, true), x) < 1) crossings.push({ point: x, kind: 'crossing', label: `${d.label} at the wall` })
+    if (x && dist(closestOn(w, x, true), x) < 1) crossings.push({ point: x, kind: 'crossing', label: t('architecture.snap.datumAtWall', '{{where}} at the wall', { ns: 'editor', where: d.label }) })
   }
   const cross = best(crossings)
   if (cross) return { ...cross, point: round(cross.point) }
 
-  const middle = best(walls.map((w) => ({ point: { x: (w.start.x + w.end.x) / 2, y: (w.start.y + w.end.y) / 2 }, kind: 'middle' as const, label: 'Wall midpoint' })))
+  const middle = best(walls.map((w) => ({ point: { x: (w.start.x + w.end.x) / 2, y: (w.start.y + w.end.y) / 2 }, kind: 'middle' as const, label: t('architecture.snap.wallMidpoint', 'Wall midpoint', { ns: 'editor' }) })))
   if (middle) return { ...middle, point: round(middle.point) }
 
   const last = corners[corners.length - 1]
@@ -195,16 +229,17 @@ export function snapPoint(input: SnapInput): Snap {
 
   if (last) {
     // Square onto a wall: the foot of the perpendicular from the last corner, on the wall's run.
+    const perpendicularToWall = t('architecture.snap.perpendicular', 'Perpendicular to the wall', { ns: 'editor' })
     const feet = walls.flatMap((w) => {
       const foot = closestOn(w, last, false)
-      return dist(foot, last) > 1 && onRun(w, foot) ? [{ point: foot, kind: 'perpendicular' as const, label: 'Perpendicular to the wall', guide: { start: last, end: foot } }] : []
+      return dist(foot, last) > 1 && onRun(w, foot) ? [{ point: foot, kind: 'perpendicular' as const, label: perpendicularToWall, guide: { start: last, end: foot } }] : []
     })
     for (const l of linkedLines) {
       const foot = closestOn(l, last, false)
-      if (dist(foot, last) > 1 && onRun(l, foot)) feet.push({ point: foot, kind: 'perpendicular', label: `Perpendicular to the linked ${l.label.replace(/^On the linked /, '')}`, guide: { start: last, end: foot } })
+      if (dist(foot, last) > 1 && onRun(l, foot)) feet.push({ point: foot, kind: 'perpendicular', label: linkedLineWords(l, t).perpendicular, guide: { start: last, end: foot } })
     }
-    const perpendicular = best(feet)
-    if (perpendicular) return { ...perpendicular, point: round(perpendicular.point) }
+    const squareOnto = best(feet)
+    if (squareOnto) return { ...squareOnto, point: round(squareOnto.point) }
   }
 
   if (last) {
@@ -215,12 +250,14 @@ export function snapPoint(input: SnapInput): Snap {
         if (w.id === off.wallId) return []
         const x = crossing({ start: last, end: off.far, label: '' }, { ...w, label: '' })
         const ahead = x !== null && (x.x - last.x) * (off.far.x - last.x) + (x.y - last.y) * (off.far.y - last.y) > 0
-        return x && ahead && onRun(w, x) ? [{ point: x, kind: 'perpendicular' as const, label: 'Perpendicular to the wall, onto a wall', guide: { start: last, end: x } }] : []
+        return x && ahead && onRun(w, x)
+          ? [{ point: x, kind: 'perpendicular' as const, label: t('architecture.snap.perpendicularOntoWall', 'Perpendicular to the wall, onto a wall', { ns: 'editor' }), guide: { start: last, end: x } }]
+          : []
       })
       const onto = best(hits)
       if (onto) return { ...onto, point: round(onto.point) }
       // Off a wall at any angle, square to it wins over the plan's 45° guide when the pointer is within a few degrees of it.
-      return { point: round(off.along), kind: 'perpendicular', label: 'Perpendicular to the wall', guide: { start: last, end: off.along } }
+      return { point: round(off.along), kind: 'perpendicular', label: t('architecture.snap.perpendicular', 'Perpendicular to the wall', { ns: 'editor' }), guide: { start: last, end: off.along } }
     }
   }
 
@@ -229,28 +266,43 @@ export function snapPoint(input: SnapInput): Snap {
     const hits = walls.flatMap((w) => {
       const x = crossing({ start: last, end: square.far, label: '' }, { ...w, label: '' })
       const ahead = x !== null && (x.x - last.x) * (square.far.x - last.x) + (x.y - last.y) * (square.far.y - last.y) > 0
-      return x && ahead && onRun(w, x) && dist(x, last) > 1 ? [{ point: x, kind: 'square_on_wall' as const, label: `${square.deg}° on the wall`, guide: { start: last, end: x } }] : []
+      return x && ahead && onRun(w, x) && dist(x, last) > 1
+        ? [{ point: x, kind: 'square_on_wall' as const, label: t('architecture.snap.degOnWall', '{{deg}}° on the wall', { ns: 'editor', deg: square.deg }), guide: { start: last, end: x } }]
+        : []
     })
     for (const l of linkedLines) {
       const x = crossing({ start: last, end: square.far, label: '' }, l)
       const ahead = x !== null && (x.x - last.x) * (square.far.x - last.x) + (x.y - last.y) * (square.far.y - last.y) > 0
-      if (x && ahead && onRun(l, x) && dist(x, last) > 1) hits.push({ point: x, kind: 'square_on_wall', label: `${square.deg}° ${l.label.replace(/^On /, 'on ')}`, guide: { start: last, end: x } })
+      if (x && ahead && onRun(l, x) && dist(x, last) > 1)
+        hits.push({
+          point: x,
+          kind: 'square_on_wall',
+          label: t('architecture.snap.degWhere', '{{deg}}° {{where}}', { ns: 'editor', deg: square.deg, where: linkedLineWords(l, t).where }),
+          guide: { start: last, end: x },
+        })
     }
     const hit = best(hits)
     if (hit) return { ...hit, point: round(hit.point) }
   }
 
-  const onDatum = best(datums.map((d) => ({ point: closestOn(d, raw, false), kind: 'datum' as const, label: `On ${d.label}`, guide: { start: d.start, end: d.end } })))
+  const onDatum = best(datums.map((d) => ({ point: closestOn(d, raw, false), kind: 'datum' as const, label: t('architecture.snap.onDatum', 'On {{where}}', { ns: 'editor', where: d.label }), guide: { start: d.start, end: d.end } })))
   if (onDatum) return { ...onDatum, point: round(onDatum.point) }
 
-  const onWall = best([...walls.map((w) => ({ point: closestOn(w, raw, true), kind: 'along' as const, label: 'On the wall', guide: { start: w.start, end: w.end } })), ...linkedLines.map((l) => ({ point: closestOn(l, raw, true), kind: 'along' as const, label: l.label, guide: { start: l.start, end: l.end } }))])
+  const onWall = best([
+    ...walls.map((w) => ({ point: closestOn(w, raw, true), kind: 'along' as const, label: t('architecture.snap.onWall', 'On the wall', { ns: 'editor' }), guide: { start: w.start, end: w.end } })),
+    ...linkedLines.map((l) => ({ point: closestOn(l, raw, true), kind: 'along' as const, label: linkedLineWords(l, t).where, guide: { start: l.start, end: l.end } })),
+  ])
   if (onWall) return { ...onWall, point: round(onWall.point) }
 
   if (last && square) return { point: round(square.along), kind: 'square', label: `${square.deg}°`, guide: { start: last, end: square.along } }
 
   if (input.gridMm) {
     const g = input.gridMm
-    return { point: round({ x: Math.round(raw.x / g) * g, y: Math.round(raw.y / g) * g }), kind: 'grid', label: g === DRAFTING_GRID_MM ? '6" drafting grid' : `${Math.round(g)} mm drafting grid` }
+    return {
+      point: round({ x: Math.round(raw.x / g) * g, y: Math.round(raw.y / g) * g }),
+      kind: 'grid',
+      label: g === DRAFTING_GRID_MM ? t('architecture.snap.inchGrid', '6" drafting grid', { ns: 'editor' }) : t('architecture.snap.mmGrid', '{{step}} mm drafting grid', { ns: 'editor', step: Math.round(g) }),
+    }
   }
-  return { point: round(raw), kind: 'grid', label: 'Free' }
+  return { point: round(raw), kind: 'grid', label: t('architecture.snap.free', 'Free', { ns: 'editor' }) }
 }

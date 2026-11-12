@@ -119,6 +119,13 @@ const OWNED_DIRS = [
   // step with the link for loads, and the words a tool says when there is nothing
   // to snap to. A core workflow for this firm.
   "linked-reference",
+  // Outside stage 4 — the Architecture tab: the tool table (its labels, its
+  // tooltips and the noun the hint bar calls each drawing), the ribbon, the plan
+  // hints and the snap marker, the wall's Top and Base fields with their surface
+  // bindings, the type menu with the Edit type dialog (its parameters, its fire
+  // rating and its refusal), the door flips, the sill height and the wall-end
+  // grips (177 findings, fifteen files).
+  "architecture",
 ];
 
 /**
@@ -144,7 +151,6 @@ export const NOT_YET_GUARDED = [] as const;
  * "somebody forgot", which is the whole reason it is a list and not an omission.
  */
 const OUTSIDE_STAGE_4 = [
-  "architecture",
   "blocks",
   "branches",
   "calc-sheets",

@@ -1,5 +1,6 @@
 import { elementClass, elementsOfKind, fieldProviderRegistry, type BimElement, type ElementTypeElement, type ModelState, type ParamValue } from '@permitzip/bim-kernel'
 import { ratingKindRow } from '@permitzip/bim-kernel/rated-routes'
+import { englishOnly, type Translate } from '../i18n/translate'
 
 /**
  * What the Edit type dialog shows for one element type: the elements that
@@ -31,17 +32,51 @@ export function typeUsers(model: Pick<ModelState, 'elements'>, type: ElementType
   return elementsOfKind(model.elements, ...typedKinds(type)).filter((el) => 'typeId' in el && el.typeId === type.id)
 }
 
-function noun(el: BimElement, many: boolean): string {
-  const one = el.kind === 'opening' ? (el.openingType === 'door' || el.openingType === 'window' ? el.openingType : 'opening') : el.kind === 'slab' ? 'floor' : el.kind.replace(/_/g, ' ')
-  return many ? `${one}s` : one
+/**
+ * One element, in the words this panel uses: *door*, *window*, *floor* (§2.3
+ * *door* = **kapı**, *window* = **pencere**, *floor* = **döşeme**). A kind no
+ * table names keeps the model's own word, the way an add-on's own noun does.
+ */
+function noun(el: BimElement, t: Translate): string {
+  switch (el.kind) {
+    case 'opening':
+      switch (el.openingType) {
+        case 'door':
+          return t('architecture.noun.door', 'door', { ns: 'editor' })
+        case 'window':
+          return t('architecture.noun.window', 'window', { ns: 'editor' })
+        default:
+          return t('architecture.noun.opening', 'opening', { ns: 'editor' })
+      }
+    case 'slab':
+      return t('architecture.noun.floor', 'floor', { ns: 'editor' })
+    case 'wall':
+      return t('architecture.noun.wall', 'wall', { ns: 'editor' })
+    case 'ceiling':
+      return t('architecture.noun.ceiling', 'ceiling', { ns: 'editor' })
+    case 'column':
+      return t('architecture.noun.column', 'column', { ns: 'editor' })
+    default:
+      return el.kind.replace(/_/g, ' ')
+  }
 }
 
-/** "Used by 14 doors", "Used by 1 wall", "Not used by anything yet". */
-export function usedByWords(users: readonly BimElement[]): string {
+/**
+ * "Used by 14 doors", "Used by 1 wall", "Not used by anything yet".
+ *
+ * The plural is the English default's own (`{{what}}s`), not a suffix added to
+ * a translated noun: Turkish takes no plural suffix after a number (§8), so the
+ * Turkish row says *14 kapı tarafından kullanılıyor*.
+ */
+export function usedByWords(users: readonly BimElement[], t: Translate = englishOnly): string {
   const first = users[0]
-  if (!first) return 'Not used by anything yet'
-  const same = users.every((u) => noun(u, false) === noun(first, false))
-  return `Used by ${users.length} ${same ? noun(first, users.length !== 1) : users.length === 1 ? 'element' : 'elements'}`
+  if (!first) return t('architecture.usedBy.none', 'Not used by anything yet', { ns: 'editor' })
+  const one = noun(first, t)
+  const same = users.every((u) => noun(u, t) === one)
+  const what = same ? one : t('architecture.noun.element', 'element', { ns: 'editor' })
+  return users.length === 1
+    ? t('architecture.usedBy.one', 'Used by 1 {{what}}', { ns: 'editor', what })
+    : t('architecture.usedBy.many', 'Used by {{count}} {{what}}s', { ns: 'editor', count: users.length, what })
 }
 
 /** Every class an element of these kinds is recognised as, in the registry in force. */
@@ -68,13 +103,13 @@ export interface TypeValues {
 }
 
 /** The type's editable parameters, ratings first, then by group, each once. */
-export function typeFields(model: Pick<ModelState, 'elements'>, type: ElementTypeElement): TypeField[] {
-  return fieldsForClasses(typeClasses(model, type, typeUsers(model, type)), type)
+export function typeFields(model: Pick<ModelState, 'elements'>, type: ElementTypeElement, t: Translate = englishOnly): TypeField[] {
+  return fieldsForClasses(typeClasses(model, type, typeUsers(model, type)), type, t)
 }
 
 /** A new type's parameters for elements of one kind: a duplicate's source's classes, else every class the kind is recognised as. */
-export function newTypeFields(model: Pick<ModelState, 'elements'>, kind: string, from: ElementTypeElement | null): TypeField[] {
-  return fieldsForClasses(from ? typeClasses(model, from, typeUsers(model, from)) : classesOfKinds([kind]), from ?? {})
+export function newTypeFields(model: Pick<ModelState, 'elements'>, kind: string, from: ElementTypeElement | null, t: Translate = englishOnly): TypeField[] {
+  return fieldsForClasses(from ? typeClasses(model, from, typeUsers(model, from)) : classesOfKinds([kind]), from ?? {}, t)
 }
 
 /**
@@ -82,14 +117,14 @@ export function newTypeFields(model: Pick<ModelState, 'elements'>, kind: string,
  * element or its type already holds (typed as held), else the rating row's
  * text key. Null when no add-on in force rates anything.
  */
-export function instanceRatingField(el: BimElement, type: TypeValues | null): TypeField | null {
+export function instanceRatingField(el: BimElement, type: TypeValues | null, t: Translate = englishOnly): TypeField | null {
   const keys = new Set(ratingKindRow('fire_resistance')?.parameterKeys ?? [])
   const own = 'values' in el && typeof el.values === 'object' && el.values !== null ? (el.values as Readonly<Record<string, unknown>>) : {}
-  return ratingField({ values: { ...(type?.values ?? {}), ...own } }, keys, new Set())
+  return ratingField({ values: { ...(type?.values ?? {}), ...own } }, keys, new Set(), t)
 }
 
 /** The editable parameters of these classes for a type holding `type.values` (shared by Edit type and Firm library › Types). */
-export function fieldsForClasses(classes: readonly string[], type: TypeValues): TypeField[] {
+export function fieldsForClasses(classes: readonly string[], type: TypeValues, t: Translate = englishOnly): TypeField[] {
   const registry = fieldProviderRegistry()
   const ratingKeys = new Set(ratingKindRow('fire_resistance')?.parameterKeys ?? [])
   const seen = new Set<string>()
@@ -104,7 +139,7 @@ export function fieldsForClasses(classes: readonly string[], type: TypeValues): 
       out.push({ key, label: f.label, group: ratingKeys.has(key) ? 'Ratings' : f.group ?? 'Other', control, ...(f.unit ? { unit: f.unit } : {}), ...(f.choices ? { choices: f.choices } : {}), ...(f.description ? { description: f.description } : {}) })
     }
   }
-  const rating = ratingField(type, ratingKeys, seen)
+  const rating = ratingField(type, ratingKeys, seen, t)
   if (rating) out.push(rating)
   const rank = (g: string) => (g === 'Ratings' ? 0 : g === 'Identity' ? 1 : 2)
   return out.sort((a, b) => rank(a.group) - rank(b.group))
@@ -116,14 +151,24 @@ export function fieldsForClasses(classes: readonly string[], type: TypeValues): 
  * held (hours as a number); else the rating row's last key, typed as text
  * the rating row reads ("1 hr", "90 min").
  */
-function ratingField(type: TypeValues, keys: ReadonlySet<string>, seen: ReadonlySet<string>): TypeField | null {
+function ratingField(type: TypeValues, keys: ReadonlySet<string>, seen: ReadonlySet<string>, t: Translate): TypeField | null {
   const all = [...keys]
   if (all.length === 0 || all.some((k) => seen.has(k))) return null
   const held = all.find((k) => type.values?.[k] !== undefined)
   const heldValue = held === undefined ? undefined : type.values?.[held]
-  if (held !== undefined && typeof heldValue === 'number') return { key: held, label: 'Fire resistance', group: 'Ratings', control: 'number', unit: 'h' }
+  // §2.2: a type's *fire rating* is the **yangın dayanımı** it is rated at; the
+  // hours-only field is the same word (§0.1 one idea, one term).
+  if (held !== undefined && typeof heldValue === 'number') return { key: held, label: t('architecture.fireResistance', 'Fire resistance', { ns: 'editor' }), group: 'Ratings', control: 'number', unit: 'h' }
   const key = held ?? all[all.length - 1]
-  return key === undefined ? null : { key, label: 'Fire rating', group: 'Ratings', control: 'text', description: 'Hours or minutes: 1 hr, 90 min. Leave it empty when the type is not rated.' }
+  return key === undefined
+    ? null
+    : {
+        key,
+        label: t('architecture.fireRating', 'Fire rating', { ns: 'editor' }),
+        group: 'Ratings',
+        control: 'text',
+        description: t('architecture.fireRatingWhy', 'Hours or minutes: 1 hr, 90 min. Leave it empty when the type is not rated.', { ns: 'editor' }),
+      }
 }
 
 export type DraftValue = string | boolean
@@ -140,7 +185,12 @@ export function draftOf(type: TypeValues, field: TypeField): DraftValue {
  * changed ones; an emptied field removes the value. A number that doesn't
  * read is refused in words before anything is written.
  */
-export function changedValues(type: TypeValues, fields: readonly TypeField[], draft: Readonly<Record<string, DraftValue>>): { readonly values: Record<string, ParamValue | null> } | { readonly refusal: string } {
+export function changedValues(
+  type: TypeValues,
+  fields: readonly TypeField[],
+  draft: Readonly<Record<string, DraftValue>>,
+  t: Translate = englishOnly,
+): { readonly values: Record<string, ParamValue | null> } | { readonly refusal: string } {
   const values: Record<string, ParamValue | null> = {}
   for (const f of fields) {
     const next = draft[f.key]
@@ -156,7 +206,12 @@ export function changedValues(type: TypeValues, fields: readonly TypeField[], dr
     }
     if (f.control === 'number') {
       const n = Number(text)
-      if (!Number.isFinite(n)) return { refusal: `${f.label} needs a number${f.unit ? ` in ${f.unit}` : ''}; "${text}" isn't one.` }
+      if (!Number.isFinite(n))
+        return {
+          refusal: f.unit
+            ? t('architecture.needsNumberIn', '{{label}} needs a number in {{unit}}; "{{text}}" isn\'t one.', { ns: 'editor', label: f.label, unit: f.unit, text })
+            : t('architecture.needsNumber', '{{label}} needs a number; "{{text}}" isn\'t one.', { ns: 'editor', label: f.label, text }),
+        }
       values[f.key] = n
       continue
     }

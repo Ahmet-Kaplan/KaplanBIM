@@ -4,6 +4,7 @@ import { useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Button } from '../../ui/button'
 import { Field, FieldDescription, FieldLabel } from '../../ui/field'
 import { Input } from '../../ui/input'
+import { useEditorTranslate } from '../i18n/translate'
 import { feetInches } from '../placement'
 import { parseWallHeight } from './WallTopField'
 
@@ -22,10 +23,11 @@ type Props = {
  * it and the tool stays in hand.
  */
 export function WallHeightEntry({ currentMm, onSet, onClose, className }: Props): ReactNode {
+  const t = useEditorTranslate()
   const [text, setText] = useState(feetInches(currentMm))
   const [why, setWhy] = useState<string | null>(null)
   const commit = () => {
-    const parsed = parseWallHeight(text)
+    const parsed = parseWallHeight(text, t)
     if ('why' in parsed) return setWhy(parsed.why)
     onSet(parsed.mm)
   }
@@ -41,18 +43,18 @@ export function WallHeightEntry({ currentMm, onSet, onClose, className }: Props)
   return (
     <div className={['pointer-events-auto absolute bottom-16 left-1/2 z-20 w-72 -translate-x-1/2 rounded-md border border-border bg-background p-3 shadow-md', className].filter(Boolean).join(' ')} data-testid="architecture-wall-height-entry">
       <Field>
-        <FieldLabel htmlFor="architecture-wall-height-entry-input">Wall height</FieldLabel>
+        <FieldLabel htmlFor="architecture-wall-height-entry-input">{t('architecture.top.wallHeight', 'Wall height', { ns: 'editor' })}</FieldLabel>
         <div className="flex items-center gap-2">
           <Input id="architecture-wall-height-entry-input" className="h-8" autoFocus value={text} onChange={(e) => setText(e.target.value)} onKeyDown={onKey} aria-invalid={why !== null} data-testid="architecture-wall-height-entry-input" />
           <Button size="sm" onClick={commit} data-testid="architecture-wall-height-entry-set">
-            Use height
+            {t('architecture.heightEntry.use', 'Use height', { ns: 'editor' })}
           </Button>
           <Button size="sm" variant="ghost" onClick={onClose}>
-            Cancel
+            {t('architecture.cancel', 'Cancel', { ns: 'editor' })}
           </Button>
         </div>
         <FieldDescription className={why ? 'text-danger-600' : undefined} data-testid="architecture-wall-height-entry-words">
-          {why ?? 'The walls you draw next are this tall, not tied to a level. Enter to use it, Esc to keep drawing as before.'}
+          {why ?? t('architecture.heightEntry.words', 'The walls you draw next are this tall, not tied to a level. Enter to use it, Esc to keep drawing as before.', { ns: 'editor' })}
         </FieldDescription>
       </Field>
     </div>

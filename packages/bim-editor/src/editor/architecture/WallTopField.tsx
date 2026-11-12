@@ -5,6 +5,7 @@ import { useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Field, FieldDescription, FieldLabel } from '../../ui/field'
 import { Input } from '../../ui/input'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from '../../ui/select'
+import { englishOnly, useEditorTranslate, type Translate } from '../i18n/translate'
 import { parseFeet } from '../parse-feet'
 import { feetInches } from '../placement'
 import type { SubmitCommand } from '../views-sheets/types'
@@ -13,11 +14,32 @@ const UNCONNECTED = '__unconnected__'
 const ON_LEVEL = '__level__'
 const FT_MM = 304.8
 
-/** The surfaces a wall's top can run to, as the Top list says them. */
+/**
+ * The surfaces a wall's top can run to, as the Top list says them: the list's own
+ * word, the phrase it fills a sentence with, and what the wall then follows. Each
+ * is an accessor taking a translator — a *ceiling* is a **tavan**, a *roof* a
+ * **çatı**, a *slab* a **döşeme** (§2.3) — so no English noun sits inside a Turkish
+ * sentence.
+ */
 const TOP_SURFACES = [
-  { to: 'structure', label: 'Underside of slab above', words: 'the underside of the slab above', follows: 'that floor’s level and thickness' },
-  { to: 'ceiling', label: 'To ceiling', words: 'the ceiling', follows: 'the ceiling’s height' },
-  { to: 'roof', label: 'To roof', words: 'the underside of the roof', follows: 'the roof, sloped where the roof is' },
+  {
+    to: 'structure',
+    label: (t: Translate) => t('architecture.top.slabAbove', 'Underside of slab above', { ns: 'editor' }),
+    words: (t: Translate) => t('architecture.top.theSlabAbove', 'the underside of the slab above', { ns: 'editor' }),
+    follows: (t: Translate) => t('architecture.top.floorLevelAndThickness', 'that floor’s level and thickness', { ns: 'editor' }),
+  },
+  {
+    to: 'ceiling',
+    label: (t: Translate) => t('architecture.top.toCeiling', 'To ceiling', { ns: 'editor' }),
+    words: (t: Translate) => t('architecture.top.theCeiling', 'the ceiling', { ns: 'editor' }),
+    follows: (t: Translate) => t('architecture.top.ceilingHeight', 'the ceiling’s height', { ns: 'editor' }),
+  },
+  {
+    to: 'roof',
+    label: (t: Translate) => t('architecture.top.toRoof', 'To roof', { ns: 'editor' }),
+    words: (t: Translate) => t('architecture.top.theRoof', 'the underside of the roof', { ns: 'editor' }),
+    follows: (t: Translate) => t('architecture.top.roofSlope', 'the roof, sloped where the roof is', { ns: 'editor' }),
+  },
 ] as const
 type TopSurface = (typeof TOP_SURFACES)[number]['to']
 
@@ -35,8 +57,9 @@ type Props = {
   readonly surfacesStored?: boolean
 }
 
-const OLD_SERVER = 'Up to a level needs a newer model server; this one keeps only a set height. Type the height below.'
-const OLD_SURFACE_SERVER = 'Running to a slab, ceiling or roof needs a newer model server; this one keeps a level or a set height.'
+const OLD_SERVER = (t: Translate) => t('architecture.top.oldServer', 'Up to a level needs a newer model server; this one keeps only a set height. Type the height below.', { ns: 'editor' })
+const OLD_SURFACE_SERVER = (t: Translate) =>
+  t('architecture.top.oldSurfaceServer', 'Running to a slab, ceiling or roof needs a newer model server; this one keeps a level or a set height.', { ns: 'editor' })
 
 export type WallTopChoice = { readonly topLevelId: string; readonly offsetMm?: number } | { readonly surface: TopSurface; readonly offsetMm?: number } | { readonly heightMm: number }
 export type WallBaseChoice = { readonly on: 'level' | 'floor'; readonly offsetMm?: number }
@@ -54,12 +77,12 @@ function splitTop(p: LinePlacement): { readonly untied: LinePlacement; readonly 
  * picks another top. The command for each choice; a string says why it can't
  * be made.
  */
-export function wallTopCommand(model: ModelState, el: BimElement, choice: WallTopChoice): Command | string {
+export function wallTopCommand(model: ModelState, el: BimElement, choice: WallTopChoice, t: Translate = englishOnly): Command | string {
   const p = editableLinePlacement(el, model.elements)
-  if (!p) return 'This wall has no level to measure its top from; move it onto a level first'
+  if (!p) return t('architecture.top.noLevelToMeasure', 'This wall has no level to measure its top from; move it onto a level first', { ns: 'editor' })
   const { untied, offsetMm: kept } = splitTop(p)
   if ('heightMm' in choice) {
-    if (!(choice.heightMm > 0)) return 'A wall needs a height above zero'
+    if (!(choice.heightMm > 0)) return t('architecture.top.needsHeightAboveZero', 'A wall needs a height above zero', { ns: 'editor' })
     return { type: 'set_element_placement', elementId: el.id, placement: untied, heightMm: Math.round(choice.heightMm) }
   }
   const offsetMm = Math.round(choice.offsetMm ?? kept ?? 0)
@@ -69,9 +92,9 @@ export function wallTopCommand(model: ModelState, el: BimElement, choice: WallTo
 }
 
 /** What a wall's base does: stand on its level (raised by the offset) or on the top of the floor under it. */
-export function wallBaseCommand(model: ModelState, el: BimElement, choice: WallBaseChoice): Command | string {
+export function wallBaseCommand(model: ModelState, el: BimElement, choice: WallBaseChoice, t: Translate = englishOnly): Command | string {
   const p = editableLinePlacement(el, model.elements)
-  if (!p) return 'This wall has no level to stand on; move it onto a level first'
+  if (!p) return t('architecture.base.noLevelToStandOn', 'This wall has no level to stand on; move it onto a level first', { ns: 'editor' })
   const { baseSurface, ...rest } = p
   const offsetMm = Math.round(choice.offsetMm ?? baseSurface?.offsetMm ?? (baseSurface ? 0 : p.startOffsetMm))
   if (choice.on === 'floor') return { type: 'set_element_placement', elementId: el.id, placement: { ...rest, baseSurface: { to: 'floor', ...(offsetMm ? { offsetMm } : {}) } } }
@@ -79,10 +102,13 @@ export function wallBaseCommand(model: ModelState, el: BimElement, choice: WallB
 }
 
 /** A wall height as typed (10'-0", 9 ft 6 in, 108", 9.5), in mm; or why it doesn't read as one. */
-export function parseWallHeight(text: string): { readonly mm: number } | { readonly why: string } {
+export function parseWallHeight(text: string, t: Translate = englishOnly): { readonly mm: number } | { readonly why: string } {
   // 10'-0": the dash between feet and inches is how heights are written, not a minus.
   const ft = parseFeet(text.replace(/'\s*-\s*/, "' "))
-  if (ft === null || ft <= 0) return { why: `"${text.trim()}" doesn't read as a height. Type feet and inches: 10'-0", 9 ft 6 in, 108".` }
+  if (ft === null || ft <= 0)
+    return {
+      why: t('architecture.heightDoesNotRead', '"{{text}}" doesn\'t read as a height. Type feet and inches: 10\'-0", 9 ft 6 in, 108".', { ns: 'editor', text: text.trim() }),
+    }
   return { mm: Math.round(ft * FT_MM * 10) / 10 }
 }
 
@@ -93,15 +119,25 @@ function typedMm(text: string): number | null {
 }
 
 /** How tall a wall is, in words: one height, or the range a sloped or stepped top gives. */
-function tallWords(el: BimElement): string {
+function tallWords(el: BimElement, t: Translate): string {
   if (el.kind !== 'wall') return ''
   const profile = el.bodyProfile
-  if (!profile || profile.length < 2) return `${feetInches(el.height)} tall`
+  if (!profile || profile.length < 2) return t('architecture.tall', '{{length}} tall', { ns: 'editor', length: feetInches(el.height) })
   const spans = profile.map((q) => q.topMm - q.baseMm)
-  return `${feetInches(Math.min(...spans))} to ${feetInches(Math.max(...spans))} tall`
+  return t('architecture.tallRange', '{{min}} to {{max}} tall', { ns: 'editor', min: feetInches(Math.min(...spans)), max: feetInches(Math.max(...spans)) })
 }
 
-const offsetWords = (mm: number | undefined, from: string): string => (mm ? `, ${feetInches(Math.abs(mm))} ${mm > 0 ? 'above' : 'below'} ${from}` : '')
+/**
+ * How far above or below the thing the wall runs to or stands on: a whole
+ * sentence's worth of words, so the phrase is one key and the language puts the
+ * length and the referent in its own order.
+ */
+const offsetWords = (mm: number | undefined, from: string, t: Translate): string =>
+  mm
+    ? mm > 0
+      ? t('architecture.offset.above', ', {{length}} above {{from}}', { ns: 'editor', length: feetInches(Math.abs(mm)), from })
+      : t('architecture.offset.below', ', {{length}} below {{from}}', { ns: 'editor', length: feetInches(Math.abs(mm)), from })
+    : ''
 
 /** A feet-and-inches box that writes on Enter or when it loses focus; Esc puts back what is stored. */
 function LengthBox({ id, label, testId, mm, disabled, onCommit }: { readonly id: string; readonly label: string; readonly testId: string; readonly mm: number; readonly disabled: boolean; readonly onCommit: (text: string) => void }): ReactNode {
@@ -136,6 +172,7 @@ function LengthBox({ id, label, testId, mm, disabled, onCommit }: { readonly id:
 }
 
 export function WallTopField({ model, el, submit, editBlocked, notify, tiesStored = true, surfacesStored = true }: Props): ReactNode {
+  const t = useEditorTranslate()
   const [why, setWhy] = useState<string | null>(null)
   const p = editableLinePlacement(el, model.elements)
   if (el.kind !== 'wall') return null
@@ -146,11 +183,11 @@ export function WallTopField({ model, el, submit, editBlocked, notify, tiesStore
   const top = topLevelOf(el, model.elements)
   const surface = p?.topSurface ? TOP_SURFACES.find((s) => s.to === p.topSurface?.to) : undefined
   const offsetMm = p?.topOffsetMm ?? p?.topSurface?.offsetMm ?? 0
-  const blocked = editBlocked ?? (p ? null : 'This wall has no level to measure its top from; move it onto a level first')
+  const blocked = editBlocked ?? (p ? null : t('architecture.top.noLevelToMeasure', 'This wall has no level to measure its top from; move it onto a level first', { ns: 'editor' }))
   const value = surface ? surfaceValue(surface.to) : top ? top.id : UNCONNECTED
 
   const send = (choice: WallTopChoice, label: string): void => {
-    const command = wallTopCommand(model, el, choice)
+    const command = wallTopCommand(model, el, choice, t)
     if (typeof command === 'string') {
       setWhy(command)
       return
@@ -165,47 +202,76 @@ export function WallTopField({ model, el, submit, editBlocked, notify, tiesStore
     setWhy(null)
   }
   const commitHeight = (text: string) => {
-    const parsed = parseWallHeight(text)
+    const parsed = parseWallHeight(text, t)
     if ('why' in parsed) return setWhy(parsed.why)
-    send({ heightMm: parsed.mm }, 'Set the wall height')
+    send({ heightMm: parsed.mm }, t('architecture.top.setWallHeight', 'Set the wall height', { ns: 'editor' }))
   }
   const commitOffset = (text: string) => {
     const mm = typedMm(text)
-    if (mm === null) return setWhy(`"${text.trim()}" doesn't read as an offset. Type feet and inches, with a minus for below: -0'-6", 1 ft.`)
-    if (surface) send({ surface: surface.to, offsetMm: mm }, 'Set the wall top offset')
-    else if (top) send({ topLevelId: top.id, offsetMm: mm }, 'Set the wall top offset')
+    if (mm === null)
+      return setWhy(
+        t('architecture.top.topOffsetDoesNotRead', '"{{text}}" doesn\'t read as an offset. Type feet and inches, with a minus for below: -0\'-6", 1 ft.', { ns: 'editor', text: text.trim() }),
+      )
+    if (surface) send({ surface: surface.to, offsetMm: mm }, t('architecture.top.setTopOffset', 'Set the wall top offset', { ns: 'editor' }))
+    else if (top) send({ topLevelId: top.id, offsetMm: mm }, t('architecture.top.setTopOffset', 'Set the wall top offset', { ns: 'editor' }))
   }
 
-  const words = why ??
+  const heightWords = tallWords(el, t)
+  const it = t('architecture.referentIt', 'it', { ns: 'editor' })
+  const words =
+    why ??
     blocked ??
     (!tiesStored && !top
-      ? OLD_SERVER
+      ? OLD_SERVER(t)
       : surface
-        ? `Runs to ${surface.words}${offsetWords(offsetMm, 'it')}: ${tallWords(el)}. It follows ${surface.follows}.`
+        ? t('architecture.top.runsToSurface', 'Runs to {{to}}{{offset}}: {{height}}. It follows {{follows}}.', {
+            ns: 'editor',
+            to: surface.words(t),
+            offset: offsetWords(offsetMm, it, t),
+            height: heightWords,
+            follows: surface.follows(t),
+          })
         : top
-          ? `Runs up to ${top.name}${offsetWords(offsetMm, top.name)}: ${tallWords(el)}. It follows ${top.name} and its own level when either moves.`
+          ? t('architecture.top.runsUpTo', 'Runs up to {{level}}{{offset}}: {{height}}. It follows {{level}} and its own level when either moves.', {
+              ns: 'editor',
+              level: top.name,
+              offset: offsetWords(offsetMm, top.name, t),
+              height: heightWords,
+            })
           : above.length > 0
-            ? `${tallWords(el)}, not tied to a level. Pick "Up to ${above[0]?.name ?? 'the level above'}" to make it follow that level${surfacesStored ? ', or run it to the slab above, a ceiling or a roof' : ''}.`
-            : `${tallWords(el)}. There is no level above this one to run up to.`) +
-      (!surfacesStored && !why && !blocked ? ` ${OLD_SURFACE_SERVER}` : '')
+            ? surfacesStored
+              ? t('architecture.top.notTiedOrRun', '{{height}}, not tied to a level. Pick "Up to {{level}}" to make it follow that level, or run it to the slab above, a ceiling or a roof.', {
+                  ns: 'editor',
+                  height: heightWords,
+                  level: above[0]?.name ?? t('architecture.top.theLevelAbove', 'the level above', { ns: 'editor' }),
+                })
+              : t('architecture.top.notTied', '{{height}}, not tied to a level. Pick "Up to {{level}}" to make it follow that level.', {
+                  ns: 'editor',
+                  height: heightWords,
+                  level: above[0]?.name ?? t('architecture.top.theLevelAbove', 'the level above', { ns: 'editor' }),
+                })
+            : t('architecture.top.noLevelAbove', '{{height}}. There is no level above this one to run up to.', { ns: 'editor', height: heightWords })) +
+    // Two whole sentences, either of which may stand alone: the space between them
+    // is punctuation, not a word order (§0.1 keeps one sentence per key).
+    (!surfacesStored && !why && !blocked ? ` ${OLD_SURFACE_SERVER(t)}` : '')
 
   return (
     <Field data-testid="architecture-wall-top" data-top-level={top?.name ?? ''} data-top={surface ? surface.to : top ? 'level' : 'height'}>
-      <FieldLabel htmlFor="architecture-wall-top">Top</FieldLabel>
+      <FieldLabel htmlFor="architecture-wall-top">{t('architecture.top.label', 'Top', { ns: 'editor' })}</FieldLabel>
       <div className="flex flex-wrap items-center gap-2">
         <Select
           value={value}
           disabled={blocked !== null}
           onValueChange={(v) => {
             setWhy(null)
-            if (v === UNCONNECTED) send({ heightMm: height }, 'Untie the wall top')
+            if (v === UNCONNECTED) send({ heightMm: height }, t('architecture.top.untie', 'Untie the wall top', { ns: 'editor' }))
             else if (v.startsWith('surface:')) {
               const to = TOP_SURFACES.find((s) => surfaceValue(s.to) === v)
-              if (to) send({ surface: to.to }, `Run the wall to ${to.words}`)
-            } else send({ topLevelId: v }, 'Run the wall up to a level')
+              if (to) send({ surface: to.to }, t('architecture.top.runTo', 'Run the wall to {{to}}', { ns: 'editor', to: to.words(t) }))
+            } else send({ topLevelId: v }, t('architecture.top.runUpToLevel', 'Run the wall up to a level', { ns: 'editor' }))
           }}
         >
-          <SelectTrigger id="architecture-wall-top" aria-label="Where the wall's top is">
+          <SelectTrigger id="architecture-wall-top" aria-label={t('architecture.top.whereTop', "Where the wall's top is", { ns: 'editor' })}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -213,7 +279,7 @@ export function WallTopField({ model, el, submit, editBlocked, notify, tiesStore
               <SelectGroup>
                 {above.map((l) => (
                   <SelectItem key={l.id} value={l.id} disabled={!tiesStored}>
-                    Up to {l.name}
+                    {t('architecture.top.upToLevel', 'Up to {{level}}', { ns: 'editor', level: l.name })}
                   </SelectItem>
                 ))}
               </SelectGroup>
@@ -222,20 +288,27 @@ export function WallTopField({ model, el, submit, editBlocked, notify, tiesStore
             <SelectGroup>
               {TOP_SURFACES.map((s) => (
                 <SelectItem key={s.to} value={surfaceValue(s.to)} disabled={!surfacesStored} data-testid={`architecture-wall-top-${s.to}`}>
-                  {s.label}
+                  {s.label(t)}
                 </SelectItem>
               ))}
             </SelectGroup>
             <SelectSeparator />
             <SelectGroup>
-              <SelectItem value={UNCONNECTED}>Unconnected (set height)</SelectItem>
+              <SelectItem value={UNCONNECTED}>{t('architecture.top.unconnected', 'Unconnected (set height)', { ns: 'editor' })}</SelectItem>
             </SelectGroup>
           </SelectContent>
         </Select>
         {top || surface ? (
-          <LengthBox id="architecture-wall-top-offset" label="Top offset" testId="architecture-wall-top-offset" mm={offsetMm} disabled={blocked !== null} onCommit={commitOffset} />
+          <LengthBox id="architecture-wall-top-offset" label={t('architecture.top.topOffset', 'Top offset', { ns: 'editor' })} testId="architecture-wall-top-offset" mm={offsetMm} disabled={blocked !== null} onCommit={commitOffset} />
         ) : (
-          <LengthBox id="architecture-wall-height" label="Wall height" testId="architecture-wall-height" mm={height} disabled={blocked !== null} onCommit={commitHeight} />
+          <LengthBox
+            id="architecture-wall-height"
+            label={t('architecture.top.wallHeight', 'Wall height', { ns: 'editor' })}
+            testId="architecture-wall-height"
+            mm={height}
+            disabled={blocked !== null}
+            onCommit={commitHeight}
+          />
         )}
       </div>
       <FieldDescription data-testid="architecture-wall-top-words">{words}</FieldDescription>
@@ -244,17 +317,18 @@ export function WallTopField({ model, el, submit, editBlocked, notify, tiesStore
 }
 
 export function WallBaseField({ model, el, submit, editBlocked, notify, surfacesStored = true }: Props): ReactNode {
+  const t = useEditorTranslate()
   const [why, setWhy] = useState<string | null>(null)
   const p = editableLinePlacement(el, model.elements)
   if (el.kind !== 'wall') return null
   const level = p ? model.elements[p.levelId] : undefined
-  const levelName = level?.kind === 'level' ? level.name : 'its level'
+  const levelName = level?.kind === 'level' ? level.name : t('architecture.base.itsLevel', 'its level', { ns: 'editor' })
   const onFloor = p?.baseSurface?.to === 'floor'
   const offsetMm = onFloor ? (p?.baseSurface?.offsetMm ?? 0) : (p?.startOffsetMm ?? 0)
-  const blocked = editBlocked ?? (p ? null : 'This wall has no level to stand on; move it onto a level first')
+  const blocked = editBlocked ?? (p ? null : t('architecture.base.noLevelToStandOn', 'This wall has no level to stand on; move it onto a level first', { ns: 'editor' }))
 
   const send = (choice: WallBaseChoice, label: string): void => {
-    const command = wallBaseCommand(model, el, choice)
+    const command = wallBaseCommand(model, el, choice, t)
     if (typeof command === 'string') {
       setWhy(command)
       return
@@ -270,41 +344,58 @@ export function WallBaseField({ model, el, submit, editBlocked, notify, surfaces
   }
   const commitOffset = (text: string) => {
     const mm = typedMm(text)
-    if (mm === null) return setWhy(`"${text.trim()}" doesn't read as an offset. Type feet and inches, with a minus for below: 0'-6", -1 ft.`)
-    send({ on: onFloor ? 'floor' : 'level', offsetMm: mm }, 'Set the wall base offset')
+    if (mm === null)
+      return setWhy(
+        t('architecture.base.offsetDoesNotRead', '"{{text}}" doesn\'t read as an offset. Type feet and inches, with a minus for below: 0\'-6", -1 ft.', { ns: 'editor', text: text.trim() }),
+      )
+    send({ on: onFloor ? 'floor' : 'level', offsetMm: mm }, t('architecture.base.setBaseOffset', 'Set the wall base offset', { ns: 'editor' }))
   }
+  const it = t('architecture.referentIt', 'it', { ns: 'editor' })
   const words =
     why ??
     blocked ??
     (onFloor
-      ? `Stands on the top of the floor under it${offsetWords(offsetMm, 'it')}. It follows that floor.`
-      : `Stands on ${levelName}${offsetWords(offsetMm, levelName)}.${surfacesStored ? '' : ` ${OLD_SURFACE_SERVER}`}`)
+      ? t('architecture.base.onFloor', 'Stands on the top of the floor under it{{offset}}. It follows that floor.', { ns: 'editor', offset: offsetWords(offsetMm, it, t) })
+      : t('architecture.base.onLevel', 'Stands on {{level}}{{offset}}.', { ns: 'editor', level: levelName, offset: offsetWords(offsetMm, levelName, t) }) +
+        (surfacesStored ? '' : ` ${OLD_SURFACE_SERVER(t)}`))
 
   return (
     <Field data-testid="architecture-wall-base" data-base={onFloor ? 'floor' : 'level'}>
-      <FieldLabel htmlFor="architecture-wall-base">Base</FieldLabel>
+      <FieldLabel htmlFor="architecture-wall-base">{t('architecture.base.label', 'Base', { ns: 'editor' })}</FieldLabel>
       <div className="flex flex-wrap items-center gap-2">
         <Select
           value={onFloor ? 'floor' : ON_LEVEL}
           disabled={blocked !== null}
           onValueChange={(v) => {
             setWhy(null)
-            send({ on: v === 'floor' ? 'floor' : 'level' }, v === 'floor' ? 'Stand the wall on the floor under it' : `Stand the wall on ${levelName}`)
+            send(
+              { on: v === 'floor' ? 'floor' : 'level' },
+              v === 'floor'
+                ? t('architecture.base.standOnFloor', 'Stand the wall on the floor under it', { ns: 'editor' })
+                : t('architecture.base.standOn', 'Stand the wall on {{where}}', { ns: 'editor', where: levelName }),
+            )
           }}
         >
-          <SelectTrigger id="architecture-wall-base" aria-label="Where the wall's base is">
+          <SelectTrigger id="architecture-wall-base" aria-label={t('architecture.base.whereBase', "Where the wall's base is", { ns: 'editor' })}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
-              <SelectItem value={ON_LEVEL}>On {levelName}</SelectItem>
+              <SelectItem value={ON_LEVEL}>{t('architecture.base.onLevelChoice', 'On {{level}}', { ns: 'editor', level: levelName })}</SelectItem>
               <SelectItem value="floor" disabled={!surfacesStored} data-testid="architecture-wall-base-floor">
-                Top of slab below
+                {t('architecture.base.topOfSlabBelow', 'Top of slab below', { ns: 'editor' })}
               </SelectItem>
             </SelectGroup>
           </SelectContent>
         </Select>
-        <LengthBox id="architecture-wall-base-offset" label="Base offset" testId="architecture-wall-base-offset" mm={offsetMm} disabled={blocked !== null} onCommit={commitOffset} />
+        <LengthBox
+          id="architecture-wall-base-offset"
+          label={t('architecture.base.baseOffset', 'Base offset', { ns: 'editor' })}
+          testId="architecture-wall-base-offset"
+          mm={offsetMm}
+          disabled={blocked !== null}
+          onCommit={commitOffset}
+        />
       </div>
       <FieldDescription data-testid="architecture-wall-base-words">{words}</FieldDescription>
     </Field>

@@ -26,8 +26,8 @@ export interface ArchitectureRibbon {
  * level dialog, needs no open plan, and says why when editing is off, a
  * sheet is in front or the surface has no level dialog.
  */
-export function levelButton(s: { readonly editBlocked: string | null; readonly modelToolsOff: boolean; readonly requestLevel?: () => void }): Pick<ArchitectureRibbon, 'addLevel' | 'levelWhy'> {
-  const why = s.editBlocked ?? (s.modelToolsOff ? 'Add levels from a plan or the 3D view: open one from the Views and sheets panel' : s.requestLevel ? null : 'Add levels from Model › Levels on this surface')
+export function levelButton(s: { readonly editBlocked: string | null; readonly modelToolsOff: boolean; readonly requestLevel?: () => void }, t: Translate = englishOnly): Pick<ArchitectureRibbon, 'addLevel' | 'levelWhy'> {
+  const why = s.editBlocked ?? (s.modelToolsOff ? t('architecture.level.needsPlan', 'Add levels from a plan or the 3D view: open one from the Views and sheets panel', { ns: 'editor' }) : s.requestLevel ? null : t('architecture.level.needsSurface', 'Add levels from Model › Levels on this surface', { ns: 'editor' }))
   return { addLevel: why === null && s.requestLevel ? s.requestLevel : null, levelWhy: why }
 }
 
@@ -48,33 +48,51 @@ const ICONS: Readonly<Record<ArchitectureToolId, ComponentType>> = {
   stair: Footprints,
 }
 
-function toolCommand(r: ArchitectureRibbon, t: ArchitectureTool): RibbonCommand {
-  if (t.mode === 'dialog') {
-    return { id: `architecture.${t.id}`, label: t.label, icon: ICONS[t.id], description: t.description, disabledReason: r.addLevel ? null : (r.levelWhy ?? r.blocked ?? 'Add levels from Model › Levels on this surface'), ...(r.addLevel ? { run: r.addLevel } : {}), testId: `architecture-${t.id}` }
+function toolCommand(r: ArchitectureRibbon, tool: ArchitectureTool, t: Translate): RibbonCommand {
+  if (tool.mode === 'dialog') {
+    return {
+      id: `architecture.${tool.id}`,
+      label: tool.label(t),
+      icon: ICONS[tool.id],
+      description: tool.description(t),
+      disabledReason: r.addLevel ? null : (r.levelWhy ?? r.blocked ?? t('architecture.level.needsSurface', 'Add levels from Model › Levels on this surface', { ns: 'editor' })),
+      ...(r.addLevel ? { run: r.addLevel } : {}),
+      testId: `architecture-${tool.id}`,
+    }
   }
   return {
-    id: `architecture.${t.id}`,
-    label: t.label,
-    icon: ICONS[t.id],
-    description: t.description,
-    ...(t.shortcut ? { shortcut: t.shortcut } : {}),
+    id: `architecture.${tool.id}`,
+    label: tool.label(t),
+    icon: ICONS[tool.id],
+    description: tool.description(t),
+    ...(tool.shortcut ? { shortcut: tool.shortcut } : {}),
     disabledReason: r.blocked,
-    pressed: r.tool === t.id,
-    run: () => r.setTool(r.tool === t.id ? null : t.id),
-    testId: `architecture-${t.id}`,
+    pressed: r.tool === tool.id,
+    run: () => r.setTool(r.tool === tool.id ? null : tool.id),
+    testId: `architecture-${tool.id}`,
   }
 }
 
-function architectureTab(r: ArchitectureRibbon, select: RibbonGroup, translate: Translate = englishOnly): RibbonTab {
-  const datums: RibbonGroup = { id: 'architecture.datums', label: 'Datums', commands: DATUM_TOOLS.map((t) => toolCommand(r, t)) }
+function architectureTab(r: ArchitectureRibbon, select: RibbonGroup, t: Translate = englishOnly): RibbonTab {
+  const datums: RibbonGroup = { id: 'architecture.datums', label: t('architecture.group.datums', 'Datums', { ns: 'editor' }), commands: DATUM_TOOLS.map((tool) => toolCommand(r, tool, t)) }
   // Nine tools: the ribbon shows the first four and folds the rest under More.
-  const build: RibbonGroup = { id: 'architecture.build', label: 'Build', commands: BUILD_TOOLS.map((t) => toolCommand(r, t)) }
+  const build: RibbonGroup = { id: 'architecture.build', label: t('architecture.group.build', 'Build', { ns: 'editor' }), commands: BUILD_TOOLS.map((tool) => toolCommand(r, tool, t)) }
   const types: RibbonGroup = {
     id: 'architecture.types',
-    label: 'Types',
-    commands: [{ id: 'architecture.edit_type', label: 'Edit type…', icon: Ruler, description: "Change the selection's type: layers, thickness, ratings", disabledReason: r.editType ? null : (r.editTypeWhy ?? r.blocked ?? 'Select one wall, door or window that has a type'), ...(r.editType ? { run: r.editType } : {}), testId: 'architecture-edit-type' }],
+    label: t('architecture.group.types', 'Types', { ns: 'editor' }),
+    commands: [
+      {
+        id: 'architecture.edit_type',
+        label: t('architecture.editType', 'Edit type…', { ns: 'editor' }),
+        icon: Ruler,
+        description: t('architecture.editTypeWhy', "Change the selection's type: layers, thickness, ratings", { ns: 'editor' }),
+        disabledReason: r.editType ? null : (r.editTypeWhy ?? r.blocked ?? t('architecture.editType.selectOne', 'Select one wall, door or window that has a type', { ns: 'editor' })),
+        ...(r.editType ? { run: r.editType } : {}),
+        testId: 'architecture-edit-type',
+      },
+    ],
   }
-  return tradeTab({ id: 'architecture', label: 'Architecture', select, create: [datums, build], design: types }, translate)
+  return tradeTab({ id: 'architecture', label: t('architecture.tab', 'Architecture', { ns: 'editor' }), select, create: [datums, build], design: types }, t)
 }
 
 const NOTHING = (): void => {}

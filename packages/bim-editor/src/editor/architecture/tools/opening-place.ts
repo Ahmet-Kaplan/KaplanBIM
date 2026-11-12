@@ -1,4 +1,5 @@
 import { hostLineOf, type BimElement, type Command, type Vec2 } from '@permitzip/bim-kernel'
+import { englishOnly, type Translate } from '../../i18n/translate'
 
 /**
  * Placing a door, window or plain opening: hover a wall, the ghost follows
@@ -15,13 +16,32 @@ export type OpeningAim =
   | { readonly ok: true; readonly hostId: string; readonly s: number; readonly at: Vec2; readonly widthMm: number }
   | { readonly ok: false; readonly reason: string }
 
-function word(kind: OpeningKind): string {
-  return kind === 'opening' ? 'An opening' : `A ${kind}`
+function word(kind: OpeningKind, t: Translate): string {
+  switch (kind) {
+    case 'door':
+      return t('architecture.opening.aDoor', 'A door', { ns: 'editor' })
+    case 'window':
+      return t('architecture.opening.aWindow', 'A window', { ns: 'editor' })
+    case 'opening':
+      return t('architecture.opening.anOpening', 'An opening', { ns: 'editor' })
+  }
+}
+
+/** One door, window or plain opening, as a hint bar names it (§2.3: *door* = **kapı**, *window* = **pencere**, *opening* = **boşluk**). */
+export function openingNoun(kind: OpeningKind, t: Translate = englishOnly): string {
+  switch (kind) {
+    case 'door':
+      return t('architecture.noun.door', 'door', { ns: 'editor' })
+    case 'window':
+      return t('architecture.noun.window', 'window', { ns: 'editor' })
+    case 'opening':
+      return t('architecture.noun.opening', 'opening', { ns: 'editor' })
+  }
 }
 
 /** Where the opening would go for what the pointer is over, or why it can't. */
-export function aimOpening(elements: Readonly<Record<string, BimElement>>, kind: OpeningKind, hoveredIds: readonly string[], pointer: Vec2 | null, widthMm = DEFAULT_WIDTH_MM[kind]): OpeningAim {
-  const refusal = { ok: false as const, reason: `${word(kind)} needs a wall to sit in; point at a wall` }
+export function aimOpening(elements: Readonly<Record<string, BimElement>>, kind: OpeningKind, hoveredIds: readonly string[], pointer: Vec2 | null, widthMm = DEFAULT_WIDTH_MM[kind], t: Translate = englishOnly): OpeningAim {
+  const refusal = { ok: false as const, reason: t('architecture.opening.needsWall', '{{what}} needs a wall to sit in; point at a wall', { ns: 'editor', what: word(kind, t) }) }
   if (!pointer) return refusal
   for (const id of hoveredIds) {
     const host = elements[id]
@@ -30,7 +50,11 @@ export function aimOpening(elements: Readonly<Record<string, BimElement>>, kind:
     const dx = line.end.x - line.start.x
     const dy = line.end.y - line.start.y
     const len = Math.hypot(dx, dy)
-    if (len < widthMm) return { ok: false, reason: `This wall is ${Math.round(len)} mm long; a ${Math.round(widthMm)} mm ${kind} doesn't fit` }
+    if (len < widthMm)
+      return {
+        ok: false,
+        reason: t('architecture.opening.doesNotFit', "This wall is {{length}} mm long; a {{width}} mm {{noun}} doesn't fit", { ns: 'editor', length: Math.round(len), width: Math.round(widthMm), noun: openingNoun(kind, t) }),
+      }
     const along = ((pointer.x - line.start.x) * dx + (pointer.y - line.start.y) * dy) / len
     const s = Math.round(Math.min(len - widthMm / 2, Math.max(widthMm / 2, along)))
     return { ok: true, hostId: host.id, s, at: { x: line.start.x + (dx / len) * s, y: line.start.y + (dy / len) * s }, widthMm }
@@ -53,8 +77,8 @@ export function placeOpening(aim: Extract<OpeningAim, { ok: true }>, kind: Openi
   }
 }
 
-export function openingHint(kind: OpeningKind, aim: OpeningAim | null): string {
-  if (!aim) return `Point at a wall to put the ${kind} in`
+export function openingHint(kind: OpeningKind, aim: OpeningAim | null, t: Translate = englishOnly): string {
+  if (!aim) return t('architecture.opening.pointAtWall', 'Point at a wall to put the {{noun}} in', { ns: 'editor', noun: openingNoun(kind, t) })
   if (!aim.ok) return aim.reason
-  return `Click to put the ${kind} in · Space flips the side it opens to · Esc to stop`
+  return t('architecture.opening.clickToPut', 'Click to put the {{noun}} in · Space flips the side it opens to · Esc to stop', { ns: 'editor', noun: openingNoun(kind, t) })
 }

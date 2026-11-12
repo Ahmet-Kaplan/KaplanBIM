@@ -1,5 +1,6 @@
 import { elementsOfKind, elementValueSource, type BimElement, type Command } from '@permitzip/bim-kernel'
 import { DOOR_OPERATION_KEY } from '@permitzip/bim-pack-architecture'
+import { englishOnly, type Translate } from '../../i18n/translate'
 
 /**
  * A placed door's two flips (Revit's flip arrows), as edits: Flip hinge moves
@@ -14,8 +15,8 @@ const DEFAULT_OPERATION = 'SINGLE_SWING_LEFT'
 
 type Elements = Readonly<Record<string, BimElement>>
 
-export function doorFlipCommand(elements: Elements, el: BimElement, which: 'hinge' | 'swing'): Command | string {
-  if (el.kind !== 'opening' || el.openingType !== 'door') return 'Select one door to flip it.'
+export function doorFlipCommand(elements: Elements, el: BimElement, which: 'hinge' | 'swing', t: Translate = englishOnly): Command | string {
+  if (el.kind !== 'opening' || el.openingType !== 'door') return t('architecture.doorFlip.selectOne', 'Select one door to flip it.', { ns: 'editor' })
   if (which === 'swing') {
     const side = elementValueSource(elements, el, HOST_SIDE_KEY)?.value === -1 ? -1 : 1
     return { type: 'set_element_values', elementIds: [el.id], values: { [HOST_SIDE_KEY]: side === 1 ? -1 : null } }
@@ -23,7 +24,7 @@ export function doorFlipCommand(elements: Elements, el: BimElement, which: 'hing
   const op = String(elementValueSource(elements, el, DOOR_OPERATION_KEY)?.value ?? DEFAULT_OPERATION)
   if (op === 'SINGLE_SWING_LEFT') return { type: 'set_element_values', elementIds: [el.id], values: { [DOOR_OPERATION_KEY]: 'SINGLE_SWING_RIGHT' } }
   if (op === 'SINGLE_SWING_RIGHT') return { type: 'set_element_values', elementIds: [el.id], values: { [DOOR_OPERATION_KEY]: 'SINGLE_SWING_LEFT' } }
-  return 'This door has a leaf on each jamb, or slides: there is no hinge side to flip. Flip swing still changes the side it opens to.'
+  return t('architecture.doorFlip.noHinge', 'This door has a leaf on each jamb, or slides: there is no hinge side to flip. Flip swing still changes the side it opens to.', { ns: 'editor' })
 }
 
 const PREFIX: Readonly<Record<string, string>> = { door: 'D', window: 'W' }

@@ -302,6 +302,8 @@ export interface ReferenceSnapPoint {
   readonly at: Vec2;
   readonly kind: ReferencePointKind;
   readonly ref: LinkedElementRef;
+  /** The noun the pack's rule gives the entity (`wall`, `column`): the words *around* it are the reader's, the noun is data. */
+  readonly noun: string;
   /** What the marker says ("End of the linked wall"). */
   readonly label: string;
 }
@@ -311,6 +313,8 @@ export interface ReferenceSnapLine extends ReferenceLine {
   readonly ref: LinkedElementRef;
   /** Which face of a long, thin element (0 or 1); absent for its centre line or an outline edge. */
   readonly face?: 0 | 1;
+  /** The noun the pack's rule gives the entity (`wall`, `column`): the words *around* it are the reader's, the noun is data. */
+  readonly noun: string;
   readonly label: string;
 }
 
@@ -329,16 +333,16 @@ export function linkedSnapCandidates(index: LinkedReferenceIndex, query: { reado
     if (!item.rule.snap) continue;
     const noun = item.rule.noun;
     const ref = item.ref;
-    for (const c of item.outline) points.push({ at: c, kind: "corner", ref, label: `Corner of the linked ${noun}` });
+    for (const c of item.outline) points.push({ at: c, kind: "corner", ref, noun, label: `Corner of the linked ${noun}` });
     if (item.line) {
-      points.push({ at: item.line.axis.start, kind: "end", ref, label: `End of the linked ${noun}` }, { at: item.line.axis.end, kind: "end", ref, label: `End of the linked ${noun}` });
+      points.push({ at: item.line.axis.start, kind: "end", ref, noun, label: `End of the linked ${noun}` }, { at: item.line.axis.end, kind: "end", ref, noun, label: `End of the linked ${noun}` });
       lines.push(
-        { ...item.line.faces[0], kind: "face", face: 0, ref, label: `On the linked ${noun}'s face` },
-        { ...item.line.faces[1], kind: "face", face: 1, ref, label: `On the linked ${noun}'s face` },
-        { ...item.line.axis, kind: "centre", ref, label: `On the linked ${noun}'s centre line` },
+        { ...item.line.faces[0], kind: "face", face: 0, ref, noun, label: `On the linked ${noun}'s face` },
+        { ...item.line.faces[1], kind: "face", face: 1, ref, noun, label: `On the linked ${noun}'s face` },
+        { ...item.line.axis, kind: "centre", ref, noun, label: `On the linked ${noun}'s centre line` },
       );
     } else {
-      for (let i = 0; i < item.outline.length; i++) lines.push({ start: item.outline[i] as Vec2, end: item.outline[(i + 1) % item.outline.length] as Vec2, kind: "edge", ref, label: `On the linked ${noun}'s edge` });
+      for (let i = 0; i < item.outline.length; i++) lines.push({ start: item.outline[i] as Vec2, end: item.outline[(i + 1) % item.outline.length] as Vec2, kind: "edge", ref, noun, label: `On the linked ${noun}'s edge` });
     }
   }
   return { points, lines };

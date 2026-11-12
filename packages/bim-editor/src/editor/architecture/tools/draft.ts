@@ -1,4 +1,5 @@
 import { MIN_WALL_MM, type BimElement, type Command, type Vec2 } from '@permitzip/bim-kernel'
+import { englishOnly, type Translate } from '../../i18n/translate'
 import type { ArchitectureTool } from './catalog'
 import { chainHint, clickCorner, EMPTY_CHAIN, finishChain, flipLocation, typeDigit, typedCorner, undoCorner, type ChainState } from './wall-chain'
 import { nextOpeningMark } from './door-flips'
@@ -42,6 +43,8 @@ export interface DraftContext {
   readonly faceAt?: (p: Vec2) => FaceAt
   /** The command that makes a room bounded by the walls around a plan point. */
   readonly roomCommand?: (p: Vec2) => Command
+  /** The language being drawn in: a door that won't fit, or a hint, says so in it. */
+  readonly t?: Translate
 }
 
 export interface Step {
@@ -124,7 +127,7 @@ export function clickDraft(d: Draft, ctx: DraftContext, p: Vec2, hovered: readon
     case 'point':
       return { draft: d, command: { type: 'create_element', elementId: ctx.newId(d.tool.id), kind: d.tool.kind, levelId: ctx.levelId, placement: { kind: 'point', position: p }, ...(ctx.typeId ? { typeId: ctx.typeId } : {}) } }
     case 'hosted': {
-      const aim = aimOpening(ctx.elements, d.tool.kind as OpeningKind, hostCandidates(ctx, p, hovered), p, ctx.openingSize?.widthMm)
+      const aim = aimOpening(ctx.elements, d.tool.kind as OpeningKind, hostCandidates(ctx, p, hovered), p, ctx.openingSize?.widthMm, ctx.t ?? englishOnly)
       if (!aim.ok) return keep({ ...d, aim })
       // Its mark comes with it (D1, W1, …), so the live plan tags it at once.
       return { draft: { ...d, aim }, command: placeOpening(aim, d.tool.kind as OpeningKind, d.side, ctx.newId(d.tool.id), ctx.typeId, nextOpeningMark(ctx.elements, d.tool.kind), ctx.openingSize?.heightMm) }
@@ -136,7 +139,7 @@ export function clickDraft(d: Draft, ctx: DraftContext, p: Vec2, hovered: readon
 
 /** The pointer moved: a door's ghost follows the wall it is near; a floor or room reads the walls round the pointer. */
 export function hoverDraft(d: Draft, ctx: DraftContext, p: Vec2 | null, hovered: readonly string[]): Draft {
-  if (d.tool.mode === 'hosted') return { ...d, aim: aimOpening(ctx.elements, d.tool.kind as OpeningKind, hostCandidates(ctx, p, hovered), p, ctx.openingSize?.widthMm) }
+  if (d.tool.mode === 'hosted') return { ...d, aim: aimOpening(ctx.elements, d.tool.kind as OpeningKind, hostCandidates(ctx, p, hovered), p, ctx.openingSize?.widthMm, ctx.t ?? englishOnly) }
   if (d.tool.mode === 'room' || d.tool.mode === 'area') return { ...d, face: faceFor(d, ctx, p) }
   return d
 }
@@ -168,25 +171,33 @@ export function keyDraft(d: Draft, ctx: DraftContext, key: string, pointer: Vec2
 }
 
 /** The hint bar's words for the draft. */
-export function draftHint(d: Draft): string {
+export function draftHint(d: Draft, t: Translate = englishOnly): string {
+  const noun = d.tool.noun(t)
+  const line = d.chain.location === 'centre' ? t('architecture.location.centreLine', 'centre line', { ns: 'editor' }) : t('architecture.location.finishFace', 'finish face', { ns: 'editor' })
   switch (d.tool.mode) {
     case 'chain':
-      return chainHint(d.chain, d.tool.noun)
+      return chainHint(d.chain, noun, t)
     case 'rectangle':
-      return d.chain.points.length === 0 ? 'Click one corner of the rectangle' : `Click the opposite corner: four walls, joined at every corner · Tab: drawing on the ${d.chain.location === 'centre' ? 'centre line' : 'finish face'} · Esc to stop`
+      return d.chain.points.length === 0
+        ? t('architecture.hint.rectFirstCorner', 'Click one corner of the rectangle', { ns: 'editor' })
+        : t('architecture.hint.rectOppositeCorner', 'Click the opposite corner: four walls, joined at every corner · Tab: drawing on the {{line}} · Esc to stop', { ns: 'editor', line })
     case 'line':
-      return d.chain.points.length === 0 ? `Click the ${d.tool.noun}'s start` : `Click its end · Esc to stop`
+      return d.chain.points.length === 0 ? t('architecture.hint.start', "Click the {{noun}}'s start", { ns: 'editor', noun }) : t('architecture.hint.clickItsEnd', 'Click its end · Esc to stop', { ns: 'editor' })
     case 'area':
-      if (d.chain.points.length === 0 && d.face?.ok) return `Click to fill these walls with a ${d.tool.noun} (${d.face.area}), or click outside them to sketch its corners`
-      if (d.chain.points.length === 0 && d.tool.kind !== 'ceiling') return `Click inside closed walls to fill them with a ${d.tool.noun}, or click the ${d.tool.noun}'s first corner`
-      return d.chain.points.length < 3 ? `Click the ${d.tool.noun}'s corners` : `Click more corners, or Enter or the first corner to close the ${d.tool.noun} · Backspace takes a corner back · Esc keeps it and stops`
+      if (d.chain.points.length === 0 && d.face?.ok)
+        return t('architecture.hint.fillTheseWalls', 'Click to fill these walls with a {{noun}} ({{area}}), or click outside them to sketch its corners', { ns: 'editor', noun, area: d.face.area })
+      if (d.chain.points.length === 0 && d.tool.kind !== 'ceiling')
+        return t('architecture.hint.insideClosedWalls', "Click inside closed walls to fill them with a {{noun}}, or click the {{noun}}'s first corner", { ns: 'editor', noun })
+      return d.chain.points.length < 3
+        ? t('architecture.hint.corners', "Click the {{noun}}'s corners", { ns: 'editor', noun })
+        : t('architecture.hint.moreCorners', 'Click more corners, or Enter or the first corner to close the {{noun}} · Backspace takes a corner back · Esc keeps it and stops', { ns: 'editor', noun })
     case 'room':
-      if (!d.face) return 'Click inside closed walls to make a room'
-      return d.face.ok ? `Click to make a room here (${d.face.area}) · Esc to stop` : d.face.message
+      if (!d.face) return t('architecture.hint.makeRoom', 'Click inside closed walls to make a room', { ns: 'editor' })
+      return d.face.ok ? t('architecture.hint.roomHere', 'Click to make a room here ({{area}}) · Esc to stop', { ns: 'editor', area: d.face.area }) : d.face.message
     case 'point':
-      return `Click to place the ${d.tool.noun} · Esc to stop`
+      return t('architecture.hint.placeNoun', 'Click to place the {{noun}} · Esc to stop', { ns: 'editor', noun })
     case 'hosted':
-      return openingHint(d.tool.kind as OpeningKind, d.aim)
+      return openingHint(d.tool.kind as OpeningKind, d.aim, t)
     case 'dialog':
       return ''
   }

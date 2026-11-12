@@ -1,4 +1,5 @@
 import type { Command, Vec2 } from '@permitzip/bim-kernel'
+import { englishOnly, type Translate } from '../../i18n/translate'
 
 /**
  * The chain-drawing tool for walls (and any line-placed kind): click corners,
@@ -109,9 +110,9 @@ export function finishChain(s: ChainState, c: ChainCommit): Command | null {
 }
 
 /** What the hint bar says for the chain's state. */
-export function chainHint(s: ChainState, noun: string): string {
-  if (s.points.length === 0) return `Click the ${noun}'s start`
-  const line = s.location === 'centre' ? 'centre line' : 'finish face'
-  if (s.typed) return `${s.typed} mm: Enter puts the corner down along the pointer`
-  return `Click the next corner, or type a length; Esc or Enter to finish · Backspace takes a corner back · Tab: drawing on the ${line}`
+export function chainHint(s: ChainState, noun: string, t: Translate = englishOnly): string {
+  if (s.points.length === 0) return t('architecture.hint.start', "Click the {{noun}}'s start", { ns: 'editor', noun })
+  const line = s.location === 'centre' ? t('architecture.location.centreLine', 'centre line', { ns: 'editor' }) : t('architecture.location.finishFace', 'finish face', { ns: 'editor' })
+  if (s.typed) return t('architecture.hint.typedLength', '{{length}} mm: Enter puts the corner down along the pointer', { ns: 'editor', length: s.typed })
+  return t('architecture.hint.nextCorner', 'Click the next corner, or type a length; Esc or Enter to finish · Backspace takes a corner back · Tab: drawing on the {{line}}', { ns: 'editor', line })
 }

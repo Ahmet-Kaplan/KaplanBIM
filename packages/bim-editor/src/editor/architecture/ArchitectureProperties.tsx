@@ -9,6 +9,7 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from '../../ui/field'
 import { Input } from '../../ui/input'
 import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from '../../ui/select'
 import { Switch } from '../../ui/switch'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
 import type { SubmitCommand } from '../views-sheets/types'
 import { EditTypeDialog, type NewTypeRequest } from './EditTypeDialog'
 import { instanceRatingField } from './type-fields'
@@ -23,10 +24,33 @@ const NEW_TYPE = '__new__'
 const DUPLICATE_TYPE = '__duplicate__'
 const FIRE = 'fire_resistance'
 
-/** What one selected wall, door, window or floor is called here. */
-function noun(el: BimElement): string {
-  if (el.kind === 'opening') return el.openingType === 'door' || el.openingType === 'window' ? el.openingType : 'opening'
-  return el.kind === 'slab' ? 'floor' : el.kind
+/**
+ * What one selected wall, door, window or floor is called here (§2.3: *wall* =
+ * **duvar**, *door* = **kapı**, *window* = **pencere**, *floor* = **döşeme**,
+ * *ceiling* = **tavan**, *column* = **kolon**).
+ */
+function noun(el: BimElement, t: Translate): string {
+  switch (el.kind) {
+    case 'opening':
+      switch (el.openingType) {
+        case 'door':
+          return t('architecture.noun.door', 'door', { ns: 'editor' })
+        case 'window':
+          return t('architecture.noun.window', 'window', { ns: 'editor' })
+        default:
+          return t('architecture.noun.opening', 'opening', { ns: 'editor' })
+      }
+    case 'slab':
+      return t('architecture.noun.floor', 'floor', { ns: 'editor' })
+    case 'wall':
+      return t('architecture.noun.wall', 'wall', { ns: 'editor' })
+    case 'ceiling':
+      return t('architecture.noun.ceiling', 'ceiling', { ns: 'editor' })
+    case 'column':
+      return t('architecture.noun.column', 'column', { ns: 'editor' })
+    default:
+      return el.kind
+  }
 }
 
 function typeIdOf(el: BimElement): string | null {
@@ -52,6 +76,7 @@ type Props = {
  * for walls, whether it bounds rooms.
  */
 export function ArchitectureProperties({ model, selectedIds, submit, editBlocked, notify, tiesStored = true, surfacesStored = true }: Props): ReactNode {
+  const t = useEditorTranslate()
   const [making, setMaking] = useState<NewTypeRequest | null>(null)
   const el = model && selectedIds.length === 1 ? model.elements[selectedIds[0] ?? ''] : undefined
   if (!model || !el || !TYPED_KINDS.has(el.kind)) return null
@@ -63,12 +88,12 @@ export function ArchitectureProperties({ model, selectedIds, submit, editBlocked
   const currentType = current ? model.elements[current] : undefined
   const ownType: ElementTypeElement | null = currentType?.kind === 'element_type' ? currentType : null
   const bounding = el.kind === 'wall' ? boundsRooms(el, model.elements) : null
-  const what = noun(el)
+  const what = noun(el, t)
   const blocked = editBlocked !== null
   return (
     <FieldGroup data-testid="architecture-properties">
       <Field>
-        <FieldLabel htmlFor="architecture-type">Type</FieldLabel>
+        <FieldLabel htmlFor="architecture-type">{t('architecture.type.label', 'Type', { ns: 'editor' })}</FieldLabel>
         <Select
           value={current ?? NO_TYPE}
           disabled={blocked}
@@ -77,18 +102,21 @@ export function ArchitectureProperties({ model, selectedIds, submit, editBlocked
               setMaking({ kind: el.kind, noun: what, from: v === DUPLICATE_TYPE ? ownType : null, assignTo: el.id })
               return
             }
-            const err = submit({ type: 'set_element_type', elementIds: [el.id], typeId: v === NO_TYPE ? null : v }, `Change the ${what}'s type`)
+            const err = submit(
+              { type: 'set_element_type', elementIds: [el.id], typeId: v === NO_TYPE ? null : v },
+              t('architecture.type.change', "Change the {{what}}'s type", { ns: 'editor', what }),
+            )
             if (err) {
               console.error('[ArchitectureProperties] type change refused', { elementId: el.id, err })
               notify(err, 'error')
             }
           }}
         >
-          <SelectTrigger id="architecture-type" aria-label={`The ${what}'s type`}>
-            <SelectValue placeholder="No type" />
+          <SelectTrigger id="architecture-type" aria-label={t('architecture.type.itsType', "The {{what}}'s type", { ns: 'editor', what })}>
+            <SelectValue placeholder={t('architecture.type.none', 'No type', { ns: 'editor' })} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={NO_TYPE}>No type</SelectItem>
+            <SelectItem value={NO_TYPE}>{t('architecture.type.none', 'No type', { ns: 'editor' })}</SelectItem>
             {types.map((t) => (
               <SelectItem key={t.id} value={t.id}>
                 {t.name}
@@ -101,11 +129,11 @@ export function ArchitectureProperties({ model, selectedIds, submit, editBlocked
             ))}
             <SelectSeparator />
             <SelectItem value={NEW_TYPE} data-testid="architecture-new-type">
-              New type…
+              {t('architecture.type.new', 'New type…', { ns: 'editor' })}
             </SelectItem>
             {ownType ? (
               <SelectItem value={DUPLICATE_TYPE} data-testid="architecture-duplicate-type">
-                Duplicate type…
+                {t('architecture.type.duplicate', 'Duplicate type…', { ns: 'editor' })}
               </SelectItem>
             ) : null}
           </SelectContent>
@@ -113,11 +141,26 @@ export function ArchitectureProperties({ model, selectedIds, submit, editBlocked
         {blocked ? (
           <FieldDescription>{editBlocked}</FieldDescription>
         ) : ownType ? (
-          <FieldDescription data-testid="architecture-type-words">{typeDescription(ownType.id) ?? `${ownType.name}: a type made in this model. Edit type… shows what it is made of.`}</FieldDescription>
+          <FieldDescription data-testid="architecture-type-words">
+            {typeDescription(ownType.id) ??
+              t('architecture.type.madeHere', '{{name}}: a type made in this model. Edit type… shows what it is made of.', { ns: 'editor', name: ownType.name })}
+          </FieldDescription>
         ) : types.length === 0 && starters.length === 0 ? (
-          <FieldDescription>No {what} types in this model yet. A type is what the {what} is built as (its fire rating and the rest); pick New type… in this menu to make one.</FieldDescription>
+          <FieldDescription>
+            {t(
+              'architecture.type.noneInModel',
+              'No {{what}} types in this model yet. A type is what the {{what}} is built as (its fire rating and the rest); pick New type… in this menu to make one.',
+              { ns: 'editor', what },
+            )}
+          </FieldDescription>
         ) : (
-          <FieldDescription data-testid="architecture-type-words">No type yet. A type is what the {what} is built as: choose a starter type, or pick New type… in this menu to make your own.</FieldDescription>
+          <FieldDescription data-testid="architecture-type-words">
+            {t(
+              'architecture.type.pickOne',
+              'No type yet. A type is what the {{what}} is built as: choose a starter type, or pick New type… in this menu to make your own.',
+              { ns: 'editor', what },
+            )}
+          </FieldDescription>
         )}
       </Field>
       {el.kind === 'wall' ? <WallTopField key={`top-${el.id}`} model={model} el={el} submit={submit} editBlocked={editBlocked} notify={notify} tiesStored={tiesStored} surfacesStored={surfacesStored} /> : null}
@@ -130,14 +173,17 @@ export function ArchitectureProperties({ model, selectedIds, submit, editBlocked
             checked={bounding}
             disabled={blocked}
             onCheckedChange={(on) => {
-              const err = submit({ type: 'set_element_values', elementIds: [el.id], values: { [ROOM_BOUNDING_INSTANCE_KEY]: on } }, on ? 'Let the wall bound rooms' : 'Stop the wall bounding rooms')
+              const err = submit(
+                { type: 'set_element_values', elementIds: [el.id], values: { [ROOM_BOUNDING_INSTANCE_KEY]: on } },
+                on ? t('architecture.rooms.letBound', 'Let the wall bound rooms', { ns: 'editor' }) : t('architecture.rooms.stopBound', 'Stop the wall bounding rooms', { ns: 'editor' }),
+              )
               if (err) {
                 console.error('[ArchitectureProperties] room bounding refused', { elementId: el.id, err })
                 notify(err, 'error')
               }
             }}
           />
-          <FieldLabel htmlFor="architecture-room-bounding">Bounds rooms</FieldLabel>
+          <FieldLabel htmlFor="architecture-room-bounding">{t('architecture.rooms.bounds', 'Bounds rooms', { ns: 'editor' })}</FieldLabel>
         </Field>
       ) : null}
       {el.kind === 'opening' && (el.openingType === 'door' || el.openingType === 'window') ? <OpeningSillField key={`sill-${el.id}`} model={model} el={el} submit={submit} editBlocked={editBlocked} notify={notify} /> : null}
@@ -152,9 +198,10 @@ export function ArchitectureProperties({ model, selectedIds, submit, editBlocked
  * wins over the type and says so, with a way back to the type's.
  */
 function FireRatingField({ model, el, type, what, submit, editBlocked, notify }: { readonly model: ModelState; readonly el: BimElement; readonly type: ElementTypeElement | null; readonly what: string; readonly submit: SubmitCommand; readonly editBlocked: string | null; readonly notify: Props['notify'] }): ReactNode {
+  const t = useEditorTranslate()
   const row = ratingKindRow(FIRE)
   const source = ratingSourceOf(model.elements, el, FIRE)
-  const field = instanceRatingField(el, type)
+  const field = instanceRatingField(el, type, t)
   const ownKey = field?.key
   const own = ownKey ? elementValueSource(model.elements, el, ownKey) : null
   const ownValue = own?.from === 'instance' ? own.value : undefined
@@ -170,14 +217,14 @@ function FireRatingField({ model, el, type, what, submit, editBlocked, notify }:
   if (!row || !source || !field || !ownKey) {
     return (
       <Field orientation="horizontal">
-        <FieldLabel>Fire rating</FieldLabel>
+        <FieldLabel>{t('architecture.fireRating', 'Fire rating', { ns: 'editor' })}</FieldLabel>
         <Badge variant="outline" data-testid="architecture-fire-rating">
-          Not rated
+          {t('architecture.rated.not', 'Not rated', { ns: 'editor' })}
         </Badge>
       </Field>
     )
   }
-  const words = (v: number | null) => (v === null ? 'Not rated' : formatRating(row, v))
+  const words = (v: number | null) => (v === null ? t('architecture.rated.not', 'Not rated', { ns: 'editor' }) : formatRating(row, v))
   const typeWords = type ? `${type.name}: ${words(source.typeValue)}` : null
 
   const write = (values: Record<string, ParamValue | null>, label: string): boolean => {
@@ -193,24 +240,26 @@ function FireRatingField({ model, el, type, what, submit, editBlocked, notify }:
   const clearOwn = (): Record<string, null> => Object.fromEntries(source.ownKeys.map((k) => [k, null]))
 
   const commit = () => {
-    const t = text.trim()
-    if (t === shown) return setWhy(null)
-    if (t === '') {
+    const trimmed = text.trim()
+    if (trimmed === shown) return setWhy(null)
+    if (trimmed === '') {
       setWhy(null)
-      if (source.ownKeys.length > 0) write(clearOwn(), `Use the ${what}'s type's fire rating`)
+      if (source.ownKeys.length > 0) write(clearOwn(), t('architecture.rated.useType', "Use the {{what}}'s type's fire rating", { ns: 'editor', what }))
       return
     }
     let value: ParamValue
     if (field.control === 'number') {
-      const n = Number(t)
-      if (!Number.isFinite(n) || n < 0) return setWhy(`Fire rating needs a number of hours; "${t}" isn't one.`)
+      const n = Number(trimmed)
+      if (!Number.isFinite(n) || n < 0)
+        return setWhy(t('architecture.rated.needsHours', 'Fire rating needs a number of hours; "{{text}}" isn\'t one.', { ns: 'editor', text: text.trim() }))
       value = n
-    } else value = t
+    } else value = trimmed
     // Read it the way every check will before writing it, so a typo never lands as "not rated".
     const trial = { ...el, values: { ...('values' in el ? el.values : {}), [ownKey]: value } } as BimElement
-    if (ratingOf(model.elements, trial, FIRE) === null && t !== '0') return setWhy(`"${t}" doesn't read as a fire rating. Type hours or minutes: 1, 1 hr, 90 min.`)
+    if (ratingOf(model.elements, trial, FIRE) === null && trimmed !== '0')
+      return setWhy(t('architecture.rated.doesNotRead', '"{{text}}" doesn\'t read as a fire rating. Type hours or minutes: 1, 1 hr, 90 min.', { ns: 'editor', text: trimmed }))
     setWhy(null)
-    write({ ...clearOwn(), [ownKey]: value }, `Set the ${what}'s fire rating`)
+    write({ ...clearOwn(), [ownKey]: value }, t('architecture.rated.set', "Set the {{what}}'s fire rating", { ns: 'editor', what }))
   }
   const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -224,14 +273,14 @@ function FireRatingField({ model, el, type, what, submit, editBlocked, notify }:
 
   return (
     <Field data-testid="architecture-fire-rating-field" data-overrides-type={source.differsFromType ? 'true' : 'false'}>
-      <FieldLabel htmlFor="architecture-fire-rating-input">Fire rating</FieldLabel>
+      <FieldLabel htmlFor="architecture-fire-rating-input">{t('architecture.fireRating', 'Fire rating', { ns: 'editor' })}</FieldLabel>
       <div className="flex items-center gap-2">
         <Input
           id="architecture-fire-rating-input"
           className="h-8 w-28"
           value={text}
           disabled={editBlocked !== null}
-          placeholder={source.typeValue !== null ? words(source.typeValue) : 'Not rated'}
+          placeholder={source.typeValue !== null ? words(source.typeValue) : t('architecture.rated.not', 'Not rated', { ns: 'editor' })}
           onChange={(e) => setText(e.target.value)}
           onBlur={commit}
           onKeyDown={onKey}
@@ -244,12 +293,14 @@ function FireRatingField({ model, el, type, what, submit, editBlocked, notify }:
       <FieldDescription id="architecture-fire-rating-words" data-testid="architecture-fire-rating-source">
         {why ??
           (source.differsFromType
-            ? `Differs from its type${typeWords ? ` (${typeWords})` : ''}: this ${what}'s own rating wins.`
+            ? typeWords
+              ? t('architecture.rated.differsNamed', "Differs from its type ({{type}}): this {{what}}'s own rating wins.", { ns: 'editor', type: typeWords, what })
+              : t('architecture.rated.differs', "Differs from its type: this {{what}}'s own rating wins.", { ns: 'editor', what })
             : source.ownKeys.length > 0
-              ? `This ${what}'s own rating.`
+              ? t('architecture.rated.own', "This {{what}}'s own rating.", { ns: 'editor', what })
               : typeWords
-                ? `From its type (${typeWords}). Type a rating to set this ${what}'s own.`
-                : `Type hours or minutes (1, 1 hr, 90 min) to rate this ${what}.`)}
+                ? t('architecture.rated.fromType', "From its type ({{type}}). Type a rating to set this {{what}}'s own.", { ns: 'editor', type: typeWords, what })
+                : t('architecture.rated.howTo', 'Type hours or minutes (1, 1 hr, 90 min) to rate this {{what}}.', { ns: 'editor', what }))}
       </FieldDescription>
       {source.ownKeys.length > 0 && type ? (
         <Button
@@ -260,10 +311,10 @@ function FireRatingField({ model, el, type, what, submit, editBlocked, notify }:
           data-testid="architecture-fire-rating-reset"
           disabled={editBlocked !== null}
           onClick={() => {
-            write(clearOwn(), `Use the ${what}'s type's fire rating`)
+            write(clearOwn(), t('architecture.rated.useType', "Use the {{what}}'s type's fire rating", { ns: 'editor', what }))
           }}
         >
-          Use the type&apos;s rating
+          {t('architecture.rated.useTypeButton', "Use the type's rating", { ns: 'editor' })}
         </Button>
       ) : null}
     </Field>
@@ -272,31 +323,35 @@ function FireRatingField({ model, el, type, what, submit, editBlocked, notify }:
 
 /** Flip hinge (to the other jamb) and Flip swing (to the other side of the wall), as in Revit's flip arrows; the plan and 3D redraw from the edit. */
 function DoorFlips({ model, el, submit, editBlocked, notify }: { readonly model: ModelState; readonly el: BimElement; readonly submit: SubmitCommand; readonly editBlocked: string | null; readonly notify: Props['notify'] }): ReactNode {
+  const t = useEditorTranslate()
   const flip = (which: 'hinge' | 'swing') => {
-    const command = doorFlipCommand(model.elements, el, which)
+    const command = doorFlipCommand(model.elements, el, which, t)
     if (typeof command === 'string') {
       notify(command, 'error')
       return
     }
-    const err = submit(command, which === 'hinge' ? "Flip the door's hinge" : "Flip the door's swing")
+    const err = submit(command, which === 'hinge' ? t('architecture.doorFlip.hinge', "Flip the door's hinge", { ns: 'editor' }) : t('architecture.doorFlip.swing', "Flip the door's swing", { ns: 'editor' }))
     if (err) {
       console.error('[ArchitectureProperties] door flip refused', { elementId: el.id, which, err })
       notify(err, 'error')
     }
   }
-  const hingeWhy = typeof doorFlipCommand(model.elements, el, 'hinge') === 'string' ? 'This door has a leaf on each jamb, or slides: no hinge side to flip' : null
+  const hingeWhy =
+    typeof doorFlipCommand(model.elements, el, 'hinge', t) === 'string' ? t('architecture.doorFlip.whyNoHinge', 'This door has a leaf on each jamb, or slides: no hinge side to flip', { ns: 'editor' }) : null
   return (
     <Field data-testid="architecture-door-flips">
-      <FieldLabel>Door</FieldLabel>
+      <FieldLabel>{t('architecture.doorFlip.label', 'Door', { ns: 'editor' })}</FieldLabel>
       <div className="flex items-center gap-2">
         <Button type="button" size="sm" variant="outline" data-testid="architecture-flip-hinge" disabled={editBlocked !== null || hingeWhy !== null} title={hingeWhy ?? undefined} onClick={() => flip('hinge')}>
-          Flip hinge
+          {t('architecture.doorFlip.flipHinge', 'Flip hinge', { ns: 'editor' })}
         </Button>
         <Button type="button" size="sm" variant="outline" data-testid="architecture-flip-swing" disabled={editBlocked !== null} onClick={() => flip('swing')}>
-          Flip swing
+          {t('architecture.doorFlip.flipSwing', 'Flip swing', { ns: 'editor' })}
         </Button>
       </div>
-      <FieldDescription>{editBlocked ?? hingeWhy ?? 'Hinge: the jamb it hangs on. Swing: the side of the wall it opens to.'}</FieldDescription>
+      <FieldDescription>
+        {editBlocked ?? hingeWhy ?? t('architecture.doorFlip.words', 'Hinge: the jamb it hangs on. Swing: the side of the wall it opens to.', { ns: 'editor' })}
+      </FieldDescription>
     </Field>
   )
 }

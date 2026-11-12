@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { elementsOfKind, OPENING_SILL_KEY, WALLS_SURFACE_BINDING_FEATURE, WALLS_TOP_CONSTRAINT_FEATURE, type ElementId, type ModelState, type Vec2 } from '@permitzip/bim-kernel'
 import { usePublishWorkflow } from '../contributions/host-slots'
 import type { WorkflowHostProps } from '../contributions/types'
+import { englishOnly, useEditorTranslate, type Translate } from '../i18n/translate'
 import { feetInches } from '../placement'
 import { roomFromWallsCommand, wallsRoomHover } from '../spaces/walls-room-tool'
 import { ToolHintBar } from '../ToolHintBar'
@@ -27,10 +28,14 @@ const SNAP_PX = 12
 const TOP_LEVEL_WALL_MM = 3048
 
 /** The level drawn on, and how tall its walls are: up to the next level above, else 10'-0". */
-export function levelOf(model: ModelState, levelId: string): { readonly name: string; readonly wallHeightMm: number; readonly upTo: string | null; readonly upToId: string | null } {
+export function levelOf(
+  model: ModelState,
+  levelId: string,
+  t: Translate = englishOnly,
+): { readonly name: string; readonly wallHeightMm: number; readonly upTo: string | null; readonly upToId: string | null } {
   const levels = elementsOfKind(model.elements, 'level').sort((a, b) => a.elevationMm - b.elevationMm)
   const here = levels.find((l) => l.id === levelId)
-  if (!here) return { name: 'this level', wallHeightMm: TOP_LEVEL_WALL_MM, upTo: null, upToId: null }
+  if (!here) return { name: t('architecture.thisLevel', 'this level', { ns: 'editor' }), wallHeightMm: TOP_LEVEL_WALL_MM, upTo: null, upToId: null }
   const above = levels.find((l) => l.elevationMm > here.elevationMm + 1)
   return above ? { name: here.name, wallHeightMm: Math.round(above.elevationMm - here.elevationMm), upTo: above.name, upToId: above.id } : { name: here.name, wallHeightMm: TOP_LEVEL_WALL_MM, upTo: null, upToId: null }
 }
@@ -40,10 +45,20 @@ export function levelOf(model: ModelState, levelId: string): { readonly name: st
  * to the level above (U unties them), untied ones say their height (U ties
  * them back). No level above: always a typed height, and U says why.
  */
-export function wallTopWords(level: { readonly wallHeightMm: number; readonly upTo: string | null }, tied: boolean, typedMm: number | null = null): string {
-  if (typedMm !== null) return `walls ${feetInches(typedMm)} tall (typed) · H: change it${level.upTo ? ` · U: up to ${level.upTo}` : ''}`
-  if (!level.upTo) return `walls ${feetInches(level.wallHeightMm)} tall (no level above to run up to) · H: type a height`
-  return tied ? `walls up to ${level.upTo} (${feetInches(level.wallHeightMm)}), following it if it moves · U: a set height instead · H: type a height` : `walls ${feetInches(level.wallHeightMm)} tall, not tied to a level · U: up to ${level.upTo} · H: type a height`
+export function wallTopWords(level: { readonly wallHeightMm: number; readonly upTo: string | null }, tied: boolean, typedMm: number | null = null, t: Translate = englishOnly): string {
+  const height = t('architecture.wallTop.height', 'walls {{height}} tall', { ns: 'editor', height: feetInches(level.wallHeightMm) })
+  if (typedMm !== null) {
+    const typed = t('architecture.wallTop.typed', 'walls {{height}} tall (typed) · H: change it', { ns: 'editor', height: feetInches(typedMm) })
+    return level.upTo === null ? typed : t('architecture.wallTop.typedUpTo', '{{typed}} · U: up to {{level}}', { ns: 'editor', typed, level: level.upTo })
+  }
+  if (level.upTo === null) return t('architecture.wallTop.noLevelAbove', '{{height}} (no level above to run up to) · H: type a height', { ns: 'editor', height })
+  return tied
+    ? t('architecture.wallTop.tied', 'walls up to {{level}} ({{height}}), following it if it moves · U: a set height instead · H: type a height', {
+        ns: 'editor',
+        level: level.upTo,
+        height: feetInches(level.wallHeightMm),
+      })
+    : t('architecture.wallTop.untied', '{{height}}, not tied to a level · U: up to {{level}} · H: type a height', { ns: 'editor', height, level: level.upTo })
 }
 
 /**
@@ -64,11 +79,12 @@ export function openingToolSillMm(model: ModelState, typeId: string | null, kind
   return kind === 'door' ? 0 : 900
 }
 
-function faceFor(model: ModelState, levelId: string, p: Vec2, room: boolean): FaceAt {
+function faceFor(model: ModelState, levelId: string, p: Vec2, room: boolean, t: Translate): FaceAt {
   const h = wallsRoomHover(model, levelId as ElementId, p)
   if (h.kind === 'room') return { ok: true, outline: h.outline, area: h.area }
   // A floor may go where a room already is; a second room may not.
-  if (h.kind === 'taken') return room ? { ok: false, message: h.message } : { ok: true, outline: h.outline, area: 'the whole room' }
+  if (h.kind === 'taken')
+    return room ? { ok: false, message: h.message } : { ok: true, outline: h.outline, area: t('architecture.wholeRoom', 'the whole room', { ns: 'editor' }) }
   return { ok: false, message: h.message }
 }
 
@@ -85,6 +101,7 @@ function typingInField(target: EventTarget | null): boolean {
  * the Architecture section of the properties panel.
  */
 export function WorkflowHost({ services, outlet }: WorkflowHostProps): ReactNode {
+  const t = useEditorTranslate()
   const { model, levelId, submit, notify, setClickHandler, subscribeHover, pickPlanPointAt, planPointOnScreen, showLiveModel, editBlocked, modelToolsOff } = services
   const [draft, setDraft] = useState<Draft | null>(null)
   const [aimed, setAimed] = useState<{ readonly point: Vec2; readonly snap: Snap } | null>(null)
@@ -105,8 +122,15 @@ export function WorkflowHost({ services, outlet }: WorkflowHostProps): ReactNode
     draftRef.current = draft
   })
 
-  const blocked = editBlocked ?? services.planPointsOff ?? (modelToolsOff ? 'Draw walls and doors in a plan: open one from the Views and sheets panel' : levelId ? null : 'Open a floor plan to draw on its level')
-  const drawLevel = useMemo(() => (model && levelId ? levelOf(model, levelId) : null), [model, levelId])
+  const blocked =
+    editBlocked ??
+    services.planPointsOff ??
+    (modelToolsOff
+      ? t('architecture.blocked.noPlan', 'Draw walls and doors in a plan: open one from the Views and sheets panel', { ns: 'editor' })
+      : levelId
+        ? null
+        : t('architecture.blocked.openPlan', 'Open a floor plan to draw on its level', { ns: 'editor' }))
+  const drawLevel = useMemo(() => (model && levelId ? levelOf(model, levelId, t) : null), [model, levelId, t])
   const drawHeight = useMemo(() => (drawLevel ? wallDrawHeight(drawLevel, wallsTied, typedHeightMm) : null), [drawLevel, wallsTied, typedHeightMm])
   const armedTool = draft?.tool ?? null
   // The Wall, Door and Window tools draw with a starter type; the model takes it the first time.
@@ -135,11 +159,12 @@ export function WorkflowHost({ services, outlet }: WorkflowHostProps): ReactNode
                 .filter((w) => w.d <= 600)
                 .sort((a, b) => a.d - b.d)
                 .map((w) => w.id),
-            faceAt: (p) => faceFor(model, levelId, p, draftRef.current?.tool.mode === 'room'),
+            faceAt: (p) => faceFor(model, levelId, p, draftRef.current?.tool.mode === 'room', t),
             roomCommand: (p) => roomFromWallsCommand(model, levelId as ElementId, p).command,
+            t,
           }
         : null,
-    [model, levelId, drawHeight, toolType],
+    [model, levelId, drawHeight, toolType, t],
   )
 
   const send = useCallback(
@@ -164,9 +189,9 @@ export function WorkflowHost({ services, outlet }: WorkflowHostProps): ReactNode
     const beside = pickPlanPointAt(at.x + SNAP_PX, at.y)
     const toleranceMm = beside ? Math.hypot(beside.x - raw.x, beside.y - raw.y) : 300
     // A rectangle's opposite corner snaps to walls and grids, never square to its first corner (that would flatten it).
-    const snap = snapPoint({ model, levelId, raw, toleranceMm, corners: d.tool.mode === 'rectangle' ? [] : d.chain.points, gridMm: DRAFTING_GRID_MM, linked: linkedSnapNear(model, levelId, raw, toleranceMm) })
+    const snap = snapPoint({ model, levelId, raw, toleranceMm, corners: d.tool.mode === 'rectangle' ? [] : d.chain.points, gridMm: DRAFTING_GRID_MM, linked: linkedSnapNear(model, levelId, raw, toleranceMm), t })
     return { point: snap.point, snap }
-  }, [pickPlanPointAt, model, levelId])
+  }, [pickPlanPointAt, model, levelId, t])
   const planPoint = useCallback((): Vec2 | null => aimAt()?.point ?? null, [aimAt])
 
   const setTool = useCallback(
@@ -216,11 +241,11 @@ export function WorkflowHost({ services, outlet }: WorkflowHostProps): ReactNode
         if (!p || !d) return true
         const step = clickDraft(d, ctx, p, ids)
         setDraft(step.draft)
-        send(step.command, `Draw ${d.tool.noun}`)
+        send(step.command, t('architecture.undo.draw', 'Draw {{noun}}', { ns: 'editor', noun: d.tool.noun(t) }))
         return true
       },
     })
-  }, [armed, ctx, setClickHandler, planPoint, send])
+  }, [armed, ctx, setClickHandler, planPoint, send, t])
 
   useEffect(() => {
     if (!armed || !ctx) return undefined
@@ -236,11 +261,24 @@ export function WorkflowHost({ services, outlet }: WorkflowHostProps): ReactNode
       if (e.key === 'u' || e.key === 'U') {
         if (d.tool.mode !== 'chain' && d.tool.mode !== 'rectangle') return
         if (!tiesStored) {
-          notify("This model server is an older version that keeps wall heights but not wall tops tied to a level; walls are drawn at the level-to-level height. Try again once the server is updated", 'info')
+          notify(
+            t(
+              'architecture.oldServerTops',
+              'This model server is an older version that keeps wall heights but not wall tops tied to a level; walls are drawn at the level-to-level height. Try again once the server is updated',
+              { ns: 'editor' },
+            ),
+            'info',
+          )
           return
         }
         if (!drawLevel?.upToId) {
-          notify(`There is no level above ${drawLevel?.name ?? 'this level'} for the walls to run up to; add one with Level, or draw them at a set height`, 'info')
+          notify(
+            t('architecture.noLevelToRunUp', 'There is no level above {{level}} for the walls to run up to; add one with Level, or draw them at a set height', {
+              ns: 'editor',
+              level: drawLevel?.name ?? t('architecture.thisLevel', 'this level', { ns: 'editor' }),
+            }),
+            'info',
+          )
           return
         }
         // A typed height goes back to running up to the level above.
@@ -253,7 +291,7 @@ export function WorkflowHost({ services, outlet }: WorkflowHostProps): ReactNode
         return
       }
       const step = keyDraft(d, ctx, e.key, planPoint())
-      send(step.command, `Draw ${d.tool.noun}`)
+      send(step.command, t('architecture.undo.draw', 'Draw {{noun}}', { ns: 'editor', noun: d.tool.noun(t) }))
       setDraft(step.finish ? null : step.draft)
       if (step.finish) setAimed(null)
     }
@@ -262,7 +300,7 @@ export function WorkflowHost({ services, outlet }: WorkflowHostProps): ReactNode
       const d = draftRef.current
       if (!d || (d.tool.mode !== 'chain' && d.tool.mode !== 'area')) return
       const step = keyDraft(d, ctx, 'Enter', null)
-      send(step.command, `Draw ${d.tool.noun}`)
+      send(step.command, t('architecture.undo.draw', 'Draw {{noun}}', { ns: 'editor', noun: d.tool.noun(t) }))
       setDraft(step.draft)
     }
     // Capture: the tool hears its keys before the surface's shortcuts (Backspace takes a corner back, it doesn't delete the selection).
@@ -272,7 +310,7 @@ export function WorkflowHost({ services, outlet }: WorkflowHostProps): ReactNode
       window.removeEventListener('keydown', key, true)
       window.removeEventListener('dblclick', finish)
     }
-  }, [armed, ctx, planPoint, send, drawLevel, notify, tiesStored, typedHeightMm])
+  }, [armed, ctx, planPoint, send, drawLevel, notify, tiesStored, typedHeightMm, t])
 
   // Edit type… opens on the one selected element's type; nothing typed selected leaves the button saying why.
   const [editingTypeId, setEditingTypeId] = useState<string | null>(null)
@@ -286,8 +324,8 @@ export function WorkflowHost({ services, outlet }: WorkflowHostProps): ReactNode
   const linkedReference = useLinkedReferenceState()
   const editType = selectedType && editBlocked === null ? () => setEditingTypeId(selectedType.id) : null
 
-  const editTypeWhy = editBlocked ?? (selectedType ? null : 'Select one wall, door or window that has a type (pick one in Properties)')
-  const level = levelButton({ editBlocked, modelToolsOff, ...(services.requestLevel ? { requestLevel: services.requestLevel } : {}) })
+  const editTypeWhy = editBlocked ?? (selectedType ? null : t('architecture.editType.pickOne', 'Select one wall, door or window that has a type (pick one in Properties)', { ns: 'editor' }))
+  const level = levelButton({ editBlocked, modelToolsOff, ...(services.requestLevel ? { requestLevel: services.requestLevel } : {}) }, t)
   const ribbon: ArchitectureRibbon = { tool: draft?.tool.id ?? null, setTool, blocked, editType, editTypeWhy, ...level }
 
   usePublishWorkflow(outlet, {
@@ -295,11 +333,29 @@ export function WorkflowHost({ services, outlet }: WorkflowHostProps): ReactNode
     properties: <ArchitectureProperties model={model} selectedIds={services.selectedIds} submit={submit} editBlocked={editBlocked} notify={notify} tiesStored={tiesStored} surfacesStored={surfacesStored} />,
   })
 
-  const sillWords = model && draft && (draft.tool.kind === 'window' || draft.tool.kind === 'door') ? `sill ${feetInches(openingToolSillMm(model, toolType?.typeId ?? null, draft.tool.kind))} (change it in Properties after placing)` : null
-  const where = drawLevel ? `${drawLevel.name}${toolType ? ` · ${toolType.name}` : ''}${draft?.tool.mode === 'chain' || draft?.tool.mode === 'rectangle' ? ` · ${wallTopWords(drawLevel, wallsTied, typedHeightMm)}` : ''}${sillWords ? ` · ${sillWords}` : ''}` : null
+  const sillWords =
+    model && draft && (draft.tool.kind === 'window' || draft.tool.kind === 'door')
+      ? t('architecture.sillWords', 'sill {{height}} (change it in Properties after placing)', {
+          ns: 'editor',
+          height: feetInches(openingToolSillMm(model, toolType?.typeId ?? null, draft.tool.kind)),
+        })
+      : null
+  // The hint bar joins whole clauses with ` · `; each of them is translated on its own.
+  const where = drawLevel
+    ? [
+        drawLevel.name,
+        toolType ? toolType.name : null,
+        draft?.tool.mode === 'chain' || draft?.tool.mode === 'rectangle' ? wallTopWords(drawLevel, wallsTied, typedHeightMm, t) : null,
+        sillWords,
+      ]
+        .filter((part): part is string => part !== null)
+        .join(' · ')
+    : null
   const refused = (draft?.aim && !draft.aim.ok) || (draft?.tool.mode === 'room' && draft.face && !draft.face.ok)
-  const linkedWords = linkedReferenceWords(linkedReference)
-  const hintText = draft ? [where, draftHint(draft), draft.tool.mode === 'chain' || draft.tool.mode === 'rectangle' ? linkedWords : null].filter((t): t is string => Boolean(t)).join(' · ') : ''
+  const linkedWords = linkedReferenceWords(linkedReference, t)
+  const hintText = draft
+    ? [where, draftHint(draft, t), draft.tool.mode === 'chain' || draft.tool.mode === 'rectangle' ? linkedWords : null].filter((part): part is string => Boolean(part)).join(' · ')
+    : ''
 
   // One wall selected and no tool in hand: a grip at each end drags that end.
   const endWall = !draft && editBlocked === null && !modelToolsOff && model && services.selectedIds.length === 1 ? wallEnds(model, services.selectedIds[0], levelId) : null

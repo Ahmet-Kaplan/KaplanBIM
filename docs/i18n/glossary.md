@@ -1096,6 +1096,120 @@ boşluğu`, `Yüz`, `Sürüm`, `Revizyon`, `İşveren`, `Pafta`, `Çizelge`, `Me
 
 ---
 
+### 5.16 Aşama 4 dışı: mimarlık ağacı (2026-11-10)
+
+`packages/bim-editor/src/editor/architecture` — Mimarlık sekmesi, araç tablosu, plan
+ipuçları, yakalama işaretleri, duvarın Üst/Taban alanları, tip menüsü ve Tipi düzenle
+penceresi — çevrilirken bunlar gerekti. Yukarıda **zaten** karara bağlı olanlar tekrar
+yazılmadı (`Duvar`, `Oda`, `Mekan`, `Kat`, `Tip`, `Aile`, `Döşeme`, `Pafta`, `Görünüm`,
+`Referans düzlemi`, `Eskiz`).
+
+| EN | TR | Not |
+|----|----|-----|
+| Architecture (the discipline and its tab) | **Mimarlık** | §1; sekme adı **Mimarlık**, *mimari* değil |
+| Datums / Build / Types (the tab's three groups) | **Referanslar / Kur / Tipler** | §4.2 *Datums* = referanslar (`ribbon.group.datum` = **Referans**); §2.2 *type* = **tip** |
+| Ceiling / Roof / Stair | **tavan / çatı / merdiven** | §2.3 *Level* = **kat**, *Grid* = **ızgara** |
+| Column (a structural member, on a plan) | **kolon** | §5.9'un *Column* = **sütun**'u bir **tablo sütunu**dur; bir yapı elemanı **kolon**dur (§5.13 yakalama sözcükleriyle aynı) |
+| Opening (cut in a wall) | **boşluk** | §5.12 *Açıklık* = *clearance*; ikisi yer değiştirmez |
+| Type / New type… / Duplicate type… / Edit type… | **Tip / Yeni tip… / Tipi çoğalt… / Tipi düzenle…** | Bir tip **tip**tir, *tür* değil; §2.2 *family* = **aile** |
+| Fire rating / Fire resistance | **yangın derecesi / yangın dayanımı** | `spaces` ağacı *yangın derecelerini denetleyin* der; **derece verisi çevrilmez** |
+| Rated / Not rated | **dereceli / dereceli değil** | §8 durum sözlüğü; *derecesiz* değil |
+| Top / Base (a wall's) | **Üst / Taban** | *Üst* bir yükseklik değil, duvarın üstüdür; yükseklik **duvar yüksekliği** |
+| Top offset / Base offset | **üst kaydırması / taban kaydırması** | §2.8 *offset* = **kaydırma** |
+| Up to {{level}} / Unconnected (set height) | **{{level}} katına kadar / Bağlantısız (yükseklik ver)** | Cümlede kat adı veri olarak gelir |
+| Underside of slab above / To ceiling / To roof | **Üstteki döşemenin altı / Tavana / Çatıya** | *Slab* = **döşeme** (§2.3) |
+| Run the wall to {{to}} / Run the wall up to a level | **Duvarı {{to}} kadar uzat / Duvarı bir kata kadar uzat** | §9/Ç9: *run* burada **uzatmak**tır; *çalıştırmak* değil (§7 *runs* = çalışır) |
+| Wall end / Wall midpoint / Corner / Perpendicular to the wall | **Duvar ucu / Duvar orta noktası / Köşe / Duvara dik** | §5.2 *midpoint* = orta nokta, *perpendicular* = dik |
+| First corner: closes the loop | **İlk köşe: döngüyü kapatır** | Zincirin kendi köşesine yakalanma |
+| On {{datum}} / {{datum}} at the wall | **{{where}} üzerinde / Duvarda {{where}}** | Izgara ve referans düzlemi etiketleri **veri**dir (A, B, 1, 2) |
+| 6" drafting grid / {{step}} mm drafting grid | **6" çizim ızgarası / {{step}} mm çizim ızgarası** | §7: `"` ve `mm` birim sembolüdür, çevrilmez |
+| Perpendicular to the linked {{what}}'s face | **… bağlı {{what}} modelinin yüzünde** | Bağlı modelin *noun*'ı paketin verisidir (`ReferenceSnapLine.noun`), çevresi bizim |
+| Used by {{count}} {{what}}s / Not used by anything yet | **{{count}} {{what}} tarafından kullanılıyor / Henüz hiçbir şey tarafından kullanılmıyor** | §8: çoğul eki İngilizce varsayılanın kendi içinde (`{{what}}s`), Türkçede yok |
+| A door / A window / An opening | **Bir kapı / Bir pencere / Bir boşluk** | Yakalama reddi: *{{what}} bir duvara oturmalı* |
+| Sill height | **denizlik yüksekliği** | *Eşik* değil: pencerenin altı **denizlik** |
+| Flip hinge / Flip swing | **Menteşeyi çevir / Kanadı çevir** | *Hinge* = **menteşe**, *leaf* = **kanat**, *jamb* = **kasa** |
+| Bounds rooms | **Odaları sınırlar** | §2.3 *Room* = **oda** |
+| Draw {{noun}} (an undo label) | **{{noun}} çiz** | Fiil + çevrilmiş ad; İngilizce ada asla çevrilmemiş ad katılmaz |
+
+> **`architecture/` kapandı (2026-11-10).** Ağacın tamamı anahtarlı: **177** site (on beş
+> dosya) sıfıra indi ve ağaç `OUTSIDE_STAGE_4`'ten çıkıp `OWNED_DIRS`'a girdi; Türkçesi
+> `i18n-architecture.test.tsx` içinde ölçülür.
+>
+> **Etiket tablosu erişen oldu.** `ARCHITECTURE_TOOLS` artık `label(t)`,
+> `description(t)` ve `noun(t)` taşır: şerit düğmesi, ipucu ve arama aynı sözcüğü
+> çalışılan dilde yazar. `chainHint`, `draftHint`, `aimOpening`, `openingHint`,
+> `doorFlipCommand`, `wallTopCommand`, `wallBaseCommand`, `parseWallHeight`,
+> `usedByWords`, `changedValues` ve `snapPoint` bir `Translate` alır (varsayılan
+> `englishOnly`, yani bugüne kadarki İngilizce birebir); `count`/`changedValues`
+> `{{label}} bir sayı olmalı` der, İngilizce aynı kalır.
+>
+> **Bağlı modelin adı veridir, çevresi bizim.** `snap.ts` çekirdeğin İngilizce
+> `On the linked wall's face` etiketini **splice etmez**: çekirdek artık
+> `ReferenceSnapPoint`/`ReferenceSnapLine` üzerinde `noun` alanını taşır ve düzenleyici
+> çerçeveyi `linkedNounWord` ile kurar (§5.13 *duvar / pencere / kapı / çatı / kolon /
+> kiriş*). Paketin adlandırmadığı varlık kendi adıyla (veri) gelir.
+>
+> **Ertelenen: paket ve çekirdek verisi İngilizce kalır.** `typeDescription()` bir
+> başlangıç tipinin paket açıklamasını olduğu gibi gösterir; `TypeField.group`
+> (*Ratings*, *Identity*, *Other*) alan sağlayıcısının kendi bölüm adıdır — `inspector`
+> ağacının facet başlıkları gibi **veri**dir. Sahibi: paketlerin ve facet kayıt
+> defterinin kendi çeviri turu. `ratingOf`'un okuduğu `1 hr` / `90 min` yazım
+> örnekleri de veridir: alan onları **yazıldığı gibi** bekler (§7).
+
+### 5.17 Aşama 4 dışı: düzenleyicideki çizelgeler ağacı (2026-11-10)
+
+`packages/bim-editor/src/editor/schedules` — hazır listeler ve başlıkları, ızgaranın
+reddetmeleri, kaydedilmiş sütun genişlikleri, proje ağacının çizelge satırları ve fiyat
+tablosunun “kimin kitabı”sı — çevrilirken bunlar gerekti.
+
+**Ad alanı:** bu ekranların sözcükleri `editor` ad alanında, `schedule.*` altında yaşar;
+`packages/bim-schedules-ui/locales/tr/schedules.json` ise **çizelge yüzeylerinin**
+(`ScheduleBuilder`, `ScheduleGrid`, `ScheduleColumnsSheet`) kendi sözcüklerini taşır.
+Çizelge ızgarasının kendi adları oradadır; düzenleyicinin onun çevresindeki kabuğu
+(başlık, yükleme satırı, hata kartı, hazır liste adları, fiyat tablosu) buradadır.
+
+| EN | TR | Not |
+|----|----|-----|
+| Equipment list / Not placed yet / Loads / Space loads / Panel loads | **Ekipman listesi / Henüz yerleştirilmedi / Yükler / Mekan yükleri / Pano yükleri** | §2.3 *Space* = **mekan**; §9/Ç7 *panel* = **pano** |
+| PLANNED LEVEL / CONNECTION TYPE | **PLANLANAN KAT / BAĞLANTI TİPİ** | Başlıklar **büyük harf** basılır (§5 alan adları) |
+| CW WSFU / HW WSFU / TOTAL WSFU | **SOĞUK SU WSFU / SICAK SU WSFU / TOPLAM WSFU** | §7: `WSFU` bir birim sembolüdür; `plumbing.totalWsfu` = *Toplam WSFU* ile aynı |
+| HW DEMAND / GAS INPUT / GAS FLOW / ELEC LOAD | **SICAK SU TALEBİ / GAZ GİRİŞİ / GAZ DEBİSİ / ELEKTRİK YÜKÜ** | §5.7 *gas flow* = **gaz debisi**; *load* burada **yük** (§9/Ç12 *load unit* = yük birimi) |
+| ESTIMATE (VA) / DEVICES SO FAR (VA) / COUNTED (VA) | **TAHMİN (VA) / ŞİMDİYE KADARKİ CİHAZLAR (VA) / SAYILAN (VA)** | §7 birim sembolleri parantez içinde aynen kalır |
+| ESTIMATE VS DEVICES | **TAHMİN / CİHAZLAR** | Tek başlık, iki taraf |
+| Schedule cell edit / Schedule edit ({{count}} cells) | **Çizelge hücresi düzenlemesi / Çizelge düzenlemesi ({{count}} hücre)** | Geri alma etiketi; §2.4 *schedule* = **çizelge** |
+| The model hasn't loaded yet. Try again in a moment. | **Model henüz yüklenmedi. Birazdan yeniden deneyin.** | §0.7 kibar çoğul |
+| Changes to several items at once can't be saved as one step yet. | **Birden çok öğedeki değişiklikler henüz tek adımda kaydedilemiyor.** | §8 reddetme sözlüğü: *henüz* |
+| Served items are changed on their own rows. | **Sunulan öğeler kendi satırlarında değiştirilir.** | *Served* = bir kaynaktan beslenen satır |
+| The model's schedules list / Retry | **Modelin çizelge listesi / Yeniden dene** | `unavailableIn` ile çerçevesi de Türkçe |
+| Your column widths for this schedule couldn't be loaded. | **Bu çizelgenin sütun genişlikleriniz yüklenemedi.** | *Width* burada **genişlik** (§5.2 *kalınlık* değil) |
+| Put a row from the Loads list here | **Yükler listesinden bir satırı buraya koy** | Borunun açık ucundaki denetim; ipucu ve Özellikler aynı anahtarı yazar |
+| {{shown}} isn't drawn yet. To pipe it: … | **{{shown}} henüz çizilmedi. Boruya bağlamak için: …** | §3 *Route* = **Boru çiz**; satır adı veri olarak tırnak içinde gelir |
+| another company / estimate · budget · contract | **başka bir firma / tahmin · bütçe · sözleşme** | §2.2 *firm* = **firma**; §9/Ç20: *İşveren* değil |
+| {{book}}, {{owner}}'s {{basis}} as of {{date}} | **{{book}}, {{owner}} firmasının {{basis}} fiyatları, {{date}} itibarıyla** | İyelik ve “as of” o dilin işidir; İngilizce birebir aynı kalır |
+
+> **`schedules/` kapandı (2026-11-10).** Ağaç **39** siteden (altı dosya) sıfıra indi ve
+> `OUTSIDE_STAGE_4`'ten çıkıp `OWNED_DIRS`'a girdi; Türkçesi `i18n-schedules.test.tsx`
+> içinde (yeni satırlarla birlikte) ölçülür.
+>
+> **Hazır listenin sözcükleri yapıldığı dilde yazılır.** `builtinList(id, t)` ve
+> `builtinListDefinition(model, id, t)` bir `Translate` alır: Türkçe çalışan biri Türkçe
+> başlıklarla bir liste açar (parça düzenleyicideki “yeni parçanın varsayılanları”
+> kararıyla aynı). `BUILTIN_LIST_LABELS` / `BUILTIN_LIST_DESCRIPTIONS` tabloları kalktı:
+> İngilizce artık `builtinListLabel` / `builtinListDescription` erişenlerinde, tek yerde.
+>
+> **Ertelenen: bir listenin *adı* İngilizce kalır.** `builtinListStoredName(id)` bir
+> görünümün modelde saklandığı addır ve `findBuiltinListView` geçen hafta yapılmış
+> listeyi **onunla** bulur; çevirmek eşlemeyi bozar. Ağaç satırı, şerit ve Yeni çizelge
+> penceresi `builtinListLabel(id, t)` der. Sahibi: çizelge görünümlerinin adı için bir
+> kimlik alanı (Aşama 5'in alan haritası).
+>
+> **Ertelenen: çekirdeğin ve kitaplığın şablon verisi.** `takeoffScheduleDefinition()`
+> (metraj şablonunun adı ve başlıkları), `equipmentListDefinition()`
+> (`@permitzip/bim-library`) ve `connection_type.mark` gibi alan **yolları** veridir;
+> ağaç onları yazmaz. `PRICE_BOOK_BASIS_LABELS` de sözleşme katmanının verisidir; cümle
+> içinde kullanılan biçimi `basisWord` söyler.
+---
+
 ## 6. Maliyet ve ticari terimler
 
 | EN | TR | Not |

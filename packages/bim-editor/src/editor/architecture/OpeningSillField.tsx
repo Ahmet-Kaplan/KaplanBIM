@@ -1,9 +1,10 @@
 'use client'
 
-import { hostVoidsOf, OPENING_SILL_KEY, type BimElement, type ModelState } from '@permitzip/bim-kernel'
+import { hostVoidsOf, OPENING_SILL_KEY, type BimElement, type ModelState, type Opening } from '@permitzip/bim-kernel'
 import { useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Field, FieldDescription, FieldLabel } from '../../ui/field'
 import { Input } from '../../ui/input'
+import { useEditorTranslate, type Translate } from '../i18n/translate'
 import { parseFeet } from '../parse-feet'
 import { feetInches } from '../placement'
 import type { SubmitCommand } from '../views-sheets/types'
@@ -25,8 +26,21 @@ export function openingSillMm(model: ModelState, el: BimElement): number | null 
   return cut && cut.profile.length > 0 ? Math.min(...cut.profile.map((p) => p.y)) : null
 }
 
+/** What one opening is called here (§2.3: *door* = **kapı**, *window* = **pencere**; *sill* = **denizlik**). */
+function openingWord(el: Opening, t: Translate): string {
+  switch (el.openingType) {
+    case 'door':
+      return t('architecture.noun.door', 'door', { ns: 'editor' })
+    case 'window':
+      return t('architecture.noun.window', 'window', { ns: 'editor' })
+    default:
+      return t('architecture.noun.opening', 'opening', { ns: 'editor' })
+  }
+}
+
 /** A door or window's sill height in Properties: typed in feet and inches, checked by the model (it has to stay inside the wall). */
 export function OpeningSillField({ model, el, submit, editBlocked, notify }: Props): ReactNode {
+  const t = useEditorTranslate()
   const sill = openingSillMm(model, el)
   const shown = sill === null ? '' : feetInches(sill)
   const [text, setText] = useState(shown)
@@ -37,12 +51,16 @@ export function OpeningSillField({ model, el, submit, editBlocked, notify }: Pro
     setText(shown)
   }
   if (el.kind !== 'opening') return null
-  const what = el.openingType.replace(/_/g, ' ')
+  const what = openingWord(el, t)
   const commit = () => {
     if (text.trim() === shown) return setWhy(null)
     const ft = parseFeet(text.replace(/'\s*-\s*/, "' "))
-    if (ft === null || ft < 0) return setWhy(`"${text.trim()}" doesn't read as a height. Type feet and inches: 3'-0", 2 ft 6 in, 36".`)
-    const err = submit({ type: 'set_element_values', elementIds: [el.id], values: { [OPENING_SILL_KEY]: Math.round(ft * FT_MM * 10) / 10 } }, `Set the ${what}'s sill height`)
+    if (ft === null || ft < 0)
+      return setWhy(t('architecture.sill.doesNotRead', '"{{text}}" doesn\'t read as a height. Type feet and inches: 3\'-0", 2 ft 6 in, 36".', { ns: 'editor', text: text.trim() }))
+    const err = submit(
+      { type: 'set_element_values', elementIds: [el.id], values: { [OPENING_SILL_KEY]: Math.round(ft * FT_MM * 10) / 10 } },
+      t('architecture.sill.set', "Set the {{what}}'s sill height", { ns: 'editor', what }),
+    )
     if (err) {
       console.error('[OpeningSillField] sill height refused', { elementId: el.id, err })
       setWhy(err)
@@ -62,10 +80,16 @@ export function OpeningSillField({ model, el, submit, editBlocked, notify }: Pro
   }
   return (
     <Field data-testid="architecture-opening-sill">
-      <FieldLabel htmlFor="architecture-opening-sill-input">Sill height</FieldLabel>
+      <FieldLabel htmlFor="architecture-opening-sill-input">{t('architecture.sill.label', 'Sill height', { ns: 'editor' })}</FieldLabel>
       <Input id="architecture-opening-sill-input" className="h-8 w-28" value={text} disabled={editBlocked !== null} aria-invalid={why !== null} onChange={(e) => setText(e.target.value)} onBlur={commit} onKeyDown={onKey} data-testid="architecture-opening-sill-input" />
       <FieldDescription className={why ? 'text-danger-600' : undefined} data-testid="architecture-opening-sill-words">
-        {why ?? editBlocked ?? `How high the bottom of the ${what} sits above the floor of its wall. Its head is at ${feetInches((sill ?? 0) + el.height)}.`}
+        {why ??
+          editBlocked ??
+          t('architecture.sill.words', 'How high the bottom of the {{what}} sits above the floor of its wall. Its head is at {{head}}.', {
+            ns: 'editor',
+            what,
+            head: feetInches((sill ?? 0) + el.height),
+          })}
       </FieldDescription>
     </Field>
   )

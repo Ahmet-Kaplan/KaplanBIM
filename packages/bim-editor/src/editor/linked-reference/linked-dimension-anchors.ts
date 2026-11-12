@@ -22,7 +22,7 @@ import { englishOnly, type Translate } from '../i18n/translate'
  * entity no pack names keeps the exporter's own noun, the way an add-on's own
  * clearance purpose keeps its pack's words: the id is data, the frame is ours.
  */
-function linkedNounWord(noun: string, t: Translate): string {
+export function linkedNounWord(noun: string, t: Translate): string {
   switch (noun) {
     case 'wall':
       return t('linkedRef.nounWall', 'wall', { ns: 'editor' })

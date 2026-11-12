@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { editableLinePlacement, hostLineOf, joinedEndFollowers, type BimElement, type Command, type ModelState, type Vec2 } from '@permitzip/bim-kernel'
+import { englishOnly, useEditorTranslate, type Translate } from '../i18n/translate'
 import { feetInches } from '../placement'
 import { ToolHintBar } from '../ToolHintBar'
 import { DRAFTING_GRID_MM, snapPoint, type Snap } from './tools/snap'
@@ -21,18 +22,30 @@ export function wallEnds(model: ModelState, id: string | undefined, levelId: str
   return p && line && p.levelId === levelId ? { id: el.id, start: line.start, end: line.end } : null
 }
 
-/** What the hint says while an end grip is held: what follows and how to stop. */
-export function endDragHint(elements: Readonly<Record<string, BimElement>>, wallId: string, end: End, snap: Snap | null, lengthMm: number | null): string {
+/**
+ * What the hint says while an end grip is held: what follows and how to stop.
+ *
+ * Three parts joined the way the hint bar joins any two of them (` · `): each is
+ * a whole translated clause, so English reads as it did and Turkish says *Bu uçta
+ * birleşen yok* / *2 birleşik duvar izler* rather than carrying an English noun.
+ */
+export function endDragHint(elements: Readonly<Record<string, BimElement>>, wallId: string, end: End, snap: Snap | null, lengthMm: number | null, t: Translate = englishOnly): string {
   const n = joinedEndFollowers(elements, wallId, end).length
-  const follows = n === 0 ? 'Nothing is joined at this end' : `${n} joined ${n === 1 ? 'wall follows' : 'walls follow'}`
-  const length = lengthMm === null ? '' : ` · ${feetInches(lengthMm)} long`
-  return `Drag the wall's end${length} · ${follows}${snap && snap.kind !== 'grid' ? ` · ${snap.label}` : ''} · Esc cancels`
+  const follows =
+    n === 0
+      ? t('architecture.endGrip.nothingJoined', 'Nothing is joined at this end', { ns: 'editor' })
+      : n === 1
+        ? t('architecture.endGrip.oneJoined', '{{count}} joined wall follows', { ns: 'editor', count: n })
+        : t('architecture.endGrip.manyJoined', '{{count}} joined walls follow', { ns: 'editor', count: n })
+  const length = lengthMm === null ? '' : t('architecture.endGrip.length', ' · {{length}} long', { ns: 'editor', length: feetInches(lengthMm) })
+  const where = snap && snap.kind !== 'grid' ? t('architecture.endGrip.snapAt', ' · {{where}}', { ns: 'editor', where: snap.label }) : ''
+  return t('architecture.endGrip.drag', "Drag the wall's end{{length}} · {{follows}}{{where}} · Esc cancels", { ns: 'editor', length, follows, where })
 }
 
 /** The command a drop makes, or why there is none, in words. */
-export function endDropCommand(wall: { readonly id: string; readonly start: Vec2; readonly end: Vec2 }, end: End, to: Vec2): Command | string {
+export function endDropCommand(wall: { readonly id: string; readonly start: Vec2; readonly end: Vec2 }, end: End, to: Vec2, t: Translate = englishOnly): Command | string {
   const from = end === 'start' ? wall.start : wall.end
-  if (from.x === to.x && from.y === to.y) return 'The end is where it was; nothing moved.'
+  if (from.x === to.x && from.y === to.y) return t('architecture.endGrip.nowhere', 'The end is where it was; nothing moved.', { ns: 'editor' })
   return { type: 'move_line_end', elementId: wall.id, end, to }
 }
 
@@ -61,6 +74,7 @@ interface Drag {
  * everything back. Esc while dragging cancels.
  */
 export function WallEndGrips({ model, levelId, wall, toScreen, pickPlanPointAt, submit, notify, hintClassName }: Props): ReactNode {
+  const t = useEditorTranslate()
   const [drag, setDrag] = useState<Drag | null>(null)
   const [hover, setHover] = useState<End | null>(null)
   const dragRef = useRef<Drag | null>(null)
@@ -109,7 +123,7 @@ export function WallEndGrips({ model, levelId, wall, toScreen, pickPlanPointAt, 
       const p = end === 'start' ? wall.start : wall.end
       return l !== null && ((l.start.x === p.x && l.start.y === p.y) || (l.end.x === p.x && l.end.y === p.y))
     })
-    const snap = snapPoint({ model, levelId, raw, toleranceMm, corners: [fixedOf(end)], gridMm: DRAFTING_GRID_MM, ignoreIds: [wall.id, ...partners] })
+    const snap = snapPoint({ model, levelId, raw, toleranceMm, corners: [fixedOf(end)], gridMm: DRAFTING_GRID_MM, ignoreIds: [wall.id, ...partners], t })
     return { end, at: snap.point, snap }
   }
 
@@ -131,12 +145,12 @@ export function WallEndGrips({ model, levelId, wall, toScreen, pickPlanPointAt, 
     e.stopPropagation()
     setDrag(null)
     if (!d.at) {
-      notify("That is off the plan; the wall's end stayed where it was.", 'info')
+      notify(t('architecture.endGrip.offPlan', "That is off the plan; the wall's end stayed where it was.", { ns: 'editor' }), 'info')
       return
     }
-    const command = endDropCommand(wall, d.end, d.at)
+    const command = endDropCommand(wall, d.end, d.at, t)
     if (typeof command === 'string') return
-    const err = submit(command, "Move the wall's end")
+    const err = submit(command, t('architecture.endGrip.move', "Move the wall's end", { ns: 'editor' }))
     if (err) {
       console.error('[WallEndGrips] moving a wall end was refused', { wallId: wall.id, end: d.end, err })
       notify(err, 'error')
@@ -163,7 +177,7 @@ export function WallEndGrips({ model, levelId, wall, toScreen, pickPlanPointAt, 
               cy={p.y}
               r={7}
               role="button"
-              aria-label={`Drag the wall's ${end === 'start' ? 'first' : 'second'} end`}
+              aria-label={end === 'start' ? t('architecture.endGrip.dragFirst', "Drag the wall's first end", { ns: 'editor' }) : t('architecture.endGrip.dragSecond', "Drag the wall's second end", { ns: 'editor' })}
               className="cursor-grab fill-background stroke-primary"
               strokeWidth={2}
               style={{ pointerEvents: 'auto' }}
@@ -179,7 +193,7 @@ export function WallEndGrips({ model, levelId, wall, toScreen, pickPlanPointAt, 
           )
         })}
       </svg>
-      {shown ? <ToolHintBar text={endDragHint(model.elements, wall.id, shown, drag?.snap ?? null, lengthMm)} tone="info" testId="architecture-end-hint" className={hintClassName} /> : null}
+      {shown ? <ToolHintBar text={endDragHint(model.elements, wall.id, shown, drag?.snap ?? null, lengthMm, t)} tone="info" testId="architecture-end-hint" className={hintClassName} /> : null}
     </>
   )
 }
