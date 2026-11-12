@@ -6446,5 +6446,23 @@
   },
   "unavailable": {
     "here": "{{service}}: burada kullanılamıyor, çünkü {{where}} bunu sağlamıyor."
+  },
+  "run": {
+    "needTopHeight": "Yeni üst yüksekliğini fit olarak yazın: 14 ya da 13'6\" gibi.",
+    "topAlreadyAt": "Üst zaten {{height}} yüksekliğinde.",
+    "topHeight": "Üst yükseklik (ft)",
+    "setTopHeight": "Üst yüksekliği ayarla",
+    "notLive": "Canlı düzenleme bağlı değil, bu yüzden değişiklikler kaydedilemez",
+    "riseMoves": "Düşey parça uzar ya da kısalır; üstündeki hat üstüyle birlikte hareket eder.",
+    "needFeet": "Fit olarak yazın: 2, -1.5 veya 2'6\" gibi. Doğu, kuzey ve yukarı pozitif; batı, güney ve aşağı negatif.",
+    "needDistance": "Sıfırdan farklı bir doğu, kuzey ya da yukarı mesafesi yazın.",
+    "moveEast": "Doğuya taşı (ft)",
+    "westExample": "-2 batı demektir",
+    "moveNorth": "Kuzeye taşı (ft)",
+    "southExample": "-2 güney demektir",
+    "moveUp": "Yukarı taşı (ft)",
+    "downExample": "-4 aşağı demektir",
+    "move": "Taşı",
+    "moveWhy": "Doğu, kuzey ya da yukarı tek başına, ya da yukarı ve ikisinden biri, tek adımda (doğu ile kuzey birlikte açılı olur; her seferinde tek yöne gidin). Karşılaştığı şey onu izler: düşey parçalar uzar; bir dirseği geçerse dirsek döner, sürüklerken olduğu gibi. Ya da görünümde sürükleyin; ok tuşları hafifçe kaydırır."
   }
 }
