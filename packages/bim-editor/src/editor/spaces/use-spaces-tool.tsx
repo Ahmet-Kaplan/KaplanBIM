@@ -146,7 +146,7 @@ export function useSpacesTool({ projectId, model, levelId, levelName, submit, pl
   const linkedNote =
     linkedReference.status === 'ready' && !linkedReference.index.items.some((i) => i.rule.boundsRooms)
       ? t('spaces.linkedHasNoBoundWalls', '{{sources}} has no walls that bound rooms.', { ns: 'editor', sources: linkedReference.index.sources.map((x) => x.label).join(', ') })
-      : linkedReferenceWords(linkedReference)
+      : linkedReferenceWords(linkedReference, t)
   const startFromWalls = useCallback(() => {
     const now = currentModel?.() ?? model
     if (!now || !levelId) return

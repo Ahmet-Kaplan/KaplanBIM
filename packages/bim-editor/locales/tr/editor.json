@@ -811,8 +811,10 @@
     "after": "Sonra",
     "anchor": {
       "centre": "merkez",
+      "centreLine": "merkez hattı",
       "edge": "kenar",
       "end": "uç",
+      "face": "yüz",
       "insertion": "ekleme noktası",
       "middle": "orta"
     },
@@ -833,6 +835,7 @@
     },
     "snapAnchor": "{{what}} {{where}}",
     "snapCorner": "{{what}} köşesi",
+    "snapLinked": "bağlı {{what}} {{where}}",
     "snapMiddle": "{{what}} ortası",
     "terminator": {
       "arrow": "Ok",
@@ -6856,5 +6859,27 @@
     "notSaved": "Düzeniniz kaydedilmedi",
     "notSavedWhy": "{{why}}. Siz sayfayı yenileyene kadar bu şekilde kalır; bir sonraki değişiklik yeniden dener.",
     "savingLayout": "Düzeniniz kaydediliyor"
+  },
+  "linkedRef": {
+    "alreadyCopied": "Bu mekanın bağlı modeldeki dış duvarları ve pencereleri modelde zaten var.",
+    "cannotSnap": "Bağlı modelin duvarlarına yakalanamıyor: {{message}}",
+    "copyForLoads": "Yükler için dış duvarları ve pencereleri bağlı modelden kopyala",
+    "copyGone": "O kopya artık modelde değil.",
+    "hostWallGone": "Bu boşluğun içinde durduğu duvar artık modelde değil.",
+    "kindNotSupported": "{{kind}} bağlantıdan güncellenemiyor; kendinizinkini koruyun ya da silip yeniden kopyalayın.",
+    "kindOpening": "boşluk",
+    "kindWall": "duvar",
+    "noWallsOrColumns": "{{sources}} içinde yakalanacak duvar ya da kolon yok.",
+    "nounBeam": "kiriş",
+    "nounColumn": "kolon",
+    "nounDoor": "kapı",
+    "nounRoof": "çatı",
+    "nounWall": "duvar",
+    "nounWindow": "pencere",
+    "openingDoesNotFit": "Bağlı boşluk artık bu duvara sığmıyor; kopyayı silip yeniden kopyalayın.",
+    "ownOpenings": "Bu duvarda bu modelde birinin eklediği bir kapı ya da pencere var; bağlantının sürümünü almak onu kaldırır. Önce onu başka bir duvara taşıyın ya da kendinizinkini koruyun.",
+    "stillReading": "Bağlı model hâlâ okunuyor; yüklendiğinde duvarları yakalanır.",
+    "updateCommand": "{{kind}} bağlı modelden güncelle",
+    "wallNotStraight": "Bağlı duvar artık düz bir duvar değil; kopyayı silip yeniden kopyalayın."
   }
 }

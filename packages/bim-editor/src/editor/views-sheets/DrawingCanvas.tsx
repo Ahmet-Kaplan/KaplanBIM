@@ -529,8 +529,8 @@ export function DrawingCanvas({ target, model, sheetTitle, canEdit, blockedReaso
     if (!annotatedView || (tool !== 'dimension' && !dimSelected)) return []
     const own = snapPoints(model, annotatedView, items, toPaperPoint, t)
     // A linked model's walls too: the dimension follows the wall by its GlobalId when the link updates.
-    return linkedReference.status === 'ready' ? [...own, ...linkedDimensionAnchors(linkedReference.index, model, annotatedView, toPaperPoint)] : own
-  }, [model, annotatedView, items, toPaperPoint, tool, dimSelected, linkedReference])
+    return linkedReference.status === 'ready' ? [...own, ...linkedDimensionAnchors(linkedReference.index, model, annotatedView, toPaperPoint, t)] : own
+  }, [model, annotatedView, items, toPaperPoint, tool, dimSelected, linkedReference, t])
   const [hoverSnap, setHoverSnap] = useState<SnapPoint | null>(null)
   const snapReach = SNAP_REACH_MM / Math.max(zoom, 0.25)
   const ownDraft = useDraftController()

@@ -43,7 +43,7 @@ function anchorsFor(kind: string): readonly AnchorName[] {
 }
 
 /** What part of an element a dimension point holds on to, in the language on screen. */
-function anchorWord(anchor: AnchorName, t: Translate): string {
+export function anchorWord(anchor: AnchorName, t: Translate): string {
   switch (anchor) {
     case 'start':
     case 'end':

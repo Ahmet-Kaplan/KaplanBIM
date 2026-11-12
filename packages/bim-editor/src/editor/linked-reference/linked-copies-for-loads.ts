@@ -17,6 +17,7 @@ import {
   type SpaceEnvelope,
   type Vec2,
 } from '@permitzip/bim-kernel'
+import { englishOnly, type Translate } from '../i18n/translate'
 
 /**
  * The first use of copies kept in step with the link: a space's
@@ -88,10 +89,35 @@ function openingStep(item: ReferenceItem, host: Host, elementId: string): Step |
 
 const stampStep = (stamps: Array<{ elementId: string; stamp: LinkedCopyStamp | null }>): Step => ({ type: 'set_element_linked_copy', stamps })
 
+/**
+ * The kind of copy a row is, in the language on screen.
+ *
+ * A switch of literal `t()` calls, not a table: `editorSourceCaptions()` and
+ * `npm run i18n:review` see a call site, and a kind the model gains later falls back
+ * to its own id (data, the way an add-on's own purpose does).
+ */
+function kindWord(kind: string, t: Translate): string {
+  switch (kind) {
+    case 'wall':
+      return t('linkedRef.kindWall', 'wall', { ns: 'editor' })
+    case 'opening':
+      return t('linkedRef.kindOpening', 'opening', { ns: 'editor' })
+    default:
+      return kind
+  }
+}
+
 export type CopyOutcome = { readonly kind: 'command'; readonly command: Command; readonly walls: number; readonly openings: number } | { readonly kind: 'nothing'; readonly message: string }
 
 /** Copy a space's outside walls and their openings from the link (ones already copied are left alone). */
-export function copyEnvelopeForLoads(model: ModelState, index: LinkedReferenceIndex, envelope: SpaceEnvelope, levelId: ElementId, newId: (prefix: string) => string): CopyOutcome {
+export function copyEnvelopeForLoads(
+  model: ModelState,
+  index: LinkedReferenceIndex,
+  envelope: SpaceEnvelope,
+  levelId: ElementId,
+  newId: (prefix: string) => string,
+  t: Translate = englishOnly,
+): CopyOutcome {
   const steps: Step[] = []
   const stamps: Array<{ elementId: string; stamp: LinkedCopyStamp }> = []
   const hosts = new Map<string, Host>()
@@ -125,9 +151,22 @@ export function copyEnvelopeForLoads(model: ModelState, index: LinkedReferenceIn
     stamps.push({ elementId: id, stamp: linkedCopyStampOf(index, item) })
     openings += 1
   }
-  if (steps.length === 0) return { kind: 'nothing', message: "This space's outside walls and windows from the linked model are already in the model." }
+  if (steps.length === 0)
+    return {
+      kind: 'nothing',
+      message: t('linkedRef.alreadyCopied', "This space's outside walls and windows from the linked model are already in the model.", { ns: 'editor' }),
+    }
   steps.push(stampStep(stamps))
-  return { kind: 'command', command: { type: 'batch_edits', label: 'Copy outside walls and windows from the linked model for loads', commands: steps }, walls, openings }
+  return {
+    kind: 'command',
+    command: {
+      type: 'batch_edits',
+      label: t('linkedRef.copyForLoads', 'Copy outside walls and windows from the linked model for loads', { ns: 'editor' }),
+      commands: steps,
+    },
+    walls,
+    openings,
+  }
 }
 
 /** The openings hosted on an element, split into copies of the link and ones a person added. */
@@ -138,14 +177,23 @@ function hostedSplit(model: ModelState, hostId: string): { copies: ElementId[]; 
   return { copies, own }
 }
 
-const OWN_OPENINGS = "This wall has a door or window someone added in this model; taking the link's version would remove it. Move it to another wall first, or keep yours."
-
 /** "Update from the link" for one row: one batch, one undo; plain words when it can't be done. */
-export function updateFromLinkCommand(model: ModelState, index: LinkedReferenceIndex, row: LinkedCopyRow, newId: (prefix: string) => string): Command | string {
+export function updateFromLinkCommand(
+  model: ModelState,
+  index: LinkedReferenceIndex,
+  row: LinkedCopyRow,
+  newId: (prefix: string) => string,
+  t: Translate = englishOnly,
+): Command | string {
   const el = model.elements[row.elementId]
-  if (!el) return 'That copy is no longer in the model.'
+  if (!el) return t('linkedRef.copyGone', 'That copy is no longer in the model.', { ns: 'editor' })
   const { copies, own } = row.kind === 'wall' ? hostedSplit(model, row.elementId) : { copies: [], own: [] }
-  if (own.length > 0) return OWN_OPENINGS
+  if (own.length > 0)
+    return t(
+      'linkedRef.ownOpenings',
+      "This wall has a door or window someone added in this model; taking the link's version would remove it. Move it to another wall first, or keep yours.",
+      { ns: 'editor' },
+    )
   if (row.status === 'gone' || !row.source) {
     return { type: 'delete_elements', ids: [...copies, row.elementId], policy: 'cascade' }
   }
@@ -153,10 +201,11 @@ export function updateFromLinkCommand(model: ModelState, index: LinkedReferenceI
   const stamps: Array<{ elementId: string; stamp: LinkedCopyStamp }> = []
   if (row.kind === 'wall') {
     const levelId = linkedCopyLevelId(model.elements, el)
-    if (!levelId || !row.source.line) return "The linked wall is no longer a straight wall; delete the copy and copy it again."
+    if (!levelId || !row.source.line)
+      return t('linkedRef.wallNotStraight', 'The linked wall is no longer a straight wall; delete the copy and copy it again.', { ns: 'editor' })
     const id = newId('wall')
     const step = wallStep(row.source, levelId, id)
-    if (!step) return "The linked wall is no longer a straight wall; delete the copy and copy it again."
+    if (!step) return t('linkedRef.wallNotStraight', 'The linked wall is no longer a straight wall; delete the copy and copy it again.', { ns: 'editor' })
     steps.push(step)
     stamps.push({ elementId: id, stamp: linkedCopyStampOf(index, row.source) })
     const host: Host = { id, start: round(row.source.line.axis.start), end: round(row.source.line.axis.end), baseZ: levelZ(model, levelId) }
@@ -174,17 +223,29 @@ export function updateFromLinkCommand(model: ModelState, index: LinkedReferenceI
   } else if (row.kind === 'opening') {
     const hostId = 'hostId' in el && typeof el.hostId === 'string' ? el.hostId : null
     const host = hostId ? model.elements[hostId] : undefined
-    if (!host || !('start' in host) || !('end' in host)) return 'The wall this opening sits in is no longer in the model.'
+    if (!host || !('start' in host) || !('end' in host))
+      return t('linkedRef.hostWallGone', 'The wall this opening sits in is no longer in the model.', { ns: 'editor' })
     const id = newId('opening')
     const os = openingStep(row.source, { id: host.id, start: host.start, end: host.end, baseZ: hostBaseZ(model, host.id) }, id)
-    if (!os) return "The linked opening no longer fits in this wall; delete the copy and copy it again."
+    if (!os)
+      return t('linkedRef.openingDoesNotFit', 'The linked opening no longer fits in this wall; delete the copy and copy it again.', { ns: 'editor' })
     steps.push(os)
     stamps.push({ elementId: id, stamp: linkedCopyStampOf(index, row.source) })
   } else {
-    return `Updating a ${row.kind} from the link isn't supported yet; keep yours, or delete it and copy it again.`
+    // No `Updating a ${row.kind}…`: the kind is a word on the screen, so it is a
+    // translated noun in a `{{kind}}` frame, never an English id in a Turkish sentence.
+    return t(
+      'linkedRef.kindNotSupported',
+      "Updating a {{kind}} from the link isn't supported yet; keep yours, or delete it and copy it again.",
+      { ns: 'editor', kind: kindWord(row.kind, t) },
+    )
   }
   steps.push(stampStep(stamps))
-  return { type: 'batch_edits', label: `Update ${row.kind} from the linked model`, commands: steps }
+  return {
+    type: 'batch_edits',
+    label: t('linkedRef.updateCommand', 'Update {{kind}} from the linked model', { ns: 'editor', kind: kindWord(row.kind, t) }),
+    commands: steps,
+  }
 }
 
 /** "Keep mine" for one row: the copy stays as it is; a changed source is recorded as seen, a gone one stops being followed. */

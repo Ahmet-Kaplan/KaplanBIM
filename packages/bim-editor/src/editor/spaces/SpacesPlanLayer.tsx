@@ -210,7 +210,7 @@ export function SpacesPlanLayer({ projectId, model, view, paperOf, paperPerPixel
     const linkedNote =
       linkedReference.status === 'ready' && linkedReference.index.items.length > 0
         ? t('spaces.snapToLinkedWalls', 'Clicks also snap to the walls of {{sources}}.', { ns: 'editor', sources: linkedReference.index.sources.map((x) => x.label).join(', ') })
-        : linkedReferenceWords(linkedReference)
+        : linkedReferenceWords(linkedReference, t)
     hint(linkedNote ? `${base} ${linkedNote}` : base)
     // Re-announce only when the tool starts, the drawing under it changes, or the linked model loads.
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -81,12 +81,12 @@ export function SpaceLinkedEnvelope({ model, spaceId, submit, editReason }: Prop
   }, [linked, model, space, levelId])
 
   if (linked.status === 'none' || !levelId) return null
-  const words = linkedReferenceWords(linked)
+  const words = linkedReferenceWords(linked, t)
   const windows = result ? result.openings.filter((o) => o.role === 'window').length : 0
 
   const copy = () => {
     if (linked.status !== 'ready' || !result) return
-    const outcome = copyEnvelopeForLoads(model, linked.index, result, levelId, newElementId)
+    const outcome = copyEnvelopeForLoads(model, linked.index, result, levelId, newElementId, t)
     if (outcome.kind === 'nothing') {
       setNotice({ tone: 'info', text: outcome.message })
       return

@@ -79,6 +79,11 @@ const OWNED_DIRS = [
   // per surface, read when the model opens and saved a moment after each change),
   // the sections it collapses, and the rail's drag edge with its resize tooltip.
   "layout",
+  // Outside stage 4 — the linked models as reference geometry: the snap and
+  // dimension points that follow a linked wall by its GlobalId, the copies kept in
+  // step with the link for loads, and the words a tool says when there is nothing
+  // to snap to. A core workflow for this firm.
+  "linked-reference",
 ];
 
 /**
@@ -127,7 +132,6 @@ const OUTSIDE_STAGE_4 = [
   "input",
   "inspector",
   "linked-display",
-  "linked-reference",
   "loads-policy",
   "organization",
   "part-editor",

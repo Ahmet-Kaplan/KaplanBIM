@@ -11,6 +11,7 @@ import {
   type ReferenceSnapCandidates,
   type Vec2,
 } from '@permitzip/bim-kernel'
+import { englishOnly, type Translate } from '../i18n/translate'
 
 /**
  * The page's linked models as reference geometry, for every tool that snaps
@@ -86,15 +87,17 @@ export function linkedSnapNear(model: Pick<ModelState, 'elements'> | null, level
 }
 
 /** Plain words for where linked geometry stands, for a tool's hint or a side list. */
-export function linkedReferenceWords(s: LinkedReferenceState): string | null {
+export function linkedReferenceWords(s: LinkedReferenceState, t: Translate = englishOnly): string | null {
   switch (s.status) {
     case 'none':
       return null
     case 'loading':
-      return 'Still reading the linked model; its walls snap once it has loaded.'
+      return t('linkedRef.stillReading', 'Still reading the linked model; its walls snap once it has loaded.', { ns: 'editor' })
     case 'error':
-      return `The linked model's walls can't be snapped to: ${s.message}`
+      return t('linkedRef.cannotSnap', "The linked model's walls can't be snapped to: {{message}}", { ns: 'editor', message: s.message })
     case 'ready':
-      return s.index.items.length === 0 ? `${s.index.sources.map((x) => x.label).join(', ')} has no walls or columns to snap to.` : null
+      return s.index.items.length === 0
+        ? t('linkedRef.noWallsOrColumns', '{{sources}} has no walls or columns to snap to.', { ns: 'editor', sources: s.index.sources.map((x) => x.label).join(', ') })
+        : null
   }
 }

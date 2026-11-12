@@ -38,7 +38,7 @@ export function LinkedCopiesReview({ model, submit, editReason }: { readonly mod
       <h3 className="text-xs font-medium text-muted-foreground">{t('spaces.copiesFromLinkedModel', 'Copies from the linked model', { ns: 'editor' })}</h3>
       {!review ? (
         <p className="text-xs text-muted-foreground">
-          {linkedReferenceWords(linked) ?? t('spaces.copiesLinkedNotLoaded', "{{count}} copies; the linked model isn't loaded, so whether they still match it can't be checked yet.", { ns: 'editor', count })}
+          {linkedReferenceWords(linked, t) ?? t('spaces.copiesLinkedNotLoaded', "{{count}} copies; the linked model isn't loaded, so whether they still match it can't be checked yet.", { ns: 'editor', count })}
         </p>
       ) : review.rows.length === 0 ? (
         <p className="text-xs text-muted-foreground" data-testid="linked-copies-current">
@@ -66,7 +66,7 @@ export function LinkedCopiesReview({ model, submit, editReason }: { readonly mod
                       ? t('spaces.updateFromLinkWhyGone', 'Removes this copy, as the linked model no longer has it', { ns: 'editor' })
                       : t('spaces.updateFromLinkWhyChanged', "Makes this copy match the linked model's new version", { ns: 'editor' }))
                   }
-                  onClick={() => linked.status === 'ready' && send(updateFromLinkCommand(model, linked.index, row, newElementId), t('spaces.updateKinFromLink', 'Update {{kind}} from the linked model', { ns: 'editor', kind: row.kind }))}
+                  onClick={() => linked.status === 'ready' && send(updateFromLinkCommand(model, linked.index, row, newElementId, t), t('spaces.updateKinFromLink', 'Update {{kind}} from the linked model', { ns: 'editor', kind: row.kind }))}
                   data-testid="linked-copy-update"
                 >
                   {t('spaces.updateFromLink', 'Update from the link', { ns: 'editor' })}

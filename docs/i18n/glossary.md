@@ -918,6 +918,12 @@ karara bağlı olanlar tekrar yazılmadı (`Eleman`, `Parça`, `Tip`, `Kat`, `Me
 | Collapse to a strip | **şeride daralt** | §4.2 `panel.collapseRailToStrip` ile aynı |
 | Drag to resize | **yeniden boyutlandırmak için sürükleyin** | §4.2 *Resize {{name}}* = **{{name}} panelini yeniden boyutlandır**; fiil aynı |
 | Your layout wasn't saved | **Düzeniniz kaydedilmedi** | §0.7: cümleler kibar çoğul, düğmeler tekil |
+| Opening (a door or window hosted in a wall) | **boşluk** | §5.12'nin **açıklık**'ı bir *clearance*'tır; ikisi yer değiştirmez |
+| Face (of a wall, on a snap marker) | **yüz** | §5.12 *Side* = yüz ile aynı sözcük |
+| Centre line | **merkez hattı** | §2.3 *Axis* = eksen; bir duvarın orta çizgisi |
+| Snap marker noun (wall / window / door / roof / column / beam) | **duvar / pencere / kapı / çatı / kolon / kiriş** | Paketlerin `kernel.linked_reference` satırlarındaki `noun`; paketin adlandırmadığı IFC varlığı kendi adıyla (veri) gelir |
+| Copy a linked element (keep it in step with the link) | **bağlı modelden kopyala** | Eş adımda tutma: *bağlı modelle eş adımda tutulur* (`spaces.copyEnvelopeWhy`) |
+| Update from the link / Keep mine | **Bağlantıdan güncelle / Kendiminkini koru** | `spaces.updateFromLink`, `spaces.keepMine` ile aynı karar |
 
 ---
 
