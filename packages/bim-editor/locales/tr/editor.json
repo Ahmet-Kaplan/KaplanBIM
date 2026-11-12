@@ -8284,5 +8284,14 @@
     "pick": "Bir bağlantı türü seçin",
     "notInProject": "(projenin türlerinde yok)",
     "starters": "Başlangıç türleri (onunla eklenir, ruhsat işi için doğrulayın)"
+  },
+  "graph": {
+    "why": "Bu neden burada?",
+    "depends": "Buna bağlı olanlar",
+    "cannotRead": "Kod çalışmaları bunun için okunamadı: {{reason}}",
+    "record": "Bir karar kaydet",
+    "recordFor": "{{name}} için bir karar kaydet",
+    "recordUndo": "{{name}} için {{key}} kararını kaydet",
+    "andMore": "ve {{count}} tane daha"
   }
 }

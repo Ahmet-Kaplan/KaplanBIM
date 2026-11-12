@@ -1288,6 +1288,18 @@ indi. Yukarıda **zaten** karara bağlı olanlar tekrar yazılmadı (`Pafta`, `H
 | Connection type (a trade form's pick list) | **bağlantı türü** | §2.8 *Fitting* = **bağlantı parçası**, §2.3 *Connector* = **bağlantı noktası**: üçü karışmaz |
 | Starter types (a project does not have them yet) | **başlangıç türleri** | §5.10 *starter pack* = **başlangıç paketi** ile aynı sözcük; *başlatıcı* değil |
 | (not in the project's types) | **(projenin türlerinde yok)** | Kayıtlı *designator* artık katalogda değil; designator **veri**dir, çevrilmez (§7 ruhu) |
+| Why is this here? (the Inspector's first graph question) | **Bu neden burada?** | §5.18 karar formunun sorduğu soruyla **tek** söylem; başlık ve `aria-label` aynı anahtar |
+| What depends on this (the second) | **Buna bağlı olanlar** | “Neye bağlı” değil: *this* bağımlı olandır, bağımlılık değil |
+| Record a decision / for {{name}} | **Bir karar kaydet** / **{{name}} için bir karar kaydet** | §5.18 `checklist.decision.record` = *Kararı kaydet*; ikisi ayrı cümledir, ikisi de karar kaydeder |
+| and {{count}} more | **ve {{count}} tane daha** | §8: sayıdan sonra çoğul eki yok |
+
+> **`graph/` kapandı (2026-11-10).** **7** bulgu (bir dosya) sıfıra indi; ağaç
+> `OWNED_DIRS`'a girdi ve Türkçesi `i18n-graph.test.tsx` içinde ölçülür.
+>
+> **Ertelenen: grafiğin kendi cümleleri.** `answer.empty`, her `item.cause` ve
+> `depends.quantityDeltas[].label` çekirdeğin yazdığı **veri**dir; bölüm onları
+> olduğu gibi gösterir. Sahibi: çekirdeğin prose haritası (Aşama 5).
+
 
 ---
 

@@ -6,6 +6,7 @@ import { dependsOn, why, type Command, type DependsOnAnswer, type ModelState, ty
 import { Button } from '../../ui/button'
 import { Separator } from '../../ui/separator'
 import { DecisionForm } from '../checklist/ChecklistNeeds'
+import { useEditorTranslate } from '../i18n/translate'
 
 /**
  * Inspector › Why is this here? / What depends on this: the requirements
@@ -31,6 +32,8 @@ function nodeOf(model: ModelState, id: string): NodeRef {
 }
 
 function AnswerList({ answer, testId }: { answer: RankedAnswer; testId: string }) {
+  const t = useEditorTranslate()
+  // The graph's own sentences (`answer.empty`, each `item.cause`) are data and read as they are.
   if (answer.items.length === 0) return <p className="text-xs text-muted-foreground" data-testid={`${testId}-empty`}>{answer.empty}</p>
   return (
     <ol className="flex flex-col gap-1 text-xs" data-testid={testId}>
@@ -40,12 +43,17 @@ function AnswerList({ answer, testId }: { answer: RankedAnswer; testId: string }
           <span className="text-muted-foreground">: {item.cause}</span>
         </li>
       ))}
-      {answer.more > 0 && <li className="text-muted-foreground" data-testid={`${testId}-more`}>and {answer.more} more</li>}
+      {answer.more > 0 && (
+        <li className="text-muted-foreground" data-testid={`${testId}-more`}>
+          {t('graph.andMore', 'and {{count}} more', { ns: 'editor', count: answer.more })}
+        </li>
+      )}
     </ol>
   )
 }
 
 export function WhySection({ model, elementId, canEdit, blockedReason, actorName, submit }: WhySectionProps) {
+  const t = useEditorTranslate()
   const [deciding, setDeciding] = useState(false)
   const answers = useMemo<Answers>(() => {
     try {
@@ -62,17 +70,21 @@ export function WhySection({ model, elementId, canEdit, blockedReason, actorName
   const name = 'name' in el && typeof el.name === 'string' && el.name ? el.name : elementId
 
   return (
-    <section className="flex flex-col gap-2" data-testid="inspector-why" aria-label="Why is this here?">
+    <section
+      className="flex flex-col gap-2"
+      data-testid="inspector-why"
+      aria-label={t('graph.why', 'Why is this here?', { ns: 'editor' })}
+    >
       <Separator />
       {'problem' in answers ? (
         <p className="text-xs text-danger-600" role="alert">
-          The code studies couldn&apos;t be read for this: {answers.problem}
+          {t('graph.cannotRead', "The code studies couldn't be read for this: {{reason}}", { ns: 'editor', reason: answers.problem })}
         </p>
       ) : (
         <>
-          <h4 className="text-xs font-medium">Why is this here?</h4>
+          <h4 className="text-xs font-medium">{t('graph.why', 'Why is this here?', { ns: 'editor' })}</h4>
           <AnswerList answer={answers.why} testId="inspector-why-list" />
-          <h4 className="text-xs font-medium">What depends on this</h4>
+          <h4 className="text-xs font-medium">{t('graph.depends', 'What depends on this', { ns: 'editor' })}</h4>
           <AnswerList answer={answers.depends} testId="inspector-depends-list" />
           {answers.depends.quantityDeltas.length > 0 && (
             <ul className="flex flex-col gap-0.5 text-xs text-muted-foreground" data-testid="inspector-depends-quantities">
@@ -84,8 +96,16 @@ export function WhySection({ model, elementId, canEdit, blockedReason, actorName
         </>
       )}
       {place && !deciding && (
-        <Button size="sm" variant="outline" className="self-start" disabled={!canEdit} title={canEdit ? `Record a decision for ${name}` : blockedReason} onClick={() => setDeciding(true)} data-testid="inspector-record-decision">
-          Record a decision
+        <Button
+          size="sm"
+          variant="outline"
+          className="self-start"
+          disabled={!canEdit}
+          title={canEdit ? t('graph.recordFor', 'Record a decision for {{name}}', { ns: 'editor', name }) : blockedReason}
+          onClick={() => setDeciding(true)}
+          data-testid="inspector-record-decision"
+        >
+          {t('graph.record', 'Record a decision', { ns: 'editor' })}
         </Button>
       )}
       {place && deciding && (
@@ -95,7 +115,7 @@ export function WhySection({ model, elementId, canEdit, blockedReason, actorName
           onSave={(d) => {
             const refused = submit(
               { type: 'record_determination', determinationId: `det-${Math.random().toString(36).slice(2, 10)}`, subject: { kind: el.kind, id: elementId }, key: d.key, value: d.value, reasoning: d.reasoning, decidedBy: actorName, decidedAt: new Date().toISOString(), confidence: d.confidence },
-              `record ${d.key} for ${name}`,
+              t('graph.recordUndo', 'record {{key}} for {{name}}', { ns: 'editor', key: d.key, name }),
             )
             if (refused) toast.error(refused)
             else setDeciding(false)

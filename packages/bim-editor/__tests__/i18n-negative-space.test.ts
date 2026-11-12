@@ -154,6 +154,11 @@ const OWNED_DIRS = [
   // starter types a project does not have yet, and the row that says a saved
   // designator is no longer in the project's types (3 findings, one file).
   "connection-types",
+  // Outside stage 4 — the Inspector's two graph questions: "Why is this here?" and
+  // "What depends on this" with their "and N more" line, the refusal when the code
+  // studies cannot be read, and Record a decision with its title and undo label
+  // (7 findings, one file). The graph's own sentences are data and read as they are.
+  "graph",
 ];
 
 /**
@@ -178,7 +183,6 @@ export const NOT_YET_GUARDED = [
   "construction",
   "contributions",
   "copies",
-  "graph",
   "graphics",
   "loads-policy",
   "planned",
