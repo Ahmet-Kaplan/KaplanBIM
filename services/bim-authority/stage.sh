@@ -11,6 +11,7 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 mkdir -p "${BUILD}"
 
 copy() { mkdir -p "${BUILD}/$(dirname "$1")"; rsync -a --exclude node_modules --exclude __tests__ --exclude dist "${ROOT}/$1" "${BUILD}/$(dirname "$1")/"; }
+copy packages/bim-geometry
 copy packages/bim-kernel
 copy packages/bim-sync
 copy packages/bim-units

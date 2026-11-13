@@ -10,6 +10,7 @@ ENV NODE_ENV=production
 COPY services/bim-authority/package.json services/bim-authority/package-lock.json /app/
 RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 
+COPY packages/bim-geometry /app/packages/bim-geometry
 COPY packages/bim-kernel /app/packages/bim-kernel
 COPY packages/bim-sync /app/packages/bim-sync
 # The kernel's schedule engine evaluates formulas with typed units at runtime.
