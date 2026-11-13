@@ -10,7 +10,7 @@ several have a helper beside them:
 |---|---|
 | Layer violations and import cycles | `packages/bim-kernel/src/__tests__/import-layers.test.ts` |
 | Kernel trade-neutrality (a ratchet on trade words) | `packages/bim-kernel/src/__tests__/` |
-| Add-ons need no kernel edits (proof packs) | `bim-pack-civil`, `bim-pack-structural` tests |
+| Add-ons need no kernel edits (the proof pack: civil) | `packages/bim-kernel/__tests__/c5k-proof-pack-isolation.test.ts`, `scripts/bim/check-proof-pack-commits.sh` |
 | MCP core tool budget (≤10) | `packages/bim-mcp/__tests__/core-tool-budget.test.ts` |
 | i18n parity, glossary, negative space, site pins | see [`i18n.md`](i18n.md) |
 | Theme tokens (no hex outside the theme source) | `packages/bim-ui/__tests__/theme-token-compliance.test.ts` |

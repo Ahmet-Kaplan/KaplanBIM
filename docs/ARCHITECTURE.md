@@ -16,7 +16,7 @@ known debts; that list may only shrink.
  6  bim-devserver · services/bim-authority            run models, serve clients
     bim-mcp · bim-mcp-packs · bim-script-runner       serve agents, run their scripts
  5  bim-viewer · bim-viewer-3d · bim-ui · bim-grid    browser screens
-    bim-schedules-ui
+    bim-schedules-ui · bim-editor · bim-editor-host
  4  bim-pack-* · bim-first-party                      trades, through bim-pack only
  3  bim-sync · bim-sheets · bim-ifc · bim-calc        services built on the kernel
     bim-lint · bim-library · bim-script · bim-plugin
@@ -25,7 +25,14 @@ known debts; that list may only shrink.
  1  bim-units · bim-formula · bim-geometry             pure primitives
 ```
 
-The diagram is the intended shape. The rules the test enforces are:
+The diagram is the intended shape. `bim-editor` is row 5 and not below it:
+it imports `bim-sync`, `bim-sheets`, `bim-library`, `bim-schedules-ui` and a
+first-party pack, every one of them below or beside it, and
+`bim-editor-host` (types only) is the host contract it is written against.
+[layers.md](architecture/layers.md) states the contract; the diagram here and
+the page must agree.
+
+The rules the test enforces are:
 
 - The primitives (units, formula, geometry) import nothing above them.
 - The kernel imports no package built on it.
@@ -39,8 +46,14 @@ The diagram is the intended shape. The rules the test enforces are:
   path into its source.
 
 Separate tests keep the kernel trade-neutral: a ratchet counts trade words in
-the kernel's source, and that count may only go down. Proof add-ons (civil,
-structural) have tests that they need no kernel edits.
+the kernel's source, and that count may only go down. One add-on is the proof
+that a trade needs no kernel edits: **civil**. Its source may import only the
+published add-on surface
+(`packages/bim-kernel/__tests__/c5k-proof-pack-isolation.test.ts`), and a
+commit that changes its code changes nothing under `packages/bim-kernel/`
+(`scripts/bim/check-proof-pack-commits.sh`, run by
+`.github/workflows/proof-packs.yml`). Structural left that list in round 14
+when it became a first-party add-on; no other pack is held to the rule today.
 
 ## The model
 
@@ -48,10 +61,18 @@ A model (`ModelState`) is a revision number, a map of **elements** by id, the
 **connections** between them, and model **settings**. Everything is a plain,
 serializable record.
 
-- **Element kinds** are rows in a registry. The kernel owns a small set of
-  generic kinds (levels, run segments and fittings, parts, spaces, zones,
-  views, sheets, annotations, records). Add-ons register their own kinds,
-  with their stored shape, their ends, how they draw, and their checks.
+- **Element kinds.** The kernel's own kinds are a closed list in the type
+  system, not an open registry: 40 generic names (`KERNEL_ELEMENT_KINDS`,
+  `registry/element-kinds.ts:7-48`) — walls, slabs, rooms, columns, beams,
+  ceilings, levels, run segments and fittings, parts, spaces, zones, views,
+  sheets, annotations, records — checked exhaustively against `ElementKind`,
+  so a kind this list misses does not compile (`:61-66`). What a kind *means*
+  is a row: its stored shape, its values, its ends, how it draws and its
+  checks. An add-on's kind is only ever a row (`ELEMENT_KIND_POINT`) and
+  never a union member; a record of a kind this build cannot type is kept as
+  stored (`UnknownRecord`, `types.ts:531`), and an add-on that wants a
+  TypeScript shape for its kind fills `AddOnElementTypes` by declaration
+  merging (`types.ts:120-130`).
 - **Types and parameters.** Elements can share a type. A value on the element
   wins over its type's value. Add-ons add parameter sets; every parameter
   names a unit kind.

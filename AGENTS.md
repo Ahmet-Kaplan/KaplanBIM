@@ -66,7 +66,13 @@ MutinyBIM has one look, defined once in `packages/bim-ui`:
 Rules for every screen, in the editor and in every app under `apps/`:
 
 1. Draw controls with those components. Do not hand-roll a button, input,
-   card, badge or alert.
+   card, badge or alert. One exception, and only one: `bim-grid`'s cell
+   primitives (`GridButton`, `CellInput`, `CellSelect` in
+   `packages/bim-grid/src/components/ui/cell-controls.tsx`) are plain DOM
+   styled by its own `grid.css` — they mount inside the cells a scroll
+   frame redraws, and `bim-ui`'s controls are Tailwind classes that the grid
+   (peer dependency: React alone) does not carry. Rule 2 still holds there:
+   `grid.css` picks no colour of its own, and the theme guard scans it.
 2. Take every color, font and radius from a `--mutiny-*` variable. No hex
    colors, no inline `style` colors and no one-off stylesheets that pick their
    own palette. Layout utilities (flex, grid, gap, width) are fine.

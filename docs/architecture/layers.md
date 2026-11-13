@@ -19,13 +19,13 @@ wrong".
 | 2 | The model engine | `bim-kernel` |
 | 1 | Pure primitives | `bim-units`, `bim-formula`, `bim-geometry` |
 
-`bim-editor` and `bim-plugin` are absent from the tour's diagram. `bim-editor`
-imports `bim-sync`, `bim-sheets`, `bim-library`, `bim-schedules-ui` and a
-first-party pack, so it sits in layer 5, not below it. `bim-plugin` imports only
-the kernel, `bim-script` and `bim-units`, so layer 3 is right and the tour lists
-it there (`packages/bim-plugin/src/`, and a stale reference at
-`catalogue.ts:23` that names `@permitzip/bim-mcp` in a comment only — it does
-not import it).
+`bim-editor` imports `bim-sync`, `bim-sheets`, `bim-library`, `bim-schedules-ui`
+and a first-party pack, so it sits in layer 5, not below it (the tour's diagram
+now places it there; above the kernel the layer guard is review-only, and the
+editor breaks no rule it does hold). `bim-plugin` imports only
+`@permitzip/bim-kernel/packs`, so layer 3 is right and the tour lists it there
+(`packages/bim-plugin/src/`, and a stale reference at `catalogue.ts:23` that
+names `@permitzip/bim-mcp` in a comment only — it does not import it).
 
 ## The contract
 

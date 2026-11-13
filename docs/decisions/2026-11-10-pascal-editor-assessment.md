@@ -142,8 +142,8 @@ Geri çekmek istedikleri araç adlarına cevap vermek için bir shim tutuyorlar.
 |-------|-------|------|
 | **IFC import sınıflandırma** | **ALINDI** (adım 1-3 bitti: veto, `element_type`, katmanlar→yüz m²) | ✅ |
 | **Walkthrough motoru** | **Al** — en küçük dilim: çarpışma dünyası + zemin boşlukları + kare sınırlayıcı | **4-6 hafta** (ilk dilim ~2) |
-| **`polygon-label` (polylabel)** | **Al** — etiket/oda adı yerleştirmesi | **1-2 gün** |
-| **`room-zone-adoption` skorlaması** | **Al** — poligon→yüz atama | **2-3 gün** |
+| **`polygon-label` (polylabel)** | **ALINDI** — `bim-geometry/src/polygon-label.ts` (`polygonLabel`), test edilmiş (commit `60a12bf`); **henüz dışarıdan çağıran yok**, kernel `placement/label-seed.ts:16-21` kendi küçük kopyasını tutuyor | bağlamak ~1 gün |
+| **`room-zone-adoption` skorlaması** | **ALINDI** — `bim-geometry/src/polygon-containment.ts` (`enclosingFits`, `bestEnclosingFace`), test edilmiş; **henüz çağıran yok** | bağlamak 2-3 gün |
 | **Performans (batch + frame limiter)** | **Oku, ödünç al** — 250k eleman bütçemizle karşılaştır | **1-2 gün** |
 | **i18n'den 3 küçük karar** | **Al** — `assertSafeMessageKey` guard'a, `warnedMissingKeys`, scoped deseni not et | **~1 gün** |
 | **`DECISIONS.md` pratiği** | **Al** — sadakat sıralaması | saatler |
@@ -161,7 +161,7 @@ Pascal'ın kodundan çok **`wiki/architecture/` altındaki 30 belge** değerli �
 
 ### 1. `wall-frame.md` — duvar referans çizgisi (bizim IFC planımızı düzeltiyor)
 
-**Bizim bugünkü hatamız:** duvarın başlangıç/bitişini **gövde ayak izi dikdörtgeninin** uzun ekseninden türetiyoruz (`bim-ifc/src/import/shape.ts:79-93`), çünkü import'ta IFC'nin **Axis** temsilini bilerek atıyoruz (`geometry.ts:140-149`, yalnızca Body okunuyor). Yani gerçek referans çizgisini atıp, sonra onu gövdeden yeniden uyduruyoruz. Katmanlı duvarda bu, katman offset'lerini de kaybediyor (adım 3'te `OffsetFromReferenceLine` artık okunuyor, ama referans çizgisinin kendisi yok).
+**Bizim bugünkü hatamız:** duvarın başlangıç/bitişini **gövde ayak izi dikdörtgeninin** uzun ekseninden türetiyoruz (`packages/bim-kernel/src/import/shape.ts:87-96`, `rectangleAxis`; çağıran `rules.ts:80`), çünkü import'ta IFC'nin **Axis** temsilini bilerek atıyoruz (`packages/bim-ifc/src/import/geometry.ts:154-160`, `bodyFirst`, yalnızca Body okunuyor). Yani gerçek referans çizgisini atıp, sonra onu gövdeden yeniden uyduruyoruz. Katmanlı duvarda bu, katman offset'lerini de kaybediyor (adım 3'te `OffsetFromReferenceLine` artık okunuyor, ama referans çizgisinin kendisi yok).
 
 **Onların modeli:** saklanan `start → end` **referans çizgisidir**; gövde ondan yanal olarak `justification` ile kayar (**Inside/Center/Outside** ya da **A/Center/B**). Kalınlık düzenlemesi referansı **sabit tutar**. Birleşimlerde komşuların uçları kendi çizgileri boyunca yeni kesişime kaydırılır (`planWallMoveJunctions`), T-gövdeler ev sahibinin yakın yüzünde durur, çok kollu yelpazeler referans tepe noktasını korur.
 
