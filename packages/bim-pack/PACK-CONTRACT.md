@@ -30,8 +30,26 @@ before loading a pack.
 | `name` | Display name. |
 | `version` | The pack's semver (`1.2.3`). A model pins this exact version. |
 | `kernel` | The contract range it was written for (`^1.0.0`). Checked against `PACK_CONTRACT_VERSION`. |
-| `requires` | Other packs it builds on, `{ id, range }`. |
+| `requires` | Other packs it builds on, `{ id, range }`: a pack id and a range of the forms `satisfies` reads (`^1.0.0`, `~1.2.0`, `>=1.0.0 <2.0.0`, `1.2.3`, `*`). Presence and version only — see below. |
 | `firstParty` | Shipped by PermitZIP. |
+
+**What `requires` does.** It is checked when the set builds (`PackSet.create`,
+so also by `runPackConformance` and by an outside add-on's install gate): a
+pack it names that the set doesn't hold is refused, and so is one at a version
+outside the range, each naming both packs and both ways out — "pack cc needs
+pack bb ^1.0.0, which this model doesn't use; add bb ^1.0.0 to this model, or
+use a version of cc that doesn't need it". It states a dependency, nothing
+more: it does not order the set (a set is in the order the packs are given in,
+first-party order included) and it is not how a pack uses another pack's rows.
+To read another pack's rows when it happens to be loaded, read them through
+the set and answer without them (Mechanical's pressurization reads the
+ventilation rows that way, and works when they are absent). No pack in this
+repository sets `requires`: their rows are installed together. Use it in an
+add-on that genuinely cannot run without another pack, because the refusal is
+the only thing that then stops the model opening into a half-working pack.
+
+Not the same field as a route constraint's `requires` (`kernel.route_constraint`,
+the stop or damper a crossing needs at the rated element).
 
 ## Ids
 

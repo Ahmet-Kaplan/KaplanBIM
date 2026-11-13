@@ -318,8 +318,8 @@ export class PackSet {
     for (const pack of packs) {
       for (const req of pack.manifest.requires ?? []) {
         const dep = ids.get(req.id) ?? firstPartyBase.find((p) => p.manifest.id === req.id);
-        if (!dep) problems.push(`pack ${pack.manifest.id} needs pack ${req.id} ${req.range}, which this model doesn't use`);
-        else if (!satisfies(dep.manifest.version, req.range)) problems.push(`pack ${pack.manifest.id} needs ${req.id} ${req.range}; this model uses ${dep.manifest.version}`);
+        if (!dep) problems.push(`pack ${pack.manifest.id} needs pack ${req.id} ${req.range}, which this model doesn't use; add ${req.id} ${req.range} to this model, or use a version of ${pack.manifest.id} that doesn't need it`);
+        else if (!satisfies(dep.manifest.version, req.range)) problems.push(`pack ${pack.manifest.id} needs ${req.id} ${req.range}; this model uses ${dep.manifest.version}. Use a version of ${pack.manifest.id} that accepts ${req.id} ${dep.manifest.version}, or a model that uses ${req.id} ${req.range}`);
       }
     }
     const byPoint = new Map<string, ErasedContribution[]>();

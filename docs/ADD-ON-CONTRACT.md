@@ -55,7 +55,7 @@ published subpaths for types. Nothing else from MutinyBIM.
 | `name` | Display name. |
 | `version` | Your pack's semver. |
 | `kernel` | The contract range you wrote it for. Checked against `PACK_CONTRACT_VERSION`. |
-| `requires` | Other packs you build on: `{ id, range }`. |
+| `requires` | Other packs you build on: `{ id, range }`. Checked when a model's set builds, so a pack you name that the model doesn't have, or has at a version outside your range, refuses the set in a sentence naming what to add ("pack acme needs pack plumbing_gas ^1.0.0, which this model doesn't use; add plumbing_gas ^1.0.0 to this model, or use a version of acme that doesn't need it"). It is a presence and version check, not load order: to use another pack's rows **when it happens to be loaded**, read them through the set and answer without them. |
 | `description` | One sentence in plain words. |
 
 ## Ids

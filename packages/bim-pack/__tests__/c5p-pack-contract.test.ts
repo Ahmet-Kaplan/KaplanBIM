@@ -19,11 +19,13 @@ import {
   defineExtensionPoint,
   definePack,
   resolvePackPins,
+  runPackConformance,
   withPackSet,
   type Pack,
   type ServiceRow,
   type TradeAdapter,
 } from "../src";
+import { DATA_ADDON_FORMAT, readDataAddonDocument } from "../src/install";
 
 const adapter: TradeAdapter = { trade: "mechanical", source: () => null, connectors: () => [], positionsNeeded: () => null, refusal: () => null, positionsRefusal: () => null };
 
@@ -146,5 +148,33 @@ describe("c5p pack scope", () => {
     expect(() => withPackSet(outer, () => Promise.resolve(1))).toThrow("the pack scope is synchronous");
     expect(spy).toHaveBeenCalled();
     expect(activePackSet()).toBe(BUILTIN_PACK_SET);
+  });
+});
+
+/**
+ * `requires` is checked when the set builds, so a host that runs
+ * `runPackConformance` before it loads a pack refuses one whose dependency is
+ * missing or at another version, in a sentence that says what to do.
+ */
+describe("c5p a pack's requires is checked when the set builds", () => {
+  const needy = pack("cc", { requires: [{ id: "bb", range: "^1.0.0" }] });
+  it("a missing dependency is refused in a sentence a person can act on", () => {
+    expect(runPackConformance(needy).problems).toEqual([expect.stringContaining("pack cc needs pack bb ^1.0.0, which this model doesn't use; add bb ^1.0.0 to this model, or use a version of cc that doesn't need it")]);
+  });
+
+  it("the same pack conforms once the pack it requires is there at a version in range", () => {
+    expect(runPackConformance(needy, { with: [pack("bb", { version: "1.4.0" })] })).toEqual({ ok: true, problems: [] });
+  });
+
+  it("a dependency at a version outside the range names both versions and both ways out", () => {
+    expect(runPackConformance(needy, { with: [pack("bb", { version: "2.1.0" })] }).problems).toEqual([expect.stringContaining("pack cc needs bb ^1.0.0; this model uses 2.1.0. Use a version of cc that accepts bb 2.1.0, or a model that uses bb ^1.0.0")]);
+  });
+
+  it("an outside add-on's manifest keeps what it requires, so the install gate checks it", () => {
+    const read = readDataAddonDocument({ format: DATA_ADDON_FORMAT, formatVersion: 1, tier: "data", manifest: { id: "acme", name: "Acme", version: "1.0.0", kernel: "^1.0.0", requires: [{ id: "bb", range: "^1.0.0" }] }, contributions: [] });
+    expect(read.ok).toBe(true);
+    if (!read.ok) return;
+    expect(read.manifest.requires).toEqual([{ id: "bb", range: "^1.0.0" }]);
+    expect(runPackConformance(definePack(read.manifest, []), { with: [] }).problems).toEqual([expect.stringContaining("pack acme needs pack bb ^1.0.0, which this model doesn't use")]);
   });
 });
