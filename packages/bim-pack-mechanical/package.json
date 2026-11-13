@@ -1,14 +1,12 @@
 {
   "name": "@permitzip/bim-pack-mechanical",
   "version": "0.2.0",
+  "private": true,
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/permitzip/mutinybim.git",
     "directory": "packages/bim-pack-mechanical"
-  },
-  "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
   },
   "type": "module",
   "description": "MutinyBIM Mechanical add-on (namespace mechanical, first-party): air networks, duct design, sizing and insulation, ventilation and pressurization, make-up air, and the agent tools it declares. Built only through the add-on contract; the kernel imports nothing from it. Stored names are frozen.",

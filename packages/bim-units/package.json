@@ -16,6 +16,10 @@
     ".": "./src/index.ts",
     "./kinds": "./src/kind-point.ts"
   },
+  "files": [
+    "src",
+    "LICENSE"
+  ],
   "scripts": {
     "type-check": "tsc -p ../tsconfig.bim.json"
   }

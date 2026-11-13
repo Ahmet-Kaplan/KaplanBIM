@@ -16,6 +16,10 @@
     ".": "./src/index.ts",
     "./grid.css": "./src/grid.css"
   },
+  "files": [
+    "src",
+    "LICENSE"
+  ],
   "scripts": {
     "type-check": "tsc -p ../tsconfig.bim.json"
   },

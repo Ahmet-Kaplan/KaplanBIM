@@ -1,14 +1,12 @@
 {
   "name": "@permitzip/bim-script-runner",
   "version": "0.2.0",
+  "private": true,
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/permitzip/mutinybim.git",
     "directory": "packages/bim-script-runner"
-  },
-  "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
   },
   "type": "module",
   "description": "MutinyBIM script runner: one script per fresh Node process with the kit's caps (1 GB, 30 s, 2 MB), an empty environment and Node's permission model. Bundles to two files a sealed host bakes into its image; LocalScriptRunner runs them on one person's own computer. Must not import any host app's code.",

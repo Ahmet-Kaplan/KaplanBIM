@@ -18,6 +18,12 @@
     "./branch-limits": "./src/branches/limits.ts",
     "./lineages": "./src/lineages/index.ts"
   },
+  "files": [
+    "src",
+    "AUTHORIZATION.md",
+    "AREA_LOADING.md",
+    "LICENSE"
+  ],
   "scripts": {
     "type-check": "tsc -p ../tsconfig.bim.json"
   },

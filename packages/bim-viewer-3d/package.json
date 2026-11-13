@@ -19,6 +19,10 @@
     "./pan-buttons": "./src/pan-buttons.ts",
     "./wheel-zoom": "./src/wheel-zoom.ts"
   },
+  "files": [
+    "src",
+    "LICENSE"
+  ],
   "scripts": {
     "type-check": "tsc -p ../tsconfig.bim.json"
   },

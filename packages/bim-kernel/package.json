@@ -40,6 +40,11 @@
     "./typicals": "./src/organization/typicals-extras.ts",
     "./schedules": "./src/schedules/engine/index.ts"
   },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "type-check": "tsc -p ../tsconfig.bim.json"
   },

@@ -19,6 +19,11 @@
     ".": "./src/index.ts",
     "./cli": "./src/cli.ts"
   },
+  "files": [
+    "src",
+    "bin",
+    "LICENSE"
+  ],
   "scripts": {
     "type-check": "tsc -p ../tsconfig.bim.json"
   },

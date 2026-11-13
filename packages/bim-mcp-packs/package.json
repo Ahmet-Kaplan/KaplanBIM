@@ -1,14 +1,12 @@
 {
   "name": "@permitzip/bim-mcp-packs",
   "version": "0.2.0",
+  "private": true,
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/permitzip/mutinybim.git",
     "directory": "packages/bim-mcp-packs"
-  },
-  "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
   },
   "type": "module",
   "description": "MutinyBIM's add-on tool packs for the tool server (@permitzip/bim-mcp): every tool family beyond the core (parts, routing and fittings, trades, views and sheets, drafting, schedules, coordination), each over the same caller runtime and typed host capabilities. Must not import any host app's code.",

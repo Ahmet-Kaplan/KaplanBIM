@@ -17,6 +17,11 @@
     "./mock": "./src/mock/index.ts",
     "./schedules.css": "./src/schedules.css"
   },
+  "files": [
+    "src",
+    "locales",
+    "LICENSE"
+  ],
   "scripts": {
     "type-check": "tsc -p ../tsconfig.bim.json",
     "demo": "node scripts/demo.mjs"

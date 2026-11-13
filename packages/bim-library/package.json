@@ -17,6 +17,11 @@
     "./node": "./src/node-fs.ts",
     "./bim-formula": "./src/bim-formula.ts"
   },
+  "files": [
+    "src",
+    "PROVIDER.md",
+    "LICENSE"
+  ],
   "scripts": {
     "type-check": "tsc -p ../tsconfig.bim.json"
   },

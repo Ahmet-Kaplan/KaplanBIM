@@ -20,6 +20,12 @@
     "./reissue-check": "./src/reissue-check.ts",
     "./ifc-cut-version": "./src/ifc-cut-version.ts"
   },
+  "files": [
+    "src",
+    "details",
+    "fonts",
+    "LICENSE"
+  ],
   "scripts": {
     "type-check": "tsc -p ../tsconfig.bim.json"
   },

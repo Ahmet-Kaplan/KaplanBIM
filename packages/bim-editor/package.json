@@ -1,14 +1,12 @@
 {
   "name": "@permitzip/bim-editor",
   "version": "0.2.0",
+  "private": true,
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/permitzip/mutinybim.git",
     "directory": "packages/bim-editor"
-  },
-  "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
   },
   "type": "module",
   "sideEffects": false,

@@ -16,6 +16,12 @@
     ".": "./src/index.ts",
     "./runtime": "./src/runtime.ts"
   },
+  "files": [
+    "src",
+    "PACK-CONTRACT.md",
+    "API-REPORT.md",
+    "LICENSE"
+  ],
   "scripts": {
     "type-check": "tsc -p ../tsconfig.bim.json"
   },

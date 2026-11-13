@@ -16,6 +16,13 @@
     ".": "./src/index.ts",
     "./assets/*": "./assets/*"
   },
+  "files": [
+    "src",
+    "assets",
+    "locales",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "type-check": "tsc -p ../tsconfig.bim.json"
   },

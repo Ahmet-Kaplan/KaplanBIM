@@ -1,14 +1,12 @@
 {
   "name": "@permitzip/bim-pack-plumbing",
   "version": "0.2.0",
+  "private": true,
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/permitzip/mutinybim.git",
     "directory": "packages/bim-pack-plumbing"
-  },
-  "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
   },
   "type": "module",
   "description": "MutinyBIM Plumbing and gas add-on (namespace plumbing_gas, first-party): water, drainage, vent and fuel gas networks, fixture units, hydraulics, gas pressure zones, risers and isometrics, plumbing and gas sizing and the agent tools it declares. Built only through the add-on contract; the kernel imports nothing from it. Stored names are frozen.",

@@ -1,14 +1,12 @@
 {
   "name": "@permitzip/bim-mcp",
   "version": "0.2.0",
+  "private": true,
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/permitzip/mutinybim.git",
     "directory": "packages/bim-mcp"
-  },
-  "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
   },
   "type": "module",
   "description": "The MutinyBIM tool server: one small core tool pack (script execution first, a few reads) on MCP over stdio or streamable HTTP, a host adapter for identity, permissions, approvals, the script runner and the model server, and an extension point for add-on packs. The open local host runs it for one person on their own computer. Must not import any host app's code.",
