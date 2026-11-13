@@ -42,13 +42,34 @@ const BESIDE_MODULE: Readonly<Record<string, string>> = {
 }
 
 /** URL prefix → folder, for static files the editor reads by address. */
-const STATIC_DIRS: ReadonlyArray<readonly [string, string]> = [
-  ['/mutinybim/fonts/', path.join(REPO_ROOT, 'public/mutinybim/fonts')],
-  ['/mutinybim/firm/', path.join(REPO_ROOT, 'public/mutinybim/firm')],
-  ['/mutinybim/brand/', path.join(REPO_ROOT, 'public/mutinybim/brand')],
-  ['/assets/bim-ui/', path.join(PACKAGES_DIR, 'bim-ui/assets')],
-  ['/pdfjs/images/', path.join(REPO_ROOT, 'node_modules/pdfjs-dist/web/images')],
-]
+function staticDirs(staticRoot: string | null): ReadonlyArray<readonly [string, string]> {
+  // A shipped copy (the npx CLI) brings the same files in one folder instead of a checkout and its node_modules.
+  if (staticRoot) {
+    return [
+      ['/mutinybim/fonts/', path.join(staticRoot, 'fonts')],
+      ['/mutinybim/brand/', path.join(staticRoot, 'brand')],
+      ['/assets/bim-ui/', path.join(staticRoot, 'bim-ui')],
+      ['/pdfjs/images/', path.join(staticRoot, 'pdfjs-images')],
+    ]
+  }
+  return [
+    ['/mutinybim/fonts/', path.join(REPO_ROOT, 'public/mutinybim/fonts')],
+    ['/mutinybim/firm/', path.join(REPO_ROOT, 'public/mutinybim/firm')],
+    ['/mutinybim/brand/', path.join(REPO_ROOT, 'public/mutinybim/brand')],
+    ['/assets/bim-ui/', path.join(PACKAGES_DIR, 'bim-ui/assets')],
+    ['/pdfjs/images/', path.join(REPO_ROOT, 'node_modules/pdfjs-dist/web/images')],
+  ]
+}
+
+/** `wasm/<name>` or `workers/<name>` in the shipped folder; the library's own copy under node_modules otherwise. */
+async function fileForBareName(staticRoot: string | null, name: string): Promise<{ data: Buffer; type: string } | null> {
+  if (!staticRoot) {
+    const beside = BESIDE_MODULE[name]
+    return beside ? fileUnder(NODE_MODULES, beside) : null
+  }
+  const under = `${name.endsWith('.wasm') ? 'wasm' : 'workers'}/${name}`
+  return fileUnder(staticRoot, under)
+}
 
 const NODE_MODULES = path.join(REPO_ROOT, 'node_modules')
 
@@ -153,6 +174,7 @@ export interface EditorDemo {
 
 export function createEditorDemo(options: EditorDemoOptions): EditorDemo {
   const outDir = options.outDir ?? defaultOutDir()
+  const staticRoot = options.staticRoot ?? null
   const buildOptions: BuildOptions = { ...options, outDir }
   let lastError: string | null = null
   /** Every /api request the editor made, in order of first call, with a count. */
@@ -181,7 +203,9 @@ export function createEditorDemo(options: EditorDemoOptions): EditorDemo {
       return json(res, 200, { projectNumber: 'DEMO', references: [], authority })
     }
     if (req.method === 'GET' && pathname === '/api/building-model/fragments-worker') {
-      const worker = await fileUnder(NODE_MODULES, '@thatopen/fragments/dist/Worker/worker.mjs')
+      const worker = staticRoot
+        ? await fileForBareName(staticRoot, 'fragments-worker.mjs')
+        : await fileUnder(NODE_MODULES, '@thatopen/fragments/dist/Worker/worker.mjs')
       if (worker) return send(res, 200, worker.type, worker.data)
       console.error('[editor-demo] @thatopen/fragments is not installed; the 3D view has no fragments worker')
       return json(res, 404, { error: 'The 3D view needs @thatopen/fragments, which is not installed here. Run npm install.' })
@@ -206,18 +230,18 @@ export function createEditorDemo(options: EditorDemoOptions): EditorDemo {
       json(res, 200, Object.fromEntries(apiCalls))
       return true
     }
-    for (const [prefix, dir] of STATIC_DIRS) {
+    for (const [prefix, dir] of staticDirs(staticRoot)) {
       if (!pathname.startsWith(prefix)) continue
       const file = await fileUnder(dir, decodeURIComponent(pathname.slice(prefix.length)))
       if (file) send(res, 200, file.type, file.data, { 'cache-control': 'public, max-age=3600' })
       else send(res, 404, 'text/plain; charset=utf-8', `Not here: ${pathname}`)
       return true
     }
-    const beside = BESIDE_MODULE[path.posix.basename(pathname)]
-    if (beside && !pathname.startsWith('/dist/')) {
-      const file = await fileUnder(NODE_MODULES, beside)
+    const bare = path.posix.basename(pathname)
+    if (BESIDE_MODULE[bare] && !pathname.startsWith('/dist/')) {
+      const file = await fileForBareName(staticRoot, bare)
       if (file) send(res, 200, file.type, file.data)
-      else send(res, 404, 'text/plain; charset=utf-8', `${beside} is not installed here. Run npm install.`)
+      else send(res, 404, 'text/plain; charset=utf-8', `${bare} is not installed here. Run npm install.`)
       return true
     }
     if (MODEL_PATH.test(pathname)) {
@@ -237,7 +261,7 @@ export function createEditorDemo(options: EditorDemoOptions): EditorDemo {
         send(res, 200, file.type, file.data)
         return true
       }
-      const fallback = beside ? await fileUnder(NODE_MODULES, beside) : null
+      const fallback = await fileForBareName(staticRoot, bare)
       if (fallback) send(res, 200, fallback.type, fallback.data)
       else send(res, 404, 'text/plain; charset=utf-8', `Not in the editor build: ${pathname}`)
       return true

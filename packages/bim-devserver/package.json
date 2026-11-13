@@ -12,6 +12,10 @@
   },
   "type": "module",
   "description": "MutinyBIM feasibility dev server and scripted agents (in-process sequencer). Not a production service.",
+  "exports": {
+    ".": "./src/dev-server.ts",
+    "./server": "./src/server.ts"
+  },
   "scripts": {
     "dev": "tsx src/server.ts",
     "agents": "tsx scripts/agents.ts",

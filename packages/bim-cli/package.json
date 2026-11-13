@@ -1,0 +1,43 @@
+{
+  "name": "@permitzip/bim-cli",
+  "version": "0.2.0",
+  "license": "Apache-2.0",
+  "description": "One command to a running MutinyBIM editor: mutinybim editor.",
+  "keywords": [
+    "bim",
+    "building-model",
+    "editor",
+    "aec"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/permitzip/mutinybim.git",
+    "directory": "packages/bim-cli"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "bin": {
+    "mutinybim": "bin/mutinybim.mjs"
+  },
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "files": [
+    "bin/",
+    "dist/",
+    "details/",
+    "fonts/",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "node --import tsx scripts/build.mjs",
+    "prepack": "node --import tsx scripts/build.mjs",
+    "type-check": "tsc -p ../tsconfig.bim.json"
+  }
+}

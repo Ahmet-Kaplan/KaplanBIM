@@ -75,7 +75,17 @@ See [ROADMAP.md](ROADMAP.md).
 
 ## Quick start
 
-You need Node 22.13 or newer.
+You need Node 22.13 or newer. [docs/QUICKSTART.md](docs/QUICKSTART.md) is the
+short version of the three ways in.
+
+One command, with no checkout and nothing to install:
+
+```bash
+npx @permitzip/bim-cli editor        # http://127.0.0.1:3999
+```
+
+It serves the editor page the package ships against an in-memory model; the
+model stops when the process does. Or run the open-source tree itself:
 
 ```bash
 npm install
@@ -83,8 +93,9 @@ npm run demo
 ```
 
 Open <http://127.0.0.1:3095>. The editor runs against an in-memory model on
-the dev server. The first start builds the editor (about a minute); later
-starts reuse that build. Open the same address in a second window with
+the dev server. The first start builds the editor (a few seconds, of which
+about 1.5 s is esbuild bundling 11.8 MB of JavaScript); later starts reuse that
+build. Open the same address in a second window with
 `&name=Priya` added to edit together. Nothing is saved when you stop the server.
 
 ### The full stack, with Docker
