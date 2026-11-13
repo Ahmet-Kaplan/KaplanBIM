@@ -119,8 +119,11 @@ describe("i9-import-layers", () => {
     const totals = takeoffTotals(landed(plan.records).elements);
     const layerM2 = totals.filter((t) => t.measure.key === "qto.layer_area").reduce((s, t) => s + t.value, 0);
     const netFace = totals.find((t) => t.measure.key === "qto.area_net")?.value ?? 0;
-    // One layer per wall, so the layer m² is the walls' net face area: 4 walls, one door taken out (117.8 m²).
-    expect(netFace).toBeCloseTo(117.8, 6);
+    // One layer per wall, so the layer m² is the walls' net face area: 4 walls,
+    // one door taken out. 115.64 m², not 117.8: step 6 slid the four corners'
+    // ends onto their neighbours' lines, so each wall is shorter by the half
+    // thickness that was counted twice (29.28 m of wall line instead of 30 m).
+    expect(netFace).toBeCloseTo(115.64, 6);
     expect(layerM2).toBeCloseTo(netFace, 6);
   });
 });

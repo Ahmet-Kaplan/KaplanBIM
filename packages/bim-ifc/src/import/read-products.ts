@@ -1,4 +1,4 @@
-import type { ImportClassification, ImportGroup, ImportLayer, ImportLayerSet, ImportPort, ImportProduct, ImportReferenceLine, ImportSource, ImportStorey, ParamValue } from "@permitzip/bim-kernel";
+import type { ImportClassification, ImportGroup, ImportLayer, ImportLayerSet, ImportPathJoin, ImportPort, ImportProduct, ImportReferenceLine, ImportSource, ImportStorey, ParamValue } from "@permitzip/bim-kernel";
 import { readStep, type ReadEntity, type StepFile, type StepToken } from "../read";
 import { ifcEntityName, ownAttributes } from "../schema-ifc4x3";
 import { GeometryReader, apply, boundsOf, compose, hostFrame, type Frame } from "./geometry";
@@ -216,6 +216,21 @@ export function readIfcSource(text: string, opts: IfcReadOptions): ImportSource 
     joined.set(a, [...(joined.get(a) ?? []), b]);
     joined.set(b, [...(joined.get(b) ?? []), a]);
   }
+  // Walls the file says are joined, and how each side meets the other
+  // (`IfcRelConnectsPathElements`: relating at 5, related at 6, then their
+  // priorities and the two `IfcConnectionTypeEnum`s at 9 and 10). Read because
+  // it lets the join pass close a gap the file itself called a joint.
+  const pathJoinsOf = new Map<number, ImportPathJoin[]>();
+  for (const r of all("IFCRELCONNECTSPATHELEMENTS")) {
+    const relating = refs(r.args[5])[0];
+    const related = refs(r.args[6])[0];
+    if (relating === undefined || related === undefined) continue;
+    const relatingId = gid(relating);
+    const relatedId = gid(related);
+    if (!relatingId || !relatedId) continue;
+    pathJoinsOf.set(relating, [...(pathJoinsOf.get(relating) ?? []), { otherId: relatedId, selfType: enumOf(r.args[10]), otherType: enumOf(r.args[9]) }]);
+    pathJoinsOf.set(related, [...(pathJoinsOf.get(related) ?? []), { otherId: relatingId, selfType: enumOf(r.args[9]), otherType: enumOf(r.args[10]) }]);
+  }
 
   const groups: ImportGroup[] = [...groupIds].flatMap((id) => {
     const g = file.entities.get(id);
@@ -322,6 +337,7 @@ export function readIfcSource(text: string, opts: IfcReadOptions): ImportSource 
       },
       material: materialOf.get(e.id) ?? (type ? (materialOf.get(type.id) ?? null) : null),
       layerSet: layerSetsOf.get(e.id) ?? (type ? (layerSetsOf.get(type.id) ?? null) : null),
+      ...(pathJoinsOf.has(e.id) ? { pathJoins: pathJoinsOf.get(e.id) ?? [] } : {}),
       ports,
     });
   }

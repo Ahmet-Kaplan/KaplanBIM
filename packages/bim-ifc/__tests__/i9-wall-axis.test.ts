@@ -206,7 +206,12 @@ describe("i9-wall-axis", () => {
     expect(model.elements).toBeDefined();
     const lengths = takeoffTotals(model.elements).filter((t) => t.measure.key === "qto.length");
     const wallLength = lengths.find((t) => t.group.kind === "class" && t.group.label === "Walls");
-    expect(Math.round(wallLength?.value ?? 0)).toBe(30);
+    // 29.28 m, not 30.00: the four corners each had one wall's line running
+    // 180 mm past the other's (half the 360 mm these walls measure across), and
+    // step 6 slid those ends onto their neighbours' lines. Nothing merged here:
+    // the file's four walls stay four walls.
+    expect(Math.round((wallLength?.value ?? 0) * 100) / 100).toBe(29.28);
+    expect(plan.report.joins).toMatchObject({ merged: [], endsMoved: 4, longestMoveMm: 180, inferredLeft: 0 });
     // The framing's length is a line of its own, never folded into the walls'.
     const frameLength = lengths.find((t) => t.group.kind === "class" && t.group.label === "Mullions and transoms");
     expect(Math.round((frameLength?.value ?? 0) * 10) / 10).toBe(32.8);

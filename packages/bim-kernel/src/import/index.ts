@@ -6,3 +6,4 @@ export * from "./rules";
 export * from "./reverse-map";
 export * from "./plan";
 export * from "./apply";
+export * from "./joins";

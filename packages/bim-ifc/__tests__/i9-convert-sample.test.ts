@@ -143,6 +143,11 @@ describe("i9-convert-sample", () => {
       // the file's 34 products. The two roof decks, the roof, the stair and the
       // windows stay linked for reasons this slice doesn't touch.
       expect(ofKind(plan.records, "wall")).toHaveLength(4);
+      // The join pass (step 6) merged nothing here — the file's four walls are
+      // four walls — and slid the four corners' ends onto their neighbours'
+      // lines. See the length assertions below for what that changed.
+      expect(plan.report.joins?.merged).toEqual([]);
+      expect(plan.report.joins).toMatchObject({ endsMoved: 4, longestMoveMm: 180, coincidentPairs: 0, inferredLeft: 0, statedJoinsInFile: 0 });
       expect(ofKind(plan.records, "opening")).toHaveLength(1);
       expect(plan.records.filter((r) => String(r.kind) === CURTAIN_MEMBER_KIND)).toHaveLength(20);
       expect(plan.records.filter((r) => String(r.kind) === CURTAIN_PANEL_KIND)).toHaveLength(5);
@@ -169,8 +174,7 @@ describe("i9-convert-sample", () => {
     });
 
     it("is measured, not merely converted: four walls in one line, no type to split them by", () => {
-      const { plan } = openHouse();
-      // The sample carries no `IfcRelDefinesByType` at all, so its walls have no type to group by
+      const { plan } = openHouse();      // The sample carries no `IfcRelDefinesByType` at all, so its walls have no type to group by
       // and stay one line (i9-import-types shows the typed case).
       expect(ofKind(plan.records, "element_type")).toHaveLength(0);
       const model = withUpgradePolicy(() => true, () => landImport(hostModel(), plan.records));
@@ -178,7 +182,12 @@ describe("i9-convert-sample", () => {
       expect(takeoffLines(model.model).filter((l) => l.includes("Walls"))).toEqual(["class|Walls|4"]);
       const totals = takeoffTotals(model.model.elements).filter((t) => t.measure.key === "qto.length");
       const wallLength = totals.find((t) => t.group.label === "Walls");
-      expect(Math.round(wallLength?.value ?? 0)).toBe(30);
+      // Joined (step 6): the four walls' lines ran 180 mm past the line of the
+      // wall they meet at each of the four corners — half of the 360 mm the
+      // walls measure across — so 30.00 m of line was 0.72 m of wall counted
+      // twice. Slid onto their neighbours' lines they measure 29.28 m, which is
+      // exactly the union of the four bodies the file draws.
+      expect(Math.round((wallLength?.value ?? 0) * 100) / 100).toBe(29.28);
       // The façade is priced as what it is: 20 framing lines by length (all one
       // 90 × 90 profile, so one size group) and 5 panels by m².
       const framing = totals.find((t) => t.group.label === "Mullions and transoms");

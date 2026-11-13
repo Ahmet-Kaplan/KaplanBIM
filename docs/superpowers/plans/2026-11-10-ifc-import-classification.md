@@ -91,3 +91,21 @@ Sebep: aşağıdaki hiçbir şey, duvar kaydı ortaya çıkmadıkça işe yarama
 - Metraj satır sayısı ve tip başına gruplama (bugün tek "Walls" satırı)
 - Katman varsa yüz başına m² üretimi
 - `packages/bim-ifc` testleri yeşil; `import-layers` yeşil (kernel'e i18n/React girmez)
+
+> **Adım 6 YAPILDI (2026-11-10).** `packages/bim-kernel/src/import/joins.ts`: plan
+> içinde, ürünler kayda dönüşmeden önce çalışan tek bir birleştirme geçişi (kayıtlar
+> sonradan değiştirilmiyor). Toleranslar Pascal'ın ABD konut sayılarından metrik ticari
+> işe çekildi: parça birleştirme boşluğu **200 mm** (Pascal 1250), üst üste binme 200 mm,
+> aynı çizgi 20 mm, yön 1°, kalınlık 25 mm, yükseklik 50 mm; L/T için en küçük açı 20°,
+> kaydırma sınırı **600 mm**, kapatılabilir boşluk 200 mm (dosya `IfcRelConnectsPathElements`
+> ile birleşim bildiriyorsa 600 mm), L/T ayrımı 150 mm. Dosyanın bildirdiği birleşimler
+> artık okunuyor (`ImportProduct.pathJoins`). Çizgisi gövdeden **uydurulmuş** duvarlar
+> birleştirmeye hiç girmiyor ve rapor bunu söylüyor; birleşen parçalar da raporda adıyla
+> geçiyor.
+>
+> Örnek modelde ölçülen: 31/34 ürün ve **4 duvar** (birleşecek parça yok) sabit; duvar
+> çizgisi toplamı **30,00 m → 29,28 m** (−0,72 m, −%2,4; dört köşede bir duvarın çizgisi
+> komşusunun çizgisini 180 mm — 360 mm'lik kalınlığın yarısı — aşıyordu), metrajda "Walls"
+> satırı 30,0 m → **29,3 m**, duvar yüz alanı 117,8 m² → **115,64 m²**. Yeni çizgi
+> 29,28 m × 360 mm = 10,5408 m², yani dosyanın çizdiği dört gövdenin birleşim alanı.
+> Ayrıntı: `.superpowers/sdd/2026-11-10-bilingual-ifc/wall-joins-report.md`.

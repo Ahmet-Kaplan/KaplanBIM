@@ -7,6 +7,7 @@ import type { BimElement, ElementId, ElementTypeElement, Level, ModelState, Para
 import { IFC_IMPORT_RULE_POINT, type ImportRuleContext, type ImportRuleDef, type ImportTypedKind } from "./rule-point";
 import { reverseClassMap } from "./reverse-map";
 import { importedLayerSet } from "./layers";
+import { joinNotes, planWallJoins } from "./joins";
 import { importElementId } from "./rules";
 import type { IfcImportPlan, IfcImportReport, ImportClassLine, ImportGroup, ImportProduct, ImportSource } from "./types";
 
@@ -149,6 +150,18 @@ function planInScope(source: ImportSource, opts: PlanImportOptions): IfcImportPl
   }
   chosen.sort((a, b) => (a.choice.rule.order ?? 10) - (b.choice.rule.order ?? 10));
 
+  // Step 6, the wall join pass: the file's wall pieces become the walls the
+  // building has — the pieces of one wall merged, and the ends of walls that
+  // meet slid along their own axes onto their neighbours' reference lines or
+  // faces — on the neutral products, so the model receives walls that already
+  // meet instead of records mutated afterwards. A merge names the wall it
+  // changed in the report; an inferred reference line takes no part.
+  const joins = planWallJoins(
+    chosen.map((c) => c.product),
+    { wallIds: new Set(chosen.filter((c) => (c.choice.rule.forKinds ?? []).includes("wall")).map((c) => c.product.sourceId)) },
+  );
+  const joinedById = new Map(joins.products.map((p) => [p.sourceId, p]));
+
   // The file's types become real `element_type` records, one per type, made
   // when the first product of that type converts (a type nothing converted
   // leaves no empty record behind). Instances name it through `typeId`, so the
@@ -195,7 +208,10 @@ function planInScope(source: ImportSource, opts: PlanImportOptions): IfcImportPl
   /** Build-ups whose stated total and the shape's measured thickness part ways, by "stated|measured". */
   const layerMismatch = new Map<string, number>();
 
-  for (const { product, choice } of chosen) {
+  for (const { product: asRead, choice } of chosen) {
+    // A piece a merge consumed: its length is on the wall that carries it now.
+    if (joins.alias.has(asRead.sourceId)) continue;
+    const product = joinedById.get(asRead.sourceId) ?? asRead;
     const { cls } = choice;
     const ctx: ImportRuleContext = {
       cls,
@@ -238,6 +254,9 @@ function planInScope(source: ImportSource, opts: PlanImportOptions): IfcImportPl
     for (const r of result.records) push(r);
     const own = result.records[result.records.length - 1];
     if (own) converted.set(product.sourceId, own.id);
+    // The pieces this wall was merged from point at it, so a door in one of them
+    // still finds the wall it is in.
+    if (own) for (const [piece, into] of joins.alias) if (into === product.sourceId) converted.set(piece, own.id);
     // A solid read with its cuts left in converts, and the report says what it measured (a wall's openings aren't subtracted, so it reads long).
     if (product.geometry.cutsLeftIn) cutLeftIn.set(product.geometry.unread ?? "cut", (cutLeftIn.get(product.geometry.unread ?? "cut") ?? 0) + 1);
     // A record placed on a reference line inferred from its body: the file gave none it could be read from.
@@ -256,6 +275,11 @@ function planInScope(source: ImportSource, opts: PlanImportOptions): IfcImportPl
     line(cls.id, cls.id, cls.label).converted += 1;
   }
   for (const u of source.unreadable) stay(u.entity, null, entityWords(u.entity), u.reason, u.count);
+  // What the join pass did, before the notes about what the file couldn't state.
+  for (const note of joinNotes(joins.report)) {
+    if (notes.size >= 200) break;
+    notes.add(note);
+  }
   for (const [cut, count] of cutLeftIn) {
     if (notes.size >= 200) break;
     const one = count === 1;
@@ -289,6 +313,7 @@ function planInScope(source: ImportSource, opts: PlanImportOptions): IfcImportPl
     stayLinked: linkedCount,
     levelsAdded,
     classes,
+    joins: joins.report,
     notes: [...notes],
     summary,
   };

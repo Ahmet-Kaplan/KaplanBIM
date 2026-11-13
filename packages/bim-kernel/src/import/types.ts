@@ -114,6 +114,21 @@ export interface ImportLayerSet {
   readonly referenceLineOffsetMm: number;
 }
 
+/**
+ * A wall the file says this one is joined to (an IFC `IfcRelConnectsPathElements`),
+ * with how each side meets: `ATSTART`, `ATEND` or `ATPATH` of its own path, as the
+ * file states it. Read for the join pass, which may close a larger gap between two
+ * walls the file itself calls joined than between two it says nothing about.
+ */
+export interface ImportPathJoin {
+  /** The other wall's `sourceId`. */
+  readonly otherId: string;
+  /** How this wall meets the other, as the file states it; null when it doesn't say. */
+  readonly selfType: string | null;
+  /** How the other meets this one. */
+  readonly otherType: string | null;
+}
+
 /** A connection point on a product (an IFC port), for the report and for joins. */
 export interface ImportPort {
   readonly id: string;
@@ -160,6 +175,8 @@ export interface ImportProduct {
   readonly material: string | null;
   /** Its build-up as the file states it, or null when it has none (a plain material, a shape alone). */
   readonly layerSet: ImportLayerSet | null;
+  /** Walls the file says it is joined to, by `sourceId` (`IfcRelConnectsPathElements`); absent when the file states none. */
+  readonly pathJoins?: readonly ImportPathJoin[];
   readonly ports: readonly ImportPort[];
 }
 
@@ -202,6 +219,41 @@ export interface ImportClassLine {
   readonly linked: readonly { readonly reason: string; readonly count: number }[];
 }
 
+/**
+ * A wall the file splits into pieces, which the import merged back into one
+ * (`import/joins.ts`). Named here rather than only counted, because a merge
+ * shortens the wall's takeoff line: a person has to be able to see which wall
+ * changed and what it was before.
+ */
+export interface ImportWallMerge {
+  /** The product the pieces became (the first piece's id). */
+  readonly sourceId: string;
+  /** The name a person reads for it. */
+  readonly name: string;
+  /** Every piece it came from, the kept one included, in line order. */
+  readonly pieces: readonly { readonly sourceId: string; readonly name: string }[];
+  /** The pieces' lines summed, and the merged line, mm: the wall reads shorter than the pieces did. */
+  readonly lengthBeforeMm: number;
+  readonly lengthAfterMm: number;
+  /** The closest the pieces were to each other, mm: positive for a gap, negative for an overlap. */
+  readonly gapMm: number;
+}
+
+/** What the wall join pass did (`import/joins.ts`), for the report and for review. */
+export interface ImportJoinResult {
+  readonly merged: readonly ImportWallMerge[];
+  /** Wall ends slid along their own axis onto a neighbour's reference line or face, and the longest of those moves, mm. */
+  readonly endsMoved: number;
+  readonly longestMoveMm: number;
+  /** Pairs left as two walls because they lie on one line and overlap further than a merge may. */
+  readonly coincidentPairs: number;
+  /** Junctions the join pass made that the file itself states (`IfcRelConnectsPathElements`), of those it states among converted walls. */
+  readonly statedJoins: number;
+  readonly statedJoinsInFile: number;
+  /** Walls whose reference line was inferred from the body, which take no part in joining or merging. */
+  readonly inferredLeft: number;
+}
+
 export interface IfcImportReport {
   readonly source: { readonly id: string; readonly label: string; readonly disciplines: readonly string[] };
   readonly converted: number;
@@ -209,6 +261,8 @@ export interface IfcImportReport {
   /** New levels made for storeys no level matched. */
   readonly levelsAdded: readonly string[];
   readonly classes: readonly ImportClassLine[];
+  /** What the wall join pass did before any product became a record (absent in plans that made no such pass). */
+  readonly joins?: ImportJoinResult;
   /** Joins between converted parts the file had and the model couldn't make, and other things to look at. */
   readonly notes: readonly string[];
   /** One sentence: "Converted 412 walls, 96 doors, 38 rooms. Left 4 roofs, 6 stairs as the linked model." */
