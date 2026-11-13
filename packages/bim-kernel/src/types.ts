@@ -340,6 +340,18 @@ export interface Room extends ModelElementBase, ElementCore {
    * tall it is). Absent: not stated, and the takeoff gives no volume.
    */
   readonly ceilingHeightMm?: number;
+  /**
+   * The room in an earlier import this one is the same room as
+   * (`import/room-identity.ts`), so a quantity history reads one room through
+   * two revisions instead of two unrelated records — "Room 101: 18.4 m² →
+   * 17.9 m²". Written by the import, and only when an earlier import of the
+   * same linked model has a room the matcher pairs with this one: absent on a
+   * first import and on a room the revision genuinely added. It is evidence of
+   * continuity, never an instruction: the earlier record keeps its own name,
+   * area and id, and a person settles what to do about the difference
+   * (`import/room-changes.ts` is the change set they read).
+   */
+  readonly continuesId?: ElementId;
 }
 
 export interface GridLine extends ModelElementBase, ElementCore {

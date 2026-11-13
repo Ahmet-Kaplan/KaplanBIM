@@ -109,22 +109,16 @@
    schema lacks, is written as `IfcBuildingElementProxy` **and reported**:
    'used IfcBuildingElementProxy for 2 building elements because class
    "arch.wall" is unavailable' (`proxy-diagnostics.test.ts`).
-10. **A room keeps its identity when the walls around it change.** A firm
-    receiving a model each revision cannot compare quantities otherwise: a
-    re-export gives every product a new GlobalId, so revision 2's "Room 101"
-    would be a different record from revision 1's and no delta could be read.
-    `matchRooms` (`import/room-identity.ts`) pairs them, strongest claim first:
-    the file's own number (`Name`) and then its label (`LongName`) where a key
-    names exactly one room on each side, then the polylabel seed within
-    `SEED_MATCH_MM`, then the share/cover fit above `FIT_MATCH_SCORE`, each on
-    one storey. A room nothing older resembles is **new**; a pairing is written
-    on the new record as `continuesId` (`types.ts` `Room`), never by rewriting
-    the earlier record, and `import/room-changes.ts` says what moved — area with
-    its delta, number, label, height. **Nothing here renames, merges or deletes
-    a room**: a person's name for a room is theirs, and the report carries the
-    disagreement for them to settle. A first import matches nothing, because
-    there is nothing to match against: the section reports `comparedAgainst: 0`
-    and every room is added (`room-identity.test.ts`).
+10. **A room keeps its identity when the walls around it change.** A re-export
+    gives every product a new GlobalId, so revision 2's "Room 101" would be a
+    different record from revision 1's and no quantity delta could be read.
+    `matchRooms` pairs them strongest claim first — the file's number, then its
+    label, then the seed, then the outline's share/cover fit, on one storey — a
+    pairing is written on the new record as `continuesId` and never by
+    rewriting the earlier one, and `roomChanges` says what moved. Nothing here
+    renames, merges or deletes a room, and a first import pairs nothing. The
+    pass, its thresholds and what they refuse are [spaces](spaces.md) §6-8; it
+    lives in `import/` because it is a step of the plan.
 
 ## How it goes wrong
 
@@ -166,15 +160,12 @@
   one, and a thickness edit later moves the line while everyone assumes the
   face.
 - **A revision compared as if it were a new model.** Two imports of one linked
-  model produce two sets of room records with different ids. Without the
-  pairing every room reads as removed and every room as added, the takeoff
-  totals look unchanged while every line in them is a different element, and the
-  one number a firm wants — *Room 101: 18.4 m² → 17.9 m²* — cannot be produced
-  at all. The change set is data, not prose, so a schedule or a script reads it.
-- **A room renamed from a file.** The file's label is not the model's. Writing it
-  onto the record a person named is the one act that makes a quantity history
-  untrustworthy, so the pass reports the difference and changes nothing
-  (`room-identity.test.ts`, "does not rename a room a person named").
+  model produce two sets of room records with different ids. Without the pairing
+  every room reads as removed and every room as added, the takeoff totals look
+  unchanged while every line in them is a different element, and the one number
+  a firm wants — *Room 101: 18.4 m² → 17.9 m²* — cannot be produced at all. See
+  [spaces](spaces.md) §6-8 for the pass and `room-identity.test.ts` for the two
+  revisions it pins.
 
 ## Where the guard is
 

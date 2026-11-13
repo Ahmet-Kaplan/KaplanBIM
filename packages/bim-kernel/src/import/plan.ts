@@ -3,13 +3,15 @@ import type { Registry } from "../registry/types";
 import { activePackSet, withModelStatePacks } from "../packs/scope";
 import { GLOBAL_PARTITION } from "../partition";
 import { elementsOfKind } from "../store";
-import type { BimElement, ElementId, ElementTypeElement, Level, ModelState, ParamValue } from "../types";
+import type { BimElement, ElementId, ElementTypeElement, Level, ModelState, ParamValue, Room } from "../types";
 import { IFC_IMPORT_RULE_POINT, type ImportRuleContext, type ImportRuleDef, type ImportTypedKind } from "./rule-point";
 import { reverseClassMap } from "./reverse-map";
 import { importedLayerSet } from "./layers";
 import { joinNotes, planWallJoins } from "./joins";
 import { importElementId } from "./rules";
-import type { IfcImportPlan, IfcImportReport, ImportClassLine, ImportGroup, ImportProduct, ImportSource } from "./types";
+import { roomChanges } from "./room-changes";
+import type { RoomMatchReason } from "./room-identity";
+import type { IfcImportPlan, IfcImportReport, ImportClassLine, ImportGroup, ImportProduct, ImportRoomIdentity, ImportSource } from "./types";
 
 /**
  * Plan an import (round 9 I9): every product of a linked model asks the
@@ -299,6 +301,8 @@ function planInScope(source: ImportSource, opts: PlanImportOptions): IfcImportPl
     notes.add(`${count} ${one ? "element" : "elements"} came in on a reference line inferred from ${one ? "its" : "their"} body's footprint (${why}), so a thickness change moves the line rather than the face. Check ${one ? "it" : "them"} against the source model.`);
   }
 
+  const rooms = roomIdentity(records, opts, levels, byId, replace, source);
+
   const classes: ImportClassLine[] = [...lines.values()]
     .map((l) => ({ classId: l.classId, label: l.label, converted: l.converted, linked: [...l.linked].map(([reason, count]) => ({ reason, count })).sort((a, b) => b.count - a.count) }))
     .sort((a, b) => b.converted - a.converted || a.label.localeCompare(b.label));
@@ -316,8 +320,68 @@ function planInScope(source: ImportSource, opts: PlanImportOptions): IfcImportPl
     joins: joins.report,
     notes: [...notes],
     summary,
+    ...(rooms ? { rooms } : {}),
   };
   return { records, converted, report };
+}
+
+/**
+ * The rooms this import made, against the rooms the model already holds from an
+ * earlier import of the same linked model (`import/room-identity.ts`): a room
+ * the revision kept is stamped with the earlier room's id on its
+ * `continuesId`, and the report gets the pairing's evidence and the change set
+ * a person reads (`import/room-changes.ts`).
+ *
+ * **A first import pairs nothing**: a model holding no room from an earlier
+ * import of this linked model has nothing to compare against, so every room is
+ * added, no record is stamped, and nothing a single import did before this
+ * pass existed has changed. It returns the section even then, with
+ * `comparedAgainst: 0`, so "nothing was compared" is in the report rather than
+ * left to a reader to infer.
+ *
+ * `opts.referenceId` is what makes "an earlier import of the same linked
+ * model" mean anything: a level records the linked model it came from, so the
+ * rooms under it are that model's. Rooms from another linked model, and rooms
+ * a person drew, are not candidates — pairing them would claim a continuity
+ * that does not exist.
+ */
+function roomIdentity(
+  records: BimElement[],
+  opts: PlanImportOptions,
+  levels: readonly Level[],
+  byId: ReadonlyMap<string, BimElement>,
+  replace: (was: BimElement, now: BimElement) => void,
+  source: ImportSource,
+): ImportRoomIdentity | null {
+  const roomsNow = records.filter((r): r is Room => r.kind === "room");
+  if (roomsNow.length === 0) return null;
+  // A room states its storey by the level's name; resolve that to the level
+  // record, which the two revisions share, so the match is per storey without
+  // depending on the wording.
+  const levelOf = (room: Room): Level | undefined => {
+    const name = room.partition?.level ?? "";
+    return levels.find((l) => l.name === name) ?? levels.find((l) => l.source?.storeyName === name);
+  };
+  const storeyOf = (room: Room): string => levelOf(room)?.id ?? (room.partition?.level ?? "");
+  const previousRooms = elementsOfKind(opts.model.elements, "room").filter((room) => {
+    if (room.provenance?.source === undefined || room.provenance.source === source.id) return false;
+    return levelOf(room)?.source?.referenceId === opts.referenceId;
+  });
+  const changes = roomChanges(previousRooms, roomsNow, { storeyOf });
+  for (const paired of changes.pairs) {
+    const record = byId.get(paired.current.id);
+    if (record?.kind === "room" && record.continuesId !== paired.previous.id) replace(record, { ...record, continuesId: paired.previous.id });
+  }
+  const byReason: Record<RoomMatchReason, number> = { number: 0, name: 0, seed: 0, fit: 0 };
+  for (const paired of changes.pairs) byReason[paired.reason] += 1;
+  return {
+    comparedAgainst: previousRooms.length,
+    matched: changes.pairs.length,
+    added: changes.added.length,
+    byReason,
+    changes: changes.pairs.filter((paired) => paired.changes.length > 0),
+    missing: changes.removed,
+  };
 }
 
 /** Values the registry maps from property sets onto the class's text, yes/no and choice fields (numbers wait for unit checks). */

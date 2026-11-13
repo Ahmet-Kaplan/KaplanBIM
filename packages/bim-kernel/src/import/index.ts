@@ -7,3 +7,5 @@ export * from "./reverse-map";
 export * from "./plan";
 export * from "./apply";
 export * from "./joins";
+export * from "./room-identity";
+export * from "./room-changes";

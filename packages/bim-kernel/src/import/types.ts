@@ -1,4 +1,6 @@
 import type { BimElement, ElementId, ParamValue, Vec2 } from "../types";
+import type { RoomChange, RoomSnapshot } from "./room-changes";
+import type { RoomMatchReason } from "./room-identity";
 
 /**
  * A linked model's products as the importer reads them, before anything
@@ -263,10 +265,41 @@ export interface IfcImportReport {
   readonly classes: readonly ImportClassLine[];
   /** What the wall join pass did before any product became a record (absent in plans that made no such pass). */
   readonly joins?: ImportJoinResult;
+  /**
+   * What this import recognised of the rooms the model already holds for this
+   * linked model (`import/room-identity.ts`), absent when the file converted no
+   * room. A room the revision kept is paired with its earlier record and the
+   * record carries `continuesId`; a room it added is added, and a room it no
+   * longer holds is `missing` — listed, because the model still holds it and
+   * this report is the only place a person learns the file dropped it. Nothing
+   * here renames, merges or deletes a room.
+   */
+  readonly rooms?: ImportRoomIdentity;
   /** Joins between converted parts the file had and the model couldn't make, and other things to look at. */
   readonly notes: readonly string[];
   /** One sentence: "Converted 412 walls, 96 doors, 38 rooms. Left 4 roofs, 6 stairs as the linked model." */
   readonly summary: string;
+}
+
+/**
+ * Room identity across revisions, as the import found it: what it paired, what
+ * it added, what the file dropped and what moved between the rooms that
+ * stayed — the data a quantity comparison reads instead of assuming the same
+ * room has the same record.
+ */
+export interface ImportRoomIdentity {
+  /** Rooms from an earlier import of this linked model the pairing had to work against; 0 on a first import, which pairs nothing. */
+  readonly comparedAgainst: number;
+  /** Rooms in this import that continue a room the model already holds. */
+  readonly matched: number;
+  /** Rooms in this import that continue nothing: rooms this revision added. */
+  readonly added: number;
+  /** Which signal carried each pairing (`import/room-identity.ts` names the order). */
+  readonly byReason: Readonly<Record<RoomMatchReason, number>>;
+  /** The pairs whose words, area or height differ; a pair that differs in nothing is matched but not listed here. */
+  readonly changes: readonly RoomChange[];
+  /** Rooms from an earlier import that this file no longer holds, in the model's words for them. The model keeps them; a person decides. */
+  readonly missing: readonly RoomSnapshot[];
 }
 
 /** What an import writes: every record new, each carrying `provenance`. */
