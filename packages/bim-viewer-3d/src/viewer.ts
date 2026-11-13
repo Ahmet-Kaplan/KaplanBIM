@@ -121,6 +121,13 @@ export interface ViewerOptions {
    * asked for.
    */
   readonly ambientOcclusion?: boolean;
+  /**
+   * Temporal anti-aliasing. Off by default, like occlusion, and worth turning on
+   * together with it: the composer renders into a target, where the hardware
+   * MSAA the renderer was built with no longer applies, so without this pass AO
+   * would make edges worse than they are with nothing on at all.
+   */
+  readonly temporalAntialiasing?: boolean;
 }
 
 const GROUP_STYLE: Record<RenderGroup, { color: number; roughness: number; metalness: number; opacity?: number }> = {
@@ -421,9 +428,12 @@ export class ModelViewer3D {
     });
 
     this.resizeObserver = new ResizeObserver(() => this.onContainerResize());
-    // One place decides how a frame is drawn. With occlusion off this is the
+    // One place decides how a frame is drawn. With both passes off this is the
     // same renderer.render the viewer always made.
-    this.pipeline = createRenderPipeline(this.renderer, this.scene, this.perspective, { ao: options.ambientOcclusion === true });
+    this.pipeline = createRenderPipeline(this.renderer, this.scene, this.perspective, {
+      ao: options.ambientOcclusion === true,
+      taa: options.temporalAntialiasing === true,
+    });
     this.resizeObserver.observe(container);
     this.renderer.setAnimationLoop(() => this.tick());
   }
