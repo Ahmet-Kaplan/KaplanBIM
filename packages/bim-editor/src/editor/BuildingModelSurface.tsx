@@ -195,6 +195,7 @@ import { proposedSystemName } from './system-name'
 import { runCreateSimilar, useCreateSimilar } from './create-similar'
 import { ToolReadinessNotice } from './ToolReadinessNotice'
 import { ZoomThroughNotice } from './ZoomThroughNotice'
+import { WalkthroughOverlay } from './WalkthroughOverlay'
 import { toolBlocker } from './tool-readiness'
 import { escapeLeavesField, leftFieldHint } from './escape-step'
 import { drawingToolStopsModelTool, stoppedByModelTool } from './tool-switch'
@@ -3934,6 +3935,7 @@ export function BuildingModelSurface({ projectId, projectName, projectNumber, us
           {showDrawing && <TrackpadHint />}
           {viewer && !showDrawing && !scheduleGridOpen && <OrbitPointMarker viewer={viewer} enabled={!planOpen} />}
           {viewer && !showDrawing && !scheduleGridOpen && <ZoomThroughNotice viewer={viewer} />}
+          {viewer && !showDrawing && !scheduleGridOpen && !(open.kind === 'model' && open.mode === 'plan') && <WalkthroughOverlay viewer={viewer} />}
           {backSheet && !showDrawing && !drawingSection && (
             <Button size="sm" variant="secondary" className="absolute left-3 top-3 shadow-sm" onClick={() => openItem({ kind: 'sheet', id: backSheet.id })} data-testid="back-to-sheet">
               <ArrowLeft data-icon="inline-start" />

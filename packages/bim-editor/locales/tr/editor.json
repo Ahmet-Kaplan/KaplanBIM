@@ -6467,6 +6467,11 @@
   "stats": {
     "readout": "{{fps}} fps · {{draws}} çizim · {{tris}}k üçgen"
   },
+  "walk": {
+    "enter": "Modelde yürü",
+    "keys": "Yürümek için W A S D, bakmak için imleç, çıkmak için Esc",
+    "leave": "Yürüyüşten çık"
+  },
   "zoom": {
     "stayHere": "Burada kal",
     "stepBackOut": "Geri çık",

@@ -6,13 +6,44 @@
 |---|---|---|
 | `packages/bim-ui` | The theme (`theme.ts`, `color-scheme.ts`, `theme-css.ts`), the primitives (`src/ui/*`), i18n, brand marks, window controls | Nothing about a model. It imports **no** `@permitzip` package at all — React, i18next and radix only |
 | `packages/bim-viewer` | The dev baseline page: an SVG plan, a live sheet, presence, drag-to-move and a schedules demo (`src/app.ts:57`, `src/schedules-demo.ts:1`) | The editor's business: there is no import of `@permitzip/bim-editor` anywhere in it |
-| `packages/bim-viewer-3d` | WebGL solids, picking, crop boxes, level planes, framing, orientation, IFC import (`src/viewer.ts`, `viewer-colors.ts`) | Model *meaning*: it is handed a scene and colours, not a tool or a command |
+| `packages/bim-viewer-3d` | WebGL solids, picking, crop boxes, level planes, framing, orientation, IFC import, the walkthrough (`src/viewer.ts`, `viewer-colors.ts`, `walkthrough.ts`) | Model *meaning*: it is handed a scene and colours, not a tool or a command |
 | `packages/bim-grid` | A virtualised, editable data grid with its own range selection and TSV clipboard (`src/DataGrid.tsx`, `virtual.ts`, `tsv.ts`) | Any host's look or words: peer dependency `react` and nothing else |
 
 None of the four imports the editor; none of them creates a provider; none of them
 reaches for a host's router, storage or sign-in. `bim-viewer` and `bim-viewer-3d`
 peer-depend on the kernel and `bim-sync` — they read a model and speak the wire
-protocol, and that is the whole of their coupling.
+protocol, and that is the whole of their coupling. `bim-viewer-3d` also
+peer-depends on `bim-geometry`, layer 0, for the walkthrough's collider world.
+
+## Walking the model
+
+The walkthrough is a viewer feature, not an editor one. The viewer owns the
+camera, and the camera becoming a person is the same kind of change as the
+camera tilting down into plan.
+
+Four pieces, each where its layer allows:
+
+| File | Layer | What it is |
+|---|---|---|
+| `packages/bim-geometry/src/collider-world.ts` | L0 | Upright boxes, a plan grid over them, a circle sliding along a face, a floor under a point. Pure: no three.js, no kernel, no DOM |
+| `packages/bim-viewer-3d/src/walkthrough-collider.ts` | viewer | The solids the viewer already draws, turned into collider boxes, grouped by storey and built the first time somebody walks into one |
+| `packages/bim-viewer-3d/src/walkthrough.ts` | viewer | The person: eye height, pace, gravity, the storey they stay on. The human constants live here, named |
+| `packages/bim-viewer-3d/src/walkthrough-input.ts` | viewer | Keys, pointer capture, Escape. The only part a test without a browser cannot reach |
+
+`ModelViewer3D.enterWalkthrough()` / `exitWalkthrough()` are the whole public
+surface, plus `onWalkthroughChange` so a host can draw the way in and the way
+out. **The viewer draws no walking chrome**: the button and the "W A S D, Esc"
+line are the editor's (`WalkthroughOverlay.tsx`), keyed like every other caption.
+
+Two rules that are easy to break and were the point of the design:
+
+- **A walk that meets nothing must be returned unchanged, bit for bit.** A
+  movement resolver that rounds or snaps makes an open room feel sticky. The
+  test asserts `toBe`, not `toBeCloseTo`.
+- **Lazily, per storey.** A collider world for a 250,000-element model at once is
+  a stall nobody forgives, and a walker needs one storey. The solids are grouped
+  by storey when the model lands (an index, not a build); a storey's world is
+  built on first use and a handful are kept (`PartitionColliders.MAX_BUILT`).
 
 ## The contract
 

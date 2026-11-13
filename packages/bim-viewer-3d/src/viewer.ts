@@ -7,7 +7,8 @@
 import * as THREE from "three";
 import CameraControls from "camera-controls";
 import { FragmentsModels, type FragmentsModel } from "@thatopen/fragments";
-import { asElementId, elementEntries, type Aabb3, type CropBox3d, type CropFace, type DisplayContext, type ElementId, type ModelState, type RouteJoin, type View3dCamera, findLevelByName, normalizeLevelName } from "@permitzip/bim-kernel";
+import { asElementId, elementEntries, elementValues, type Aabb3, type CropBox3d, type CropFace, type DisplayContext, type ElementId, type ModelState, type RouteJoin, type View3dCamera, findLevelByName, normalizeLevelName } from "@permitzip/bim-kernel";
+import { buildColliderWorld, type ColliderWorld } from "@permitzip/bim-geometry";
 import { liveDisplayOf, liveViewRangeExcludes, type CategoryView } from "./live-display";
 import { livePlanSymbols, symbolPositions, type LivePlanText } from "./live-plan-graphics";
 import { PlanFootprintGrid } from "./plan-near-miss";
@@ -28,8 +29,27 @@ import { CropBoxOutline, cropBoxScenePlanes, faceDragOffsetMm, gripsOnScreen, ke
 import { facingRay, SurfacePicker, toSurfaceHit, type SceneSurfaceHit, type SurfaceHit, type SurfaceQuery } from "./surface-pick";
 import { solidRotation } from "./solid-pose";
 import { nativeHiddenByLinked } from "./hover-occlusion";
+import { FrameLimiter } from "./frame-limiter";
+import { PartitionColliders } from "./walkthrough-collider";
+import { WalkthroughInput } from "./walkthrough-input";
+import { Walker, type WalkerState } from "./walkthrough";
 
 export type ViewMode = "3d" | "plan";
+
+/** A world with nothing in it: walking a model with no solids still stands on the storey floor. */
+const EMPTY_COLLIDER_WORLD: ColliderWorld = buildColliderWorld([]);
+
+/** One walk through the model: who is walking, what listens to them, and the budget their frames come out of. */
+interface WalkthroughSession {
+  readonly storey: string;
+  readonly walker: Walker;
+  readonly input: WalkthroughInput;
+  readonly limiter: FrameLimiter;
+  /** The view to come back to: where the camera was, what it looked at, and which projection it was in. */
+  readonly view: { readonly position: THREE.Vector3; readonly target: THREE.Vector3; readonly projection: Projection };
+  /** Whether orbit/pan/wheel were on before walking took the camera, to be given back. */
+  readonly navigationEnabled: boolean;
+}
 
 /** A material Fragments makes reaches a mesh within a few frames of being made. */
 const REFERENCE_MATERIAL_WATCH_FRAMES = 30;
@@ -330,6 +350,15 @@ export class ModelViewer3D {
   private frameInsets: FrameInsets = NO_INSETS;
   /** The plan rectangle last framed, while nobody has panned or zoomed since: it is re-fitted when the canvas or its insets change. */
   private planFitted: { readonly box: THREE.Box3; readonly center: THREE.Vector3; readonly followInsets: boolean } | null = null;
+  /** Walking the model; null when the viewer is in its normal 3D or plan view. */
+  private walkthrough: WalkthroughSession | null = null;
+  private readonly walkthroughListeners = new Set<(walking: boolean) => void>();
+  /** Solids grouped by the storey they stand on, for the walkthrough's colliders: an index, not a build. */
+  private readonly walkSolidsByLevel = new Map<string, Solid[]>();
+  /** Each storey's floor height (metres), read off the model's level records when the model lands. */
+  private readonly walkStoreyFloors = new Map<string, number>();
+  /** Collider worlds by storey, built the first time somebody walks into one (`walkthrough-collider.ts`). */
+  private readonly walkColliders = new PartitionColliders((storey) => this.walkSolidsOfStorey(storey));
 
   constructor(
     private readonly container: HTMLElement,
@@ -450,7 +479,17 @@ export class ModelViewer3D {
   private tick() {
     if (this.disposed) return;
     const delta = this.clock.getDelta();
-    this.controls.update(delta);
+    const walking = this.walkthrough;
+    if (walking) {
+      // Walking owns the camera: the orbit controls stay out of it until walkthrough ends.
+      const step = walking.limiter.step(performance.now());
+      if (!step.skipped) {
+        walking.walker.advance(step.dt);
+        this.applyWalkCamera(walking.walker);
+      }
+    } else {
+      this.controls.update(delta);
+    }
     this.renderer.info.reset();
     if (this.origin.visible) this.origin.scale.setScalar(ARROW_PX * metresPerPixel(this.camera(), this.origin.position, this.size().height));
     this.toneNewReferenceMaterials();
@@ -728,6 +767,7 @@ export class ModelViewer3D {
       if (list) list.push(s);
       else this.solidsById.set(s.elementId, [s]);
     }
+    this.indexWalkSolids(view, solids);
     this.markPlanFootprintsStale();
     this.drawHighlight();
     this.drawOverlay(this.groupRoot, this.groupIds, this.palette.groupSelected);
@@ -1128,6 +1168,8 @@ export class ModelViewer3D {
    */
   setMode(mode: ViewMode, cutElevationMm?: number) {
     if (mode === this.mode) return;
+    // A plan has no eye height: leaving the 3D view leaves the walkthrough.
+    if (mode === "plan") this.exitWalkthrough();
     const target = new THREE.Vector3();
     this.controls.getTarget(target);
     const enabled = this.controls.enabled;
@@ -1882,6 +1924,8 @@ export class ModelViewer3D {
    * drag on ductwork can stop the camera before the camera starts moving.
    */
   pickNative(clientX: number, clientY: number, accept?: (elementId: string) => boolean): (Pick & { source: "native"; distance: number }) | null {
+    // Nobody is picking while walking: the pointer belongs to the walker.
+    if (this.walkthrough !== null) return null;
     // An 8" branch is a few pixels wide in plan; forgive a near miss.
     return pickPreferringSolid(
       PICK_TOLERANCE_PX,
@@ -2037,6 +2081,8 @@ export class ModelViewer3D {
    * hover highlight or the route-join marker.
    */
   pickSurface(clientX: number, clientY: number, accept?: (elementId: string) => boolean): SurfaceHit | null {
+    // Nobody is picking while walking: the pointer belongs to the walker.
+    if (this.walkthrough !== null) return null;
     const hit = this.surfacePicker.pick(this.surfaceQuery(clientX, clientY), accept);
     return hit ? toSurfaceHit(hit) : null;
   }
@@ -2243,6 +2289,162 @@ export class ModelViewer3D {
     this.controls.enabled = enabled;
   }
 
+  // ---------------------------------------------------------------- walkthrough
+
+  /** True while a person is walking the model. */
+  walkthroughActive(): boolean {
+    return this.walkthrough !== null;
+  }
+
+  /**
+   * Hear when walking starts and ends, so a host can draw the way in and the way
+   * out. The control itself is the host's: this viewer draws no buttons and
+   * knows nothing about who is looking at the model.
+   */
+  onWalkthroughChange(listener: (walking: boolean) => void): () => void {
+    this.walkthroughListeners.add(listener);
+    return () => this.walkthroughListeners.delete(listener);
+  }
+
+  /**
+   * Stand inside the model and walk it: the camera becomes a person 1.62 m tall
+   * on the storey under it, at human pace, colliding with the solids of that
+   * storey. Escape leaves (the pointer capture's own way out, in a browser),
+   * `exitWalkthrough()` leaves in any case.
+   *
+   * Returns false and changes nothing when there is no 3D view to walk in: a
+   * plan has no eye height, and the normal view must be exactly as it was when
+   * walkthrough is off.
+   */
+  enterWalkthrough(): boolean {
+    if (this.walkthrough !== null) return true;
+    if (this.mode !== "3d") return false;
+    const from = this.camera3d();
+    const position = from.position.clone();
+    const target = new THREE.Vector3();
+    this.controls.getTarget(target);
+    const projection = this.projection;
+    if (projection !== "perspective") this.setProjection("perspective");
+    const eye = this.perspective.position;
+    // A walker starts where the view was standing, facing where it was looking, with their head up.
+    const direction = this.perspective.getWorldDirection(new THREE.Vector3());
+    const yaw = Math.atan2(-direction.x, -direction.z);
+    const storey = this.walkStoreyAt(eye.y);
+    const walker = new Walker({ x: eye.x, z: eye.z, yaw, eyeY: eye.y });
+    walker.setScene({ collider: this.walkColliderFor(storey), groundY: this.walkStoreyFloor(storey) });
+    const input = new WalkthroughInput({
+      element: this.renderer.domElement,
+      walker,
+      onExit: () => {
+        this.exitWalkthrough();
+      },
+    });
+    const navigationEnabled = this.controls.enabled;
+    // The orbit controls must not fight the walker for the camera.
+    this.controls.enabled = false;
+    this.walkthrough = { storey, walker, input, limiter: new FrameLimiter(), view: { position, target, projection }, navigationEnabled };
+    this.applyWalkCamera(walker);
+    for (const listener of this.walkthroughListeners) listener(true);
+    return true;
+  }
+
+  /** Leave walkthrough, putting the camera, its orbit point, its projection and its controls back as they were. */
+  exitWalkthrough(): boolean {
+    const session = this.walkthrough;
+    if (!session) return false;
+    this.walkthrough = null;
+    session.input.dispose();
+    session.walker.stop();
+    if (this.projection !== session.view.projection) this.setProjection(session.view.projection);
+    this.controls.enabled = session.navigationEnabled;
+    void this.controls.setLookAt(session.view.position.x, session.view.position.y, session.view.position.z, session.view.target.x, session.view.target.y, session.view.target.z, false);
+    this.controls.update(0);
+    for (const listener of this.cameraListeners) listener();
+    for (const listener of this.walkthroughListeners) listener(false);
+    return true;
+  }
+
+  /** Where the walker is and which way they face; null when nobody is walking. For a hint, a test or a status line. */
+  walkerState(): WalkerState | null {
+    return this.walkthrough?.walker.state() ?? null;
+  }
+
+  /** The walker's eye writes the camera: position, then the head's turn (yaw about the up axis, pitch about it). */
+  private applyWalkCamera(walker: Walker) {
+    const eye = walker.eye();
+    const camera = this.perspective;
+    camera.position.set(eye.x, eye.y, eye.z);
+    camera.rotation.set(walker.pitch(), walker.yaw(), 0, "YXZ");
+    camera.updateMatrixWorld();
+    for (const { model } of this.references.values()) model.useCamera(camera);
+    void this.fragments.update();
+    for (const listener of this.cameraListeners) listener();
+  }
+
+  /**
+   * Group the solids by the storey they stand on, and read each storey's floor
+   * off the model's level records. An index over solids the viewer already has —
+   * no model is walked twice and no collider is built here.
+   */
+  private indexWalkSolids(view: ModelState, solids: readonly Solid[]) {
+    this.walkSolidsByLevel.clear();
+    for (const s of solids) {
+      const level = view.elements[s.elementId]?.partition?.level ?? "";
+      const list = this.walkSolidsByLevel.get(level);
+      if (list) list.push(s);
+      else this.walkSolidsByLevel.set(level, [s]);
+    }
+    this.walkStoreyFloors.clear();
+    for (const el of elementValues(view.elements)) if (el.kind === "level") this.walkStoreyFloors.set(el.name, el.elevationMm * MM);
+    // The model changed shape, so every collider built from the old one is wrong.
+    this.walkColliders.clear();
+    const session = this.walkthrough;
+    if (session) session.walker.setScene({ collider: this.walkColliderFor(session.storey), groundY: this.walkStoreyFloor(session.storey) });
+  }
+
+  /** The solids of one storey: its own, plus anything the model never gave a storey (or nothing would ever collide with it). */
+  private walkSolidsOfStorey(storey: string): readonly Solid[] {
+    const own = this.walkSolidsByLevel.get(storey) ?? [];
+    const homeless = storey === "" ? [] : (this.walkSolidsByLevel.get("") ?? []);
+    return homeless.length === 0 ? own : [...homeless, ...own];
+  }
+
+  /** A storey's floor height, metres: its level record, else the elevation rules' guess for its name. */
+  private walkStoreyFloor(storey: string): number {
+    const record = findLevelByName([...this.walkStoreyFloors].map(([name, y]) => ({ name, elevationMm: y })), storey);
+    return record ? record.elevationMm : this.elevations.levelElevationMm(storey) * MM;
+  }
+
+  /** The storey a camera at `eyeY` is standing on: the highest level floor at or below the eye. */
+  private walkStoreyAt(eyeY: number): string {
+    let best = "";
+    let bestY = -Infinity;
+    for (const [name, y] of this.walkStoreyFloors) {
+      if (y <= eyeY - 0.1 && y > bestY) {
+        bestY = y;
+        best = name;
+      }
+    }
+    if (best !== "") return best;
+    // No level record below the eye: the lowest storey that has solids is where a walker lands.
+    let lowest = "";
+    let lowestY = Infinity;
+    for (const name of this.walkSolidsByLevel.keys()) {
+      if (name === "") continue;
+      const y = this.walkStoreyFloor(name);
+      if (y < lowestY) {
+        lowestY = y;
+        lowest = name;
+      }
+    }
+    return lowest;
+  }
+
+  /** The collider world of a storey, built on first use; an empty world when the storey has nothing to collide with. */
+  private walkColliderFor(storey: string): ColliderWorld {
+    return this.walkColliders.world(storey) ?? EMPTY_COLLIDER_WORLD;
+  }
+
   /**
    * An edit takes the pointer (`owner` names it: a duct drag, a route stroke, a
    * box). Until every claim is released, mouse buttons and touches do not move
@@ -2277,6 +2479,11 @@ export class ModelViewer3D {
       this.planFootprintsIdle = null;
     }
     this.disposed = true;
+    // The walkthrough's listeners and pointer capture go with the canvas.
+    this.walkthrough?.input.dispose();
+    this.walkthrough?.walker.stop();
+    this.walkthrough = null;
+    this.walkColliders.clear();
     this.surfacePicker.dispose();
     this.renderer.setAnimationLoop(null);
     this.resizeObserver.disconnect();

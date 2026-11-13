@@ -32,6 +32,7 @@
     "@types/three": "0.185.3"
   },
   "peerDependencies": {
+    "@permitzip/bim-geometry": "*",
     "@permitzip/bim-kernel": "*",
     "@permitzip/bim-sync": "*"
   }
