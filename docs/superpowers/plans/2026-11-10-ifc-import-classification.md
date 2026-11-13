@@ -29,6 +29,7 @@ Yani sorun **sınıflandırma değil, önce duvarın hiç oluşmaması.**
 | **3** | **`IfcMaterialLayerSetUsage` → katman listesi** (kalınlık, malzeme, sıra, offset). Bugün yalnızca *ilk katmanın adı* alınıyor (`read-products.ts:183-187,312-331`) | **Asıl para kalemi:** yüz başına sıva/boya/yalıtım m²'si, duvar hacmi yerine | **2-3 gün** | Kernel'de "montaj/katman" kavramı yok; Revit katman adları firma sözlüğü → ad→maliyet kodu haritası gerekir |
 | **4** | **Tavan/döşeme kaplama kuralı** — `arch.ceiling` sınıfı var, `measure.ts:137` tavanı zaten ölçüyor, `rules.ts:345`'te kural yok | Asma tavan ve şap/bitiş m²'si | **1-2 gün** | Düşük; kaplamalar basit ekstrüzyon |
 | **5** | **`IfcSpace` kalitesi** — tohum (polylabel), kat/tavan yüksekliği, `LongName` (zaten okunuyor) | Odalar miktar kabı olarak kullanılabilir (`BOUNDARY_MEASURES` mevcut, `measure.ts:168`) | **1 gün** | Oda vs duvar-halkası uyumsuzluğu: Revit bitiş yüzüne ölçer, çekirdek yüze çizer → alanlar %2-5 kayar |
+| **6a** | **Duvar referans çizgisi (Axis + justification)** — bugün IFC'nin Axis temsilini bilerek atıyoruz (`geometry.ts:140-149`, yalnız Body), sonra merkez çizgiyi **gövde ayak izi dikdörtgeninden** uyduruyoruz (`shape.ts:79-93`). Doğrusu: saklanan `start→end` **referans çizgisidir**, gövde ondan yanal kayar; kalınlık düzenlemesi referansı sabit tutar | Kesilen/eklenen duvarların referansı doğru olur; **adım 6'nın önkoşulu** — yanlış referansla birleşim yapmak yanlış birleşim yapmaktır | **2-3 gün** | Dosya justification'ı yalnız geometrik olarak ifade ediyorsa sayısal türetmek gerekir; eksen eğrisiyse ayrı karar |
 | **6** | **Duvar parça birleştirme + L/T birleşimleri** (Pascal'ın `wall-joins.ts` mantığı) | Doğru oda kapanışı, birleşimsiz uzunluklar. Bugün hata birleşim başına ~kalınlık (toplam %2-4) | **3-5 gün** | **Toleranslar ABD konut ölçeğinde**: 1.25 m boşluk ve 0.35 m ayırıcı boşluğu Türk ticari modelde **duvar uydurur**. 0.15-0.3 m'ye çek |
 | **7** | **`IfcRelAssociatesClassification` → `classification[]`** (Uniclass/OmniClass/DIN276 metin olarak) | ERP zaten kendi eşlemesini yapıyor; kod listeleri/firma haritası olmadan değeri düşük | **½ gün** okumak | Kod listeleri gerekir |
 | **8** | **Giydirme cephe (`IfcPlate`/`IfcMember`) sınıfları** — örnekte 34 ürünün 25'i | Cephe m²'si ve mullion uzunluğu | **1-2 gün** | Ürün sayısı yüksek, birim başına kesinlik düşük |
@@ -49,6 +50,15 @@ Yani sorun **sınıflandırma değil, önce duvarın hiç oluşmaması.**
 | `Pset_DoorCommon.GlazingAreaFraction` → camlama | **Zayıf:** Revit bu özelliği yalnızca aile tanımlıyorsa ihraç eder; Türk kapı ailelerinin çoğu tanımlamaz. **Bonus, asla birincil kaynak değil** |
 
 ---
+
+
+> **Plan revizyonu (2026-11-10, oturum sonu).** Adım 6 yazıldığında duvarların bir referans
+> çizgisi olduğu varsayılmıştı; Pascal'ın `wall-frame.md` belgesi (bkz.
+> `docs/decisions/2026-11-10-pascal-editor-assessment.md` "Ek 2 §1") bunun tersini gösterdi:
+> biz referansı gövdeden **uyduruyoruz**. Bu yüzden adım **6a** eklendi ve 6'dan önce gelir.
+>
+> Ölçülen durum (oturum sonu): örnek modelde 34 ürünün **6'sı** dönüşüyor — 4 duvar, 1 kapı,
+> 1 temel — artı tavan ve mekanlar (adım 4-5). Katmanlar yüz başına m² olarak metraja giriyor.
 
 ## İlk adım (ve neden o)
 
