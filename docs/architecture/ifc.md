@@ -12,6 +12,9 @@
 | `packages/bim-kernel/src/import/rules.ts` | The kernel's ten rules (`KERNEL_IMPORT_RULES`, `:420`): wall, slab, room, ceiling, column, beam, opening, run segment, part, component |
 | `packages/bim-pack-architecture/src/import.ts` | The architecture add-on's four rules (`ARCHITECTURE_IMPORT_RULES`): roof, stair, glazed panel, mullion/transom — the last two over the add-on's own `curtain.ts` kinds |
 | `packages/bim-kernel/src/import/shape.ts` | The few readings every rule shares: a vertical prism, a straight sweep, a plan rectangle's centre line |
+| `packages/bim-kernel/src/import/joins.ts` | Step 6: a file's wall pieces become the walls the building has — fragments merged, L and T ends slid onto their neighbours — on the products, before any of them becomes a record |
+| `packages/bim-kernel/src/import/room-identity.ts` | `matchRooms`: which room of an earlier import a room of this one is — its number or label, then its seed, then its outline's share/cover fit — with the thresholds it uses |
+| `packages/bim-kernel/src/import/room-changes.ts` | `roomChanges`: the room-level change set between two revisions (added, removed, area delta, label, height), as data |
 | `packages/bim-ifc/src/export.ts` | Model → IFC 4.3 ADD2 (`IFC_SCHEMA`, `:76`), deterministic, no clock, GlobalIds derived from stable ids |
 
 ## The contract
@@ -106,6 +109,22 @@
    schema lacks, is written as `IfcBuildingElementProxy` **and reported**:
    'used IfcBuildingElementProxy for 2 building elements because class
    "arch.wall" is unavailable' (`proxy-diagnostics.test.ts`).
+10. **A room keeps its identity when the walls around it change.** A firm
+    receiving a model each revision cannot compare quantities otherwise: a
+    re-export gives every product a new GlobalId, so revision 2's "Room 101"
+    would be a different record from revision 1's and no delta could be read.
+    `matchRooms` (`import/room-identity.ts`) pairs them, strongest claim first:
+    the file's own number (`Name`) and then its label (`LongName`) where a key
+    names exactly one room on each side, then the polylabel seed within
+    `SEED_MATCH_MM`, then the share/cover fit above `FIT_MATCH_SCORE`, each on
+    one storey. A room nothing older resembles is **new**; a pairing is written
+    on the new record as `continuesId` (`types.ts` `Room`), never by rewriting
+    the earlier record, and `import/room-changes.ts` says what moved — area with
+    its delta, number, label, height. **Nothing here renames, merges or deletes
+    a room**: a person's name for a room is theirs, and the report carries the
+    disagreement for them to settle. A first import matches nothing, because
+    there is nothing to match against: the section reports `comparedAgainst: 0`
+    and every room is added (`room-identity.test.ts`).
 
 ## How it goes wrong
 
@@ -146,6 +165,16 @@
   in the report naming why; otherwise an inferred line looks exactly like a read
   one, and a thickness edit later moves the line while everyone assumes the
   face.
+- **A revision compared as if it were a new model.** Two imports of one linked
+  model produce two sets of room records with different ids. Without the
+  pairing every room reads as removed and every room as added, the takeoff
+  totals look unchanged while every line in them is a different element, and the
+  one number a firm wants — *Room 101: 18.4 m² → 17.9 m²* — cannot be produced
+  at all. The change set is data, not prose, so a schedule or a script reads it.
+- **A room renamed from a file.** The file's label is not the model's. Writing it
+  onto the record a person named is the one act that makes a quantity history
+  untrustworthy, so the pass reports the difference and changes nothing
+  (`room-identity.test.ts`, "does not rename a room a person named").
 
 ## Where the guard is
 
@@ -161,6 +190,7 @@
 | `i9-wall-axis.test.ts` | The axis kept on the product in mm whatever the file's unit; `start`/`end` from the axis where the body sits 100 mm to one side; a layered wall whose stated `OffsetFromReferenceLine` is the line the body sits on; the body's measured place winning where the two disagree; an axis-less wall falling back with `referenceLineInferred` and a report line; a curved axis reported as unread rather than chorded; the sample model's four walls each on a straight axis at the counts above |
 | `bim-kernel/__tests__/i9-reference-line.test.ts` | The sign of `offsetFromReferenceLineMm` (positive to the left of start → end), the extent across the line rather than a box round an angled end, and a bent or unread line answering null |
 | `i9-report.test.ts` | The sentence a person reads; a shardless curtain wall staying linked with its reason; a clipped wall measured and its door arriving with it |
+| `bim-kernel/__tests__/room-identity.test.ts` | A first import pairing nothing and stamping nothing; a second revision pairing a room whose wall moved with its area delta reported and the untouched rooms unchanged; a room a person renamed keeping the person's name with the disagreement reported; a new room added rather than paired with the nearest; two rooms sharing a label settled by seed and then by outline; rooms on different storeys never pairing; and both thresholds just inside and just outside (400 mm of seed, 0.8 of fit, and a division under a new number staying unpaired) |
 | `i9-reverse-map.test.ts` | Every built-in class with an IFC home mapping back to itself; a pack's class mapping back with zero kernel edits |
 | `proxy-diagnostics.test.ts` | The proxy fallback reporting the class it lost, and not warning when nothing was lost |
 | `c5i-export.test.ts`, `c5i-tower.test.ts` | IFC4X3_ADD2 with no dangling references, identical bytes twice, stable GlobalIds across edits, types, ports, quantity sets, units |
