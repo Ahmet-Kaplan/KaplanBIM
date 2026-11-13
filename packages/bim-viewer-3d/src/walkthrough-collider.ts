@@ -23,7 +23,8 @@ import type { RenderGroup, Solid } from "./native-geometry";
 /**
  * Groups a person can stand on. A slab's top is a floor; a wall's top is not,
  * and a duct's lid is not. `filler`, `glazing` and `structure` are all things
- * you walk into, not on.
+ * you walk into, not on — except a stair, whose treads are the surface you climb
+ * (see `Solid.steps`).
  */
 const WALKABLE_GROUPS: ReadonlySet<RenderGroup> = new Set<RenderGroup>(["slab"]);
 
@@ -44,10 +45,18 @@ const PASSABLE_GROUPS: ReadonlySet<RenderGroup> = new Set<RenderGroup>(["insulat
  * degrees at most, which changes nothing a shoulder can feel, and dropping it
  * keeps the overlap test the two subtractions in a box's own frame that make
  * this cheap enough to run per frame.
+ *
+ * **A stair's treads are floors.** A body that climbs in steps (`Solid.steps`)
+ * is one prism per tread, so its up-facing caps are one per tread as well, and a
+ * cap is a flat triangle: a zero-height box whose top is exactly where a person
+ * puts their foot. Marked walkable, `WALK_STEP_HEIGHT_M` climbs them one at a
+ * time; left unmarked, every tread is the lid of a solid block and the flight is
+ * a wall. The risers stay solid, which is why walking into the side of a stair
+ * still stops you.
  */
 export function colliderBoxesOf(solid: Solid): ColliderBox[] {
   if (PASSABLE_GROUPS.has(solid.group)) return [];
-  const floor = WALKABLE_GROUPS.has(solid.group);
+  const floor = WALKABLE_GROUPS.has(solid.group) || solid.steps === true;
   const tag = solid.elementId;
   if (solid.shape === "mesh") {
     if (!solid.mesh) return [];

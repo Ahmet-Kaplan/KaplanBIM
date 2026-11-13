@@ -32,7 +32,8 @@ import { nativeHiddenByLinked } from "./hover-occlusion";
 import { FrameLimiter } from "./frame-limiter";
 import { PartitionColliders } from "./walkthrough-collider";
 import { WalkthroughInput } from "./walkthrough-input";
-import { Walker, type WalkerState } from "./walkthrough";
+import { Walker, type WalkScene, type WalkerState } from "./walkthrough";
+import { storeyForFeet, storeysOfSteps } from "./walkthrough-stairs";
 import { createRenderPipeline, type RenderPipeline } from "./post/render-pipeline";
 import { DEFAULT_SUN, sceneLightRig, type SceneLightRig } from "./atmosphere/daylight";
 
@@ -43,7 +44,8 @@ const EMPTY_COLLIDER_WORLD: ColliderWorld = buildColliderWorld([]);
 
 /** One walk through the model: who is walking, what listens to them, and the budget their frames come out of. */
 interface WalkthroughSession {
-  readonly storey: string;
+  /** The storey the walker is on. It changes: a stair takes them to the one above. */
+  storey: string;
   readonly walker: Walker;
   readonly input: WalkthroughInput;
   readonly limiter: FrameLimiter;
@@ -405,6 +407,8 @@ export class ModelViewer3D {
   private readonly walkStoreyFloors = new Map<string, number>();
   /** Collider worlds by storey, built the first time somebody walks into one (`walkthrough-collider.ts`). */
   private readonly walkColliders = new PartitionColliders((storey) => this.walkSolidsOfStorey(storey));
+  /** Stairs, filed under the storeys they reach other than their own: a flight crosses the boundary it rises through. */
+  private readonly walkStairsByStorey = new Map<string, Solid[]>();
 
   constructor(
     private readonly container: HTMLElement,
@@ -535,6 +539,8 @@ export class ModelViewer3D {
       const step = walking.limiter.step(performance.now());
       if (!step.skipped) {
         walking.walker.advance(step.dt);
+        // A stair takes the feet to the storey above; the world must follow, or the rest of the walk collides with the storey below.
+        this.followWalkStorey(walking);
         this.applyWalkCamera(walking.walker);
       }
     } else {
@@ -2383,7 +2389,7 @@ export class ModelViewer3D {
     const yaw = Math.atan2(-direction.x, -direction.z);
     const storey = this.walkStoreyAt(eye.y);
     const walker = new Walker({ x: eye.x, z: eye.z, yaw, eyeY: eye.y });
-    walker.setScene({ collider: this.walkColliderFor(storey), groundY: this.walkStoreyFloor(storey) });
+    walker.setScene(this.walkSceneOf(storey));
     const input = new WalkthroughInput({
       element: this.renderer.domElement,
       walker,
@@ -2437,28 +2443,65 @@ export class ModelViewer3D {
    * Group the solids by the storey they stand on, and read each storey's floor
    * off the model's level records. An index over solids the viewer already has —
    * no model is walked twice and no collider is built here.
+   *
+   * A stair is filed under every storey it spans, not only the one it rises from
+   * (`storeysOfSteps`): it pierces the boundary, and the storey above needs its
+   * treads as much as the storey below does, or a walker who has climbed it can
+   * never come back down.
    */
   private indexWalkSolids(view: ModelState, solids: readonly Solid[]) {
+    this.walkStoreyFloors.clear();
+    for (const el of elementValues(view.elements)) if (el.kind === "level") this.walkStoreyFloors.set(el.name, el.elevationMm * MM);
     this.walkSolidsByLevel.clear();
+    this.walkStairsByStorey.clear();
     for (const s of solids) {
       const level = view.elements[s.elementId]?.partition?.level ?? "";
       const list = this.walkSolidsByLevel.get(level);
       if (list) list.push(s);
       else this.walkSolidsByLevel.set(level, [s]);
+      if (s.steps !== true || this.walkStoreyFloors.size === 0) continue;
+      // A stair is in its own storey's world already; file it under the others it reaches.
+      const bottom = s.center[1] - s.size[1] / 2;
+      const top = s.center[1] + s.size[1] / 2;
+      for (const storey of storeysOfSteps(this.walkStoreyFloors, bottom, top)) {
+        if (storey === level) continue;
+        const arriving = this.walkStairsByStorey.get(storey);
+        if (arriving) arriving.push(s);
+        else this.walkStairsByStorey.set(storey, [s]);
+      }
     }
-    this.walkStoreyFloors.clear();
-    for (const el of elementValues(view.elements)) if (el.kind === "level") this.walkStoreyFloors.set(el.name, el.elevationMm * MM);
     // The model changed shape, so every collider built from the old one is wrong.
     this.walkColliders.clear();
     const session = this.walkthrough;
-    if (session) session.walker.setScene({ collider: this.walkColliderFor(session.storey), groundY: this.walkStoreyFloor(session.storey) });
+    if (session) session.walker.setScene(this.walkSceneOf(session.storey));
   }
 
-  /** The solids of one storey: its own, plus anything the model never gave a storey (or nothing would ever collide with it). */
+  /** The solids of one storey: its own, the stairs that arrive at it from another, and anything the model never gave a storey. */
   private walkSolidsOfStorey(storey: string): readonly Solid[] {
     const own = this.walkSolidsByLevel.get(storey) ?? [];
     const homeless = storey === "" ? [] : (this.walkSolidsByLevel.get("") ?? []);
-    return homeless.length === 0 ? own : [...homeless, ...own];
+    // The flights that arrive here: the storey's own stair is already in `own`.
+    const arriving = this.walkStairsByStorey.get(storey) ?? [];
+    const out = arriving.length === 0 ? own : [...own, ...arriving];
+    return homeless.length === 0 ? out : [...homeless, ...out];
+  }
+
+  /** Where the walker stands on a storey: its collider world and the floor to fall back on when no slab is underfoot. */
+  private walkSceneOf(storey: string): WalkScene {
+    const collider = this.walkColliderFor(storey);
+    return { collider, groundY: this.walkStoreyFloor(storey) };
+  }
+
+  /**
+   * Follow the feet between storeys: a stair that reaches the floor above must not
+   * leave the walker colliding against the storey below (`walkthrough-stairs.ts`).
+   * A storey's world is built the first time somebody steps into it, and only then.
+   */
+  private followWalkStorey(session: WalkthroughSession): void {
+    const storey = storeyForFeet(this.walkStoreyFloors, session.walker.state().feetY);
+    if (storey === null || storey === session.storey) return;
+    session.storey = storey;
+    session.walker.changeScene(this.walkSceneOf(storey));
   }
 
   /** A storey's floor height, metres: its level record, else the elevation rules' guess for its name. */

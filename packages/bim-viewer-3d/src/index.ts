@@ -21,6 +21,7 @@ export * from "./mesh-batches";
 export * from "./frame-limiter";
 export * from "./walkthrough";
 export * from "./walkthrough-mechanisms";
+export * from "./walkthrough-stairs";
 export * from "./walkthrough-collider";
 export * from "./walkthrough-input";
 export * from "./post/ao";

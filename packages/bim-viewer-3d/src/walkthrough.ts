@@ -124,6 +124,27 @@ export class Walker {
     this.onFloor = true;
   }
 
+  /**
+   * Hand the walker another storey's world mid-walk, feet and all — what a stair
+   * does when it reaches the floor above (`walkthrough-stairs.ts` decides when).
+   *
+   * Unlike `setScene`, which drops the feet onto the floor of the storey being
+   * entered, this only ever steps **up**: the feet stay where they are unless the
+   * new world's floor is within a step above them, which is the last riser of a
+   * flight onto its landing. Anything lower is left to gravity — a walker who
+   * teleported down the stairwell because the storey changed under them would be
+   * the worst kind of bug, because it looks like the storey working.
+   */
+  changeScene(scene: WalkScene): void {
+    this.scene = scene;
+    const surface = this.surfaceAt(this.x, this.z, scene, this.feetY);
+    if (surface > this.feetY) {
+      this.feetY = surface;
+      this.falling = 0;
+      this.onFloor = true;
+    }
+  }
+
   /** Turn: pixels of pointer movement, right and down positive. */
   look(dxPixels: number, dyPixels: number): void {
     this.yawRad -= dxPixels * WALK_LOOK_RAD_PER_PX;
@@ -143,8 +164,9 @@ export class Walker {
   }
 
   /**
-   * Advance one frame: walk, then fall onto whatever is under the new place.
-   * `dt` is seconds, already clamped by the frame limiter.
+   * Advance one frame: walk — stepping up onto anything a step high that is in
+   * the way, which is how a stair is climbed — then fall onto whatever is under
+   * the new place. `dt` is seconds, already clamped by the frame limiter.
    */
   advance(dt: number): void {
     if (this.exited || dt <= 0) return;
@@ -160,16 +182,20 @@ export class Walker {
       const dirZ = -cos * forward - sin * strafe;
       const length = Math.hypot(dirX, dirZ);
       const reach = WALK_SPEED_MPS * dt;
-      const moved = moveBody(
-        scene.collider,
-        { x: this.x, z: this.z, radius: WALK_BODY_RADIUS_M, minY: this.feetY + WALK_STEP_HEIGHT_M, maxY: this.feetY + WALK_BODY_HEIGHT_M },
-        (dirX / length) * reach,
-        (dirZ / length) * reach,
-        // An open door's leaves are not in the way; a closed one's are. The set
-        // lives in the session (`OpenDoors`), so this module still remembers
-        // nothing about a building.
-        scene.passable ? { passable: scene.passable } : {},
-      );
+      const stepX = (dirX / length) * reach;
+      const stepZ = (dirZ / length) * reach;
+      let moved = this.move(scene, stepX, stepZ);
+      if (moved.blocked) {
+        // A step in the way is climbed, not walked into: lift the feet onto it and
+        // try the same step again. This is what a stair is (`floorAhead`).
+        const ahead = this.floorAhead(scene, dirX / length, dirZ / length);
+        if (ahead !== null && ahead > this.feetY) {
+          this.feetY = ahead;
+          this.falling = 0;
+          this.onFloor = true;
+          moved = this.move(scene, stepX, stepZ);
+        }
+      }
       this.x = moved.x;
       this.z = moved.z;
       this.blocked = moved.blocked;
@@ -189,14 +215,48 @@ export class Walker {
     }
   }
 
-  /** Where the feet rest at (x, z): the highest walkable surface on this storey, else the storey floor. */
-  private surfaceAt(x: number, z: number, scene: WalkScene, feetY: number): number {
+  /** One step of the walk through the scene's collider: where it lands, and whether a solid stopped it. */
+  private move(scene: WalkScene, dx: number, dz: number): { readonly x: number; readonly z: number; readonly blocked: boolean } {
+    return moveBody(
+      scene.collider,
+      { x: this.x, z: this.z, radius: WALK_BODY_RADIUS_M, minY: this.feetY + WALK_STEP_HEIGHT_M, maxY: this.feetY + WALK_BODY_HEIGHT_M },
+      dx,
+      dz,
+      // An open door's leaves are not in the way; a closed one's are. The set
+      // lives in the session (`OpenDoors`), so this module still remembers
+      // nothing about a building.
+      scene.passable ? { passable: scene.passable } : {},
+    );
+  }
+
+  /**
+   * The surface one body radius on along the way the walker is going, when it is
+   * above the feet and within a step; null when there is nothing to step onto.
+   *
+   * A stair is climbed this way. Its treads arrive as one body of upright prisms,
+   * so the riser of a tread two steps up reaches down to the storey floor and is
+   * a face inside the colliding band: a walker standing on the tread before it is
+   * stopped there. A person is not stopped — they put a foot up — so this does
+   * too, once, and only after a move was actually blocked.
+   */
+  private floorAhead(scene: WalkScene, dirX: number, dirZ: number): number | null {
+    return this.floorAt(this.x + dirX * WALK_BODY_RADIUS_M, this.z + dirZ * WALK_BODY_RADIUS_M, scene, this.feetY);
+  }
+
+  /** The highest surface at (x, z) no more than a step above the feet, or null when there is none on this storey. */
+  private floorAt(x: number, z: number, scene: WalkScene, feetY: number): number | null {
     const hit = floorUnder(scene.collider, x, z, {
       belowY: feetY + WALK_STEP_HEIGHT_M,
       minY: scene.groundY - WALK_STOREY_BAND_M,
       radius: WALK_BODY_RADIUS_M * 0.5,
     });
-    return hit ? hit.y : scene.groundY;
+    return hit ? hit.y : null;
+  }
+
+  /** Where the feet rest at (x, z): the highest walkable surface on this storey, else the storey floor. */
+  private surfaceAt(x: number, z: number, scene: WalkScene, feetY: number): number {
+    const hit = this.floorAt(x, z, scene, feetY);
+    return hit === null ? scene.groundY : hit;
   }
 
   /** Stop the walker moving: a disposed viewer keeps no half-walking ghost. */

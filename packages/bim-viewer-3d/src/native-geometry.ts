@@ -97,6 +97,18 @@ export interface Solid {
   readonly vertical?: boolean;
   /** Boxes and lying cylinders: rise along local X, radians (a drain's fall is negative). */
   readonly pitch?: number;
+  /**
+   * True when the body climbs in steps — a stair's run of treads. Its up-facing
+   * caps are then treads a person stands on rather than the lids of solid
+   * blocks, which is the one thing the collider cannot see for itself.
+   *
+   * A stair is drawn as one body of upright prisms, one per tread, each rising
+   * from the storey floor to the top of its own riser (`bim-pack-architecture`'s
+   * `STAIR_KIND_ROW`). Per triangle the collider keeps only the risers and their
+   * bounding faces, and without this flag every tread top would read as the lid
+   * of a wall: the stair would be something a person walks into, not up.
+   */
+  readonly steps?: boolean;
   /** Shape "mesh": triangles in scene metres, relative to `center` (sheet-metal fittings). */
   readonly mesh?: { readonly positions: Float32Array; readonly indices: Uint32Array };
   /** 0xRRGGBB: the run's system colour, over the group's (pipe and duct runs on a system). */
@@ -677,7 +689,35 @@ function kindShapeSolids(el: BimElement, shape: KindSolidShape, group: RenderGro
   }
   const blocks = shape.form === "prism" ? [{ outline: shape.outline, z0: shape.z0, z1: shape.z1 }] : shape.blocks;
   const solid = prismsSolid(el.id, el.version, group, blocks);
-  return solid ? [solid] : [];
+  if (!solid) return [];
+  return climbsInSteps(blocks) ? [{ ...solid, steps: true }] : [solid];
+}
+
+/** Two blocks' bottoms are one bottom when they agree this closely, mm. */
+const ONE_BOTTOM_MM = 1e-6;
+
+/**
+ * True when a body climbs in steps: its blocks share one bottom and each reaches
+ * higher than the one before — a stair's run of treads, and the only shape here
+ * that is walked up rather than walked into.
+ *
+ * A wall cut round its doors, a slab in pieces and a flat roof all share a single
+ * top and are not a climb; a pitched roof is tilted, not stepped. Asked of the
+ * body rather than of the kind's name, so an add-on's stair is climbed without
+ * the viewer having to know which add-on it came from.
+ */
+function climbsInSteps(blocks: readonly PrismBlock[]): boolean {
+  if (blocks.length < 2) return false;
+  const first = blocks[0] as PrismBlock;
+  if (!(first.z1 > first.z0)) return false;
+  let top = first.z1;
+  for (let i = 1; i < blocks.length; i++) {
+    const block = blocks[i] as PrismBlock;
+    if (Math.abs(block.z0 - first.z0) > ONE_BOTTOM_MM) return false;
+    if (!(block.z1 > top)) return false;
+    top = block.z1;
+  }
+  return true;
 }
 
 /** Thin enough to read as a plane, thick enough to pick; its top is at the plane's height. */
