@@ -263,7 +263,9 @@
       "cache": "warm",
       "p50": 300,
       "p95": 600,
-      "status": "active"
+      "status": "active",
+      "measuredInCi": false,
+      "notMeasuredReason": "No runner the gate uses can draw a frame: neither ubuntu-latest nor the PERF_RUNNER machine installs a browser, this checkout has no Playwright/Puppeteer or headless-GL dependency, and browser-3d.ts — the suite run.ts would hand the private export's perf-frags and the zone slice — has never existed."
     },
     "3d.edit.redraw": {
       "label": "Redraw authored geometry after an edit (reference laptop)",
@@ -272,7 +274,9 @@
       "cache": "warm",
       "p50": 16,
       "p95": 33,
-      "status": "active"
+      "status": "active",
+      "measuredInCi": false,
+      "notMeasuredReason": "Same as 3d.synthetic.load: nothing the gate runs renders, so a redraw after an edit is only measurable on a machine with a GPU, in front of a person."
     },
     "3d.frame.weak": {
       "label": "Frame time, same scene, weaker laptop (approximation)",
@@ -281,7 +285,9 @@
       "cache": "warm",
       "p50": 33.3,
       "p95": 50,
-      "status": "active"
+      "status": "active",
+      "measuredInCi": false,
+      "notMeasuredReason": "Same as 3d.synthetic.load, and this row is about a machine no runner has: referenceHardware.weaker's 4x CPU throttling at 1366x768 is the recipe for the suite that was never built, not a measurement."
     },
     "sheet.regen": {
       "label": "Sheet regeneration after a duct edit",
@@ -1126,7 +1132,9 @@
       "p50": 8,
       "p95": 16,
       "status": "pending",
-      "appliesTo": "250k tier; 16 / 33 ms at the 1M tier"
+      "appliesTo": "250k tier; 16 / 33 ms at the 1M tier",
+      "measuredInCi": false,
+      "notMeasuredReason": "Same as 3d.synthetic.load, and no suite is written for it at all (status pending)."
     },
     "geometry.boolean.10k": {
       "label": "Geometry: cut one 10,240-triangle solid with another (the boolean and its mesh; inputs already built)",
@@ -3127,12 +3135,8 @@
       "ciBudgetFactor": 1
     }
   },
-  "knownBudgetFailures": {
-    "250k": [
-      "3d.edit.redraw"
-    ]
-  },
-  "knownBudgetFailuresNote": "Rows over budget at the last calibrated baseline. Reported, not blocking; delete a row the moment it passes (the gate fails until you do).",
+  "knownBudgetFailures": {},
+  "knownBudgetFailuresNote": "Rows over budget at the last calibrated baseline. Reported, not blocking; delete a row the moment it passes (the gate fails until you do). A row with measuredInCi: false can never belong here: no run produces a number for it, so there is no failing measurement to record — 3d.edit.redraw was listed here until Nov 13, 2026, having never been measured.",
   "invariants": {
     "x11.previewFullSyncs.50": {
       "label": "Space index full re-reads during 18 Approve-card preflights on the 23k open-issues grid (each preflight stays on its neighbourhood)",

@@ -57,8 +57,10 @@ budget is allowed to claim, and how the gate goes wrong. It does not restate a f
    suites) and then `perf:suites`.
 
 8. **Where the time goes is read from the budget file, not guessed.** 335 rows today:
-   322 in-process, 5 browser, 4 remote, 4 stress; 221 `active`, 114 `pending`. The named
-   hot paths, and the suite that measures each:
+   322 in-process, 5 browser, 4 remote, 4 stress; 221 `active`, 114 `pending`. Four of the
+   five browser rows say no runner can measure them (`measuredInCi: false`, reason in the
+   row) and are measured by hand — a budget that would otherwise have read as a green
+   gate. The named hot paths, and the suite that measures each:
 
 | Path | Row | Measured by |
 |---|---|---|
@@ -85,6 +87,16 @@ budget is allowed to claim, and how the gate goes wrong. It does not restate a f
   114 rows that are measured and judged `PENDING`, never blocking (`run.ts:441`).
   *Tell:* a row you expect to protect you, whose verdict in the last report is `PENDING`
   or `NOT-RUN`.
+- **A budget with nothing that draws it.** The four browser-scope 3D rows
+  (`3d.synthetic.load`, `3d.edit.redraw`, `3d.frame.weak`, `part.mesh.instanced.draw`)
+  were reported `NOT-RUN` until Nov 13, 2026, which reads as "not applicable": no runner
+  the gate uses has a browser with WebGL, and `browser-3d.ts` — which `run.ts` already
+  hands the zone slice and the private export's frags — has never existed. They now carry
+  `measuredInCi: false` with their reason in the budget file (`lib.ts`), the gate reports
+  them `NOT-MEASURED` and lists them with their budgets under *Not measured by this run*,
+  and they are a manual gate with steps in `docs/PERFORMANCE.md`. *Tell:* a green report
+  read as evidence about frame time — it is evidence about nothing of the kind, and the
+  report now says so on its own page.
 - **A metric filed under the wrong suite.** Suite assignment is a prefix regex over the
   metric id (`run.ts:413`); a new id that matches nothing lands in `synthetic` and is
   `NOT-RUN` from every other suite without an error.
@@ -101,7 +113,8 @@ budget is allowed to claim, and how the gate goes wrong. It does not restate a f
 
 | Guard | Catches | Blind to |
 |---|---|---|
-| `docs/perf/mutinybim-budgets.json` + `loadBudgets` | a row with no numeric budget, a unit with no tolerance, a malformed file (`lib.ts:235-247`) | a budget that was edited upward |
+| `docs/perf/mutinybim-budgets.json` + `loadBudgets` | a row with no numeric budget, a unit with no tolerance, a malformed file (`lib.ts:235-247`); a row that opts out of machine measurement (`measuredInCi: false`) without a reason | a budget that was edited upward; why a `measuredInCi: false` row is legitimate |
+| `--self-test` on the verdicts | a row nothing can measure reported as `NOT-RUN` ("not applicable") instead of `NOT-MEASURED` (`run.ts`, `missingVerdict`) | that a person actually measured the row |
 | the gate's `--self-test` | a comparator that stops regressing on known inputs | a budget row the suites never emit |
 | `perf:bim:ci` on a calibrated runner | any timing over `budgetFactor` × budget; any invariant over its max | paths outside `CI_SUITES` |
 | the relative mode | invariants, sizes, counts and same-run ratios on shared hardware | every timing — by design |

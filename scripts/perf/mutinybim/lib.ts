@@ -206,6 +206,16 @@ export interface MetricBudget {
   readonly status: "active" | "pending";
   readonly measures?: string;
   readonly appliesTo?: string;
+  /**
+   * `false` when no runner the gate uses can measure this row (it needs a browser
+   * with WebGL, or a machine only a person has). Such a row is reported
+   * `NOT-MEASURED` — nobody measured it — and never `NOT-RUN`, which reads as
+   * "not applicable to this run". It must carry a `notMeasuredReason`, and it is
+   * measured by hand: docs/PERFORMANCE.md.
+   */
+  readonly measuredInCi?: false;
+  /** Why no runner can measure it, and what measures it instead. Required with measuredInCi: false. */
+  readonly notMeasuredReason?: string;
   /** Set to 1 when the budget already describes the CI runner (it is then not multiplied by `ci.budgetFactor`). */
   readonly ciBudgetFactor?: 1;
 }
@@ -242,6 +252,10 @@ export function loadBudgets(file = BUDGETS_FILE): Budgets {
       throw new Error(`${file}: metric ${id} needs numeric p50 / p95 and a unit`);
     }
   }
+  // A row may only opt out of machine measurement by saying why: an unexplained
+  // one goes quiet for ever, which is the vacuous guard this gate refuses.
+  const unexplained = notMeasuredWithoutReason(parsed as unknown as Budgets);
+  if (unexplained.length > 0) throw new Error(`${file}: no notMeasuredReason for ${unexplained.join(", ")}: say why no runner can measure it and what does instead (docs/PERFORMANCE.md)`);
   // Shape checked above; the remaining fields are documented strings.
   const budgets = parsed as unknown as Budgets;
   const missing = metricsWithoutTolerance(budgets);
@@ -258,7 +272,29 @@ export function metricsWithoutTolerance(budgets: Budgets): string[] {
     .map(([id, m]) => `${id} (unit ${m.unit})`);
 }
 
-export type Verdict = "PASS" | "FAIL" | "PENDING" | "NOT-RUN";
+/** Rows that say no runner can measure them without saying why: they would go quiet for ever. */
+export function notMeasuredWithoutReason(budgets: Budgets): string[] {
+  return Object.entries(budgets.metrics)
+    .filter(([, m]) => m.measuredInCi === false && !(typeof m.notMeasuredReason === "string" && m.notMeasuredReason.trim().length > 0))
+    .map(([id]) => id);
+}
+
+export type Verdict = "PASS" | "FAIL" | "PENDING" | "NOT-RUN" | "NOT-MEASURED";
+
+/**
+ * The verdict for a budget row that no run produced a value for, which is three
+ * different things and must not read as one:
+ *
+ * - `NOT-MEASURED`: nothing the gate runs can measure this (measuredInCi: false).
+ *   A person measures it, so its budget still blocks — by review.
+ * - `PENDING`: the budget is written and its suite is not, yet.
+ * - `NOT-RUN`: the suite exists but this run did not select it, or it failed to
+ *   load (see the suite's NOT RUN line in the report).
+ */
+export function missingVerdict(b: { readonly status: "active" | "pending"; readonly measuredInCi?: false }): Verdict {
+  if (b.measuredInCi === false) return "NOT-MEASURED";
+  return b.status === "pending" ? "PENDING" : "NOT-RUN";
+}
 export type RegressionVerdict = "OK" | "REGRESSED" | "IMPROVED" | "NO-BASELINE";
 
 export interface MetricResult {

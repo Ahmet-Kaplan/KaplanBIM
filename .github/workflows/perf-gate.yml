@@ -92,6 +92,7 @@ jobs:
             else
               echo "- Budgets: **relative**. Invariants, sizes, counts and same-run ratios block; timings are reported. Absolute budgets run where the repository variable PERF_RUNNER names a calibrated runner."
             fi
+            echo "- The four browser-scope 3D rows (\`3d.synthetic.load\`, \`3d.edit.redraw\`, \`3d.frame.weak\`, \`part.mesh.instanced.draw\`) are **not measured by this job**: no runner here has a browser with WebGL. This run says nothing about frame time — a render change is measured by hand, see \`docs/PERFORMANCE.md\` (\"The 3D rows: a person measures these\")."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/setup-node@v4

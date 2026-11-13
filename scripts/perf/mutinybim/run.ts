@@ -17,7 +17,8 @@
  * Budgets: docs/perf/mutinybim-budgets.json.
  */
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { FULL_BIM_TIERS } from "@permitzip/bim-first-party/seed";
 import {
@@ -30,6 +31,8 @@ import {
   hardware,
   loadBudgets,
   metricsWithoutTolerance,
+  missingVerdict,
+  notMeasuredWithoutReason,
   regressionVerdict,
   round,
   summarize,
@@ -83,6 +86,31 @@ function selfTest(): void {
     ["absolute budget fails a slow baseline", absoluteVerdict({ p50: 1100, p95: 1100, n: 5 }, { p50: 1000, p95: 2000 }) === "FAIL"],
     ["median-of-N ignores one outlier run", combineRuns([{ p50: 10, p95: 12, n: 21 }, { p50: 11, p95: 13, n: 21 }, { p50: 90, p95: 99, n: 21 }])?.p50 === 11],
     ["cold runs: p95 is nearest-rank of runs", combineRuns([10, 11, 12, 13, 50].map((v) => ({ p50: v, p95: v, n: 1 })))?.p95 === 50],
+    // A row nothing can measure is not the same as a row that was not applicable: it must say so.
+    ["a row no runner can measure is NOT-MEASURED, never NOT-RUN", missingVerdict({ status: "active", measuredInCi: false }) === "NOT-MEASURED"],
+    ["a row whose suite is not written is PENDING", missingVerdict({ status: "pending" }) === "PENDING"],
+    ["a row this run did not select is NOT-RUN", missingVerdict({ status: "active" }) === "NOT-RUN"],
+    ["a row that opts out of measurement without a reason refuses to load", notMeasuredWithoutReason({ ...budgets, metrics: { quiet: { label: "quiet", unit: "ms", scope: "browser", cache: "warm", p50: 1, p95: 1, status: "active", measuredInCi: false } } }).join() === "quiet"],
+    // ...and the file itself refuses it: the unit test above and this one are both needed, because a
+    // helper nobody calls would leave the guard vacuous.
+    [
+      "the budget file refuses a row with measuredInCi:false and no reason",
+      (() => {
+        const dir = mkdtempSync(path.join(tmpdir(), "perf-budgets-test-"));
+        try {
+          const file = path.join(dir, "budgets.json");
+          writeFileSync(file, JSON.stringify({ ...budgets, metrics: { "quiet.row": { label: "quiet", unit: "ms", scope: "browser", cache: "warm", p50: 1, p95: 1, status: "active", measuredInCi: false } } }));
+          try {
+            loadBudgets(file);
+            return false;
+          } catch (err) {
+            return err instanceof Error && err.message.includes("no notMeasuredReason for quiet.row");
+          }
+        } finally {
+          rmSync(dir, { recursive: true, force: true });
+        }
+      })(),
+    ],
   ];
   const failed = cases.filter(([, ok]) => !ok);
   for (const [name, ok] of cases) console.log(`${ok ? "ok  " : "FAIL"} ${name}`);
@@ -377,12 +405,20 @@ async function main(): Promise<void> {
     if (!shape) throw new Error(`unknown tier ${tier}`);
     // Same edit target as synthetic.ts: the author's zone is the last zone of the top floor.
     const p = `L${String(shape.floors).padStart(2, "0")}-Z${shape.zonesPerFloor}`;
-    try {
-      outputs.push(await runChild("browser-3d.ts", [`--frags=${fragDir}`, `--slice=${slicePath}`, `--runs=${browserRuns}`, `--tap=${p}-air-t1-s2-b1-tap`], 4096));
-      console.log("[perf] browser done");
-    } catch (err) {
-      console.error("[perf] browser suite failed", err);
-      notRun.browser = `browser suite failed: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`;
+    if (!childPresent("browser-3d.ts")) {
+      // The suite that would emit the 3d.* rows has never existed, and nothing here
+      // could run it: no browser with WebGL on any runner the gate uses, and its scene
+      // (the reference export's perf-frags plus the zone slice) is private. Those rows
+      // are a manual gate, and the budget file says so on each row (measuredInCi).
+      notRun.browser = "no browser-3d.ts in this tree: the 3D rows are drawn by no runner and are measured by hand (docs/PERFORMANCE.md, \"The 3D rows: a person measures these\")";
+    } else {
+      try {
+        outputs.push(await runChild("browser-3d.ts", [`--frags=${fragDir}`, `--slice=${slicePath}`, `--runs=${browserRuns}`, `--tap=${p}-air-t1-s2-b1-tap`], 4096));
+        console.log("[perf] browser done");
+      } catch (err) {
+        console.error("[perf] browser suite failed", err);
+        notRun.browser = `browser suite failed: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`;
+      }
     }
   }
   if (suites.includes("remote")) {
@@ -403,6 +439,8 @@ async function main(): Promise<void> {
   const known = new Set(flag("checkpoint") ? [] : (budgets.knownBudgetFailures?.[tier] ?? []));
   const results: MetricResult[] = [];
   const knownNowPassing: string[] = [];
+  /** Budgets no runner here can measure: reported, with their budgets, so nobody reads the gate as clearing them. */
+  const deferred = Object.entries(budgets.metrics).filter(([, b]) => b.measuredInCi === false);
   for (const [metric, b] of Object.entries(budgets.metrics)) {
     // Sizes and same-run ratios do not depend on the runner's speed.
     const hardwareIndependent = b.unit === "MB" || b.unit === "KB" || b.unit === "ratio";
@@ -419,17 +457,19 @@ async function main(): Promise<void> {
         cache: b.cache,
         current: null,
         budget,
-        verdict: b.status === "pending" ? "PENDING" : "NOT-RUN",
+        verdict: missingVerdict(b),
         regression: "NO-BASELINE",
         baseline: null,
         note:
-          b.status === "pending"
-            ? b.measures
-            : (notRun[suite] ??
-              (() => {
-                const absent = hostChildrenAbsent.find((c) => c.rows.test(metric));
-                return absent ? `measures ${absent.what}, which this checkout does not have (${absent.script})` : `suite "${suite}" not selected`;
-              })()),
+          b.measuredInCi === false
+            ? `no runner measures this: ${b.notMeasuredReason ?? "(no reason given)"}${b.status === "pending" ? " Its budget is still pending." : ""} A person measures it: docs/PERFORMANCE.md, "The 3D rows: a person measures these".`
+            : b.status === "pending"
+              ? b.measures
+              : (notRun[suite] ??
+                (() => {
+                  const absent = hostChildrenAbsent.find((c) => c.rows.test(metric));
+                  return absent ? `measures ${absent.what}, which this checkout does not have (${absent.script})` : `suite "${suite}" not selected`;
+                })()),
       });
       continue;
     }
@@ -534,8 +574,21 @@ async function main(): Promise<void> {
   for (const r of results) {
     const verdict = r.verdict === "FAIL" && known.has(r.metric) ? "FAIL (known)" : r.verdict === "FAIL" && !blocks(r) ? "FAIL (reported)" : r.verdict;
     lines.push(
-      `| ${r.metric} | ${r.scope} | ${r.cache} | ${fmt(r.current?.p50, r.unit)} | ${fmt(r.current?.p95, r.unit)} | ${fmt(r.budget.p50, r.unit)} / ${fmt(r.budget.p95, r.unit)} | ${verdict} | ${r.regression} | ${countsText(r.counts)}${r.verdict === "NOT-RUN" || r.verdict === "PENDING" ? (r.note ? ` ${r.note}` : "") : ""} |`,
+      `| ${r.metric} | ${r.scope} | ${r.cache} | ${fmt(r.current?.p50, r.unit)} | ${fmt(r.current?.p95, r.unit)} | ${fmt(r.budget.p50, r.unit)} / ${fmt(r.budget.p95, r.unit)} | ${verdict} | ${r.regression} | ${countsText(r.counts)}${r.verdict === "NOT-RUN" || r.verdict === "PENDING" || r.verdict === "NOT-MEASURED" ? (r.note ? ` ${r.note}` : "") : ""} |`,
     );
+  }
+  if (deferred.length > 0) {
+    // These rows are not green and not failing: nothing drew their frame. Say it where a reviewer reads it.
+    lines.push(
+      "",
+      `## Not measured by this run (${deferred.length}): a person measures these`,
+      "",
+      "Their budget still blocks — by review, not by this report. A render change is unmeasured until someone runs the steps below.",
+      "",
+      "| Metric | Scope | Budget p50 / p95 | Why no runner can measure it |",
+      "| --- | --- | --- | --- |",
+    );
+    for (const [metric, b] of deferred) lines.push(`| ${metric} | ${b.scope} | ${fmt(b.p50, b.unit)} / ${fmt(b.p95, b.unit)} | ${b.notMeasuredReason ?? "(no reason given)"}`);
   }
   lines.push("", "## Invariants (exact)", "", "| Invariant | Value | Max | Status |", "| --- | --- | --- | --- |");
   for (const i of invariants) lines.push(`| ${i.id} — ${i.label} | ${i.value ?? "–"} | ${i.max} | ${i.status} |`);
@@ -550,7 +603,11 @@ async function main(): Promise<void> {
   console.log(`[perf] report:  ${path.relative(REPO_ROOT, path.join(outDir, "report.md"))}`);
   const fails = results.filter((r) => r.verdict === "FAIL").length;
   const passes = results.filter((r) => r.verdict === "PASS").length;
-  console.log(`[perf] absolute: ${passes} pass, ${fails} fail (${results.filter((r) => r.verdict === "FAIL" && known.has(r.metric)).length} known), ${results.filter((r) => r.verdict === "PENDING").length} pending, ${results.filter((r) => r.verdict === "NOT-RUN").length} not run; blocking ${blocking.length}`);
+  const notMeasured = results.filter((r) => r.verdict === "NOT-MEASURED").length;
+  console.log(
+    `[perf] absolute: ${passes} pass, ${fails} fail (${results.filter((r) => r.verdict === "FAIL" && known.has(r.metric)).length} known), ${results.filter((r) => r.verdict === "PENDING").length} pending, ${results.filter((r) => r.verdict === "NOT-RUN").length} not run, ${notMeasured} not measured by any runner (manual: docs/PERFORMANCE.md); blocking ${blocking.length}`,
+  );
+  if (notMeasured > 0) console.log(`[perf]   ${deferred.map(([m]) => m).join(", ")}: nothing here can draw their frame, so this run says nothing about them (${deferred.length} rows, budgets unchanged).`);
   for (const b of blocking) console.log(`[perf]   ${b}`);
   if (enforce && blocking.length > 0) process.exit(1);
 }
