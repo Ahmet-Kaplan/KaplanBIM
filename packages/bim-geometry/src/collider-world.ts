@@ -76,6 +76,21 @@ export interface MoveOptions {
   readonly stride?: number;
   /** How many surfaces one step may slide along before it gives up. */
   readonly slides?: number;
+  /**
+   * Boxes this move ignores, by their `tag` (the element they came from).
+   *
+   * A walkthrough needs it for the one thing about a building that changes while
+   * you stand in it: an open door. The doorway's leaves are real solids drawn in
+   * the wall's void, so a closed door must stop a person and an open one must not
+   * — and which it is belongs to the session, not to the geometry. Passing the
+   * set in keeps this module a pure function of its arguments: the same world,
+   * the same body and the same set always give the same answer, and nothing here
+   * remembers a door.
+   *
+   * A box with no tag is never passable: geometry that cannot say which element
+   * it came from has no business disappearing.
+   */
+  readonly passable?: (box: ColliderBox) => boolean;
 }
 
 /** The nearest thing under a point that a person could stand on. */
@@ -245,10 +260,13 @@ function penetrationOf(box: ColliderBox, bodyX: number, bodyZ: number, radius: n
  * clear. Exported because "is this a legal place to stand" is the question a
  * caller asks before moving somebody at all.
  */
-export function penetrationAt(world: ColliderWorld, body: Body): Penetration | null {
+export function penetrationAt(world: ColliderWorld, body: Body, passable?: (box: ColliderBox) => boolean): Penetration | null {
   let deepest: Penetration | null = null;
   for (const index of boxesNear(world, body.x, body.z, body.radius)) {
     const box = world.boxes[index] as ColliderBox;
+    // An open door is not in the way. Checked before the vertical bands, because
+    // a door's leaves span the whole opening and would otherwise always pass it.
+    if (passable?.(box) === true) continue;
     // A body standing on a slab is not inside it: the band starts above the floor.
     if (boxTop(box) <= body.minY || boxBottom(box) >= body.maxY) continue;
     const hit = penetrationOf(box, body.x, body.z, body.radius);
@@ -271,14 +289,14 @@ function turned(askedX: number, askedZ: number, movedX: number, movedZ: number):
 }
 
 /** One step of a move: no subdivision, at most `slides` surfaces. */
-function slideStep(world: ColliderWorld, body: Body, dx: number, dz: number, slides: number): MoveResult {
+function slideStep(world: ColliderWorld, body: Body, dx: number, dz: number, slides: number, passable?: (box: ColliderBox) => boolean): MoveResult {
   let x = body.x;
   let z = body.z;
   let wantX = body.x + dx;
   let wantZ = body.z + dz;
   let blocked = false;
   for (let slide = 0; slide < slides; slide++) {
-    const hit = penetrationAt(world, { ...body, x: wantX, z: wantZ });
+    const hit = penetrationAt(world, { ...body, x: wantX, z: wantZ }, passable);
     if (!hit) {
       // Nothing in the way: the point asked for, exactly, with no rounding and no snap.
       return { x: wantX, z: wantZ, blocked, slid: blocked && turned(dx, dz, wantX - body.x, wantZ - body.z) };
@@ -336,7 +354,7 @@ export function moveBody(world: ColliderWorld, body: Body, dx: number, dz: numbe
   let blocked = false;
   let slid = false;
   for (let step = 0; step < steps; step++) {
-    const result = slideStep(world, { ...body, x, z }, stepX, stepZ, slides);
+    const result = slideStep(world, { ...body, x, z }, stepX, stepZ, slides, options.passable);
     x = result.x;
     z = result.z;
     blocked = blocked || result.blocked;

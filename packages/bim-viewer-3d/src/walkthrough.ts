@@ -57,6 +57,14 @@ export interface WalkScene {
   readonly collider: ColliderWorld;
   /** The elevation to stand on where no slab is under you: the storey's floor, metres. */
   readonly groundY: number;
+  /**
+   * The boxes a step ignores — an open door's leaves (`OpenDoors.passable`).
+   *
+   * Absent means nothing is passable, which is the right default: a walker that
+   * silently walked through a door because no set was supplied would be a bug
+   * nobody reports, because it looks like the door working.
+   */
+  readonly passable?: (box: { readonly tag?: string }) => boolean;
 }
 
 export interface WalkerStart {
@@ -157,6 +165,10 @@ export class Walker {
         { x: this.x, z: this.z, radius: WALK_BODY_RADIUS_M, minY: this.feetY + WALK_STEP_HEIGHT_M, maxY: this.feetY + WALK_BODY_HEIGHT_M },
         (dirX / length) * reach,
         (dirZ / length) * reach,
+        // An open door's leaves are not in the way; a closed one's are. The set
+        // lives in the session (`OpenDoors`), so this module still remembers
+        // nothing about a building.
+        scene.passable ? { passable: scene.passable } : {},
       );
       this.x = moved.x;
       this.z = moved.z;
