@@ -34,6 +34,7 @@ import { PartitionColliders } from "./walkthrough-collider";
 import { WalkthroughInput } from "./walkthrough-input";
 import { Walker, type WalkerState } from "./walkthrough";
 import { createRenderPipeline, type RenderPipeline } from "./post/render-pipeline";
+import { DEFAULT_SUN, sceneLightRig, type SceneLightRig } from "./atmosphere/daylight";
 
 export type ViewMode = "3d" | "plan";
 
@@ -128,6 +129,18 @@ export interface ViewerOptions {
    * would make edges worse than they are with nothing on at all.
    */
   readonly temporalAntialiasing?: boolean;
+  /**
+   * Daylight: move the scene's key light onto `DEFAULT_SUN` and colour it by
+   * the sun's own altitude (`atmosphere/daylight.ts`). Off by default, like the
+   * two post passes, and for the same reason — a frame with it off is the frame
+   * the viewer drew before it existed.
+   *
+   * It costs nothing per frame: it is the same three lights with one of them
+   * moved, not a fourth light and not a shadow map. Turning it on cannot
+   * brighten the interior twice, because the sun it turns on is the key light
+   * the scene already had.
+   */
+  readonly daylight?: boolean;
 }
 
 const GROUP_STYLE: Record<RenderGroup, { color: number; roughness: number; metalness: number; opacity?: number }> = {
@@ -148,6 +161,23 @@ const GROUP_STYLE: Record<RenderGroup, { color: number; roughness: number; metal
   filler: { color: 0x8a6f52, roughness: 0.7, metalness: 0.05 },
   glazing: { color: 0x9fc8e8, roughness: 0.1, metalness: 0.1, opacity: 0.3 },
 };
+
+/**
+ * A light rig turned into the three.js objects a scene takes. The only place in
+ * this package that makes a light: `atmosphere/daylight.ts` decides what the
+ * rig is, and this gives it to the renderer. A directional light is placed
+ * along its direction at the rig's own distance and never casts a shadow (see
+ * the daylight module for why not).
+ */
+function sceneLightObjects(rig: SceneLightRig): THREE.Light[] {
+  const key = new THREE.DirectionalLight(rig.key.color, rig.key.intensity);
+  key.position.set(...rig.key.position);
+  key.castShadow = rig.key.castsShadow;
+  const fill = new THREE.DirectionalLight(rig.fill.color, rig.fill.intensity);
+  fill.position.set(...rig.fill.position);
+  fill.castShadow = rig.fill.castsShadow;
+  return [new THREE.HemisphereLight(rig.hemisphere.skyColor, rig.hemisphere.groundColor, rig.hemisphere.intensity), key, fill];
+}
 
 /** Plan symbols sit this far under the cut, so the cut never clips them. */
 const PLAN_SYMBOL_BELOW_CUT_MM = 50;
@@ -398,14 +428,10 @@ export class ModelViewer3D {
     container.appendChild(this.renderer.domElement);
 
     this.scene.background = this.palette.background;
-    // Low ambient + a strong key light so walls, floors and roof planes read as different surfaces.
-    this.scene.add(new THREE.HemisphereLight(0xffffff, 0x7d8794, 0.95));
-    const sun = new THREE.DirectionalLight(0xfff6ea, 2.3);
-    sun.position.set(60, 100, 35);
-    this.scene.add(sun);
-    const fill = new THREE.DirectionalLight(0xdfe8ff, 0.45);
-    fill.position.set(-50, 30, -40);
-    this.scene.add(fill);
+    // The lights come from one place, `atmosphere/daylight.ts`: the sky, the
+    // sun and the fill, with the sun moved onto its angles when daylight is
+    // asked for and left exactly where it always was when it is not.
+    this.scene.add(...sceneLightObjects(sceneLightRig(options.daylight === true ? DEFAULT_SUN : null)));
     this.scene.add(this.referenceRoot, this.nativeRoot, this.markerRoot, this.ghostRoot, this.groupRoot, this.highlightRoot, this.joinRoot, this.planSymbolRoot, this.selectedRoot, this.origin);
 
     const { width, height } = this.size();

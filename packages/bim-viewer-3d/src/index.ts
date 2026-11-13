@@ -24,3 +24,5 @@ export * from "./walkthrough-collider";
 export * from "./walkthrough-input";
 export * from "./post/ao";
 export * from "./post/render-pipeline";
+export * from "./atmosphere/daylight";
+export * from "./atmosphere/room-daylight";
