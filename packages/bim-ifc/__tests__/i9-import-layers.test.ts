@@ -13,7 +13,7 @@
  * layer's face and volume. `material` stays the first layer's name for older
  * readers.
  */
-import { type BimElement, type ModelState, landImport, takeoffTotals } from "@permitzip/bim-kernel";
+import { type BimElement, type ModelState, landImport, takeoffTotals, withUpgradePolicy } from "@permitzip/bim-kernel";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { importIfc, readIfcSource } from "../src";
@@ -47,7 +47,8 @@ function convert(text: string): ReturnType<typeof importIfc> {
 
 const READ_INPUT = { sourceId: "ver-layers-1", label: "Layered walls", disciplines: ["architecture"] } as const;
 
-const landed = (records: readonly BimElement[]): ModelState => landImport(hostModel(), records).model;
+// Landed as the model server decides it: every peer reads the add-on kinds an import writes.
+const landed = (records: readonly BimElement[]): ModelState => withUpgradePolicy(() => true, () => landImport(hostModel(), records).model);
 
 describe("i9-import-layers", () => {
   it("reads the whole build-up in order: material, thickness, place and offset from the reference line", () => {

@@ -1,4 +1,5 @@
 import { elementsOfKind, hostVoidsOf, type BimElement, type ElementKindItem, type FacePair, type KindSolidShape, type PlanGraphic, type SurfaceFaceRow, type Vec2 } from "@permitzip/bim-kernel";
+import { CURTAIN_KIND_ROWS } from "./curtain";
 
 /**
  * The Architecture add-on's own kinds: roofs and stairs.
@@ -338,4 +339,4 @@ export const STAIR_KIND_ROW: ElementKindItem = {
   },
 };
 
-export const ARCHITECTURE_KIND_ROWS: readonly ElementKindItem[] = [ROOF_KIND_ROW, STAIR_KIND_ROW];
+export const ARCHITECTURE_KIND_ROWS: readonly ElementKindItem[] = [ROOF_KIND_ROW, STAIR_KIND_ROW, ...CURTAIN_KIND_ROWS];

@@ -7,10 +7,12 @@ import type { ImportGroup, ImportProduct, ImportRuleResult } from "./types";
 
 /**
  * The kinds an import writes an `element_type` for: the element-core kinds,
- * and ceilings, which carry `typeId` the same way (a tile or a board is a
- * type) but are their own kind, so the commands' `forKinds` names them too.
+ * ceilings, which carry `typeId` the same way (a tile or a board is a type)
+ * but are their own kind, so the commands' `forKinds` names them too, and an
+ * add-on's own kind (a curtain-wall sheet, a mullion): a file types those the
+ * same way, and the type record already keeps any kind's name.
  */
-export type ImportTypedKind = ElementCoreKind | "ceiling";
+export type ImportTypedKind = ElementCoreKind | "ceiling" | (string & {});
 
 /**
  * How a class's instances come in from a linked model (contract 1.7.0,

@@ -10,6 +10,7 @@
 | `packages/bim-kernel/src/import/types.ts` | The neutral IR: `ImportProduct`, `ImportGeometry`, `ImportLayerSet`, `IfcImportPlan`, `IfcImportReport` |
 | `packages/bim-kernel/src/import/plan.ts` | `planIfcImport` (`:61`): the second, separate step. The reverse class map picks a class and a rule; levels, types, layers and the report come out of it |
 | `packages/bim-kernel/src/import/rules.ts` | The kernel's ten rules (`KERNEL_IMPORT_RULES`, `:420`): wall, slab, room, ceiling, column, beam, opening, run segment, part, component |
+| `packages/bim-pack-architecture/src/import.ts` | The architecture add-on's four rules (`ARCHITECTURE_IMPORT_RULES`): roof, stair, glazed panel, mullion/transom — the last two over the add-on's own `curtain.ts` kinds |
 | `packages/bim-kernel/src/import/shape.ts` | The few readings every rule shares: a vertical prism, a straight sweep, a plan rectangle's centre line |
 | `packages/bim-ifc/src/export.ts` | Model → IFC 4.3 ADD2 (`IFC_SCHEMA`, `:76`), deterministic, no clock, GlobalIds derived from stable ids |
 
@@ -82,7 +83,22 @@
    reference line geometrically (the body's place) and in
    `IfcMaterialLayerSetUsage.OffsetFromReferenceLine` (the line's place in the
    build-up), and both are kept as the numbers they are.
-8. **Export is IFC 4.3 ADD2 and preserves the links, not just the shapes.**
+8. **A curtain wall comes in as the two things a firm prices.** An `IfcPlate`
+   is a panel and an `IfcMember` a line of framing, through the Architecture
+   add-on's own classes and kinds (`arch.curtain_panel`,
+   `arch.curtain_member`) — the words *mullion*, *transom* and *curtain* stay
+   out of the kernel, whose ten rules read a plain solid. A panel's quantity is
+   the sheet's own largest face (so a curved, tapered or lying-flat sheet still
+   comes in, stating `areaSqM` when that face isn't the upright rectangle its
+   plan extent and height give); a member's is its length along the direction
+   it runs furthest in — its push (a mullion extruded up) or one of its
+   profile's sides (a transom extruded up its own 90 mm) — with its section
+   `volume / length`, exact for a prism whatever plane its profile is in, and
+   its rectangle or circle kept as the profile size the takeoff groups by
+   (`i9-curtain-walls.test.ts`). Neither class names a predefined type: a
+   façade exports its glass as `CURTAIN_PANEL` and as often as the plain
+   `SHEET`, and a class that does name one outranks these.
+9. **Export is IFC 4.3 ADD2 and preserves the links, not just the shapes.**
    Spatial tree, spaces and zones, distribution systems and circuits, ports and
    port connections, types through `IfcRelDefinesByType`, property sets and
    quantity sets, assemblies, groups, grid axes, units from `bim-units`
@@ -137,7 +153,8 @@
 
 | Guard | Pins |
 |---|---|
-| `i9-convert-sample.test.ts` | The sample model: **34 products** read, **4 walls** and **1 door** and 1 footing converted, `report.converted = 6`, the exact summary sentence, 25 members/plates and the roof, stair and windows left linked; four walls as one `class|Walls|4` takeoff line because the file carries no type; total length 30 m |
+| `i9-convert-sample.test.ts` | The sample model: **34 products** read, **31 converted** (`report.converted = 31`: 20 mullions and transoms, 5 curtain wall panels, 4 walls, 1 door, 1 footing), the exact summary sentence, the 2 roof decks, roof, stair and 5 windows left linked; four walls as one `class|Walls|4` takeoff line because the file carries no type; total length 30 m of wall, 32.8 m of framing, 11.93 m² of glazing |
+| `i9-curtain-walls.test.ts` | A `.SHEET.` plate as a panel by m² and a `.MULLION.` member by length (section 0.0081 m², size group `90 × 90 mm`); a transom drawn as its section pushed along its length reading the same; the file's type reaching a panel and a member (`element_type`, grouped by type); a tapered sheet converting with its face area; a flat-lying sheet stating its own m²; an L-section keeping length and area and saying it named no profile size; two pieces of sheet staying linked with the reason |
 | `i9-boolean-clip.test.ts` | A difference converts with `unread` and `cutsLeftIn` both set and the note saying so; a union and an intersection stay linked, in words |
 | `i9-import-types.test.ts` | Two typed walls as two lines named after their types; one type as one line with both walls; an untyped wall keeping the class line beside the typed one; a type's code grouping by classification |
 | `i9-import-layers.test.ts` | The whole build-up in order with its offsets; a ventilated cavity named; the layers landing and taking off per face (three faces of 18.00 m²); the 240-vs-200 mm note; the sample model's one 360 mm brick layer over four walls summing to their net face area (117.8 m²) |

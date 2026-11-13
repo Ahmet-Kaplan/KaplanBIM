@@ -10,10 +10,11 @@
  *
  * Fails on round 8b's code: bim-ifc had no reader and the kernel no import.
  */
-import { type BimElement, type ModelState, type Wall, landImport, takeoffTotals } from "@permitzip/bim-kernel";
+import { type BimElement, type ModelState, type Wall, landImport, takeoffTotals, withUpgradePolicy } from "@permitzip/bim-kernel";
 import { PackSet, bindModelPacks, unbindModelPacks } from "@permitzip/bim-kernel/packs";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { CURTAIN_MEMBER_KIND, CURTAIN_PANEL_KIND } from "@permitzip/bim-pack-architecture";
 import { importIfc, readIfcSource } from "../src";
 import { FIRE_PROTECTION_TEST_PACK, HEAD_CLASS } from "./fixtures/i9-fire-protection-pack";
 import { architectureAndStructure, hostModel, mechanicalAndSprinkler } from "./i9-fixtures";
@@ -133,22 +134,27 @@ describe("i9-convert-sample", () => {
   });
 
   describe("the repo's own sample model (IfcOpenHouse)", () => {
-    it("converts every wall, cut or plain, and the door in one of them", () => {
+    it("converts every wall, cut or plain, the door in one of them and the whole glazed façade", () => {
       const { source, plan } = openHouse();
       expect(source.products).toHaveLength(34);
       // 4 walls and 1 door convert (it was 2 walls before a cut solid was measured
-      // rather than refused) and the footing is a component; the 25 members and
-      // plates, the two roof decks, the roof, the stair and the windows stay linked
-      // for reasons this slice doesn't touch.
+      // rather than refused), the footing is a component, and since step 8 the 20
+      // `IfcMember` mullions and transoms and the 5 `IfcPlate` panels do too: 31 of
+      // the file's 34 products. The two roof decks, the roof, the stair and the
+      // windows stay linked for reasons this slice doesn't touch.
       expect(ofKind(plan.records, "wall")).toHaveLength(4);
       expect(ofKind(plan.records, "opening")).toHaveLength(1);
-      expect(plan.report.converted).toBe(6);
+      expect(plan.records.filter((r) => String(r.kind) === CURTAIN_MEMBER_KIND)).toHaveLength(20);
+      expect(plan.records.filter((r) => String(r.kind) === CURTAIN_PANEL_KIND)).toHaveLength(5);
+      expect(plan.report.converted).toBe(31);
       expect(plan.report.classes.find((c) => c.classId === "arch.wall")).toMatchObject({ converted: 4, linked: [] });
       expect(plan.report.classes.find((c) => c.classId === "arch.door")).toMatchObject({ converted: 1, linked: [] });
+      expect(plan.report.classes.find((c) => c.classId === "arch.curtain_member")).toMatchObject({ converted: 20, linked: [] });
+      expect(plan.report.classes.find((c) => c.classId === "arch.curtain_panel")).toMatchObject({ converted: 5, linked: [] });
       // The door is in the south wall, which converts: it comes in with its host.
       const [door] = ofKind(plan.records, "opening");
       expect(ofKind(plan.records, "wall").some((w) => w.id === door?.hostId)).toBe(true);
-      expect(plan.report.summary).toBe("Converted 4 walls, 1 door and 1 footing. Left 20 members, 5 plates, 2 roof decks, 1 roof, 1 stair flight and 5 windows as the linked model.");
+      expect(plan.report.summary).toBe("Converted 20 mullions and transoms, 5 curtain wall panels, 4 walls, 1 door and 1 footing. Left 2 roof decks, 1 roof, 1 stair flight and 5 windows as the linked model.");
     });
 
     it("still reports the two walls whose shape the file cuts, without refusing them", () => {
@@ -167,11 +173,22 @@ describe("i9-convert-sample", () => {
       // The sample carries no `IfcRelDefinesByType` at all, so its walls have no type to group by
       // and stay one line (i9-import-types shows the typed case).
       expect(ofKind(plan.records, "element_type")).toHaveLength(0);
-      const model = landImport(hostModel(), plan.records);
+      const model = withUpgradePolicy(() => true, () => landImport(hostModel(), plan.records));
       expect(model.dropped).toEqual([]);
       expect(takeoffLines(model.model).filter((l) => l.includes("Walls"))).toEqual(["class|Walls|4"]);
-      const length = takeoffTotals(model.model.elements).find((t) => t.measure.key === "qto.length");
-      expect(Math.round(length?.value ?? 0)).toBe(30);
+      const totals = takeoffTotals(model.model.elements).filter((t) => t.measure.key === "qto.length");
+      const wallLength = totals.find((t) => t.group.label === "Walls");
+      expect(Math.round(wallLength?.value ?? 0)).toBe(30);
+      // The façade is priced as what it is: 20 framing lines by length (all one
+      // 90 × 90 profile, so one size group) and 5 panels by m².
+      const framing = totals.find((t) => t.group.label === "Mullions and transoms");
+      expect(Math.round((framing?.value ?? 0) * 10) / 10).toBe(32.8);
+      expect(framing?.sizeGroup).toBe("90 × 90 mm");
+      const panels = takeoffTotals(model.model.elements).filter((t) => t.measure.key === "qto.area" && t.group.label === "Curtain wall panels");
+      expect(panels.map((t) => `${t.group.kind}|${t.group.label}|${t.elementCount}|${t.value.toFixed(2)}`)).toEqual(["class|Curtain wall panels|5|11.93"]);
+      // The framing's section, which is what the profile-size group is ordered by.
+      const section = takeoffTotals(model.model.elements).find((t) => t.measure.key === "qto.section_area");
+      expect(section?.value.toFixed(2)).toBe("0.16");
     });
   });
 });

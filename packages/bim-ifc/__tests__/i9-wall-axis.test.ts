@@ -17,7 +17,7 @@
  * axis falls back to the old body derivation and says so
  * (`referenceLineInferred`, and a line in the report).
  */
-import { type BimElement, type Wall, landImport, takeoffTotals } from "@permitzip/bim-kernel";
+import { type BimElement, type Wall, landImport, takeoffTotals, withUpgradePolicy } from "@permitzip/bim-kernel";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { importIfc, readIfcSource } from "../src";
@@ -189,8 +189,10 @@ describe("i9-wall-axis", () => {
     const plan = importIfc(text, input);
     expect(walls(plan.records)).toHaveLength(4);
     expect(plan.records.filter((r) => r.kind === "opening")).toHaveLength(1);
-    expect(plan.report.converted).toBe(6);
-    expect(plan.report.summary).toBe("Converted 4 walls, 1 door and 1 footing. Left 20 members, 5 plates, 2 roof decks, 1 roof, 1 stair flight and 5 windows as the linked model.");
+    // 4 walls, the door in one of them, the footing, and since step 8 the 20
+    // mullions and transoms and the 5 glazed panels of the façade.
+    expect(plan.report.converted).toBe(31);
+    expect(plan.report.summary).toBe("Converted 20 mullions and transoms, 5 curtain wall panels, 4 walls, 1 door and 1 footing. Left 2 roof decks, 1 roof, 1 stair flight and 5 windows as the linked model.");
     // The file's 360 mm brick wall is centred on its axis, so nothing to carry and
     // nothing inferred: same thickness, same 30 m of wall as the body derivation gave.
     for (const wall of walls(plan.records)) {
@@ -199,8 +201,15 @@ describe("i9-wall-axis", () => {
       expect(wall.offsetFromReferenceLineMm).toBeUndefined();
       expect(wall.referenceLineInferred).toBeUndefined();
     }
-    const length = takeoffTotals(landImport(hostModel(), plan.records).model.elements).find((t) => t.measure.key === "qto.length");
-    expect(Math.round(length?.value ?? 0)).toBe(30);
+    // The add-on kinds the plan writes are new to older peers, so landing them is decided as every peer reading them (the model server does this).
+    const model = withUpgradePolicy(() => true, () => landImport(hostModel(), plan.records).model);
+    expect(model.elements).toBeDefined();
+    const lengths = takeoffTotals(model.elements).filter((t) => t.measure.key === "qto.length");
+    const wallLength = lengths.find((t) => t.group.kind === "class" && t.group.label === "Walls");
+    expect(Math.round(wallLength?.value ?? 0)).toBe(30);
+    // The framing's length is a line of its own, never folded into the walls'.
+    const frameLength = lengths.find((t) => t.group.kind === "class" && t.group.label === "Mullions and transoms");
+    expect(Math.round((frameLength?.value ?? 0) * 10) / 10).toBe(32.8);
     expect(plan.report.notes.join(" | ")).not.toMatch(/reference line inferred/);
     // The file's one 360 mm brick layer states its outer face 180 mm from the
     // reference line: the set spans ±180 round the axis, which is exactly where

@@ -32,7 +32,7 @@ Yani sorun **sınıflandırma değil, önce duvarın hiç oluşmaması.**
 | **6a** | **Duvar referans çizgisi (Axis + justification)** — bugün IFC'nin Axis temsilini bilerek atıyoruz (`geometry.ts:140-149`, yalnız Body), sonra merkez çizgiyi **gövde ayak izi dikdörtgeninden** uyduruyoruz (`shape.ts:79-93`). Doğrusu: saklanan `start→end` **referans çizgisidir**, gövde ondan yanal kayar; kalınlık düzenlemesi referansı sabit tutar | Kesilen/eklenen duvarların referansı doğru olur; **adım 6'nın önkoşulu** — yanlış referansla birleşim yapmak yanlış birleşim yapmaktır | **2-3 gün** | Dosya justification'ı yalnız geometrik olarak ifade ediyorsa sayısal türetmek gerekir; eksen eğrisiyse ayrı karar |
 | **6** | **Duvar parça birleştirme + L/T birleşimleri** (Pascal'ın `wall-joins.ts` mantığı) | Doğru oda kapanışı, birleşimsiz uzunluklar. Bugün hata birleşim başına ~kalınlık (toplam %2-4) | **3-5 gün** | **Toleranslar ABD konut ölçeğinde**: 1.25 m boşluk ve 0.35 m ayırıcı boşluğu Türk ticari modelde **duvar uydurur**. 0.15-0.3 m'ye çek |
 | **7** | ~~`IfcRelAssociatesClassification` → `classification[]`~~ **YAPILDI — upstream #49 ile geldi** (merge `7b53b42`): `read-products.ts:165` okur, `IfcClassificationReference` → `IfcClassification` çözer (`:354-363`), `plan.ts:185` kayda damgalar, `qto/group.ts` gruplamada ilk sırada kullanır. Upstream'in `proxy-diagnostics.test.ts` proxy fallback'te kaybolan sınıfı raporlar | — | ✅ | — |
-| **8** | **Giydirme cephe (`IfcPlate`/`IfcMember`) sınıfları** — örnekte 34 ürünün 25'i | Cephe m²'si ve mullion uzunluğu | **1-2 gün** | Ürün sayısı yüksek, birim başına kesinlik düşük |
+| **8** | ~~**Giydirme cephe (`IfcPlate`/`IfcMember`) sınıfları**~~ **YAPILDI** — `arch.curtain_panel` (`IfcPlate`, panelin kendi yüzü m²) ve `arch.curtain_member` (`IfcMember`, eksen uzunluğu + kesit alanı, profil boyuna göre gruplu); iki sınıf, iki kural, iki metraj kuralı, hepsi architecture pack'inde, çekirdeğe tek kelime girmeden (trade-word ratchet aynı kaldı). Örnekte 25 ürün dönüşüyor: 20 mullion/kayıt (32,8 m) + 5 cam panel (11,93 m²) → **34 ürünün 31'i** | Cephe m²'si ve mullion uzunluğu | **1-2 gün** | Ürün sayısı yüksek, birim başına kesinlik düşük |
 
 ---
 
@@ -59,6 +59,11 @@ Yani sorun **sınıflandırma değil, önce duvarın hiç oluşmaması.**
 >
 > Ölçülen durum (oturum sonu): örnek modelde 34 ürünün **6'sı** dönüşüyor — 4 duvar, 1 kapı,
 > 1 temel — artı tavan ve mekanlar (adım 4-5). Katmanlar yüz başına m² olarak metraja giriyor.
+>
+> **Adım 8 (giydirme cephe) sonrası:** aynı örnekte **31/34** dönüşüyor. Yeni metraj satırları:
+> 20 mullion/kayıt `32,8 m` (tek profil grubu `90 × 90 mm`, kesit `0,16 m²`) ve 5 cam panel
+> `11,93 m²`. Dosyada kalan 3 ürün bu dilimin dışında (2 çatı döşemesi eğimli, 1 merdiven
+> kolu), artı kendi gövdesi olmayan 6 varlık (1 çatı, 5 pencere) ki onlar ürün bile sayılmıyor.
 
 ## İlk adım (ve neden o)
 

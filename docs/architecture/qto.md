@@ -28,7 +28,11 @@
    (plan area less holes), `qto.area_gross` and `qto.area_net` (one wall face,
    then less hosted doors and windows), `qto.volume`, `qto.area_surface`,
    `qto.mass` (count × a type's unit weight, or length × weight per length).
-   Each `MeasureDef` names its unit code as well as its kind
+   An add-on's rule adds keys of its own with the same obligation — the
+   Architecture add-on measures a mullion or transom's section as
+   `qto.section_area` (`m²`: its profile, or the area the file's own section
+   states) — and a key it shares with a kernel rule (`qto.length`, `qto.area`)
+   keeps its unit. Each `MeasureDef` names its unit code as well as its kind
    (`types.ts:24-38`), so a measure cannot be added without saying what unit it
    is in.
 3. **Layer measures are what a finish is priced by.** For each layer of a

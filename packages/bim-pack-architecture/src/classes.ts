@@ -35,4 +35,12 @@ export const ARCHITECTURE_CLASSES: readonly PackClass[] = [
   },
   { id: "arch.roof", label: "Roofs", discipline: "architecture", ifc: { entity: "IfcRoof", predefinedType: "FLAT_ROOF", typeEntity: "IfcRoofType" }, recognize: { elementKinds: ["architecture.roof"] } },
   { id: "arch.stair", label: "Stairs", discipline: "architecture", ifc: { entity: "IfcStair", predefinedType: "STRAIGHT_RUN_STAIR", typeEntity: "IfcStairType" }, recognize: { elementKinds: ["architecture.stair"] } },
+  // The envelope's glazed sheet and the framing lines between them. No
+  // `predefinedType` on either: a façade exports its glass as `CURTAIN_PANEL`
+  // and just as often as the plain `SHEET` (this repo's own sample model does),
+  // and its framing as `MULLION` or as `TRANSOM` — all of them are a sheet and a
+  // member. A class that names a predefined type is a closer match, so a
+  // structural class of steel plates (`BASE_PLATE`) outranks this one.
+  { id: "arch.curtain_panel", label: "Curtain wall panels", discipline: "architecture", ifc: { entity: "IfcPlate", typeEntity: "IfcPlateType" }, recognize: { elementKinds: ["architecture.curtain_panel"] }, description: "Glazed sheets in a curtain wall: the m² a façade is priced by." },
+  { id: "arch.curtain_member", label: "Mullions and transoms", discipline: "architecture", ifc: { entity: "IfcMember", typeEntity: "IfcMemberType" }, recognize: { elementKinds: ["architecture.curtain_member"] }, description: "Curtain-wall framing: mullions, transoms and studs, priced by length and by profile size." },
 ];

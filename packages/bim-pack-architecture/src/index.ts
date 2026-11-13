@@ -9,6 +9,8 @@ export { ARCHITECTURE_LINKED_PLAN_DISPLAY } from "./linked-plan-display";
 export { ARCHITECTURE_CLASSES } from "./classes";
 export { ARCHITECTURE_PARAMETER_SET, ROOM_BOUNDING_KEY, SMOKE_BARRIER_KEY } from "./parameters";
 export { ARCHITECTURE_PLAN_GRAPHICS, DOOR_PLAN_GRAPHICS, WINDOW_PLAN_GRAPHICS, DOOR_OPERATION_KEY } from "./graphics";
+export { CURTAIN_KIND_ROWS, CURTAIN_MEMBER_KIND, CURTAIN_MEMBER_KIND_ROW, CURTAIN_PANEL_KIND, CURTAIN_PANEL_KIND_ROW, asCurtainMember, asCurtainPanel, curtainMemberLengthM, curtainMemberSectionAreaM2, curtainPanelAreaM2, curtainProfileLabel, panelOutline, type CurtainMemberProfile, type CurtainMemberRecord, type CurtainPanelRecord } from "./curtain";
+export { CURTAIN_MEASURE_RULES, CURTAIN_MEMBER_MEASURE_RULE, CURTAIN_PANEL_MEASURE_RULE } from "./measure";
 export { ARCHITECTURE_KIND_ROWS, ROOF_KIND, STAIR_KIND, ROOF_KIND_ROW, STAIR_KIND_ROW, MAX_RISER_MM, asRoof, asStair, stairGeometry, roofBlocks, roofPlane, roofFaceAt, ROOF_SURFACE_FACE_ROW, type RoofRecord, type StairRecord, type StairGeometry, type RoofSlope } from "./kinds";
 export { ARCHITECTURE_RATINGS, FIRE_RESISTANCE_RATING, SMOKE_BARRIER_RATING, FIRE_RESISTANCE_KEY, DOOR_FIRE_RATING_KEY, ratingHours } from "./ratings";
 // Plain data for host screens (tab ids, labels, slots); a host imports `ADDON_UI` under its own name.
