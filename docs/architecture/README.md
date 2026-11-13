@@ -31,6 +31,7 @@ These pages are short on purpose. Each one answers four questions and stops:
 |---|---|
 | [layers](layers.md) | The seven layers, what may import what, and the test that walks every runtime import |
 | [model](model.md) | `ModelState`, element kinds as registry rows, types over parameters, connected networks, groups/phases/partitions, and why models hold no money |
+| [vertical](vertical.md) | Levels, wall and ceiling tops, slab placement and thickness, and the clamp rules between them |
 | [commands](commands.md) | The edit spine: intent commands, the server re-running them, conflict on authored fields, idempotency, batches, agents as actors |
 | [sync](sync.md) | Backend-neutral sync, leases, durable commits, the two servers, and what a client may assume |
 | [units](units.md) | Typed units: why no bare number crosses a boundary, and how a unit kind is declared |
@@ -44,6 +45,9 @@ These pages are short on purpose. Each one answers four questions and stops:
 | [ifc](ifc.md) | Import and export: what we read, what we refuse, the classification gap, and the wall-axis lesson |
 | [sheets](sheets.md) | Sheets, title blocks, PDF; paper stays black on white and never reads the theme |
 | [lint](lint.md) | Coordination findings: what a lint finding is, and what it is not |
+| [spaces](spaces.md) | Spaces and rooms, the label seed, and **revision identity** — why a room keeps its record when walls move |
+| [placement](placement.md) | Placement validation: what a tool may put where, and what it refuses |
+| [tools](tools.md) | The editor's tool and interaction machine: readiness, switching, and the scope of a gesture |
 | [library](library.md) | The firm library format, and why it is a documented file format rather than a database |
 
 ### Surfaces
@@ -71,6 +75,33 @@ rather than contracts: [`docs/SCRIPTING.md`](../SCRIPTING.md),
 [`docs/CONNECT-AN-AGENT.md`](../CONNECT-AN-AGENT.md),
 [`docs/SCRIPTING-COVERAGE.md`](../SCRIPTING-COVERAGE.md).
 
+## Where this came from, and what we did not take
+
+The practice — one short page per subsystem, an index with a reading order driven by what a
+diff touches, and **"how it goes wrong"** as the most valuable section — is adapted from
+`pascalorg/editor`'s `wiki/architecture/` (MIT, 30 pages). Their pages describe *their*
+system, so nothing was copied: every page here is written from our code, and each one says
+what the guard is or that none exists.
+
+An honest mapping, so nobody wonders why a subject is missing:
+
+| Their page | Ours |
+|---|---|
+| `layers`, `viewer-isolation` | [`layers`](layers.md), [`viewers`](viewers.md) |
+| `agent-surfaces`, `tools` | [`agent-tools`](agent-tools.md) |
+| `plugin-authoring` | [`addons`](addons.md) |
+| `node-schemas`, `node-definitions` | [`model`](model.md) (registry kinds, types, parameters) |
+| `wall-frame` | [`ifc`](ifc.md) — the reference-line lesson is why step 6a exists |
+| `space-detection` | [`spaces`](spaces.md) |
+| `vertical-model` | [`vertical`](vertical.md) |
+| `interaction-scope` | [`tools`](tools.md) |
+| `spatial-queries` | [`placement`](placement.md) |
+| `measurements` | [`qto`](qto.md) — our measures are machine-readable, not a drawn measure tool |
+| `scene-runtime`, `renderers`, `scene-registry`, `events`, `selection-managers`, `selection-groups`, `materials-and-themes`, `item-authoring`, `authored-objects`, `node-schemas` in detail | **no counterpart.** Their editor is a React Three Fiber scene store; ours is a kernel of records with a sync protocol. A page about a subsystem we do not have would be fiction |
+| `construction-animation` | **no counterpart.** Our 4D lives in OpenConstructionERP (`5d_planner`, `costmodel`), not in the model viewer |
+| `capture-runtime` (point clouds, scan-to-BIM) | **no counterpart.** Considered and deferred — see `docs/decisions/2026-11-10-pascal-editor-assessment.md` |
+| `inspector-field-limits`, `point-and-ask` | **no counterpart yet.** The first is a UI rule we have not written down; the second is an agent UX we have not built |
+
 ## Reading order for an architecture review
 
 1. Always: [layers](layers.md), [model](model.md), [commands](commands.md).
@@ -86,6 +117,9 @@ rather than contracts: [`docs/SCRIPTING.md`](../SCRIPTING.md),
 | any `locales/`, `t(` call, `MUTINY_NAMESPACES` | [i18n](i18n.md) |
 | `bim-viewer*`, `bim-ui`, `bim-grid`, CSS | [viewers](viewers.md), [i18n](i18n.md) (theme rule) |
 | `bim-editor`, `bim-editor-host` | [editor](editor.md), [viewers](viewers.md) |
+| `bim-editor/src/editor/placement`, tools, readiness, scopes | [tools](tools.md), [placement](placement.md) |
+| `bim-kernel/src/levels`, `ceilings`, slab placement | [vertical](vertical.md) |
+| rooms, spaces, `IfcSpace`, anything that matches one import to another | [spaces](spaces.md) |
 | `apps/mutinybim-web` | [web](web.md), [i18n](i18n.md) |
 | `bim-pack-*`, a new trade | [addons](addons.md), [layers](layers.md) |
 | a new test, or a `__tests__` helper | [tests-as-guards](tests-as-guards.md) |
