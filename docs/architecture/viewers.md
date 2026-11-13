@@ -34,6 +34,8 @@ Four pieces, each where its layer allows:
 surface, plus `onWalkthroughChange` so a host can draw the way in and the way
 out. **The viewer draws no walking chrome**: the button and the "W A S D, Esc"
 line are the editor's (`WalkthroughOverlay.tsx`), keyed like every other caption.
+The single exception is the headset entry below, which no host can draw without
+asking this package's presentation what the browser supports.
 
 Two rules that are easy to break and were the point of the design:
 
@@ -44,6 +46,41 @@ Two rules that are easy to break and were the point of the design:
   a stall nobody forgives, and a walker needs one storey. The solids are grouped
   by storey when the model lands (an index, not a build); a storey's world is
   built on first use and a handful are kept (`PartitionColliders.MAX_BUILT`).
+
+## Presenting in a headset
+
+`src/xr/presentation.ts` is the WebXR half of the walkthrough. It is a browser
+API, not a dependency, and it is **asked, never assumed**: `navigator.xr` may be
+absent, present with `isSessionSupported('immersive-vr')` false (every phone, most
+desktops), or present and able. Only the last state is offered anything, and the
+entry is empty — no button, nothing to focus — in the other two. A button that
+cannot work is worse than no button; `ThemeToggle` follows the same rule.
+
+**The walker carries the headset; the headset does not drive the walker.** The
+session's reference space is `local-floor`, so y = 0 is the floor the person
+stands on, and the walker's feet are that origin: three.js adds the head's own
+pose on top of it. Walking is the hand controllers' thumbstick, pressed through
+the *same* `Walker.advance` the keyboard presses — same pace, same colliders,
+same stairs, same doors — and the head's yaw becomes the walker's yaw each frame
+so "forward" means where the person is looking. The other way round was refused:
+a headset pose is a physical person in a room the app cannot refuse, so a walker
+that followed the head would walk through walls and could only cross a two-metre
+play area.
+
+Two consequences worth knowing before touching it:
+
+- **A refusal is the normal case.** `enterPresentation()` returns
+  `"not-available"` or `"refused"`; nothing is thrown, no session is left
+  half-started, no key is left held and the flat view is untouched.
+- **A headset frame is drawn straight to its framebuffer**, not through the
+  `post/` pipeline: a composer's render targets hold one picture and a headset
+  needs two. Ambient occlusion and TAA are left out in XR rather than drawn
+  wrong.
+
+The one caption this package draws is the entry button, because no host can know
+whether the browser can present without asking it. Its colours, radius and font
+are `--mutiny-*` variables; a host with its own chrome may draw a `bim-ui`
+`Button` on `viewer.enterPresentation()` instead.
 
 ## The contract
 

@@ -34,6 +34,7 @@ import { PartitionColliders } from "./walkthrough-collider";
 import { WalkthroughInput } from "./walkthrough-input";
 import { Walker, type WalkScene, type WalkerState } from "./walkthrough";
 import { storeyForFeet, storeysOfSteps } from "./walkthrough-stairs";
+import { Presentation, XR_REFERENCE_SPACE, type PresentationHost, type PresentationOutcome, type PresentationState } from "./xr/presentation";
 import { createRenderPipeline, type RenderPipeline } from "./post/render-pipeline";
 import { DEFAULT_SUN, sceneLightRig, type SceneLightRig } from "./atmosphere/daylight";
 
@@ -409,6 +410,10 @@ export class ModelViewer3D {
   private readonly walkColliders = new PartitionColliders((storey) => this.walkSolidsOfStorey(storey));
   /** Stairs, filed under the storeys they reach other than their own: a flight crosses the boundary it rises through. */
   private readonly walkStairsByStorey = new Map<string, Solid[]>();
+  /** Presentation in a headset (`xr/presentation.ts`); made the first time somebody asks for one. */
+  private xrPresentation: Presentation | null = null;
+  /** A vector the head's own direction is read into, so a headset frame allocates nothing. */
+  private readonly xrForward = new THREE.Vector3();
 
   constructor(
     private readonly container: HTMLElement,
@@ -534,14 +539,22 @@ export class ModelViewer3D {
     if (this.disposed) return;
     const delta = this.clock.getDelta();
     const walking = this.walkthrough;
+    const presenting = this.presenting();
     if (walking) {
+      // In a headset the hand controllers drive the walker: the four keys are set
+      // from the thumbsticks on every frame, headset frames included, so a key the
+      // flat walkthrough was holding is let go (`Presentation.update`).
+      if (presenting) this.xrPresentation?.update();
       // Walking owns the camera: the orbit controls stay out of it until walkthrough ends.
       const step = walking.limiter.step(performance.now());
       if (!step.skipped) {
         walking.walker.advance(step.dt);
         // A stair takes the feet to the storey above; the world must follow, or the rest of the walk collides with the storey below.
         this.followWalkStorey(walking);
-        this.applyWalkCamera(walking.walker);
+        // A headset's camera is the floor under the person, not their eye: three
+        // adds the head's own pose on top of it.
+        if (presenting) this.applyPresentedCamera(walking.walker);
+        else this.applyWalkCamera(walking.walker);
       }
     } else {
       this.controls.update(delta);
@@ -550,8 +563,15 @@ export class ModelViewer3D {
     if (this.origin.visible) this.origin.scale.setScalar(ARROW_PX * metresPerPixel(this.camera(), this.origin.position, this.size().height));
     this.toneNewReferenceMaterials();
     const camera = this.camera();
-    this.pipeline.setCamera(camera);
-    this.pipeline.render();
+    if (presenting) {
+      // Straight to the headset's own framebuffer: the composer's render targets
+      // hold one picture and a headset needs two. Ambient occlusion and temporal
+      // AA are left out of a headset frame rather than drawn wrong (`post/`).
+      this.renderer.render(this.scene, camera);
+    } else {
+      this.pipeline.setCamera(camera);
+      this.pipeline.render();
+    }
     if (this.cropOutline.object.visible) {
       // The outline sits exactly on the clipping planes; draw it in its own pass with clipping off.
       const planes = this.renderer.clippingPlanes;
@@ -2410,6 +2430,8 @@ export class ModelViewer3D {
   exitWalkthrough(): boolean {
     const session = this.walkthrough;
     if (!session) return false;
+    // A headset has no walker to drive once the walk is over, so the session goes first.
+    this.xrPresentation?.end();
     this.walkthrough = null;
     session.input.dispose();
     session.walker.stop();
@@ -2430,13 +2452,113 @@ export class ModelViewer3D {
   /** The walker's eye writes the camera: position, then the head's turn (yaw about the up axis, pitch about it). */
   private applyWalkCamera(walker: Walker) {
     const eye = walker.eye();
+    this.poseWalkCamera(eye.x, eye.y, eye.z, walker.pitch(), walker.yaw());
+  }
+
+  /**
+   * The camera a headset is drawn from is the **floor** the person stands on, not
+   * their eye: the reference space three draws in puts y = 0 at the floor
+   * (`XR_REFERENCE_SPACE`), and the device adds the head's own height and turn on
+   * top of this pose. The yaw is 0 here because the walker's yaw already *is* the
+   * head's — `Presentation.update` folds it in each frame — and applying it twice
+   * would turn the view at double speed.
+   */
+  private applyPresentedCamera(walker: Walker) {
+    const eye = walker.eye();
+    this.poseWalkCamera(eye.x, walker.state().feetY, eye.z, 0, 0);
+  }
+
+  /** Put the camera where the walkthrough says, and let everything that follows a camera know. */
+  private poseWalkCamera(x: number, y: number, z: number, pitch: number, yaw: number) {
     const camera = this.perspective;
-    camera.position.set(eye.x, eye.y, eye.z);
-    camera.rotation.set(walker.pitch(), walker.yaw(), 0, "YXZ");
+    camera.position.set(x, y, z);
+    camera.rotation.set(pitch, yaw, 0, "YXZ");
     camera.updateMatrixWorld();
     for (const { model } of this.references.values()) model.useCamera(camera);
     void this.fragments.update();
     for (const listener of this.cameraListeners) listener();
+  }
+
+  // ---------------------------------------------------------------- presentation
+
+  /**
+   * The presentation this viewer would hand a headset, for a host that draws the
+   * way in (`createPresentationEntry`). Asking for it changes nothing: whether
+   * this browser can present is answered by `supported()` on the entry, and a
+   * browser with no WebXR answers false rather than throwing.
+   */
+  presentation(): Presentation {
+    this.xrPresentation ??= new Presentation({ host: this.presentationHost() });
+    return this.xrPresentation;
+  }
+
+  /** Where the headset is: `unknown` until the browser has been asked, then unsupported, available, starting or presenting. */
+  presentationState(): PresentationState {
+    return this.xrPresentation?.state() ?? "unknown";
+  }
+
+  /** True while a headset session owns the walker and the camera. */
+  presenting(): boolean {
+    return this.xrPresentation?.state() === "presenting";
+  }
+
+  /**
+   * Present the model in a headset, where the browser offers one.
+   *
+   * A headset is a view of a **walk**: the walker is the floor the session is
+   * drawn from, so `enterWalkthrough()` is the way in and nobody walking is
+   * `"not-available"` without a session being asked for. Every refusal — no
+   * WebXR, no headset, a person declining the browser's prompt, a renderer that
+   * will not take the session — comes back as a value, with the walker standing
+   * still and the flat view intact.
+   */
+  async enterPresentation(): Promise<PresentationOutcome> {
+    if (this.mode !== "3d" || this.walkthrough === null) return "not-available";
+    return this.presentation().start();
+  }
+
+  /** Use the headset's own menu, or take it off; this is the same way out from the flat screen. */
+  exitPresentation(): void {
+    this.xrPresentation?.end();
+  }
+
+  /**
+   * What a headset needs from the viewer and what it must give back
+   * (`xr/presentation.ts`): the walker it drives, the session the renderer takes,
+   * where the head points, and the flat view afterwards.
+   */
+  private presentationHost(): PresentationHost {
+    return {
+      walker: () => this.walkthrough?.walker ?? null,
+      attach: async (session, space) => {
+        // The reference space was asked for and granted before this point; three
+        // asks the session for the same one by type, which is why the space
+        // itself is only proof and not an argument.
+        void space;
+        this.renderer.xr.setReferenceSpaceType(XR_REFERENCE_SPACE);
+        // Enabled only once three has taken the session: a renderer left in XR
+        // mode after a refused session would draw no flat view at all.
+        await this.renderer.xr.setSession(session as unknown as Parameters<typeof this.renderer.xr.setSession>[0]);
+        this.renderer.xr.enabled = true;
+        const walker = this.walkthrough?.walker;
+        if (walker) this.applyPresentedCamera(walker);
+      },
+      headYaw: () => {
+        if (!this.renderer.xr.isPresenting) return null;
+        const forward = this.renderer.xr.getCamera().getWorldDirection(this.xrForward);
+        // Looking straight up or down leaves no horizontal direction to read a
+        // turn from: the walker keeps the turn it had rather than snapping to one.
+        if (Math.hypot(forward.x, forward.z) < 1e-3) return null;
+        return Math.atan2(-forward.x, -forward.z);
+      },
+      release: () => {
+        this.renderer.xr.enabled = false;
+        // The flat walkthrough comes back at the walker's eye, facing where the
+        // person's head last turned them — the place the session walked to.
+        const walker = this.walkthrough?.walker;
+        if (walker) this.applyWalkCamera(walker);
+      },
+    };
   }
 
   /**
@@ -2574,6 +2696,9 @@ export class ModelViewer3D {
       this.planFootprintsIdle = null;
     }
     this.disposed = true;
+    // A headset session outlives a disposed viewer: end it before the canvas goes.
+    this.xrPresentation?.dispose();
+    this.xrPresentation = null;
     // The walkthrough's listeners and pointer capture go with the canvas.
     this.walkthrough?.input.dispose();
     this.walkthrough?.walker.stop();

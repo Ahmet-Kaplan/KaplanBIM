@@ -6470,7 +6470,8 @@
   "walk": {
     "enter": "Modelde yürü",
     "keys": "Yürümek için W A S D, bakmak için imleç, çıkmak için Esc",
-    "leave": "Yürüyüşten çık"
+    "leave": "Yürüyüşten çık",
+    "present": "VR başlığında sun"
   },
   "zoom": {
     "stayHere": "Burada kal",

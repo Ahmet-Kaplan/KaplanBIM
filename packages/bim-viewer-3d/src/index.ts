@@ -24,6 +24,7 @@ export * from "./walkthrough-mechanisms";
 export * from "./walkthrough-stairs";
 export * from "./walkthrough-collider";
 export * from "./walkthrough-input";
+export * from "./xr/presentation";
 export * from "./post/ao";
 export * from "./post/render-pipeline";
 export * from "./atmosphere/daylight";

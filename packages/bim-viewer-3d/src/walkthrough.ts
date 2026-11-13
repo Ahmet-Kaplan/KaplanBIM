@@ -153,6 +153,20 @@ export class Walker {
     if (this.pitchRad < -WALK_PITCH_LIMIT_RAD) this.pitchRad = -WALK_PITCH_LIMIT_RAD;
   }
 
+  /**
+   * Set which way the body faces, radians about the up axis — absolute, not a
+   * pointer delta.
+   *
+   * A headset needs it: in XR the head's turn *is* the body's turn
+   * (`xr/presentation.ts`), and a head's pose has no pixels of pointer movement
+   * to be converted. The flat walkthrough turns with `look()` and never calls
+   * this, so nothing about walking with a mouse and a keyboard changes.
+   */
+  face(yawRad: number): void {
+    if (!Number.isFinite(yawRad)) return;
+    this.yawRad = yawRad;
+  }
+
   hold(key: WalkKey, down: boolean): void {
     if (down) this.held.add(key);
     else this.held.delete(key);
