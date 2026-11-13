@@ -1,5 +1,5 @@
 import type { Vec2 } from "../types";
-import type { ImportGeometry, ImportPoint } from "./types";
+import type { ImportGeometry, ImportPoint, ImportReferenceLine } from "./types";
 
 /**
  * The few readings of a solid every import rule shares, trade-free: a
@@ -81,6 +81,54 @@ export interface PlanAxis {
   readonly end: Vec2;
   /** The short side. */
   readonly thickness: number;
+}
+
+/** A line in plan: a reference line, or a body's centre line. */
+export interface PlanLine {
+  readonly start: Vec2;
+  readonly end: Vec2;
+}
+
+/**
+ * A reference line the file states, as its two plan ends, when it is one
+ * straight run and long enough to place anything on. Null otherwise: a curve
+ * (whose chord is a different line), an axis nothing could be read from, or no
+ * line at all — the caller then infers one from the body and says so.
+ */
+export function straightReferenceLine(line: ImportReferenceLine | undefined): PlanLine | null {
+  if (!line || !line.straight || line.unread !== undefined) return null;
+  const first = line.points[0];
+  const last = line.points[line.points.length - 1];
+  if (!first || !last) return null;
+  const start = { x: first.x, y: first.y };
+  const end = { x: last.x, y: last.y };
+  return Math.hypot(end.x - start.x, end.y - start.y) >= 1 ? { start, end } : null;
+}
+
+/**
+ * How a body's plan outline sits across a line: its thickness, mm (its extent
+ * across the line, not the short side of a box round it, so an angled or cut
+ * end doesn't shorten it), and where its centre falls from the line, mm —
+ * positive to the left looking from start to end. Null when the outline has no
+ * width across the line.
+ */
+export function acrossReferenceLine(outline: readonly Vec2[], line: PlanLine): { readonly thickness: number; readonly offset: number } | null {
+  const dx = line.end.x - line.start.x;
+  const dy = line.end.y - line.start.y;
+  const len = Math.hypot(dx, dy);
+  if (len < 1 || outline.length < 3) return null;
+  // The left normal, as `line-face` states a line's sides.
+  const nx = -dy / len;
+  const ny = dx / len;
+  let near = Infinity;
+  let far = -Infinity;
+  for (const p of outline) {
+    const across = (p.x - line.start.x) * nx + (p.y - line.start.y) * ny;
+    if (across < near) near = across;
+    if (across > far) far = across;
+  }
+  const thickness = far - near;
+  return thickness >= 1 ? { thickness, offset: (near + far) / 2 } : null;
 }
 
 /** A plan rectangle's centre line along its long side, or null when the outline isn't a rectangle. */

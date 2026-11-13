@@ -190,6 +190,8 @@ function planInScope(source: ImportSource, opts: PlanImportOptions): IfcImportPl
   };
   /** Records read with their cuts left in, by the cut the reader named. */
   const cutLeftIn = new Map<string, number>();
+  /** Records whose reference line was inferred from the body, by why the file couldn't give one. */
+  const inferredReference = new Map<string, number>();
   /** Build-ups whose stated total and the shape's measured thickness part ways, by "stated|measured". */
   const layerMismatch = new Map<string, number>();
 
@@ -238,6 +240,11 @@ function planInScope(source: ImportSource, opts: PlanImportOptions): IfcImportPl
     if (own) converted.set(product.sourceId, own.id);
     // A solid read with its cuts left in converts, and the report says what it measured (a wall's openings aren't subtracted, so it reads long).
     if (product.geometry.cutsLeftIn) cutLeftIn.set(product.geometry.unread ?? "cut", (cutLeftIn.get(product.geometry.unread ?? "cut") ?? 0) + 1);
+    // A record placed on a reference line inferred from its body: the file gave none it could be read from.
+    if (own && "referenceLineInferred" in own && own.referenceLineInferred === true) {
+      const why = product.referenceLine === undefined ? "the file states no reference line for it" : product.referenceLine.unread !== undefined ? `the file's reference line is ${product.referenceLine.unread}` : "the file's reference line is curved";
+      inferredReference.set(why, (inferredReference.get(why) ?? 0) + 1);
+    }
     // A build-up measures its layers against the wall's shape; when the file's own total and that
     // thickness part ways, the layers' volumes don't add up to the element's and the report says so.
     const stated = importedLayerSet(product)?.totalThicknessMm;
@@ -260,6 +267,12 @@ function planInScope(source: ImportSource, opts: PlanImportOptions): IfcImportPl
     const [stated, measured] = key.split("|");
     const one = count === 1;
     notes.add(`${count} ${one ? "element states a build-up" : "elements state build-ups"} ${stated} mm thick where ${one ? "its shape measures" : "their shapes measure"} ${measured} mm, so ${one ? "its" : "their"} layers' volumes don't add up to ${one ? "its" : "their"} own. Check the layer set against the shape.`);
+  }
+
+  for (const [why, count] of inferredReference) {
+    if (notes.size >= 200) break;
+    const one = count === 1;
+    notes.add(`${count} ${one ? "element" : "elements"} came in on a reference line inferred from ${one ? "its" : "their"} body's footprint (${why}), so a thickness change moves the line rather than the face. Check ${one ? "it" : "them"} against the source model.`);
   }
 
   const classes: ImportClassLine[] = [...lines.values()]

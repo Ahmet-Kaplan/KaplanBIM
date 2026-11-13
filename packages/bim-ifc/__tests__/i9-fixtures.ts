@@ -52,6 +52,24 @@ export class IfcText {
     return this.add("IFCPRODUCTDEFINITIONSHAPE", `$,$,(#${rep})`);
   }
 
+  /**
+   * A product definition shape with a Body and, when `axis` is given, the Axis
+   * representation a real file carries: the reference line the element is
+   * dimensioned by, which its body sits across. `curve` writes the Axis' own
+   * items instead of a polyline through `axis` (an arc, an unread curve type).
+   */
+  shape(bodyItems: readonly number[], axis: readonly (readonly [number, number])[] | null, curve?: number): number {
+    const reps = [this.add("IFCSHAPEREPRESENTATION", `#${this.context},'Body','SweptSolid',(${bodyItems.map((i) => `#${i}`).join(",")})`)];
+    if (axis && axis.length > 1) reps.push(this.add("IFCSHAPEREPRESENTATION", `#${this.context},'Axis','Curve2D',(#${curve ?? this.line(axis)})`));
+    else if (curve !== undefined) reps.push(this.add("IFCSHAPEREPRESENTATION", `#${this.context},'Axis','Curve2D',(#${curve})`));
+    return this.add("IFCPRODUCTDEFINITIONSHAPE", `$,$,(${reps.map((r) => `#${r}`).join(",")})`);
+  }
+
+  /** An open `IfcPolyline` through two or more points (the shape a wall's Axis usually is). */
+  line(points: readonly (readonly [number, number])[]): number {
+    return this.add("IFCPOLYLINE", `(${points.map(([x, y]) => `#${this.pt(x, y)}`).join(",")})`);
+  }
+
   rect(x: number, y: number, at: readonly [number, number] = [0, 0], dirX?: readonly [number, number]): number {
     return this.add("IFCRECTANGLEPROFILEDEF", `.AREA.,$,#${this.axis2(at, dirX)},${f(x)},${f(y)}`);
   }
@@ -114,10 +132,16 @@ export class IfcText {
     return id;
   }
 
-  /** A straight wall of `thickness` from `start` along +x for `length`, `height` tall (footprint rectangle centred on the axis). */
-  wall(storey: string, name: string, start: readonly [number, number], length: number, thickness: number, height: number, angleDeg = 0): number {
+  /**
+   * A straight wall of `thickness` from `start` along +x for `length`, `height`
+   * tall, its body centred on its axis (or `opts.bodyOffset` mm to its left),
+   * with the Axis representation a real file gives a wall. `opts.axis: false`
+   * leaves the Axis out (a file that states none).
+   */
+  wall(storey: string, name: string, start: readonly [number, number], length: number, thickness: number, height: number, angleDeg = 0, opts: { readonly axis?: boolean; readonly bodyOffset?: number; readonly axisCurve?: number } = {}): number {
     const a = (angleDeg * Math.PI) / 180;
-    const shape = this.body([this.extrude(this.rect(length, thickness, [length / 2, 0]), height)]);
+    const body = this.extrude(this.rect(length, thickness, [length / 2, opts.bodyOffset ?? 0]), height);
+    const shape = opts.axis === false && opts.axisCurve === undefined ? this.body([body]) : this.shape([body], opts.axis === false ? null : [[0, 0], [length, 0]], opts.axisCurve);
     return this.product(storey, "IFCWALL", name, [start[0], start[1], 0], shape, ".STANDARD.", { axis: [Math.cos(a), Math.sin(a), 0] });
   }
 

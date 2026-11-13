@@ -19,7 +19,7 @@ import type { PartMount } from "./part-mount";
 import type { IntakeChoice } from "./part-model/intake-hood";
 import type { MountingPlane } from "./mounting-plane";
 import type { PlannedPlacement } from "./placement/types";
-import type { GeometricPlacement } from "./placement/geometric";
+import type { GeometricPlacement, LateralJustification } from "./placement/geometric";
 import type { DrawingUnderlay, Space, SpaceSeparator, Zone } from "./spaces/types";
 import type { PackPin } from "./packs/set";
 import type { GraphElement } from "./graph/types";
@@ -253,13 +253,39 @@ export type ColumnMaterial = (typeof KNOWN_COLUMN_MATERIALS)[number] | (string &
 
 export interface Wall extends ModelElementBase, ElementCore {
   readonly kind: "wall";
-  /** Authored. */
+  /**
+   * Authored, and the wall's reference line: an imported wall's `start`/`end`
+   * is the axis the file gives it (`ImportReferenceLine`), not its body's
+   * centre line. The body sits across it by `offsetFromReferenceLineMm`, and a
+   * thickness change leaves the line — and so its neighbours' faces — alone.
+   */
   readonly start: Vec2;
-  /** Authored. */
+  /** Authored; see `start`. */
   readonly end: Vec2;
   readonly thickness: number;
   readonly height: number;
   readonly wallType: string;
+  /**
+   * Where the body sits across the reference line `start` → `end`, mm:
+   * positive to the left looking from start to end, so the body's centre line
+   * is this line moved that far left. Absent: the body is centred on the line.
+   */
+  readonly offsetFromReferenceLineMm?: number;
+  /**
+   * Which face of the body the reference line is, looking from start to end,
+   * when it is one of them. Derived from `offsetFromReferenceLineMm` (a
+   * reference inside the body but off its centre is none of the three, and
+   * states nothing), never read from the file: IFC has no justification
+   * attribute, and a file that justifies a wall states where the body falls.
+   */
+  readonly referenceJustification?: LateralJustification;
+  /**
+   * Set when the file carried no usable reference line, so `start`/`end` were
+   * inferred from the body's footprint: an axis-less file, or one whose axis
+   * is an arc. Thickening such a wall moves its line, which is what this flag
+   * warns a reader of.
+   */
+  readonly referenceLineInferred?: true;
   /**
    * Derived, when a surface its top or base is bound to isn't level along it
    * (a sloped roof over it, two slabs of different depth): its base and top

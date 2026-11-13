@@ -7,9 +7,10 @@ import { connectorDomainOf, sizeFitsDomain } from "../routing/rules";
 import { activeServiceRegistry } from "../services/registry";
 import { PART_CATEGORIES, type PartCategory, type PartTypeDefinition } from "../parts";
 import { labelSeedOf } from "../placement/label-seed";
+import type { LateralJustification } from "../placement/geometric";
 import type { ImportRuleContext, ImportRuleDef, ImportTypedKind } from "./rule-point";
 import { importedLayerSet } from "./layers";
-import { axisAligned, outlineArea, outlineCentre, rectangleAxis, roundPlan, straightSweep, verticalPrism } from "./shape";
+import { axisAligned, acrossReferenceLine, outlineArea, outlineCentre, rectangleAxis, roundPlan, straightReferenceLine, straightSweep, verticalPrism } from "./shape";
 import type { ImportProduct, ImportRuleResult } from "./types";
 
 /**
@@ -33,6 +34,24 @@ const whyNot = (p: ImportProduct, otherwise: string, noun = "shape"): string => 
 const nameOf = (p: ImportProduct): string => p.name?.trim() || p.tag?.trim() || p.sourceId;
 const typeNameOf = (p: ImportProduct, fallback: string): string => (p.typeName?.trim() || p.objectType?.trim() || fallback).slice(0, 200);
 const round = (n: number): number => Math.round(n * 10) / 10;
+
+/** How near a body's centre has to sit to a line, its face or half its width for those to be where the line is, mm. */
+const REFERENCE_LINE_TOLERANCE_MM = 0.5;
+
+/**
+ * Which face of a body a reference line is, from where the body's centre falls
+ * from it (`acrossReferenceLine`): "left" when the line is the body's left
+ * face (the body sits wholly to its right), "right" for the other face, and
+ * "center" through the middle. A line inside the body but on neither face nor
+ * its centre — a core line in a layered build-up — is none of the three, and
+ * says nothing rather than rounding to the nearest one.
+ */
+function justificationOf(offset: number, thickness: number): LateralJustification | null {
+  if (Math.abs(offset) <= REFERENCE_LINE_TOLERANCE_MM) return "center";
+  if (Math.abs(offset - thickness / 2) <= REFERENCE_LINE_TOLERANCE_MM) return "right";
+  if (Math.abs(offset + thickness / 2) <= REFERENCE_LINE_TOLERANCE_MM) return "left";
+  return null;
+}
 
 /**
  * Whether the record keeps its `classId`. A class the registry could recognise
@@ -77,6 +96,32 @@ const wall: ImportRuleDef = {
     if (typeof level === "string") return fail(level);
     const prism = verticalPrism(p.geometry);
     if (!prism) return fail(whyNot(p, "it isn't one straight, upright piece"));
+    const height = round(prism.top - prism.bottom);
+    const wallType = typeNameOf(p, "Imported wall");
+    // The line the file gives it is the reference line: the body is measured
+    // across that, never the other way round. A wall thickened here keeps its
+    // line, so its neighbours' faces stay where they were.
+    const line = straightReferenceLine(p.referenceLine);
+    if (line) {
+      const across = acrossReferenceLine(prism.outline, line);
+      if (!across) return fail("its body doesn't sit across the reference line the file gives it");
+      const justification = justificationOf(across.offset, across.thickness);
+      const record: Wall = {
+        ...base(ctx, p, level, "wall"),
+        kind: "wall",
+        start: roundPlan(line.start),
+        end: roundPlan(line.end),
+        thickness: round(across.thickness),
+        height,
+        wallType,
+        ...(justification ? { referenceJustification: justification } : {}),
+        ...(Math.abs(across.offset) > REFERENCE_LINE_TOLERANCE_MM ? { offsetFromReferenceLineMm: round(across.offset) } : {}),
+      };
+      return { ok: true, records: [record] };
+    }
+    // No straight reference line in the file: infer today's body centre line,
+    // and say on the record that the reference is inferred (`plan.ts` puts it
+    // in the report), because thickening such a wall moves its line.
     const axis = rectangleAxis(prism.outline);
     if (!axis) return fail("its footprint isn't a rectangle (curved, tapered or angled ends)");
     const record: Wall = {
@@ -85,8 +130,9 @@ const wall: ImportRuleDef = {
       start: roundPlan(axis.start),
       end: roundPlan(axis.end),
       thickness: round(axis.thickness),
-      height: round(prism.top - prism.bottom),
-      wallType: typeNameOf(p, "Imported wall"),
+      height,
+      wallType,
+      referenceLineInferred: true,
     };
     return { ok: true, records: [record] };
   },

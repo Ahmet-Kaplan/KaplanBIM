@@ -1,4 +1,4 @@
-import type { ImportClassification, ImportGroup, ImportLayer, ImportLayerSet, ImportPort, ImportProduct, ImportSource, ImportStorey, ParamValue } from "@permitzip/bim-kernel";
+import type { ImportClassification, ImportGroup, ImportLayer, ImportLayerSet, ImportPort, ImportProduct, ImportReferenceLine, ImportSource, ImportStorey, ParamValue } from "@permitzip/bim-kernel";
 import { readStep, type ReadEntity, type StepFile, type StepToken } from "../read";
 import { ifcEntityName, ownAttributes } from "../schema-ifc4x3";
 import { GeometryReader, apply, boundsOf, compose, hostFrame, type Frame } from "./geometry";
@@ -269,6 +269,10 @@ export function readIfcSource(text: string, opts: IfcReadOptions): ImportSource 
       }
       geo.finish(shape);
     }
+    // The reference line the file gives apart from the body (an `Axis`
+    // representation): its own, else its type's mapped one. Kept whether or
+    // not it could be read, so a rule can say the line was inferred and why.
+    const referenceLine = geo.readAxis(e.args[6], frame) ?? typeAxis(file, geo, type, frame);
     if (placementRef && file.entities.get(placementRef.id)?.type !== "IFCLOCALPLACEMENT") {
       // Not placed by a local placement: where it sits isn't read exactly, so the
       // solid is reported and refused, cuts left in or not.
@@ -310,6 +314,7 @@ export function readIfcSource(text: string, opts: IfcReadOptions): ImportSource 
       hostId: hostId !== undefined ? gid(hostId) : null,
       groupIds: groupsOf.get(e.id) ?? [],
       geometry: { extrusions: shape.extrusions, bounds: boundsOf(shape.points), unread: shape.unread, ...(shape.cutsLeftIn ? { cutsLeftIn: true as const } : {}) },
+      ...(referenceLine ? { referenceLine } : {}),
       properties: properties(e.id, type),
       overall: {
         width: widthIndex !== null ? numberOf(e.args[widthIndex], scale) : null,
@@ -326,6 +331,18 @@ export function readIfcSource(text: string, opts: IfcReadOptions): ImportSource 
 function numberOf(t: StepToken | undefined, scale: number): number | null {
   const v = value(t);
   return typeof v === "number" && v > 0 ? v * scale : null;
+}
+
+/** A type's own Axis, through its representation maps, for a product that has none of its own. */
+function typeAxis(file: StepFile, geo: GeometryReader, type: ReadEntity | undefined, frame: Frame): ImportReferenceLine | null {
+  if (!type) return null;
+  for (const m of refs(type.args[6])) {
+    const map = file.entities.get(m);
+    if (!map) continue;
+    const line = geo.readAxis(map.args[1], compose(frame, geo.axis2(map.args[0])));
+    if (line) return line;
+  }
+  return null;
 }
 
 /**
@@ -371,12 +388,17 @@ function layerSetOf(file: StepFile, id: number, scale: number, depth = 0): Impor
   if (e.type === "IFCMATERIALLAYERSETUSAGE") {
     const set = layerSetOf(file, refs(e.args[0])[0] ?? -1, scale, depth + 1);
     if (!set) return null;
-    // OffsetFromReferenceLine: where the reference line sits inside the set,
-    // from its outer face. The direction sense flips which way the set runs,
-    // not the order of its layers, so the layers' offsets are re-based here.
+    // `OffsetFromReferenceLine` is where the set's *outer* face falls from the
+    // element's reference line, along `LayerSetDirection`; `DirectionSense`
+    // says which way its thickness grows from that face. The sample model's
+    // centred 360 mm wall states −180: its outer face 180 mm to one side and
+    // the set growing back across the line — not a set 180..540 mm to one side
+    // of a body that sits at ±180. The reference line's own place in the set is
+    // therefore the stated offset measured back from that face.
     const stated = number(e.args[3]);
-    const offset = stated === null ? set.referenceLineOffsetMm : stated * scale;
-    return { ...set, referenceLineOffsetMm: offset, layers: reBasedLayers(set.layers, offset) };
+    const sense = enumOf(e.args[2]) === "NEGATIVE" ? -1 : 1;
+    const outerFace = (stated ?? 0) * scale;
+    return { ...set, referenceLineOffsetMm: -sense * outerFace, layers: reBasedLayers(set.layers, outerFace, sense) };
   }
   if (e.type !== "IFCMATERIALLAYERSET") return null;
   const layers: ImportLayer[] = [];
@@ -395,9 +417,14 @@ function layerSetOf(file: StepFile, id: number, scale: number, depth = 0): Impor
   return { name: str(e.args[1]), layers, totalThicknessMm: total, referenceLineOffsetMm: 0 };
 }
 
-/** The layers' outer faces measured from a reference line `offset` mm inside the set (negative toward the outer face). */
-function reBasedLayers(layers: readonly ImportLayer[], offset: number): readonly ImportLayer[] {
-  return layers.map((l) => ({ ...l, offsetFromReferenceLineMm: l.offsetFromReferenceLineMm - offset }));
+/**
+ * The layers' outer faces from the reference line, when the set's own outer
+ * face is `outerFace` mm from it and the build-up grows `sense` (1 or −1) from
+ * there: the outer face states where the set starts, each layer then adds its
+ * thickness in that direction.
+ */
+function reBasedLayers(layers: readonly ImportLayer[], outerFace: number, sense: number): readonly ImportLayer[] {
+  return layers.map((l) => ({ ...l, offsetFromReferenceLineMm: outerFace + sense * l.offsetFromReferenceLineMm }));
 }
 
 function materialName(file: StepFile, id: number, depth = 0): string | null {

@@ -51,11 +51,14 @@ const landed = (records: readonly BimElement[]): ModelState => landImport(hostMo
 
 describe("i9-import-layers", () => {
   it("reads the whole build-up in order: material, thickness, place and offset from the reference line", () => {
-    const text = fileWith((t) => layerSet(t, [{ material: "Sıva", thickness: 15 }, { material: "Tuğla", thickness: 170 }, { material: "Sıva", thickness: 15 }], 100));
+    // The file puts the reference line 100 mm from the outer face of a 200 mm
+    // build-up: half of it, which is the number a centred wall's set carries.
+    const text = fileWith((t) => layerSet(t, [{ material: "Sıva", thickness: 15 }, { material: "Tuğla", thickness: 170 }, { material: "Sıva", thickness: 15 }], -100));
     const [product] = readIfcSource(text, READ_INPUT).products;
     expect(product?.layerSet).toEqual({
       name: "Wall",
-      // The reference line sits 100 mm inside the outer face, so the outer layers' faces fall at −100, −85 and +85.
+      // The outer face is 100 mm from the reference line and the build-up grows
+      // back across it, so the three layers' faces fall at −100, −85 and +85.
       layers: [
         { materialName: "Sıva", thicknessMm: 15, order: 1, offsetFromReferenceLineMm: -100 },
         { materialName: "Tuğla", thicknessMm: 170, order: 2, offsetFromReferenceLineMm: -85 },
@@ -76,13 +79,13 @@ describe("i9-import-layers", () => {
   });
 
   it("a ventilated cavity is named as one", () => {
-    const text = fileWith((t) => layerSet(t, [{ material: "Brick", thickness: 100 }, { material: "Air", thickness: 25, ventilated: true }], 50));
+    const text = fileWith((t) => layerSet(t, [{ material: "Brick", thickness: 100 }, { material: "Air", thickness: 25, ventilated: true }], -50));
     const [product] = readIfcSource(text, READ_INPUT).products;
     expect(product?.layerSet?.layers.map((l) => l.ventilated === true)).toEqual([false, true]);
   });
 
   it("lands on the wall as layers, and takes off per layer, per face", () => {
-    const text = fileWith((t) => layerSet(t, [{ material: "Sıva", thickness: 15 }, { material: "Tuğla", thickness: 170 }, { material: "Sıva", thickness: 15 }], 100));
+    const text = fileWith((t) => layerSet(t, [{ material: "Sıva", thickness: 15 }, { material: "Tuğla", thickness: 170 }, { material: "Sıva", thickness: 15 }], -100));
     const plan = convert(text);
     const [wall] = plan.records.filter((r): r is Extract<BimElement, { kind: "wall" }> => r.kind === "wall");
     expect(wall?.layers?.layers.map((l) => `${l.materialId} ${l.thicknessMm}`)).toEqual(["Sıva 15", "Tuğla 170", "Sıva 15"]);
@@ -99,7 +102,7 @@ describe("i9-import-layers", () => {
 
   it("says so when the build-up's total and the shape's thickness part ways", () => {
     // A 200 mm wall carrying a 240 mm build-up: the layers' volumes then don't add up to the wall's, and the report says it instead of leaving it to be found.
-    const text = fileWith((t) => layerSet(t, [{ material: "Sıva", thickness: 20 }, { material: "Tuğla", thickness: 200 }, { material: "Sıva", thickness: 20 }], 120));
+    const text = fileWith((t) => layerSet(t, [{ material: "Sıva", thickness: 20 }, { material: "Tuğla", thickness: 200 }, { material: "Sıva", thickness: 20 }], -120));
     const plan = convert(text);
     expect(plan.report.notes.join(" | ")).toMatch(/1 element states a build-up 240 mm thick where its shape measures 200 mm, so its layers' volumes don't add up to its own\./);
   });

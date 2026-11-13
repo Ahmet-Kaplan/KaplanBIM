@@ -38,7 +38,8 @@
    for. Each becomes a `stay` line in the report with its reason and count
    (`plan.ts:139-143`), never a record. **Body only**: `bodyFirst`
    (`geometry.ts:154-165`) reads the Body representation, else Box, else
-   everything that is not `Axis`, `Footprint`, `Annotation` or `Plan`.
+   everything that is not `Axis`, `Footprint`, `Annotation` or `Plan`. The
+   `Axis` is not part of the body and is read on its own (item 7).
 4. **A clipped solid is measured, not vetoed.** The reader reads a boolean
    difference's first operand — the whole solid with the cut left in — sets
    `cutsLeftIn` and keeps `unread = "cut by another shape"` (`geometry.ts:203-208`).
@@ -58,11 +59,30 @@
    (`i9-import-types.test.ts:1-11`).
 6. **A build-up takes off per layer, per face.** `IfcMaterialLayerSetUsage` is
    read whole — material, thickness, order and `OffsetFromReferenceLine`, with
-   the layers re-based on the reference line (`read-products.ts:368-397`) — and
+   the layers re-based on the reference line (`read-products.ts:385-429`) — and
    lands on the wall or its type as `layers` (`import/layers.ts`). The takeoff
    then measures each layer's net face area and its own volume
    ([qto](qto.md)). `material` remains the first layer's name for older readers.
-7. **Export is IFC 4.3 ADD2 and preserves the links, not just the shapes.**
+   The stated offset is where the set's **outer face** falls from the reference
+   line, and `DirectionSense` says which way the build-up grows from it, so the
+   layers' faces are `offset ± thickness` in turn, not the offset counted
+   backwards. The sample model settles it: its centred 360 mm wall states −180,
+   which places the set across the line (−180…+180, where its body is) rather
+   than beside it (180…540).
+7. **A wall's reference line is the file's Axis.** The reader keeps the `Axis`
+   representation as `ImportReferenceLine` on the neutral product
+   (`geometry.ts:176` `readAxis`: `IfcPolyline`, `IfcIndexedPolyCurve`, `IfcLine`,
+   `IfcTrimmedCurve`, `IfcCompositeCurve`), and the wall rule stores it as
+   `start`/`end`, measures the body **across** it (`shape.ts:115` `acrossReferenceLine`) for the
+   thickness, and carries where the body's centre falls from it as
+   `offsetFromReferenceLineMm` (positive to the left, with `referenceJustification`
+   when the line is one of the body's faces or its centre). Thickening such a
+   wall leaves the line — and its neighbours' faces — alone. IFC has no
+   justification attribute, so nothing is read as one: a file expresses the
+   reference line geometrically (the body's place) and in
+   `IfcMaterialLayerSetUsage.OffsetFromReferenceLine` (the line's place in the
+   build-up), and both are kept as the numbers they are.
+8. **Export is IFC 4.3 ADD2 and preserves the links, not just the shapes.**
    Spatial tree, spaces and zones, distribution systems and circuits, ports and
    port connections, types through `IfcRelDefinesByType`, property sets and
    quantity sets, assemblies, groups, grid axes, units from `bim-units`
@@ -85,22 +105,31 @@
 - **A layer offset dropped.** Without `referenceLineOffsetMm`, a 15 + 170 + 15
   wall cannot say which face the reference line is on, so every layer's offset
   is relative to nothing. The reader re-bases on it
-  (`read-products.ts:399-401`); a build-up whose stated total and the shape's
+  (`read-products.ts:426-428`); a build-up whose stated total and the shape's
   thickness part ways by more than 5 mm is a report note (`plan.ts:258-266`),
   because the layers' volumes then do not add up to the element's.
 - **A proxy fallback that does not report the classification it lost.** An
   export that quietly writes `IfcBuildingElementProxy` hands the reader a
   model with no classes in it and no reason. The warning names the class and
   the add-on that would have provided it (`proxy-diagnostics.test.ts`).
-- **The wall axis reconstructed from the body.** We discard `IfcWall`'s Axis
-  representation on purpose (`geometry.ts:154-165`) and reconstruct a centreline
-  from the body footprint's long side: `start`/`end` are the midpoints of the
-  footprint's short sides, `thickness` its short side (`rules.ts:80-90`,
-  `shape.ts:87-96`). That is the *body* centre line, not the reference line, so
-  the layer offsets are relative to a reference we did not read. The wall-join
-  solve derives ends from the stored `start`/`end` (`bim-kernel/src/joins/solve.ts:1-27`),
-  which is why the plan puts reading the Axis **before** wall joins (step 6):
-  joining on a reconstructed reference line joins the wrong thing.
+- **The wall axis reconstructed from the body.** This was the state before
+  step 6's prerequisite: the reader took only Body (`bodyFirst`) and the rule
+  rebuilt a centre line from the body footprint's long side, so `start`/`end`
+  were the *body's* centre line. A justification had nowhere to live, the layer
+  offsets were relative to a reference nobody had read, and thickening a wall
+  moved its line and every neighbour's face with it. The reader now keeps the
+  Axis (`ImportReferenceLine`), the rule stores it as `start`/`end` and measures
+  the body across it (`i9-wall-axis.test.ts`). What is left for joins is the
+  direction they were waiting for: the stored line is the reference line, and
+  `offsetFromReferenceLineMm` says where the body is, so the join solve
+  (`bim-kernel/src/joins/solve.ts:1-27`) can place faces instead of guessing
+  them from a centre line.
+- **A reference line inferred and not said.** A file may give a wall no Axis at
+  all, or one that is an arc. The rule then falls back to the body footprint —
+  the old behaviour — and marks the record `referenceLineInferred`, with a line
+  in the report naming why; otherwise an inferred line looks exactly like a read
+  one, and a thickness edit later moves the line while everyone assumes the
+  face.
 
 ## Where the guard is
 
@@ -112,6 +141,8 @@
 | `i9-boolean-clip.test.ts` | A difference converts with `unread` and `cutsLeftIn` both set and the note saying so; a union and an intersection stay linked, in words |
 | `i9-import-types.test.ts` | Two typed walls as two lines named after their types; one type as one line with both walls; an untyped wall keeping the class line beside the typed one; a type's code grouping by classification |
 | `i9-import-layers.test.ts` | The whole build-up in order with its offsets; a ventilated cavity named; the layers landing and taking off per face (three faces of 18.00 m²); the 240-vs-200 mm note; the sample model's one 360 mm brick layer over four walls summing to their net face area (117.8 m²) |
+| `i9-wall-axis.test.ts` | The axis kept on the product in mm whatever the file's unit; `start`/`end` from the axis where the body sits 100 mm to one side; a layered wall whose stated `OffsetFromReferenceLine` is the line the body sits on; the body's measured place winning where the two disagree; an axis-less wall falling back with `referenceLineInferred` and a report line; a curved axis reported as unread rather than chorded; the sample model's four walls each on a straight axis at the counts above |
+| `bim-kernel/__tests__/i9-reference-line.test.ts` | The sign of `offsetFromReferenceLineMm` (positive to the left of start → end), the extent across the line rather than a box round an angled end, and a bent or unread line answering null |
 | `i9-report.test.ts` | The sentence a person reads; a shardless curtain wall staying linked with its reason; a clipped wall measured and its door arriving with it |
 | `i9-reverse-map.test.ts` | Every built-in class with an IFC home mapping back to itself; a pack's class mapping back with zero kernel edits |
 | `proxy-diagnostics.test.ts` | The proxy fallback reporting the class it lost, and not warning when nothing was lost |

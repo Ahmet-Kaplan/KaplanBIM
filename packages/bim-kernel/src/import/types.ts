@@ -44,6 +44,27 @@ export interface ImportGeometry {
   readonly cutsLeftIn?: true;
 }
 
+/**
+ * A product's own reference line, as the file states it apart from the solid
+ * (an IFC `IfcShapeRepresentation` whose identifier is `Axis`): the line the
+ * element is dimensioned and placed by, which its body sits across. A wall is
+ * thickened on each side of this line and never moved by it, so it is what an
+ * import stores as the wall's `start`/`end`. Points are world mm, start to
+ * end.
+ */
+export interface ImportReferenceLine {
+  /** Along the line, start to end (empty when the file gives an Axis nothing here could read). */
+  readonly points: readonly ImportPoint[];
+  /**
+   * Whether it is one straight run. False when it bends or is built from
+   * arcs: a straight line cannot stand for it, and a rule that needs one must
+   * say the reference was inferred rather than use the chord.
+   */
+  readonly straight: boolean;
+  /** Why it could not be read as a line at all, when it could not ("a curve with arcs"). */
+  readonly unread?: string;
+}
+
 /** A code from the file's own classification (Uniclass, OmniClass, a firm's list), as text. */
 export interface ImportClassification {
   readonly system: string;
@@ -66,10 +87,11 @@ export interface ImportLayer {
   /** Its place in the build-up, 1 for the file's first (outermost) layer. */
   readonly order: number;
   /**
-   * Where its outer face falls from the reference line, mm: the set's offset,
-   * then each layer's thickness in turn. Negative when the face is on the far
-   * side of the reference line. An `IfcMaterialLayer` states no offset of its
-   * own, so this is worked out from the set's usage, not read.
+   * Where its outer face falls from the reference line, mm: the set's own
+   * outer face where the file states it, then each layer's thickness in turn
+   * in the direction the build-up grows. Negative when the face is on the
+   * other side of the reference line. An `IfcMaterialLayer` states no offset
+   * of its own, so this is worked out from the set's usage, not read.
    */
   readonly offsetFromReferenceLineMm: number;
   /** The file says this layer is ventilated (a drained cavity). */
@@ -83,7 +105,12 @@ export interface ImportLayerSet {
   readonly layers: readonly ImportLayer[];
   /** The set's total thickness, mm: as the file states it, else its layers summed. */
   readonly totalThicknessMm: number;
-  /** Where the reference line sits inside the set, mm from its outer face (the file's `OffsetFromReferenceLine`). */
+  /**
+   * Where the reference line sits inside the set, mm from its outer face along
+   * the direction the build-up grows (the file's `OffsetFromReferenceLine`,
+   * measured back from that face): 0 with the line on the outer face, half the
+   * total with it through the middle.
+   */
   readonly referenceLineOffsetMm: number;
 }
 
@@ -120,6 +147,12 @@ export interface ImportProduct {
   /** Groups it is assigned to (distribution systems), by `sourceId`. */
   readonly groupIds: readonly string[];
   readonly geometry: ImportGeometry;
+  /**
+   * The line the file gives it apart from its body (an IFC `Axis`
+   * representation). Absent: the file states none for it, and any rule that
+   * needs one has to infer it from the body — and say that it did.
+   */
+  readonly referenceLine?: ImportReferenceLine;
   /** Property and quantity sets, by set name then property name. */
   readonly properties: Readonly<Record<string, Readonly<Record<string, ParamValue>>>>;
   /** Overall width and height the file states (doors and windows carry them). */

@@ -1,4 +1,4 @@
-import type { ImportExtrusion, ImportPoint } from "@permitzip/bim-kernel";
+import type { ImportExtrusion, ImportPoint, ImportReferenceLine } from "@permitzip/bim-kernel";
 import type { ReadEntity, StepFile, StepToken } from "../read";
 
 /**
@@ -161,6 +161,113 @@ export class GeometryReader {
     if (body.length > 0) return body;
     const box = reps.filter((r) => id(r) === "box");
     return box.length > 0 ? box : reps.filter((r) => !["axis", "footprint", "annotation", "plan"].includes(id(r)));
+  }
+
+  /**
+   * A product's reference line: the `Axis` representations of its shape (taken
+   * either as a product definition shape or as one representation, which is
+   * how a type's representation map hands it over), read as world points from
+   * its start to its end. Null when its shape carries no Axis at all.
+   *
+   * An object's Axis is the line it is dimensioned and placed by, which its
+   * body sits across — not something to be reconstructed from the body, which
+   * is what this reader used to leave the kernel to do.
+   */
+  readAxis(shapeRef: StepToken | undefined, frame: Frame): ImportReferenceLine | null {
+    const shape = this.entity(shapeRef);
+    if (!shape) return null;
+    const reps = shape.type === "IFCSHAPEREPRESENTATION" ? [shapeRef] : shape.args[2]?.kind === "list" ? shape.args[2].items : [];
+    const axes = reps.filter((rep) => {
+      const v = this.entity(rep)?.args[1];
+      return v?.kind === "string" && v.value.toLowerCase() === "axis";
+    });
+    if (axes.length === 0) return null;
+    const points: ImportPoint[] = [];
+    let unread: string | null = null;
+    for (const rep of axes) {
+      const r = this.entity(rep);
+      const items = r?.args[3]?.kind === "list" ? r.args[3].items : [];
+      for (const item of items) {
+        const read = this.axisCurve(item, frame, 0);
+        if (typeof read === "string") {
+          unread ??= read;
+          continue;
+        }
+        points.push(...read);
+      }
+    }
+    const deduped = dedupePoints(points, 0.5);
+    return { points: deduped, straight: unread === null && straightRun(deduped, 0.5), ...(unread === null ? {} : { unread }) };
+  }
+
+  /**
+   * One Axis representation item as world points, or the reason it could not
+   * be followed. Curves this reader does not follow (arcs, B-splines) are
+   * named rather than approximated: the chord of an arc is a different line,
+   * and a wrong reference line is worse than an admitted one.
+   */
+  private axisCurve(t: StepToken, frame: Frame, depth: number): ImportPoint[] | string {
+    const e = this.entity(t);
+    if (!e || depth > 6) return "a curve this reader doesn't follow";
+    switch (e.type) {
+      case "IFCPOLYLINE": {
+        const pts = e.args[0]?.kind === "list" ? e.args[0].items : [];
+        const out = pts.flatMap((p) => {
+          const q = this.point(p);
+          return q ? [apply(frame, q)] : [];
+        });
+        return out.length >= 2 ? out : "a line with one point";
+      }
+      case "IFCINDEXEDPOLYCURVE": {
+        // Segment indices say where arcs are: three points an arc runs through
+        // would be dropped as straight ends, so the curve is named instead.
+        const segments = e.args[1]?.kind === "list" ? e.args[1].items : [];
+        if (segments.some((s) => s.kind === "typed" && s.type.toUpperCase() === "IFCARCINDEX")) return "a curve with arcs";
+        const list = this.entity(e.args[0]);
+        const coords = list?.args[0]?.kind === "list" ? list.args[0].items : [];
+        const out = coords.flatMap((c) => {
+          if (c.kind !== "list") return [];
+          const [x, y, z] = c.items.map((i) => (this.num(i) ?? 0) * this.scale);
+          return [apply(frame, { x: x ?? 0, y: y ?? 0, z: z ?? 0 })];
+        });
+        return out.length >= 2 ? out : "a line with one point";
+      }
+      case "IFCLINE": {
+        const origin = this.point(e.args[0]);
+        const vector = this.entity(e.args[1]);
+        const magnitude = this.num(vector?.args[1]);
+        if (!origin || !vector || magnitude === null || !(magnitude > 0)) return "a line with no length";
+        const along = mul(this.direction(vector.args[0], { x: 1, y: 0, z: 0 }), magnitude * this.scale);
+        return [apply(frame, origin), apply(frame, add(origin, along))];
+      }
+      case "IFCTRIMMEDCURVE": {
+        const basis = this.entity(e.args[0]);
+        if (basis && (basis.type === "IFCCIRCLE" || basis.type === "IFCELLIPSE")) return "a curve with arcs";
+        const ends = [e.args[1], e.args[2]].flatMap((trim) => (trim?.kind === "list" ? trim.items.slice(0, 1).flatMap((p) => this.point(p) ?? []) : []));
+        if (ends.length !== 2) return "a trimmed curve whose ends aren't points";
+        if (basis && basis.type !== "IFCLINE" && basis.type !== "IFCPOLYLINE") return `a trimmed ${basis.type.replace(/^IFC/, "").toLowerCase()}`;
+        return ends.map((p) => apply(frame, p));
+      }
+      case "IFCCOMPOSITECURVE": {
+        const segments = e.args[0]?.kind === "list" ? e.args[0].items : [];
+        const out: ImportPoint[] = [];
+        for (const segment of segments) {
+          const parent = this.entity(segment)?.args[2];
+          const read = this.axisCurve(parent ?? { kind: "null" }, frame, depth + 1);
+          if (typeof read === "string") return read;
+          const [first, ...rest] = read;
+          const last = out[out.length - 1];
+          if (first && last && Math.hypot(first.x - last.x, first.y - last.y, first.z - last.z) <= 0.5) out.push(...rest);
+          else out.push(...read);
+        }
+        return out.length >= 2 ? out : "a composite curve with one point";
+      }
+      case "IFCCIRCLE":
+      case "IFCELLIPSE":
+        return "a curve with arcs";
+      default:
+        return `a ${e.type.replace(/^IFC/, "").toLowerCase()} curve`;
+    }
   }
 
   private item(t: StepToken, frame: Frame, out: ShapeReading, depth: number): void {
@@ -365,4 +472,33 @@ export function boundsOf(points: readonly ImportPoint[]): { min: ImportPoint; ma
     max.z = Math.max(max.z, p.z);
   }
   return { min, max };
+}
+
+/** Points in order with repeats closer than `tolerance` mm dropped. */
+function dedupePoints(points: readonly ImportPoint[], tolerance: number): ImportPoint[] {
+  const out: ImportPoint[] = [];
+  for (const p of points) {
+    const last = out[out.length - 1];
+    if (!last || Math.hypot(p.x - last.x, p.y - last.y, p.z - last.z) > tolerance) out.push(p);
+  }
+  return out;
+}
+
+/**
+ * Whether points from start to end are one straight run: every point within
+ * `tolerance` mm of the chord. Two points always are; one is not a line.
+ */
+function straightRun(points: readonly ImportPoint[], tolerance: number): boolean {
+  const first = points[0];
+  const last = points[points.length - 1];
+  if (!first || !last || points.length < 2) return false;
+  const d = { x: last.x - first.x, y: last.y - first.y, z: last.z - first.z };
+  const len = Math.hypot(d.x, d.y, d.z);
+  if (len < 1) return false;
+  const u = mul(d, 1 / len);
+  return points.every((p) => {
+    const v = { x: p.x - first.x, y: p.y - first.y, z: p.z - first.z };
+    const along = dot(v, u);
+    return Math.hypot(v.x - u.x * along, v.y - u.y * along, v.z - u.z * along) <= tolerance;
+  });
 }
