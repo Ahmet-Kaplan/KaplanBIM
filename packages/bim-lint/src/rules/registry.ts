@@ -1,3 +1,4 @@
+import { LINT_RULE_VERSION_DEFAULT } from "@permitzip/bim-kernel";
 import type { BimElement, ElementKind, ModelState } from "@permitzip/bim-kernel";
 import type { Aabb, PairMeasure } from "../geometry/convex";
 import { isKnownRulePack, type Finding, type LintConfig, type LinkedModelIndex, type LinkedRef, type RulePack, type Ruleset, type Severity } from "../types";
@@ -114,6 +115,22 @@ export function rulesFor(rules: readonly RuleDef[], config: Pick<LintConfig, "ru
   const withPackRules = RULESETS_WITH_PACK_RULES.has(config.ruleset);
   const off = new Set(config.disabled_rules);
   return rules.filter((r) => (packs.has(r.pack) || (withPackRules && !isKnownRulePack(r.pack))) && !off.has(r.id));
+}
+
+/** The version a finding carries when its rule names none: the ledger's own default (`LINT_RULE_VERSION_DEFAULT`). */
+export const DEFAULT_RULE_VERSION = LINT_RULE_VERSION_DEFAULT;
+
+/**
+ * A rule's version as its findings carry it (`Finding.ruleVersion`): the rule's
+ * number as text. Absent, or not a number at all (an add-on handed the point
+ * something else), is the ledger's "1", so a finding is a `FindingRef` whose
+ * `source.version` a decision is recorded against and matched on.
+ */
+export function ruleVersionOf(rule: Pick<RuleDef, "version"> | null | undefined): string {
+  const v: unknown = rule?.version;
+  if (typeof v === "number" && Number.isFinite(v)) return String(v);
+  if (typeof v === "string" && v.trim()) return v.trim();
+  return DEFAULT_RULE_VERSION;
 }
 
 const MAX_ID = 160;

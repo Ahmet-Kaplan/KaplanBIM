@@ -1,7 +1,7 @@
 import { documentIndex, elementsOfKind, elementValues, evaluateDiagram, type BimElement, type ModelState } from "@permitzip/bim-kernel";
 import { aabbOverlap, growAabb, p3, unionAabb, type Aabb } from "./geometry/convex";
 import { IndexState, pointInPolygon, type BodyRecord, type Surface } from "./index-state";
-import { findingId, rulesFor, type RuleContext, type RuleDef } from "./rules/registry";
+import { DEFAULT_RULE_VERSION, findingId, ruleVersionOf, rulesFor, type RuleContext, type RuleDef } from "./rules/registry";
 import { activeLintRules } from "./rules";
 import { elementName, elementShape } from "./shapes";
 import type { Finding, LintConfig, LinkedModelIndex, LinkedRef } from "./types";
@@ -454,6 +454,11 @@ export class LintEngine {
 
   private context(model: ModelState, state: IndexState, opts: LintRunOptions, found: Map<string, Finding>, changed: ReadonlySet<string>, pairsFrom: ReadonlySet<string> | null): RuleContext {
     const elements: Elements = model.elements;
+    // Every rule's version by its id, so each finding names the version of the check that made it. Read from every rule
+    // the engine holds, not only those this run's ruleset keeps: a rule that reports under another's id (hostFinding's
+    // `floating-equipment`) still takes that rule's version, and a decision against another version re-opens.
+    const versions = new Map<string, string>();
+    for (const r of this.rules) versions.set(r.id, ruleVersionOf(r));
     const neighbourCache = new Map<string, Set<string>>();
     const near = (id: string): Set<string> => {
       let set = neighbourCache.get(id);
@@ -530,7 +535,8 @@ export class LintEngine {
         const linked: LinkedRef[] | undefined = f.linked ? [...f.linked] : undefined;
         const id = findingId(f.rule, elementIds, linked ?? []);
         if (found.has(id)) return;
-        found.set(id, { ...f, id, elementIds, ...(linked ? { linked } : {}) });
+        const ruleVersion = versions.get(f.rule) ?? f.ruleVersion ?? DEFAULT_RULE_VERSION;
+        found.set(id, { ...f, id, elementIds, ruleVersion, ...(linked ? { linked } : {}) });
       },
     };
   }

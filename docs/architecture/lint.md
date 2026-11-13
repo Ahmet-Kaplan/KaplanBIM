@@ -86,14 +86,20 @@
   design; but a message whose *numbers* arrive in a different order than the English
   prints the wrong quantity, because `locales/tr/prose.json` slots are positional
   (`{0}`, `{1}`).
-- **A rule version that never reaches the finding.** `Finding.ruleVersion` is optional
-  and documented as reopening a decision on a version change (`types.ts:44`), and
-  `floating-equipment` is at `version: 2` (`rules/packs/placement.ts:205`) — but no rule
-  in this repo sets `ruleVersion` on what it emits (grep: `types.ts:44` only;
-  `engine.ts:528-534` copies nothing), and the ledger then defaults it to `"1"`
-  (`bim-kernel/src/findings/lint-acceptance.ts:15`). So an acceptance taken against
-  version 1 survives the rewrite. `bim-kernel/__tests__/f11-version-reopens.test.ts:26`
-  passes a version by hand and proves the ledger, not the rule.
+- **A rule version that never reached the finding (fixed).** `RuleDef.version`
+  (`rules/registry.ts`) and `Finding.ruleVersion` (`types.ts:44`) were declared, documented
+  as reopening a decision, and joined by nothing: every finding read as `"1"` whatever its
+  rule said (`floating-equipment` is at `version: 2`, `rules/packs/placement.ts`), so an
+  acceptance taken against version 1 survived the rewrite. The engine now stamps every
+  finding with its rule's version (`ruleVersionOf`, `engine.ts`), and
+  `__tests__/f11-rule-version.test.ts` proves a bump re-opens the decision end to end:
+  rule → finding → `lintFindingRef` → `dispositionStanding`.
+- **A host acceptance list that names no version.** The engine's own `accepted` filter
+  (`LintRunOptions.accepted`, filtered in the engine's `run`) hides a finding by its id
+  alone, because the host's acceptance rows carry no version
+  (`bim-kernel/src/findings/lint-acceptance.ts` migrates each to `"1"`). The ledger re-opens
+  on a bump; a list built from those rows does not. Re-opening there needs the row to store
+  the version it was taken against.
 - **A rule counted as running when it is not.** Availability is computed from the
   engine's own state (`hasNativeCeilings`, linked indexes), so a run without them checks
   less. `scripts/perf/mutinybim/lint.ts:21-24` asserts the findings after `advance`
@@ -108,7 +114,7 @@
 | `__tests__/c6x-lint-order.test.ts`, `c6x-batch-5c-rules.ts` | each rule running in the recorded order, with its severity and pack unchanged | a rule added without a row |
 | `__tests__/c6x-no-addon-cycle.test.ts` | a shared package importing an add-on | an add-on's rule that never registers |
 | `__tests__/c5s-level-edit-index`, `g15-clash-reads-mesh`, `spatial-rules`, `r4e-electrical-checks` | index/level correctness, mesh reads, each discipline's check | a composed sentence's wording |
+| `__tests__/f11-rule-version.test.ts` | a finding naming its rule's version, and a bump reopening a decision taken against the old one | a host acceptance row that stores no version |
 | `scripts/perf/mutinybim/lint.ts` invariants | scoped findings differing from a fresh engine's, a block over 2 KB, an edit touching over 50 elements | whatever the perf gate does not run |
 
-Rule mutation, message wording in either language, and `ruleVersion` on a real rule are
-unguarded: review-only.
+Rule mutation and message wording in either language are unguarded: review-only.

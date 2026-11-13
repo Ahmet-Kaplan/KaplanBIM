@@ -40,7 +40,13 @@ export interface Finding {
   /** Plain words, at most 160 characters. */
   readonly message: string;
   readonly fix?: { readonly tool: string; readonly hint: string };
-  /** The rule's version, so a finding is a ledger `FindingRef` (round 11 F11): a decision against another version re-opens. Absent: "1". */
+  /**
+   * The rule's `version` as text, stamped by the engine on everything a rule
+   * emits (round 11 F11): the finding is a ledger `FindingRef` and a decision
+   * recorded against another version re-opens it. A rule that names no version
+   * gives "1", the ledger's own default. Absent only on a finding built by
+   * hand, which the ledger reads as "1" too.
+   */
   readonly ruleVersion?: string;
 }
 
