@@ -33,6 +33,7 @@ import { FrameLimiter } from "./frame-limiter";
 import { PartitionColliders } from "./walkthrough-collider";
 import { WalkthroughInput } from "./walkthrough-input";
 import { Walker, type WalkerState } from "./walkthrough";
+import { createRenderPipeline, type RenderPipeline } from "./post/render-pipeline";
 
 export type ViewMode = "3d" | "plan";
 
@@ -114,6 +115,12 @@ export interface ViewerOptions {
   readonly onStats?: (stats: ViewerStats) => void;
   /** On-screen colors from the host's theme; missing slots use neutral defaults. */
   readonly colors?: Partial<ViewerColors>;
+  /**
+   * Ambient occlusion in the 3D view. Off by default: with it off a frame is
+   * drawn exactly as it always was, so a change in the picture is a change you
+   * asked for.
+   */
+  readonly ambientOcclusion?: boolean;
 }
 
 const GROUP_STYLE: Record<RenderGroup, { color: number; roughness: number; metalness: number; opacity?: number }> = {
@@ -249,6 +256,8 @@ export function choosePickHits<P>(hits: readonly { readonly pick: P; readonly se
 export class ModelViewer3D {
   readonly scene = new THREE.Scene();
   readonly renderer: THREE.WebGLRenderer;
+  /** Where a frame is drawn: straight to the canvas, or — with occlusion on — through the passes. */
+  private readonly pipeline: RenderPipeline;
   private readonly perspective: THREE.PerspectiveCamera;
   private readonly ortho: THREE.OrthographicCamera;
   /** The 3D view's parallel camera (plan keeps its own straight-down one). */
@@ -412,6 +421,9 @@ export class ModelViewer3D {
     });
 
     this.resizeObserver = new ResizeObserver(() => this.onContainerResize());
+    // One place decides how a frame is drawn. With occlusion off this is the
+    // same renderer.render the viewer always made.
+    this.pipeline = createRenderPipeline(this.renderer, this.scene, this.perspective, { ao: options.ambientOcclusion === true });
     this.resizeObserver.observe(container);
     this.renderer.setAnimationLoop(() => this.tick());
   }
@@ -463,6 +475,8 @@ export class ModelViewer3D {
     this.renderer.setSize(width, height, false);
     this.renderer.domElement.style.width = `${width}px`;
     this.renderer.domElement.style.height = `${height}px`;
+    // Every pass owns buffers at the canvas's size; they have to follow it.
+    this.pipeline.resize(width, height);
     this.perspective.aspect = width / height;
     this.perspective.updateProjectionMatrix();
     const half = (this.ortho.top - this.ortho.bottom) / 2;
@@ -493,13 +507,15 @@ export class ModelViewer3D {
     this.renderer.info.reset();
     if (this.origin.visible) this.origin.scale.setScalar(ARROW_PX * metresPerPixel(this.camera(), this.origin.position, this.size().height));
     this.toneNewReferenceMaterials();
-    this.renderer.render(this.scene, this.camera());
+    const camera = this.camera();
+    this.pipeline.setCamera(camera);
+    this.pipeline.render();
     if (this.cropOutline.object.visible) {
       // The outline sits exactly on the clipping planes; draw it in its own pass with clipping off.
       const planes = this.renderer.clippingPlanes;
       this.renderer.clippingPlanes = [];
       this.renderer.autoClear = false;
-      this.renderer.render(this.overlayScene, this.camera());
+      this.renderer.render(this.overlayScene, camera);
       this.renderer.autoClear = true;
       this.renderer.clippingPlanes = planes;
     }
@@ -2508,6 +2524,9 @@ export class ModelViewer3D {
     this.dashedEdge?.dispose();
     this.palette.dispose();
     void this.fragments.dispose();
+    // Render targets are GPU memory: the frame pipeline frees its own before
+    // the renderer that made them goes.
+    this.pipeline.dispose();
     this.renderer.dispose();
     this.renderer.domElement.remove();
   }
